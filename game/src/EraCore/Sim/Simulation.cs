@@ -6,6 +6,7 @@ using EraCore.Economy;
 using EraCore.Energy;
 using EraCore.Logistics;
 using EraCore.Pathfinding;
+using EraCore.Supply;
 using EraCore.Units;
 using EraCore.World;
 
@@ -132,7 +133,18 @@ public sealed class Simulation
     private readonly List<Carrier> _carriers = new();
     private readonly Dictionary<EntityId, Producer> _producerById = new();
     private readonly Dictionary<EntityId, AmmoConverter> _converterById = new();
-    private readonly Dictionary<EntityId, WeaponFire> _magazineById = new();
+
+    // T-053 DEBT ①: Supply.TowerMagazine is the AUTHORITATIVE tower-side
+    // magazine adapter (single source — the retired Sim-embedded port
+    // delegated to nothing); porters unload through it and its
+    // CumulativeShotsDelivered counter is what the supply monitor polls.
+    private readonly Dictionary<EntityId, TowerMagazine> _magazineById = new();
+
+    // T-053 DEBT ②: per-tower SuppliedWeaponFire pacer — the wrapper is the
+    // ONLY caller of the wrapped WeaponFire.Tick (直调 WeaponFire.Tick 会双计
+    // 冷却), pacing each loop by the monitor's efficiency curve.
+    private readonly Dictionary<EntityId, SuppliedWeaponFire> _pacersById = new();
+    private readonly TowerSupplyMonitor _supplyMonitor;
     private readonly SimCommandQueue _queue = new();
     private readonly List<SimCommandResult> _results = new();
 
@@ -160,7 +172,7 @@ public sealed class Simulation
     /// budget, non-positive economy building hp, or a warehouse/base/entry
     /// cell outside the grid.
     /// </exception>
-    public Simulation(SimulationConfig config, IRng rng, long seed)
+    public Simulation(SimulationConfig config, IRng rng, long seed, TowerSupplyMonitor? supplyMonitor = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(rng);
@@ -222,6 +234,15 @@ public sealed class Simulation
         }
 
         _config = config;
+        // T-053 DEBT ②: the ammo-supply monitor every placed tower registers
+        // on. The DEFAULT instance holds the efficiency curve in its grace
+        // window (warm-up effectively boundless) so the wrapper paces exactly
+        // like the bare loop — the E1 thin core's firing cadence is pinned by
+        // the sim/checkpoint goldens (DEBT ② acceptance: 射击节奏不变). A host
+        // that wants live 断供降速 throttling (T-048 semantics) injects its
+        // own monitor with a finite warm-up.
+        _supplyMonitor = supplyMonitor
+            ?? new TowerSupplyMonitor(TowerSupplyMonitor.DefaultWindowTicks, int.MaxValue);
         // IRng replay contract: reseed with the level seed, then the fixed
         // consumption order below (terrain → wave entry cells) makes the
         // stream position a pure function of the command-free prefix.
@@ -308,6 +329,36 @@ public sealed class Simulation
     /// <summary>Command intake (replay key #2: the command stream).</summary>
     public SimCommandQueue Commands => _queue;
 
+    /// <summary>
+    /// The ammo-supply monitor every placed weapon tower registers on
+    /// (T-053 DEBT ②): hosts poll efficiencies or register relays on it.
+    /// </summary>
+    public TowerSupplyMonitor SupplyMonitor => _supplyMonitor;
+
+    /// <summary>
+    /// Looks up the AUTHORITATIVE magazine of one placed tower (T-053 DEBT ①,
+    /// 弹匣单源): the Supply-side <see cref="TowerMagazine"/> porters unload
+    /// into — its <c>ItemsAccepted</c>/<c>CumulativeShotsDelivered</c> counters
+    /// are the single delivery-accounting source (Sim-side visible).
+    /// </summary>
+    public bool TryGetTowerMagazine(EntityId id, out TowerMagazine magazine)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        return _magazineById.TryGetValue(id, out magazine!);
+    }
+
+    /// <summary>
+    /// Looks up the unique fire pacer of one placed tower (T-053 DEBT ②,
+    /// wrapper 唯一化): the ONLY component that ticks the tower's
+    /// <see cref="WeaponFire"/> loop — asserting
+    /// <c>pacer.Weapon == tower.Weapon</c> pins that no second ticker exists.
+    /// </summary>
+    public bool TryGetFirePacer(EntityId id, out SuppliedWeaponFire pacer)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        return _pacersById.TryGetValue(id, out pacer!);
+    }
+
     /// <summary>Double-buffered snapshot output (K-6 producer seam).</summary>
     public SimSnapshotBuffer Snapshots { get; } = new();
 
@@ -382,13 +433,19 @@ public sealed class Simulation
             _movement.StepAll(_units);
         }
 
-        // 6) Combat: weapon cycles tick, then every ready tower fires at
-        //    the nearest living target inside range (strictly closer wins,
-        //    list order breaks ties — deterministic), settling through
-        //    Unit.ApplyDamage → Damage.DirectInt.
+        // 6) Combat. T-053 DEBT ②: the supply monitor ticks first (after
+        //    logistics, before weapons — TowerSupplyMonitor contract), then
+        //    every tower's loop advances through its SuppliedWeaponFire
+        //    pacer — the wrapper is the ONLY WeaponFire.Tick caller, so the
+        //    cooldown advances at most one tick per Step (双计冷却不可能) and
+        //    the firing cadence at efficiency 1 equals the bare loop's.
+        //    Targeting is unchanged: nearest living target inside range
+        //    (strictly closer wins, list order breaks ties — deterministic),
+        //    settling through Unit.ApplyDamage → Damage.DirectInt.
+        _supplyMonitor.Tick();
         foreach (SimTower tower in _towers)
         {
-            tower.Weapon.Tick();
+            _pacersById[tower.Id].Tick();
             if (!tower.Weapon.ReadyToFire)
             {
                 continue;
@@ -400,7 +457,7 @@ public sealed class Simulation
                 continue;
             }
 
-            WeaponFireEvent? shot = tower.Weapon.TryFire(target.Id, tick);
+            WeaponFireEvent? shot = _pacersById[tower.Id].TryFire(target.Id, tick);
             if (shot is null)
             {
                 continue;
@@ -689,19 +746,31 @@ public sealed class Simulation
             return violation;
         }
 
-        if (!TryPayCost(spec.CostTotal))
+        // T-053 DEBT ③: pay-then-place inside the compensation window — a
+        // throwing placement refunds the exact withdrawal.
+        return BuildCostCompensation.TryPayThenPlace(_stock, _costCurrency, spec.CostTotal, () =>
         {
-            return "insufficient-resources";
-        }
+            var id = new EntityId(_nextBuildingId++);
+            IBuilding placed = _registry.Place(id, spec, cell, tier: 1);
+            var weapon = new WeaponFire(id, spec, initialAmmoShots: 0);
+            _towers.Add(new SimTower(id, spec, weapon, placed.Cell));
+            if (spec.AmmoItem is not null)
+            {
+                // T-053 DEBT ①: the authoritative Supply-side magazine.
+                _magazineById.Add(id, new TowerMagazine(new ResourceKey(spec.AmmoItem), weapon));
+            }
 
-        var id = new EntityId(_nextBuildingId++);
-        IBuilding placed = _registry.Place(id, spec, cell, tier: 1);
-        var weapon = new WeaponFire(id, spec, initialAmmoShots: 0);
-        _towers.Add(new SimTower(id, spec, weapon, placed.Cell));
-        _magazineById.Add(id, weapon);
-        _buildings.Add(new SimBuilding(id, spec.Id, placed.Cell, spec.Hp, 1, SimBuildingKind.Tower));
-        _flows.MarkDirty(new CellRegion(cell.X - 1, cell.Y - 1, 3, 3));
-        return null;
+            _buildings.Add(new SimBuilding(id, spec.Id, placed.Cell, spec.Hp, 1, SimBuildingKind.Tower));
+            _flows.MarkDirty(new CellRegion(cell.X - 1, cell.Y - 1, 3, 3));
+
+            // T-053 DEBT ②: demand registration + the unique tick pacer.
+            _supplyMonitor.RegisterTower(new TowerSupplyRegistration(
+                id, placed.Cell, spec.ReloadTicks!.Value, spec.AmmoPerShot, spec.DamagePerShot,
+                () => _magazineById.TryGetValue(id, out TowerMagazine? magazine)
+                    ? magazine.CumulativeShotsDelivered
+                    : 0L));
+            _pacersById.Add(id, new SuppliedWeaponFire(weapon, _supplyMonitor, id));
+        });
     }
 
     private string? ApplyBuildLaborCamp(JsonElement root)
@@ -717,17 +786,17 @@ public sealed class Simulation
             return violation;
         }
 
-        if (!TryPayCost(_config.Costs?.LaborCampCostPoints ?? 0.0))
-        {
-            return "insufficient-resources";
-        }
-
-        var id = new EntityId(_nextBuildingId++);
-        _world.RegisterOccupancy(id, new[] { cell });
-        _ledger.RegisterProducer(new EnergyNodeId(LaborCampNodeBase + _laborCampNodes++), EnergyNodeKind.LaborCamp);
-        _buildings.Add(new SimBuilding(
-            id, "era1:building-labor-camp", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.LaborCamp));
-        return null;
+        // T-053 DEBT ③: compensated pay-then-place (see ApplyBuildTower).
+        return BuildCostCompensation.TryPayThenPlace(
+            _stock, _costCurrency, _config.Costs?.LaborCampCostPoints ?? 0.0, () =>
+            {
+                var id = new EntityId(_nextBuildingId++);
+                _world.RegisterOccupancy(id, new[] { cell });
+                _ledger.RegisterProducer(
+                    new EnergyNodeId(LaborCampNodeBase + _laborCampNodes++), EnergyNodeKind.LaborCamp);
+                _buildings.Add(new SimBuilding(
+                    id, "era1:building-labor-camp", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.LaborCamp));
+            });
     }
 
     private string? ApplyBuildHarvester(JsonElement root)
@@ -760,21 +829,20 @@ public sealed class Simulation
             return violation;
         }
 
-        if (!TryPayCost(_config.Costs?.HarvesterCostPoints ?? 0.0))
-        {
-            return "insufficient-resources";
-        }
-
-        var resource = new ResourceKey(resourceElement.GetString()!);
-        var id = new EntityId(_nextBuildingId++);
-        _world.RegisterOccupancy(id, new[] { cell });
-        var producer = new Producer(
-            id, resource, seats, tier: 1, _ledger, new EnergyNodeId(HarvesterNodeBase + _harvesterNodes++));
-        _producers.Add(producer);
-        _producerById.Add(id, producer);
-        _buildings.Add(new SimBuilding(
-            id, "era1:building-harvester", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.Harvester));
-        return null;
+        // T-053 DEBT ③: compensated pay-then-place (see ApplyBuildTower).
+        return BuildCostCompensation.TryPayThenPlace(
+            _stock, _costCurrency, _config.Costs?.HarvesterCostPoints ?? 0.0, () =>
+            {
+                var resource = new ResourceKey(resourceElement.GetString()!);
+                var id = new EntityId(_nextBuildingId++);
+                _world.RegisterOccupancy(id, new[] { cell });
+                var producer = new Producer(
+                    id, resource, seats, tier: 1, _ledger, new EnergyNodeId(HarvesterNodeBase + _harvesterNodes++));
+                _producers.Add(producer);
+                _producerById.Add(id, producer);
+                _buildings.Add(new SimBuilding(
+                    id, "era1:building-harvester", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.Harvester));
+            });
     }
 
     private string? ApplyBuildConverter(JsonElement root)
@@ -790,20 +858,21 @@ public sealed class Simulation
             return violation;
         }
 
-        if (!TryPayCost(_config.Costs?.ConverterCostPoints ?? 0.0))
-        {
-            return "insufficient-resources";
-        }
-
-        var id = new EntityId(_nextBuildingId++);
-        _world.RegisterOccupancy(id, new[] { cell });
-        var converter = new AmmoConverter(
-            _clock, _ledger, new EnergyNodeId(ConverterNodeBase + _converterNodes++), AmmoConverter.E1ArrowRecipe);
-        _converters.Add(converter);
-        _converterById.Add(id, converter);
-        _buildings.Add(new SimBuilding(
-            id, "era1:building-arrow-converter", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.Converter));
-        return null;
+        // T-053 DEBT ③: compensated pay-then-place (see ApplyBuildTower).
+        return BuildCostCompensation.TryPayThenPlace(
+            _stock, _costCurrency, _config.Costs?.ConverterCostPoints ?? 0.0, () =>
+            {
+                var id = new EntityId(_nextBuildingId++);
+                _world.RegisterOccupancy(id, new[] { cell });
+                var converter = new AmmoConverter(
+                    _clock, _ledger, new EnergyNodeId(ConverterNodeBase + _converterNodes++),
+                    AmmoConverter.E1ArrowRecipe);
+                _converters.Add(converter);
+                _converterById.Add(id, converter);
+                _buildings.Add(new SimBuilding(
+                    id, "era1:building-arrow-converter", cell, _config.EconomyBuildingHp, 1,
+                    SimBuildingKind.Converter));
+            });
     }
 
     private string? ApplyAssignCarrier(JsonElement root)
@@ -859,19 +928,11 @@ public sealed class Simulation
         {
             receiver = hopper;
         }
-        else if (_magazineById.TryGetValue(toId, out WeaponFire? weapon))
+        else if (_magazineById.TryGetValue(toId, out TowerMagazine? magazine))
         {
-            TowerSpec? spec = null;
-            foreach (SimTower candidate in _towers)
-            {
-                if (candidate.Id.Equals(toId))
-                {
-                    spec = candidate.Spec;
-                    break;
-                }
-            }
-
-            receiver = new TowerMagazinePort(spec!.AmmoItem, weapon);
+            // T-053 DEBT ①: the authoritative Supply.TowerMagazine IS the
+            // receiver — no Sim-side second adapter anymore (双适配器合并).
+            receiver = magazine;
         }
         else
         {
@@ -914,21 +975,6 @@ public sealed class Simulation
         }
 
         return null;
-    }
-
-    private bool TryPayCost(double points)
-    {
-        if (points <= 0)
-        {
-            return true;
-        }
-
-        if (_stock.AmountOf(_costCurrency) < points)
-        {
-            return false;
-        }
-
-        return _stock.TryWithdraw(_costCurrency, points) >= points;
     }
 
     private bool TryReadCell(JsonElement root, out CellCoord cell)
@@ -1123,40 +1169,6 @@ public sealed class Simulation
             }
 
             return (int)_stock.Deposit(resource, amount);
-        }
-    }
-
-    /// <summary>
-    /// Tower-side magazine port (弹药入塔, F-020 seam): accepts only the
-    /// tower's ammo item and tops the weapon's shot reserve up by
-    /// ×<see cref="Carrier.ShotsPerItem"/> per accepted item (v3.2 §5).
-    /// </summary>
-    private sealed class TowerMagazinePort : ICargoReceiver
-    {
-        private readonly string? _ammoItem;
-        private readonly WeaponFire _weapon;
-
-        public TowerMagazinePort(string? ammoItem, WeaponFire weapon)
-        {
-            _ammoItem = ammoItem;
-            _weapon = weapon;
-        }
-
-        public int TryAccept(ResourceKey resource, int amount)
-        {
-            ArgumentNullException.ThrowIfNull(resource);
-            if (amount < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(amount), amount, "Accept amount must be non-negative.");
-            }
-
-            if (_ammoItem is null || !string.Equals(resource.Value, _ammoItem, StringComparison.Ordinal))
-            {
-                return 0;
-            }
-
-            _weapon.ReloadShots(amount * Carrier.ShotsPerItem);
-            return amount;
         }
     }
 }
