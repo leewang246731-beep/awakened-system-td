@@ -67,6 +67,30 @@ internal static class CheckpointFixture
         return simulation;
     }
 
+    /// <summary>
+    /// Long-horizon variant of the fixture config: identical map/seed/commands
+    /// and the SAME wave formula structure, only the roster base count is
+    /// thinned (BaseCount 10→2). The checkpoint/equivalence properties under
+    /// test (wave-boundary detection, checkpoint wave, replay determinism)
+    /// are enemy-density independent; the thinning keeps the 30-wave
+    /// integration inside the suite's CPU budget so it cannot inflate the
+    /// spike-1 performance medians that run concurrently (T-043 回归线).
+    /// The golden regression keeps the FULL-density fixture.
+    /// </summary>
+    public static SimulationConfig LongHorizonConfig() => SimE1Fixture.Config() with
+    {
+        Waves = SimE1Fixture.Config().Waves with { BaseCount = 2 },
+    };
+
+    /// <summary>Long-horizon (thin roster) variant of <see cref="RunTo"/>.</summary>
+    public static Simulation RunToLongHorizon(long tick)
+    {
+        var simulation = new Simulation(LongHorizonConfig(), new SimRng(SimE1Fixture.Seed), SimE1Fixture.Seed);
+        simulation.EnqueueRange(SimE1Fixture.MilestoneCommands());
+        simulation.Run(tick);
+        return simulation;
+    }
+
     /// <summary>The milestone stream plus one late command (tail exercise).</summary>
     public static IReadOnlyList<Contracts.Sim.SimCommand> MilestonePlusLate(Contracts.Sim.SimCommand late) =>
         SimE1Fixture.MilestoneCommands().Append(late).ToArray();

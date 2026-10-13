@@ -22,6 +22,8 @@ public class RecoveryEquivalenceTests : SqliteSavePortTestBase
     // 口径说明：波间隔公式冻结（120s×0.6=72s/波）下第 30 波边界≈68040 tick≈38
     // 分钟模拟时间，任务卡"60s 局"按测试墙钟预算执行（三世界×70k tick 实测
     // 远低于 60s），等价判定覆盖全部比较 tick（含检查点重放前缀与 kill 后续跑）。
+    // 长地平线用薄敌量夹具（同 seed/同地图/同公式结构，见 CheckpointFixture.
+    // LongHorizonConfig）：检查点语义与敌密度无关，金样回归保留全密度夹具。
     public void Restore_from_checkpoint_replays_fourteen_waves_bit_for_bit()
     {
         // 迟到命令（检查点后）：恢复世界必须重发行同一条命令流
@@ -30,7 +32,7 @@ public class RecoveryEquivalenceTests : SqliteSavePortTestBase
         long horizon = CheckpointFixture.BoundaryTickOf(30) + CheckpointFixture.IntervalTicks;
 
         RecoveryEquivalenceResult result = RecoveryEquivalence.VerifyAcrossRestore(
-            SimE1Fixture.Config(),
+            CheckpointFixture.LongHorizonConfig(),
             rngFactory: () => new SimRng(SimE1Fixture.Seed),
             SimE1Fixture.Seed,
             commands,
@@ -50,12 +52,13 @@ public class RecoveryEquivalenceTests : SqliteSavePortTestBase
     }
 
     [Fact] // boundary — 最小等价：检查点后 1 波即 kill，恢复仍逐 tick 等价
+    // （全密度夹具的同场景等价由检查点金样每测复证——CheckpointGoldenTests）
     public void Restore_equivalence_holds_for_a_single_replayed_wave()
     {
         long horizon = CheckpointFixture.BoundaryTickOf(17) + CheckpointFixture.IntervalTicks;
 
         RecoveryEquivalenceResult result = RecoveryEquivalence.VerifyAcrossRestore(
-            SimE1Fixture.Config(),
+            CheckpointFixture.LongHorizonConfig(),
             rngFactory: () => new SimRng(SimE1Fixture.Seed),
             SimE1Fixture.Seed,
             SimE1Fixture.MilestoneCommands(),
@@ -90,7 +93,7 @@ public class RecoveryEquivalenceTests : SqliteSavePortTestBase
     {
         SqliteSavePort port = CreatePort();
         var store = new WaveCheckpointStore(port, "level.e1.m01", 1.2);
-        Simulation live = CheckpointFixture.RunTo(CheckpointFixture.BoundaryTickOf(16));
+        Simulation live = CheckpointFixture.RunToLongHorizon(CheckpointFixture.BoundaryTickOf(16));
         store.SaveBoundary(live, store.CheckpointWave, SimE1Fixture.MilestoneCommands());
         long referenceHash = live.ComputeStateHash();
 
@@ -110,7 +113,7 @@ public class RecoveryEquivalenceTests : SqliteSavePortTestBase
             SaveVersion.Current);
 
         Assert.True(store.TryRestoreCheckpoint(out RestoredWaveSnapshot snapshot));
-        Simulation replayed = snapshot.Replay(SimE1Fixture.Config(), new SimRng(3312));
+        Simulation replayed = snapshot.Replay(CheckpointFixture.LongHorizonConfig(), new SimRng(3312));
         Assert.Equal(live.CurrentTick, replayed.CurrentTick);
         Assert.NotEqual(referenceHash, replayed.ComputeStateHash()); // 损坏被哈希暴露
     }
@@ -118,11 +121,12 @@ public class RecoveryEquivalenceTests : SqliteSavePortTestBase
     // ---------------------------------------------------------- 崩溃注入恢复
 
     [Fact] // crash — 波界写存档中途 kill：写失败（锁楔住），恢复走上一完整检查点
+    // （薄敌量长地平线夹具：崩溃注入语义与敌密度无关，见 CheckpointFixture）
     public void Crash_mid_boundary_save_recovers_from_the_last_complete_checkpoint()
     {
         SqliteSavePort port = CreatePort();
         var store = new WaveCheckpointStore(port, "level.e1.m01", 1.2);
-        var sim = new Simulation(SimE1Fixture.Config(), new SimRng(SimE1Fixture.Seed), SimE1Fixture.Seed);
+        var sim = new Simulation(CheckpointFixture.LongHorizonConfig(), new SimRng(SimE1Fixture.Seed), SimE1Fixture.Seed);
         sim.EnqueueRange(SimE1Fixture.MilestoneCommands());
 
         // 完整跑过检查点波 16 与滚动波 17/18，记录每个边界的活体哈希
@@ -152,13 +156,13 @@ public class RecoveryEquivalenceTests : SqliteSavePortTestBase
         Assert.True(store.TryRestoreCheckpoint(out RestoredWaveSnapshot checkpoint));
         Assert.Equal(16, checkpoint.Wave);
         Assert.Equal(CheckpointFixture.BoundaryTickOf(16), checkpoint.Tick);
-        Simulation fromCheckpoint = checkpoint.Replay(SimE1Fixture.Config(), new SimRng(8888));
+        Simulation fromCheckpoint = checkpoint.Replay(CheckpointFixture.LongHorizonConfig(), new SimRng(8888));
         Assert.Equal(boundaryHashes[16], fromCheckpoint.ComputeStateHash());
 
         // 恢复二：崩溃前的最后完整滚动代（波 18）仍在，撕裂写没有毁掉上一代
         Assert.True(store.TryRestoreLatestBoundary(out RestoredWaveSnapshot latest));
         Assert.Equal(18, latest.Wave);
-        Simulation fromRolling = latest.Replay(SimE1Fixture.Config(), new SimRng(9999));
+        Simulation fromRolling = latest.Replay(CheckpointFixture.LongHorizonConfig(), new SimRng(9999));
         Assert.Equal(boundaryHashes[18], fromRolling.ComputeStateHash());
 
         // 半途写入的楔行随事务回滚从未落盘（无 torn 行存活）
