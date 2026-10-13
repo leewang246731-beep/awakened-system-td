@@ -2,7 +2,7 @@
 
 | 项 | 内容 |
 |---|---|
-| 版本 | v1.3 |
+| 版本 | v1.4 |
 | 日期 | 2026-10-14 |
 | 状态 | **已冻结**（任务编排基线；T-027 带有 DEBT-W0 挂账标记，见 2026-10-13 round 1 审查；变更走 code-review 双轴流程） |
 | 依据 | 《07-decided-plan.md》D-01~D-32 最终裁决；05-schedule 波次骨架（采纳+修改）；03 组件图；06 质量门禁 |
@@ -120,7 +120,7 @@
 | T-067 | C-12 全量编排+实体分组 | 3 | A1 | T-064~T-066 | F-155 | C-12 | R+I | M | 全子系统编排+分组注册+回放仍确定 |
 | T-068 | C-13 五段管线全量 | 3 | B | T-053,T-067 | F-065~F-068,F-096 | C-13 | L(矩阵)+E | L | 19 动作端到端+自纠≤2+澄清卡+注入防护五条 |
 | T-069 | C-15 全量 12 意图文法+多模态指认 | 3 | B | T-052 | F-077 | C-15 | L+G8 矩阵 | L | 12 意图×≥10 句式覆盖矩阵全绿 |
-| T-070 | 动作组全集+PreAction/WaveEnd 双钩 | 3 | B | T-051,T-067 | F-062,F-063,F-071~F-075 | C-03,C-13 | L(矩阵) | L | 19 动作权限/边界/计价矩阵+双钩改写拦截 |
+| T-070 | 动作组全集+PreAction/WaveEnd 双钩 | 3 | B | T-051,T-067 | F-062,F-063,F-071~F-075 | C-03,C-13 | L(矩阵) | L | 19 动作权限/边界/计价矩阵+双钩改写拦截 [DEBT: TariffTable↔Catalog 单源化（Catalog 升格唯一行源+派生视图删重复）+ 双权限枚举合并 PermissionTier+ TriggerScroll 3s 冷却落点 + SetAlarm 钳制 vs 拒绝语义裁定——四件一并收口] |
 | T-071 | C-18 卷轴运行时+数据 | 3 | B | T-011,T-067 | F-037,F-038 | C-18 | L(矩阵) | M | tick 限速/优先级/上限/系统仲裁四规则+JSON 卷轴加载 |
 | T-072 | C-16 LlmGateway 协议机 | 3 | B | T-054,T-021 | F-079,F-080,F-082,F-083,F-085,F-162 | C-16 | U+L+cassette | L | 双协议+SSE+探针+域名白名单+整体禁用零网络 |
 | T-073 | C-19 战役/科技/三重目标/签到/结算 | 3 | C | T-035,T-036,T-041,T-067 | F-002~F-004,F-024,F-050~F-054 | C-19 | L(矩阵)+I | L | 闸门/成本公式/三目标判分/档位/签到封顶全绿 |
@@ -475,6 +475,7 @@
 
 ## 变更记录
 
+- v1.4（2026-10-14，Wave 2 批 1 审查处置，REV-20261014-wave2-round1 #3）：T-070 行尾追加 DEBT——TariffTable↔Catalog 单源化（ActionCatalog 升格唯一行源+派生视图删 SystemActionTariffTable 重复行）+ 双权限枚举合并（Governance.PermissionTier 并入 Actions.ActionPermissionTier）+ TriggerScroll 3s 冷却落点 + SetAlarm 钳制 vs 拒绝语义裁定，四件一并收口；过渡期防线=EraCore.Tests/Agent/ActionMetadataLockstepTests.cs 逐 19 动作五字段 lockstep 守卫（分叉即红）。
 - v1.3（2026-10-14，W1 收口 DEBT 挂账）：六行行尾追加 DEBT——T-053（TowerMagazine 双适配器合并+SuppliedWeaponFire 接线编排器+TryPayCost 窄窗补偿）；spike2 七坑逐条归位：pit#2/#3/#4→T-064（走廊城门交规行）、pit#6→T-056（建造交互行）、pit#1/#5→T-059（全循环验收语义+编排器路线失效事件）、pit#7→T-043（coverage 覆盖窗）；spike1 pit#1/#2→T-059（无 C-10 弹体后续任务行，按裁决挂关卡循环行）。出处=REV-20261013-wave1-round3 / spike1-report §7 / spike2-report §5。
 - v1.2（2026-10-13，Wave 1 批次 2 review）：T-064 行尾冻结吞吐验收口径（吞吐锚点参考距离=160px，六档同距比较——吞吐=容量/往返周期、距离敏感，0.3 件/s 锚点仅在 160px 单程成立；Carrier.cs 文档注释同步）。出处=REV-20261013-wave1-round2（#5）。
 - v1.1（2026-10-13，Wave 1 首批 review）：新增 §6 开放问题区（Q11：追回 v2.1 第 30 波"57s/107s"推导口径，现行以 v3.2.1 重建口径为准）；T-038 行尾加 DEBT 标记（建筑 HP×5 进流场随 T-038 实现，GridWorld.BloodCost 恒 0 为本批已知边界）。出处=REV-20261013-wave1-round1（#1/#4）。
