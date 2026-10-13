@@ -8,12 +8,15 @@
 #
 # 纪律（D-18）：每条豁免必须带理由且可在 code-review 中引用；行级豁免用
 # `// ci-allow: <检查ID> <任务ID 理由>`。RL9 语义：绝对路径禁入代码/测试/
-# 配置；docs 侧唯一合法登记处 = 07-decided-plan.md §三（附）环境事实登记。
+# 配置；docs 侧合法登记处 = 07-decided-plan.md §三（附）环境事实登记
+# 及其展开快照 09-env-locked.md（round 1 新增，处置 #12）。
 
 # —— 任务卡 T-027 指定白名单 ——
 tools                                       | 扫描器与 CI 工具自身（内含正则与样例文本）
 .gitignore                                  | 忽略规则文本（T-027 白名单）
-docs/engineering/07-decided-plan.md         | 冻结决议书；环境事实唯一登记节=§三（附）环境事实登记（正文 D-02/D-03 布局行含路径为登记内容一部分）
+R9: docs/engineering/07-decided-plan.md :: 三（附）、环境事实登记 | 冻结决议书；R9 节级豁免仅限 §三（附）环境事实登记（环境事实唯一裁决登记处）；正文 D-02/D-03/D-22 三处裁决行改用行级 ci-allow 显式登记（round 1 收窄，REV-20261013-wave0-round1）
+R9: docs/engineering/09-env-locked.md       | 环境快照登记文档（round 1 处置 #12 新增）：全文档即环境事实登记处，与 07 §三（附）同源展开；代码侧 RL9 不变
+R9: docs/engineering/reviews/               | 审查记录目录（round 1 起设立）：REV 记录须原文引用真实命令与输出，含路径属于记录事实本身，非代码侧违约
 
 # —— 已冻结的讨论/审计/设计归档（RL9 管代码与测试；其中的环境路径引用
 #    均已被 07 §三（附）环境事实表收编登记，此处豁免防止归档文档误报）——

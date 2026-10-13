@@ -18,11 +18,11 @@
 - 理由：满足"五级测试/真实覆盖"硬约束的唯一低成本路径；候选 C 保留为冲突触发式演进（命名空间已预留）。
 
 **D-02 工程布局：采纳 04 的 presentation/ 独立布局，否决 03 的 game/ 根布局**
-- 裁决：`D:\game\game\{AwakeningTD.sln, Directory.Build.props, src\EraCore, src\EraCore.Tests, presentation\(唯一 res://), contracts\, data\(saves/reports，gitignored+.gdignore), mods\, tools\}`。
+- 裁决：`D:\game\game\{AwakeningTD.sln, Directory.Build.props, src\EraCore, src\EraCore.Tests, presentation\(唯一 res://), contracts\, data\(saves/reports，gitignored+.gdignore), mods\, tools\}`。<!-- ci-allow: R9 T-027 D-02 裁决行；环境事实以 §三（附）环境事实登记为准 -->
 - 理由：运行时可写目录（saves/reports/mods）不得进 res:// 导入扫描与导出清单；contracts 可被 code-review 直接 diff；候选 C 拆分时 src/ 平移即可。03 的 C-21/C-30/C-31 任务卡按此树改写（已改，见 08）。
 
 **D-03 "只在 D 盘"硬约束的落实（user:// 即 C 盘的违约点）**
-- 裁决：①`IFileStore` 根由 Godot 适配器注入，不用 user:// 默认值：开发机=`D:\game\game\data\`，发布包=exe 旁 `saves\`，Web=浏览器持久化 FS；②Godot 导出模板路径迁 `D:\game\tools\godot-templates\`；③`NUGET_PACKAGES=D:\nuget`（禁默认 C 盘缓存）。
+- 裁决：①`IFileStore` 根由 Godot 适配器注入，不用 user:// 默认值：开发机=`D:\game\game\data\`，发布包=exe 旁 `saves\`，Web=浏览器持久化 FS；②Godot 导出模板路径迁 `D:\game\tools\godot-templates\`；③`NUGET_PACKAGES=D:\nuget`（禁默认 C 盘缓存）。<!-- ci-allow: R9 T-027 D-03 裁决行；环境事实以 §三（附）环境事实登记为准 -->
 - 理由：03 未察觉 user:// 默认落在 `%APPDATA%`（C 盘）；不注入则 D 盘纪律纸面成立（04 D3 成立）。
 
 **D-04 工具链版本钉死：Godot 4.7.2-stable mono + net8.0（精确版本，全解决方案）**
@@ -96,7 +96,7 @@
 - 契约集中 `game/contracts/`，变更=独立任务+版本递增+全泳道通知+100% 人工评审。
 
 **D-22 git 基线与 v2.1 回收：RL13 已解除，T-000 按 04 §5 分级清单执行**
-- 实测：`D:\game` 有 `.git`，`8402414^{commit}` 可达，v2.1 正文可整篇读出。裁决：回收按 P0（§16 技术架构/§8.1 遗迹映射/§11.3 19 动作字段表）→P1（提示/三层信息/离线岁月/波次补充/无尽细则/MVP 8 动作）→P2（文法补充/敌人主题行）分级入 W0 任务；**非回收项**（P-2 敌表/P-3 意图/P-4 目标池/P-5 口径/P-6 阈值/P-7 卷轴/P-8 英雄/P-9 程序关）显式标注"新设计"，不得假装来自基线。
+- 实测：`D:\game` 有 `.git`，`8402414^{commit}` 可达，v2.1 正文可整篇读出。裁决：回收按 P0（§16 技术架构/§8.1 遗迹映射/§11.3 19 动作字段表）→P1（提示/三层信息/离线岁月/波次补充/无尽细则/MVP 8 动作）→P2（文法补充/敌人主题行）分级入 W0 任务；**非回收项**（P-2 敌表/P-3 意图/P-4 目标池/P-5 口径/P-6 阈值/P-7 卷轴/P-8 英雄/P-9 程序关）显式标注"新设计"，不得假装来自基线。 <!-- ci-allow: R9 T-027 D-22 实测行；环境事实以 §三（附）登记表为准 -->
 
 **D-23 程序关生成：延至 v1.x（Wave 8）**
 - 裁决：E1+E2 首发基线下首发=手工关+无尽；F-007 排 Wave 8（T-140）；无尽波次外推规则 W0 定案（T-013）。
