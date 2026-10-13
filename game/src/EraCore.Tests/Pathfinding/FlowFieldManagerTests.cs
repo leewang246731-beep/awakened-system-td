@@ -14,7 +14,11 @@ namespace EraCore.Tests.Pathfinding;
 /// frames bit-identically to a one-shot build, manager-level determinism, and
 /// the TierA 300×300 full-flood timing record.
 /// </summary>
+// [Collection(PerfSerialCollection.Name)]（F1）：TierA 300×300 全泛洪的
+// total/avg/max 帧包络是墙钟断言——整类进独占串行集合（非计时逻辑用例为
+// 小图秒级，串行代价可忽略，取舍见 PerfSerialCollection.cs）。
 // [C-11] 流场管理器（分桶≤6/LRU、脏区增量、预算切片等价、性能留档）
+[Collection(PerfSerialCollection.Name)]
 public class FlowFieldManagerTests
 {
     private readonly ITestOutputHelper _output;

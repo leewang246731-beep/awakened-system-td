@@ -10,18 +10,26 @@ namespace EraCore.Agent.Actions;
 
 // T-056 (C-23 建造交互薄版, F-036/F-119)：玩家手动拖放建造的执行泳道。
 //
-// 口径裁定（任务卡验收 08 原文 + 设计 v3.2 §6.1「玩家拥有与系统同款的拖放
-// 批量建造（同受 cells≤4+2×E 上限，与系统公平同规）」的"同款"语义）：
+// 口径裁定（任务卡验收 08 原文 + 设计 v3.2 §6 塔防战斗系统末条 L82「玩家
+// 拥有与系统同款的拖放批量建造（同受 cells≤4+2×E 上限，与系统公平同规）」
+// 的"同款"语义）：
 //   1) 同一咽喉——玩家拖放构造 BuildPlan 动作 JSON 后调用
 //      PipelineExecutor.InvokeStep，与军师管线（AgentPipeline.ExecuteSteps
 //      → 同一个 InvokeStep）走【完全相同】的 ActionRegistry.Invoke 校验
 //      （闭表 Schema+解锁时代门+BuildPlan 草案）与 SimCommand 落子执行；
 //      本类不含第二条建造路径，也不旁路注册表（RL6）。
-//   2) 审批与点数——军师专属层：方案卡审批（ApprovalGate）与系统点
-//      （§11.4 SystemPointLedger，"系统点限军师"）都位于
-//      AgentPipeline.ExecuteSteps 在 InvokeStep 之上的包装段；本类不经过
-//      那段包装，因此玩家手动建造不消耗系统点、不出方案卡（拖放松手即
-//      视为玩家预授权 allow 直过），但校验/执行/战报三段与军师同源。
+//   2) 审批与点数——军师专属层（W2 批 3 结构化裁定，正式登记于
+//      REV-20261014-wave2-round2 §三-F6）：玩家手动建造不消耗系统点、不出
+//      方案卡（拖放松手即为玩家预授权 allow 直过）。裁定依据三段：
+//      ① v3.2 §11.1 不变式③「预算限量：系统点数」是游戏内智能体（"系统"）
+//         的三条不变式之一——点数预算的主体=军师；
+//      ② v3.2 §11.4 计价表（建造 2/战斗 1/物流 1/巡逻 1/侦察 0）是军师
+//         动作的计价，玩家手势不是计价对象；
+//      ③ 结构事实：AgentPipeline.ExecuteSteps 把 TrySpend（点数扣减）与
+//         ApprovalGate（方案卡审批）包在 InvokeStep 之外的包装段，而本
+//         玩家道直调 InvokeStep——点数与审批位于军师管线包装层，不在共享
+//         咽喉内，玩家道自然不经过。
+//      但校验/执行/战报三段与军师同源。
 //   3) 战报——每次调用追加一条 JournalEvent（Kind=Validation、载荷
 //      Type="execution" 与五段管线执行段同词表），载荷 Actor="player"
 //      区分军师（军师侧载荷无 Actor 字段=系统）——回放器按 Type 折叠时
@@ -46,7 +54,7 @@ public sealed record SellTowerActionJson(
 /// <param name="Status">Registry outcome status name.</param>
 /// <param name="Error">Error message on failure; null on success.</param>
 /// <param name="CellsPlaced">Cells the executor actually placed (0 unless Ok).</param>
-/// <param name="PointsSpent">Always 0 — 口径裁定：系统点限军师，玩家手动建造不扣点。</param>
+/// <param name="PointsSpent">Always 0 — 口径裁定（PlayerBuildLane.cs 文件头 2)：系统点预算主体=军师，玩家手动建造不扣点。</param>
 public sealed record PlayerBuildJournalPayload(
     string Type,
     string Actor,
@@ -78,7 +86,8 @@ public sealed partial class PlayerBuildJsonContext : JsonSerializerContext
 /// The player's manual build lane (T-056): drag-drop placements and tower
 /// demolition requests dispatched through the SAME registry+SimCommand
 /// throat the advisor pipeline uses — see the file remarks for the
-/// approval/point ruling (§6.1 同款语义).
+/// approval/point ruling (v3.2 §6 L82 同款语义, structured in
+/// REV-20261014-wave2-round2 §三-F6).
 /// </summary>
 public sealed class PlayerBuildLane
 {

@@ -17,7 +17,7 @@ namespace EraCore.Tests.Interaction;
 //    ActionRegistry.Invoke→SimCommand）在孪生模拟上产出逐位相同的世界态
 //    （ComputeStateHash 相等）与注册表 verdict 行；
 // 2) 口径裁定证据——JournalEvent 载荷 Actor="player"、PointsSpent=0（系统点
-//    限军师，v3.2 §11.4/§6.1 同款语义）；
+//    限军师，v3.2 §11.4 计价/§6 L82 同款语义——裁定三段依据见泳道文件头）；
 // 3) spike2-pit#6 三场景走完整咽喉——站敌格拒绝/装卸格拒绝/在途民夫推移；
 // 4) SellTower 危险位——confirm_sell=false 本地拒（不出载荷）、true 走注册表
 //    （E1/E2 薄版=诚实 not-implemented 拒绝，v3.2 §11.4）。
@@ -29,7 +29,12 @@ public class PlayerBuildLaneTests
     {
         var harness = new PipelineHarness();
         PlayerBuildLane lane = PlayerBuildLane.OverSimulation(
-            harness.Simulation, PipelineHarness.Config(), () => era, harness.Journal, harness.LogSink);
+            harness.Simulation, PipelineHarness.Config(), () => era,
+            // F5：按 PlayerBuildLane 的 journal 契约（ctor 参数注释：K-8 sink
+            // 须 sequence-ordered per run）以 SequencingJournalWriter 包装——
+            // 与生产侧 BuildInteractionUi 的接线同形，裸写入器会落 Seq=0。
+            new SequencingJournalWriter(harness.Journal),
+            harness.LogSink);
         return (harness, lane);
     }
 
@@ -115,6 +120,29 @@ public class PlayerBuildLaneTests
         Assert.Equal(nameof(ActionResultStatus.ErrSchemaDenied), events[1].Status);
         Assert.Equal(nameof(SystemActionKind.SellTower), events[2].Verb);
         Assert.Equal(nameof(ActionResultStatus.Err), events[2].Status);
+    }
+
+    [Fact] // legal：K-8 单流有序——玩家事件 Seq 经 SequencingJournalWriter 重编号
+           // 后严格递增（W2 批 3 F5：泳道契约=sequence-ordered per run，裸
+           // 写入器会恒落 Seq=0） // [F-036]
+    public void Player_events_carry_strictly_increasing_seq()
+    {
+        (PipelineHarness harness, PlayerBuildLane lane) = MakeLane();
+        lane.Build(WoodArrow, new[] { new CellCoord(11, 11) });
+        lane.Sell(targetId: 1, confirmSell: false); // 本地拒也入报（事件 2）
+        lane.Sell(targetId: 1, confirmSell: true);  // 注册表诚实拒（事件 3）
+
+        var playerSeqs = JsonlJournalWriter.ReadAll(harness.JournalPath)
+            .Select(evt => (Evt: evt, Payload: TryParsePlayerPayload(evt.PayloadJson)))
+            .Where(pair => pair.Payload is { Actor: PlayerBuildLane.Actor }) // 军师/账本载荷缺 Actor——按载荷形状筛掉
+            .Select(pair => pair.Evt.Seq)
+            .ToArray();
+        Assert.Equal(3, playerSeqs.Length);
+        Assert.Equal(new[] { 1L, 2, 3 }, playerSeqs); // 1 起步逐 +1（严格递增）
+        for (int i = 1; i < playerSeqs.Length; i++)
+        {
+            Assert.True(playerSeqs[i] > playerSeqs[i - 1], $"Seq 必须严格递增：{playerSeqs[i - 1]} → {playerSeqs[i]}");
+        }
     }
 
     [Fact] // illegal：pit#6 场景一——放置格站活敌：预览层与执行道同码拒绝，零落子零扣费

@@ -10,8 +10,10 @@ namespace EraCore.Audio;
 /// binary assets enter the repository: the Godot adapter synthesizes the
 /// streams at startup and persists the WAV files for human audition; T-092
 /// replaces this table with licensed CC0 assets and personality timbres
-/// behind the same <see cref="DingTier"/> key. Pure code (D-01): bytes in,
-/// bytes out, fully deterministic — same tier ⇒ same bytes on every machine.
+/// behind the same <see cref="DingTier"/> key. Pure code (D-01), same-machine
+/// deterministic: same tier ⇒ same bytes on the same machine (W2 批 3 F7 措辞
+/// 降级——Math.Sin/Exp 跨架构无 IEEE 位级保证，不作"每机逐字节相同"承诺；
+/// 跨机一致性以落盘 WAV 快照为准，可听测与同跑逐字节回归见 DingSynthTests)。
 /// </summary>
 public static class DingSynth
 {

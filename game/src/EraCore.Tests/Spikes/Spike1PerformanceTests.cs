@@ -35,6 +35,9 @@ namespace EraCore.Tests.Spikes;
 /// </para>
 /// </summary>
 // [F-166] spike① 性能门禁基准（T-043；300 敌+1000 弹迷宫复合逻辑预算达标并留档）
+// [Collection(PerfSerialCollection.Name)]（F1）：计时敏感测试独占串行集合——
+// 三次运行取中位数的墙钟断言不容并行邻居偷 CPU（见 PerfSerialCollection.cs）。
+[Collection(PerfSerialCollection.Name)]
 public sealed class Spike1PerformanceTests
 {
     private readonly ITestOutputHelper _output;

@@ -760,24 +760,49 @@ public sealed class Simulation
         {
             var id = new EntityId(_nextBuildingId++);
             IBuilding placed = _registry.Place(id, spec, cell, tier: 1);
-            var weapon = new WeaponFire(id, spec, initialAmmoShots: 0);
-            _towers.Add(new SimTower(id, spec, weapon, placed.Cell));
-            if (spec.AmmoItem is not null)
+            try
             {
+                // 注册顺序（W2 批 3 F2 半注册根因）：所有会抛白名单异常的
+                // 子系统注册先于任何 sim 侧列表入账——原顺序 _towers.Add 在
+                // RegisterTower/_pacersById 之前，RegisterTower 拒绝（如
+                // ammo_per_shot<0）会留下"_towers 有塔、_pacersById 无 pacer"
+                // 的半注册，后续 Step 的 _pacersById[tower.Id] 抛
+                // KeyNotFoundException 且占用格永久泄漏。现约定：拒绝发生时
+                // 已突变的只有 registry 占用（RegisterTower 全部校验先于自身
+                // 变更），由 catch 撤销；退费由 TryPayThenPlace 补偿窗负责 ⇒
+                // 零半注册残留。
+                var weapon = new WeaponFire(id, spec, initialAmmoShots: 0);
+                // T-053 DEBT ②: demand registration (all argument validation
+                // happens here, before any sim-side list gains the tower).
+                _supplyMonitor.RegisterTower(new TowerSupplyRegistration(
+                    id, placed.Cell, spec.ReloadTicks!.Value, spec.AmmoPerShot, spec.DamagePerShot,
+                    () => _magazineById.TryGetValue(id, out TowerMagazine? magazine)
+                        ? magazine.CumulativeShotsDelivered
+                        : 0L));
+                var pacer = new SuppliedWeaponFire(weapon, _supplyMonitor, id);
                 // T-053 DEBT ①: the authoritative Supply-side magazine.
-                _magazineById.Add(id, new TowerMagazine(new ResourceKey(spec.AmmoItem), weapon));
+                TowerMagazine? magazine = spec.AmmoItem is null
+                    ? null
+                    : new TowerMagazine(new ResourceKey(spec.AmmoItem), weapon);
+
+                // 提交段（不再抛：List.Add、新鲜自增 id 的 Dictionary.Add、
+                // 定宽 3×3 的脏区标记——CellRegion 只校验非负 extent）。
+                _towers.Add(new SimTower(id, spec, weapon, placed.Cell));
+                if (magazine is not null)
+                {
+                    _magazineById.Add(id, magazine);
+                }
+
+                _buildings.Add(new SimBuilding(id, spec.Id, placed.Cell, spec.Hp, 1, SimBuildingKind.Tower));
+                _pacersById.Add(id, pacer);
+                _flows.MarkDirty(new CellRegion(cell.X - 1, cell.Y - 1, 3, 3));
             }
-
-            _buildings.Add(new SimBuilding(id, spec.Id, placed.Cell, spec.Hp, 1, SimBuildingKind.Tower));
-            _flows.MarkDirty(new CellRegion(cell.X - 1, cell.Y - 1, 3, 3));
-
-            // T-053 DEBT ②: demand registration + the unique tick pacer.
-            _supplyMonitor.RegisterTower(new TowerSupplyRegistration(
-                id, placed.Cell, spec.ReloadTicks!.Value, spec.AmmoPerShot, spec.DamagePerShot,
-                () => _magazineById.TryGetValue(id, out TowerMagazine? magazine)
-                    ? magazine.CumulativeShotsDelivered
-                    : 0L));
-            _pacersById.Add(id, new SuppliedWeaponFire(weapon, _supplyMonitor, id));
+            catch
+            {
+                _registry.Remove(id); // 撤销占用（含 world occupancy）——半注册零残留
+                _magazineById.Remove(id); // 提交段防御（新鲜 id 下不可达，双保险）
+                throw; // 退费交给 TryPayThenPlace 的白名单补偿窗
+            }
         });
         if (towerResult is null)
         {

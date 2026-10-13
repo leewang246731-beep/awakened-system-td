@@ -77,15 +77,18 @@ public class AgentReporterTests
         Assert.Equal(8, report.Findings.Count);
     }
 
-    [Fact] // boundary：超长摘要截到 200 字符（K-3 硬界）
+    [Fact] // boundary：超长摘要截到 200 字符（K-3 硬界）——且截断=原文前 200 字符
+           // 的前缀切片（W2 批 3 加固：仅断言长度放不过"截错位置/丢字/补字"）
     public void Compose_truncates_overlong_summary()
     {
         string longText = new('令', 300);
+        string overlongReport = new('长', 260);
         AgentReport report = new AgentReporter().Compose(
             Intent(IntentKind.Build, longText), "completed",
-            new[] { Digest() }, reportText: new('长', 260));
+            new[] { Digest() }, reportText: overlongReport);
 
         Assert.Equal(200, report.Summary.Length);
+        Assert.Equal(overlongReport[..200], report.Summary); // 内容=前 200 字符原样前缀（逐字符钉住）
     }
 
     [Fact] // legal：拒绝始终走 reportText 原文（决策由管线定，汇报层只转述）

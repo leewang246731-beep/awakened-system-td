@@ -51,13 +51,15 @@ public sealed record ResourceGrant(ResourceKey Resource, double Granted, double 
 
 /// <summary>
 /// Thin-version continent-grid knobs (F-005): the SQUARE grid with
-/// 4-neighbour adjacency is the thin E1 form — v3.2 §7's hex 6-neighbour
-/// geometry is a later campaign-map task (registered as follow-up; changing
-/// it swaps <see cref="CampaignGrid.NeighbourOffsets"/> and the adjacency
-/// count only, the threat formula stays). No v3.2 number pins continent camp
-/// density — these are structural generation knobs of the thin version
-/// (like <c>GridWorld</c>'s terrain ratios), supplied/configured by the
-/// host; the E2E passes them explicitly.
+/// 4-neighbour adjacency is the thin E1 form — the hex 6-neighbour geometry
+/// (11-spec-tables SP-9 L271「节点置于六边形网格；邻接=六边形 6 邻」——六邻接
+/// 口径的实际出处，v3.2 §7 无此几何定义) is a later campaign-map task
+/// (registered as follow-up; changing it swaps
+/// <see cref="CampaignGrid.NeighbourOffsets"/> and the adjacency count only,
+/// the threat formula stays). No v3.2 number pins continent camp density —
+/// these are structural generation knobs of the thin version (like
+/// <c>GridWorld</c>'s terrain ratios), supplied/configured by the host; the
+/// E2E passes them explicitly.
 /// </summary>
 /// <param name="EnemyCampRatio">Row-major draw share of enemy-camp cells.</param>
 /// <param name="LevelRatio">Row-major draw share of level cells.</param>
@@ -76,17 +78,17 @@ public sealed record CampaignGridOptions(
 /// <summary>
 /// 选图薄版 continent grid (F-005, T-059): a seed-deterministic square grid
 /// of <see cref="CampaignCellKind"/> cells with 4-neighbour adjacency (hex
-/// geometry = later task). The player owns the home cell from the start and
-/// may only select a LEVEL cell that is 4-adjacent to an already-occupied
-/// one (大陆网格相邻格). Occupying a cell banks its reward into the shared
-/// campaign <see cref="ResourceStock"/> under the pool cap (入池只计上限内).
-/// All randomness flows through the injected <see cref="IRng"/>, reseeded
-/// with the world seed (IRng replay contract): same seed ⇒ same layout ⇒
-/// same node threats (seed 化, CS-1.4).
+/// geometry, 11-spec-tables SP-9 L271 = later task). The player owns the
+/// home cell from the start and may only select a LEVEL cell that is
+/// 4-adjacent to an already-occupied one (大陆网格相邻格). Occupying a cell
+/// banks its reward into the shared campaign <see cref="ResourceStock"/>
+/// under the pool cap (入池只计上限内). All randomness flows through the
+/// injected <see cref="IRng"/>, reseeded with the world seed (IRng replay
+/// contract): same seed ⇒ same layout ⇒ same node threats (seed 化, CS-1.4).
 /// </summary>
 public sealed class CampaignGrid
 {
-    /// <summary>Thin-version 4-neighbour offsets (hex 6-neighbour = later task).</summary>
+    /// <summary>Thin-version 4-neighbour offsets (hex 6-neighbour, 11-spec-tables SP-9 L271 = later task).</summary>
     public static readonly (int Dx, int Dy)[] NeighbourOffsets =
     {
         (0, -1), (1, 0), (0, 1), (-1, 0),

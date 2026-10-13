@@ -159,6 +159,50 @@ public class SimulationTests
         Assert.Equal(20.0, sim.Stock.AmountOf(SimE1Fixture.Wood)); // 未扣款
     }
 
+    [Fact] // illegal — 白名单异常退费且零半注册（W2 批 3 F2）：注册段中途拒绝
+           // 不残留"_towers 有塔、_pacersById 无 pacer"半对——后续 Step 不抛
+           // KeyNotFoundException，占用格不泄漏可复用
+    public void Refunded_tower_rejection_leaves_no_half_registration()
+    {
+        // 毒化目录项：reload_ticks 合法（通过 tower-no-weapon-cycle 预检与
+        // WeaponFire 构造），ammo_per_shot=-1 令 RegisterTower 抛白名单
+        // ArgumentException。修复前顺序（_towers/_buildings/_magazineById 先于
+        // RegisterTower 入账）退费后留半注册：combat 段 _pacersById[tower.Id]
+        // 查无此键 ⇒ 后续 Step 抛 KeyNotFoundException，且 registry 占用泄漏。
+        var poisoned = SimEra1Content.WoodArrowTower() with
+        {
+            Id = "era1:tower-poisoned",
+            AmmoPerShot = -1, // AmmoItem 保持非 null——弹匣路径一并行使
+        };
+        var config = SimE1Fixture.Config() with
+        {
+            TowerCatalog = SimEra1Content.LoadTowerSpecs().Append(poisoned).ToArray(),
+        };
+        var sim = new Simulation(config, new SimRng(SimE1Fixture.Seed), SimE1Fixture.Seed);
+
+        sim.Enqueue(SimCommands.BuildTower(10, "era1:tower-poisoned", SimE1Fixture.TowerCell));
+        sim.Run(11);
+
+        // 退费 + 拒绝码具名（BuildCostCompensation 补偿窗）
+        Assert.False(sim.CommandResults[0].Accepted);
+        Assert.Equal(
+            BuildCostCompensation.RefundedRejectionPrefix + ":ArgumentException",
+            sim.CommandResults[0].RejectionReason);
+        Assert.Equal(100.0, sim.Stock.AmountOf(SimE1Fixture.Wood)); // 初始 100 全额复原
+
+        // 零半注册残留：无塔无新增建筑，后续 Step 全程不抛（修复前在此抛
+        // KeyNotFoundException）
+        Assert.Empty(sim.Towers);
+        Assert.Single(sim.Buildings); // 仅初始条目
+        sim.Run(300);
+
+        // 占用格未泄漏：同一格改用合法目录塔重下命令，正常落子
+        sim.Enqueue(SimCommands.BuildTower(sim.CurrentTick + 10, "era1:tower-wood-arrow", SimE1Fixture.TowerCell));
+        sim.Run(11);
+        Assert.True(sim.CommandResults[1].Accepted);
+        Assert.Single(sim.Towers);
+    }
+
     [Fact] // legal — 被拒命令不污染状态哈希：同 seed 下（含非法命令流）与
            // （仅合法命令流）逐 tick 哈希全等（T-040 边界验收原文）
     public void Rejected_commands_leave_the_state_hash_untouched()

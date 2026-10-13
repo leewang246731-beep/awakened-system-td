@@ -30,6 +30,10 @@ namespace EraCore.Tests.Spikes;
 /// 无捷径）；预热 900 tick 让民夫与敌群分布到全程，采样窗从均匀态起算。
 /// </summary>
 // [F-167] spike② 迷宫+供弹共存（T-044；计数器采样留档基准）
+// [Collection(PerfSerialCollection.Name)]（F1）：8 ms 流场帧切片预算与单帧
+// updateMsMax≤10 ms 是墙钟断言——独占串行集合防并行邻居偷 CPU（见
+// PerfSerialCollection.cs）。
+[Collection(PerfSerialCollection.Name)]
 public sealed class Spike2CoexistenceTests
 {
     private const int WarmupTicks = 900;

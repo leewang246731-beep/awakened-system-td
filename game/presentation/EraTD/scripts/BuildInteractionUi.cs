@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EraCore.Agent.Actions;
+using EraCore.Agent.Pipeline;
 using EraCore.Combat;
 using EraCore.Contracts.Actions;
 using EraCore.Contracts.Foundation;
@@ -149,7 +150,11 @@ public sealed partial class BuildInteractionUi : Control
         _sim = new Simulation(DemoConfig(catalog, enemies), new DemoRng(DemoSeed), DemoSeed);
         _registrySink = new CountingLogSink();
         _journal = new InMemoryJournalWriter();
-        _lane = PlayerBuildLane.OverSimulation(_sim, DemoConfig(catalog, enemies), () => AgentEra, _journal, _registrySink);
+        // F5：PlayerBuildLane 的 journal 契约=sequence-ordered per run（其
+        // ctor 参数注释明示 SequencingJournalWriter 负责 Seq 重编号）——裸
+        // 传入内存写入器会使玩家事件 Seq=0 恒不递增，违 K-8 单流有序。
+        _lane = PlayerBuildLane.OverSimulation(
+            _sim, DemoConfig(catalog, enemies), () => AgentEra, new SequencingJournalWriter(_journal), _registrySink);
         _controller = new BuildDragController(_lane.View, () => AgentEra);
         SetStatus("建栏选塔 → 左键拖矩形 → 松开建造（ESC 取消 / 右键拆除）");
     }
@@ -317,6 +322,7 @@ public sealed partial class BuildInteractionUi : Control
             $"BUILD_OK registry_invocations={_registrySink.Lines} ok_builds={okBuilds} " +
             $"towers_placed={_sim.Towers.Count} throat_rejections={rejected} esc_idle={escIdle} " +
             $"sell_refusals={sellRefused} player_journal_events={_journal.PlayerEvents} " +
+            $"player_journal_last_seq={_journal.LastPlayerSeq} " +
             $"tick={_sim.CurrentTick} state_hash={_sim.ComputeStateHash()}");
     }
 
@@ -451,16 +457,21 @@ public sealed partial class BuildInteractionUi : Control
         public void Write(LogLevel level, long tick, string message) => Lines++;
     }
 
-    /// <summary>内存 K-8 sink（headless 冒烟计数；正式宿主换 JSONL 落盘写入器）。</summary>
+    /// <summary>内存 K-8 sink（headless 冒烟计数；正式宿主换 JSONL 落盘写入器）。
+    /// 只见经 SequencingJournalWriter 重编号后的事件（F5）——lastSeq 供冒烟
+    /// 观测玩家流 Seq 递增，不再出现裸 Seq=0。</summary>
     private sealed class InMemoryJournalWriter : IJournalWriter
     {
         public int PlayerEvents { get; private set; }
+
+        public long LastPlayerSeq { get; private set; }
 
         public void Append(JournalEvent evt)
         {
             if (evt.PayloadJson.Contains("\"Actor\":\"player\"", StringComparison.Ordinal))
             {
                 PlayerEvents++;
+                LastPlayerSeq = evt.Seq;
             }
         }
     }
