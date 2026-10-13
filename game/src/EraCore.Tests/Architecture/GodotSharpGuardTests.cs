@@ -9,6 +9,7 @@ namespace EraCore.Tests.Architecture;
 /// These tests fail the build the moment someone drags engine or banned
 /// dependencies into the logic layer. Reflected off the compiled EraCore.dll.
 /// </summary>
+// [F-154] C# 热路径架构守卫（零 GodotSharp/禁反射发射/禁 Newtonsoft/禁直连网络）
 public class GodotSharpGuardTests
 {
     private static Assembly CoreAssembly => typeof(Guard).Assembly;

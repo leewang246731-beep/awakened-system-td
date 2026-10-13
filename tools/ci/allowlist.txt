@@ -1,0 +1,31 @@
+# redline_scan.py 路径级豁免登记（T-027）
+#
+# 格式：
+#   <仓库相对路径> [| 理由]                        —— 整文件/目录豁免（全部检查）
+#   <ID>: <仓库相对路径> [| 理由]                   —— 仅豁免指定检查（如 T2）
+#   <仓库相对路径> :: <节标题标记> [| 理由]          —— 仅豁免该节内的行
+#     （节标题行起，至下一个 "## " 标题前）
+#
+# 纪律（D-18）：每条豁免必须带理由且可在 code-review 中引用；行级豁免用
+# `// ci-allow: <检查ID> <任务ID 理由>`。RL9 语义：绝对路径禁入代码/测试/
+# 配置；docs 侧唯一合法登记处 = 07-decided-plan.md §三（附）环境事实登记。
+
+# —— 任务卡 T-027 指定白名单 ——
+tools                                       | 扫描器与 CI 工具自身（内含正则与样例文本）
+.gitignore                                  | 忽略规则文本（T-027 白名单）
+docs/engineering/07-decided-plan.md         | 冻结决议书；环境事实唯一登记节=§三（附）环境事实登记（正文 D-02/D-03 布局行含路径为登记内容一部分）
+
+# —— 已冻结的讨论/审计/设计归档（RL9 管代码与测试；其中的环境路径引用
+#    均已被 07 §三（附）环境事实表收编登记，此处豁免防止归档文档误报）——
+docs/engineering/01-feature-inventory.md    | 已冻结特性清单归档
+docs/engineering/02-consistency-audit.md    | 已冻结一致性审计归档
+docs/engineering/03-decomposition.md        | 已冻结组件分解归档
+docs/engineering/04-arch-discussion.md      | 已冻结架构讨论归档
+docs/engineering/06-quality-discussion.md   | 已冻结质量讨论归档
+docs/engineering/08-task-plan.md            | 已冻结任务编排归档（T-001/T-030 任务行含 D 盘路径，环境事实以 07 §三（附）为准）
+docs/我在游戏觉醒系统-游戏设计方案.md       | 设计方案主文档（历史环境引用以 07 §三（附）为准）
+docs/Mindustry逆向分析摘要.md               | 逆向分析归档
+
+# —— T2 src↔test 映射声明（纯契约/纯数据文件：无独立可测行为，经端口实现
+#    与 Fake 在别处覆盖；新增声明须在 code-review 中给出理由）——
+T2: game/src/EraCore/IO/IFileStore.cs       | K-1 端口接口：纯契约，由 DevFileStoreTests 与后续各测试 Fake 覆盖

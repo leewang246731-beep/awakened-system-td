@@ -3,6 +3,7 @@ using Xunit;
 
 namespace EraCore.Tests;
 
+// [C-01] K-1 领域原语共享校验助手（合法/边界/非法三行齐备）
 public class GuardClampTests
 {
     [Theory] // legal
@@ -41,6 +42,7 @@ public class GuardClampTests
     }
 }
 
+// [C-01] K-1 领域原语：EnsureInRange 守卫（合法/边界/非法三行齐备）
 public class GuardEnsureInRangeTests
 {
     [Theory] // legal

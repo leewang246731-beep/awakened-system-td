@@ -9,8 +9,8 @@ namespace EraCore.IO;
 /// </summary>
 public sealed class DevFileStore : IFileStore
 {
-    /// <summary>Pinned development root (D:\game\game\data). Never res:// or user://.</summary>
-    public const string DefaultDevRoot = @"D:\game\game\data";
+    /// <summary>Pinned development root (<see cref="DefaultDevRoot"/>). Never res:// or user://.</summary>
+    public const string DefaultDevRoot = @"D:\game\game\data"; // ci-allow: R9 T-027 D-03 已登记开发机根（07 §三附"代码根"）
 
     private static readonly string? EnvironmentRoot =
         Environment.GetEnvironmentVariable("ERA_DATA_ROOT");

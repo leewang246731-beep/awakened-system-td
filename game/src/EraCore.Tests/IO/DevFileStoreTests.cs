@@ -3,6 +3,7 @@ using Xunit;
 
 namespace EraCore.Tests.IO;
 
+// [C-01] K-1 端口适配：IFileStore 开发机实现（D-03 根注入）
 public class DevFileStoreTests : IDisposable
 {
     // Scratch sandbox under the pinned dev root (D-drive only; data/ is gitignored runtime data).
@@ -42,7 +43,8 @@ public class DevFileStoreTests : IDisposable
     public void Default_root_is_the_pinned_dev_root_from_D03()
     {
         // Dev machine registration (07-decided-plan env facts). Release builds inject their own root.
-        Assert.Equal(@"D:\game\game\data", DevFileStore.DefaultDevRoot);
+        // [C-01] IFileStore 端口契约（D-03 根注入）
+        Assert.Equal(@"D:\game\game\data", DevFileStore.DefaultDevRoot); // ci-allow: R9 T-027 断言 D-03 登记的开发机根
     }
 
     public void Dispose()

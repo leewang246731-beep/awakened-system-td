@@ -22,3 +22,7 @@ game/data/
 # --- T-030: pinned local toolchain payloads (editor, templates, nuget mirror) ---
 /tools/*
 !/tools/ci/
+
+# --- T-027: python bytecode from self-test imports ---
+__pycache__/
+*.pyc

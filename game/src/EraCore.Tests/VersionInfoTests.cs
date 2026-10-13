@@ -3,6 +3,7 @@ using Xunit;
 
 namespace EraCore.Tests;
 
+// [C-30] 测试基建：版本探针证明 EraCore→Tests→Godot 管线存活（T-028/T-029）
 public class VersionInfoTests
 {
     [Fact]
