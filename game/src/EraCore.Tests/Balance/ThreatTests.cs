@@ -3,10 +3,11 @@ using Xunit;
 
 namespace EraCore.Tests.Balance;
 
-// [C-19] threat level (F-047): SP-9 邻接敌营判定口径 + v3.2 §7 clamp formula.
+// Threat level tests (SP-9 邻接敌营判定口径 + v3.2 §7 clamp formula).
 // Float tolerance 1e-9: expected values are exact decimal literals of the
 // frozen formula outputs (0.3+0.3×n lands on clean doubles for the table
 // rows); 1e-9 absorbs the last-ulp rounding of the additions.
+// [C-19] threat level (F-047)
 public class ThreatTests
 {
     [Theory] // legal — SP-9 代入示例 three anchors (v3.2 §7 frozen)

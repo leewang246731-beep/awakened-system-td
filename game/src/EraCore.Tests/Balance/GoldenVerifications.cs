@@ -3,13 +3,14 @@ using Xunit;
 
 namespace EraCore.Tests.Balance;
 
-// [F-171] four-group verification of v3.2 appendix F.5（第 5/10/20/30 波）,
+// Four-group verification of v3.2 appendix F.5（第 5/10/20/30 波）,
 // T-035 first version. Expected numbers are frozen F.5 values (hardcoded,
 // source cited per assertion); every ACTUAL number is computed through the
 // T-036 formula library plus the DpsCalc/EhpCalc arithmetic — no expected
 // value is ever fed back as an input (CS-4.4).
 // Float precision 9 = the arithmetic chains carry at most a few ulps of
 // rounding; F.5 prints integers or one decimal.
+// [F-171] wave verification regression (C-29)
 public class GoldenVerifications
 {
     // E2 golden parameter set (T-035, [NEW-原型校准]): base 10 / begin 5 /

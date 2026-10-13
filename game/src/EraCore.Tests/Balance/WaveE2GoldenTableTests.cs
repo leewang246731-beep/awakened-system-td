@@ -4,12 +4,13 @@ using Xunit;
 
 namespace EraCore.Tests.Balance;
 
-// [F-171] golden regression first cut (T-035): every committed row of
+// Golden regression first cut (T-035): every committed row of
 // game/content/golden/wave-e2-golden.json is recomputed from the T-036
 // formula library using the file's own header parameters — any drift in
 // formulas, parameters or the golden file itself turns this red.
 // Golden content is regenerated only via
 // `python tools/ci/gen_wave_golden.py --update-golden` (CS-6.1).
+// [F-171] wave golden regression (C-29)
 public class WaveE2GoldenTableTests
 {
     private sealed record GoldenSpec(

@@ -3,11 +3,12 @@ using Xunit;
 
 namespace EraCore.Tests.Balance;
 
-// [F-049] threat multiplier mapping table: all 12 cells of v3.2 appendix F.2
+// Threat multiplier mapping table: all 12 cells of v3.2 appendix F.2
 // asserted table-driven, plus band edges and out-of-band clamping.
 // Float tolerance 0.005: F.2 prints the table rounded to 2 decimals
 // (0.83/1.17/1.53/1.07); the tolerance is half that last digit, source of
 // both the values and the rounding = v3.2 附录 F.2.
+// [F-049] multiplier mapping table
 public class ThreatMultipliersTests
 {
     [Theory] // legal — the 12-cell F.2 table, one row per threat level
