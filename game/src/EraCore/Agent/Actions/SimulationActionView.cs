@@ -192,7 +192,12 @@ public sealed class SimulationActionView : IActionWorldView
             return false;
         }
 
-        rejection = null;
-        return true;
+        // T-056 (spike2-pit#6): the unit layer shares the sim lane's rule
+        // body — a living enemy or a servicing porter on the cell rejects
+        // with the same code <see cref="Sim.Simulation"/> re-checks at
+        // command-apply time, so a green preview can never turn into a
+        // unit-occupancy rejection one tick later (and vice versa).
+        rejection = BuildOccupancyRule.UnitLayerRejection(cell, _simulation.Units, _simulation.Carriers);
+        return rejection is null;
     }
 }

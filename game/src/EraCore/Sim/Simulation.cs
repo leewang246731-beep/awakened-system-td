@@ -125,6 +125,13 @@ public sealed class Simulation
     private readonly UnitMovement _movement;
     private readonly AStarPathfinder _pathfinder;
 
+    // T-056 (spike2-pit#6): route cache in front of the pathfinder — the
+    // affected-only invalidation seam every occupancy-adding placement uses
+    // (放置→受影响路线失效→在途重算改道), plus the canonical outbound route
+    // of every assigned porter (the polyline push decisions walk).
+    private readonly PathCache _routeCache;
+    private readonly Dictionary<EntityId, IReadOnlyList<CellCoord>> _carrierRoutes = new();
+
     private readonly List<Unit> _units = new();
     private readonly List<SimBuilding> _buildings = new();
     private readonly List<SimTower> _towers = new();
@@ -262,6 +269,7 @@ public sealed class Simulation
         _laneKey = new FlowFieldKey(config.Lane, 0);
         _flows.Acquire(_laneKey, config.BaseCell);
         _pathfinder = new AStarPathfinder(_flowGrid);
+        _routeCache = new PathCache(_pathfinder);
         _spawner = new WaveSpawner(config.Enemies, config.Waves, rng, _clock);
         // The supplier only ever runs inside the readiness gate below (Step
         // itself is never called before the first field is live).
@@ -748,7 +756,7 @@ public sealed class Simulation
 
         // T-053 DEBT ③: pay-then-place inside the compensation window — a
         // throwing placement refunds the exact withdrawal.
-        return BuildCostCompensation.TryPayThenPlace(_stock, _costCurrency, spec.CostTotal, () =>
+        string? towerResult = BuildCostCompensation.TryPayThenPlace(_stock, _costCurrency, spec.CostTotal, () =>
         {
             var id = new EntityId(_nextBuildingId++);
             IBuilding placed = _registry.Place(id, spec, cell, tier: 1);
@@ -771,6 +779,12 @@ public sealed class Simulation
                     : 0L));
             _pacersById.Add(id, new SuppliedWeaponFire(weapon, _supplyMonitor, id));
         });
+        if (towerResult is null)
+        {
+            OnOccupancyAdded(cell);
+        }
+
+        return towerResult;
     }
 
     private string? ApplyBuildLaborCamp(JsonElement root)
@@ -787,7 +801,7 @@ public sealed class Simulation
         }
 
         // T-053 DEBT ③: compensated pay-then-place (see ApplyBuildTower).
-        return BuildCostCompensation.TryPayThenPlace(
+        string? campResult = BuildCostCompensation.TryPayThenPlace(
             _stock, _costCurrency, _config.Costs?.LaborCampCostPoints ?? 0.0, () =>
             {
                 var id = new EntityId(_nextBuildingId++);
@@ -797,6 +811,12 @@ public sealed class Simulation
                 _buildings.Add(new SimBuilding(
                     id, "era1:building-labor-camp", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.LaborCamp));
             });
+        if (campResult is null)
+        {
+            OnOccupancyAdded(cell);
+        }
+
+        return campResult;
     }
 
     private string? ApplyBuildHarvester(JsonElement root)
@@ -830,7 +850,7 @@ public sealed class Simulation
         }
 
         // T-053 DEBT ③: compensated pay-then-place (see ApplyBuildTower).
-        return BuildCostCompensation.TryPayThenPlace(
+        string? harvesterResult = BuildCostCompensation.TryPayThenPlace(
             _stock, _costCurrency, _config.Costs?.HarvesterCostPoints ?? 0.0, () =>
             {
                 var resource = new ResourceKey(resourceElement.GetString()!);
@@ -843,6 +863,12 @@ public sealed class Simulation
                 _buildings.Add(new SimBuilding(
                     id, "era1:building-harvester", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.Harvester));
             });
+        if (harvesterResult is null)
+        {
+            OnOccupancyAdded(cell);
+        }
+
+        return harvesterResult;
     }
 
     private string? ApplyBuildConverter(JsonElement root)
@@ -859,7 +885,7 @@ public sealed class Simulation
         }
 
         // T-053 DEBT ③: compensated pay-then-place (see ApplyBuildTower).
-        return BuildCostCompensation.TryPayThenPlace(
+        string? converterResult = BuildCostCompensation.TryPayThenPlace(
             _stock, _costCurrency, _config.Costs?.ConverterCostPoints ?? 0.0, () =>
             {
                 var id = new EntityId(_nextBuildingId++);
@@ -873,6 +899,12 @@ public sealed class Simulation
                     id, "era1:building-arrow-converter", cell, _config.EconomyBuildingHp, 1,
                     SimBuildingKind.Converter));
             });
+        if (converterResult is null)
+        {
+            OnOccupancyAdded(cell);
+        }
+
+        return converterResult;
     }
 
     private string? ApplyAssignCarrier(JsonElement root)
@@ -952,6 +984,11 @@ public sealed class Simulation
 
         var carrierId = new EntityId(_nextCarrierId++);
         _carriers.Add(new Carrier(carrierId, resource, supplier, receiver, route));
+        // T-056 (spike2-pit#6): the canonical outbound polyline — the push
+        // rule walks this when a later placement lands on a cell the porter
+        // has not passed yet (A* routes never revisit a cell, so the
+        // CurrentCell index inside the polyline is unambiguous).
+        _carrierRoutes[carrierId] = route;
         return null;
     }
 
@@ -974,7 +1011,112 @@ public sealed class Simulation
             return "cell-occupied";
         }
 
-        return null;
+        // T-056 (spike2-pit#6): unit-layer mutual exclusion — a living enemy
+        // or a servicing porter on the cell refuses the placement with the
+        // SAME code the SimulationActionView preview layer produces (the
+        // rule body is shared; the codes cannot drift apart).
+        return BuildOccupancyRule.UnitLayerRejection(cell, _units, _carriers);
+    }
+
+    /// <summary>
+    /// T-056 (spike2-pit#6) placement follow-up, run once per successfully
+    /// placed occupancy-adding building: the route cache drops exactly the
+    /// stored routes through the new cell (受影响失效 — never a full clear),
+    /// then every OUTBOUND porter whose remaining canonical route crosses
+    /// the cell is pushed — rerouted around the building via a fresh A*
+    /// query over the already-updated occupancy. Inbound porters and
+    /// porters still inside a service window are NOT displaced here: their
+    /// cached-route replay staleness is spike2-pit#5's own debt and lands
+    /// with the C-12 orchestrator's route-invalidation reroute (T-059).
+    /// </summary>
+    /// <returns>How many in-flight porters were rerouted (推移计数).</returns>
+    private int OnOccupancyAdded(CellCoord cell)
+    {
+        _routeCache.Invalidate(cell);
+        int pushed = 0;
+        foreach (Carrier carrier in _carriers)
+        {
+            if (carrier.Phase != CarrierPhase.Outbound
+                || !_carrierRoutes.TryGetValue(carrier.Id, out IReadOnlyList<CellCoord>? route))
+            {
+                continue;
+            }
+
+            int currentIndex = IndexOfCell(route, carrier.CurrentCell);
+            int blockedIndex = IndexOfCell(route, cell);
+            if (currentIndex < 0 || blockedIndex < 0 || blockedIndex <= currentIndex)
+            {
+                // Unknown polyline, cell not on this porter's route, or the
+                // porter already walked past it — nothing to push.
+                continue;
+            }
+
+            if (!TryPushAround(carrier, cell, out IReadOnlyList<CellCoord> detour))
+            {
+                continue;
+            }
+
+            carrier.Reroute(detour);
+            _carrierRoutes[carrier.Id] = detour;
+            pushed++;
+        }
+
+        return pushed;
+    }
+
+    /// <summary>
+    /// One pushed porter's detour: A* from the porter's current cell to its
+    /// destination over the post-placement grid. When the porter stands ON
+    /// the freshly occupied cell itself (edge of the one-tick validation
+    /// window), the detour legitimately starts there and steps out to the
+    /// first free neighbour — the porter walks out of the building instead
+    /// of clipping through it (移动层不查通行性 is exactly what the spike
+    /// tolerated and this rule retires).
+    /// </summary>
+    private bool TryPushAround(Carrier carrier, CellCoord blockedCell, out IReadOnlyList<CellCoord> detour)
+    {
+        detour = Array.Empty<CellCoord>();
+        CellCoord start = carrier.CurrentCell;
+        bool standsOnBlocked = start.Equals(blockedCell);
+        if (standsOnBlocked)
+        {
+            if (!TryPickFreeNeighbour(blockedCell, out CellCoord exit))
+            {
+                return false; // fully boxed in — the next departure reroute owns it
+            }
+
+            start = exit;
+        }
+
+        PathQueryResult result = _routeCache.GetPath(start, carrier.Destination);
+        if (result.Status != PathQueryStatus.Found || result.Cells.Count < 1)
+        {
+            return false; // no detour exists (e.g. walled off) — porter keeps its route
+        }
+
+        if (!standsOnBlocked)
+        {
+            detour = result.Cells;
+            return result.Cells[0].Equals(carrier.CurrentCell);
+        }
+
+        var walked = new List<CellCoord>(result.Cells.Count + 1) { carrier.CurrentCell };
+        walked.AddRange(result.Cells);
+        detour = walked;
+        return true;
+    }
+
+    private static int IndexOfCell(IReadOnlyList<CellCoord> route, CellCoord cell)
+    {
+        for (int i = 0; i < route.Count; i++)
+        {
+            if (route[i].Equals(cell))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private bool TryReadCell(JsonElement root, out CellCoord cell)
@@ -1022,7 +1164,7 @@ public sealed class Simulation
             return false;
         }
 
-        PathQueryResult result = _pathfinder.FindPath(fromNeighbour, toNeighbour);
+        PathQueryResult result = _routeCache.GetPath(fromNeighbour, toNeighbour);
         if (result.Status != PathQueryStatus.Found || result.Cells.Count < 2)
         {
             return false;

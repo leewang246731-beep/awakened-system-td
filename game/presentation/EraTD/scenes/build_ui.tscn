@@ -1,0 +1,83 @@
+[gd_scene load_steps=2 format=3]
+
+; T-056 (C-23) build-interaction scene (F-036/F-119): build bar (4 tower
+; swatches, catalog-driven buttons built by the script), drag-rectangle
+; preview layer (green/red cell highlights), demolish confirm card
+; (SellTower confirm_sell danger bit) and a status line. All EraCore wiring
+; lives in scripts/BuildInteractionUi.cs — this file only lays out nodes.
+
+[ext_resource type="Script" path="res://scripts/BuildInteractionUi.cs" id="1_buildui"]
+
+[node name="BuildInteractionUi" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_buildui")
+
+[node name="PreviewLayer" type="Control" parent="."]
+z_index = 20
+mouse_filter = 2
+
+[node name="BuildBar" type="HBoxContainer" parent="."]
+z_index = 30
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 320.0
+offset_bottom = 64.0
+theme_override_constants/separation = 8
+
+[node name="DemolishCard" type="PanelContainer" parent="."]
+visible = false
+z_index = 40
+offset_left = 440.0
+offset_top = 140.0
+offset_right = 760.0
+offset_bottom = 240.0
+
+[node name="VBox" type="VBoxContainer" parent="DemolishCard"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 312.0
+offset_bottom = 92.0
+theme_override_constants/separation = 8
+
+[node name="DemolishLabel" type="Label" parent="DemolishCard/VBox"]
+offset_right = 304.0
+offset_bottom = 48.0
+text = "拆除目标塔？"
+autowrap_mode = 2
+
+[node name="Buttons" type="HBoxContainer" parent="DemolishCard/VBox"]
+offset_top = 56.0
+offset_right = 304.0
+offset_bottom = 84.0
+theme_override_constants/separation = 16
+
+[node name="ConfirmButton" type="Button" parent="DemolishCard/VBox/Buttons"]
+offset_right = 120.0
+offset_bottom = 28.0
+text = "确认拆除（confirm_sell=true）"
+
+[node name="CancelButton" type="Button" parent="DemolishCard/VBox/Buttons"]
+offset_left = 136.0
+offset_right = 200.0
+offset_bottom = 28.0
+text = "取消"
+
+[node name="StatusLabel" type="Label" parent="."]
+z_index = 30
+anchors_preset = 3
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -60.0
+offset_right = 620.0
+offset_bottom = -20.0
+grow_vertical = 0
+mouse_filter = 2
+text = "建栏选塔 → 左键拖矩形 → 松开建造（ESC 取消 / 右键拆除）"
