@@ -45,6 +45,29 @@ public interface ICargoReceiver
 }
 
 /// <summary>
+/// Formal "cached route may be stale" notification of one carrier departure
+/// (T-059 DEBT ②, spike2-report §5 pit#5): fired exactly at the two phase
+/// transitions INTO a movement phase — Loading→Outbound and
+/// Unloading→Inbound — because <c>BeginOutbound</c> replays
+/// <c>_lastHomeRoute</c> (the last actually-walked polyline), which a wall
+/// event may have invalidated while the porter sat in a service window. The
+/// C-12 orchestrator subscribes, recomputes the route against the CURRENT
+/// world and calls <see cref="Carrier.Reroute"/> when the cached polyline
+/// differs (相位过渡主动 Reroute). Purely observational: no rng, no clock,
+/// no hashed state — subscription and handling never affect
+/// <c>ComputeStateHash</c> or the T-040 determinism invariant.
+/// </summary>
+/// <param name="Carrier">The departing porter.</param>
+/// <param name="Phase">Movement phase just entered (Outbound or Inbound).</param>
+/// <param name="DepartureCell">Cell the porter departs from (the route origin it would replay).</param>
+/// <param name="TargetCell">Phase target: destination when outbound, home when inbound.</param>
+public sealed record RouteInvalidatedEvent(
+    Carrier Carrier,
+    CarrierPhase Phase,
+    CellCoord DepartureCell,
+    CellCoord TargetCell);
+
+/// <summary>
 /// E1 porter-tier carrier (民夫档, C-07 precursor, T-047, F-040~F-042): walks
 /// an <see cref="AStarPathfinder"/> route at a fixed per-tick speed, loads at
 /// most <see cref="CapacityItems"/> per trip and unloads only when the
@@ -207,6 +230,17 @@ public sealed class Carrier
     public long TicksAlive => _ticksAlive;
 
     /// <summary>
+    /// Formal route-invalidation event (T-059 DEBT ②, spike2 pit#5): raised
+    /// at every departure into a movement phase, AFTER the phase is set, so a
+    /// handler may legally call <see cref="Reroute"/> synchronously — that is
+    /// the orchestrator's "route invalidated → recompute → reroute" seam.
+    /// Handlers must not re-enter <see cref="Tick"/> (single-threaded tick
+    /// domain, CS-1.5). Never raised in Loading/Unloading service windows —
+    /// mid-window porters hold their queued cargo by design (待卸队列).
+    /// </summary>
+    public event Action<RouteInvalidatedEvent>? RouteInvalidated;
+
+    /// <summary>
     /// Round-trip period in ticks for a one-way route of
     /// <paramref name="oneWayDistancePx"/> pixels: both travel legs plus one
     /// load and one unload window — the hand-calc the throughput test checks
@@ -360,6 +394,9 @@ public sealed class Carrier
         _progressPx = 0;
         _walkedOutbound = new List<CellCoord> { _route[0] };
         _phase = CarrierPhase.Outbound;
+        // T-059 DEBT ②: the replayed cached route may be stale — hand the
+        // orchestrator the recomputation seam at the moment of departure.
+        RaiseRouteInvalidated(CarrierPhase.Outbound, _home, _destinationCell);
     }
 
     private void BeginInbound()
@@ -374,7 +411,16 @@ public sealed class Carrier
         _segmentIndex = 0;
         _progressPx = 0;
         _phase = CarrierPhase.Inbound;
+        RaiseRouteInvalidated(CarrierPhase.Inbound, _destinationCell, _home);
     }
+
+    /// <summary>
+    /// Fires <see cref="RouteInvalidated"/> with the phase already set, so
+    /// handlers may reroute synchronously. Null-safe (no subscriber = no
+    /// cost) and side-effect free beyond subscriber work.
+    /// </summary>
+    private void RaiseRouteInvalidated(CarrierPhase phase, CellCoord departure, CellCoord target) =>
+        RouteInvalidated?.Invoke(new RouteInvalidatedEvent(this, phase, departure, target));
 
     private void Move()
     {
