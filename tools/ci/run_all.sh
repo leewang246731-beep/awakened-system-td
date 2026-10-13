@@ -2,7 +2,7 @@
 # run_all.sh — 本地一键流水线（T-027 [DEBT-W0] 清账；与 .github/workflows/ci.yml 同序同判据）。
 #
 # 顺序（08 §3 任务纪律第 4 条 PR 必跑段的 W0 形态）：
-#   1) redline_scan.py          → G2 红线零违规（06 §3.1 首批 7 条）
+#   1) redline_scan.py          → G2 红线零违规（06 §3.1 已启用 9 条，W1 收口）
 #   1.5) asset_validator.py     → G2.5 资产规格校验（T-045 接入：入库 PNG 过
 #                                尺寸/调色板/文件名门禁；REJECT=红。范围=
 #                                game/assets 资产库根 + presentation 纹理目录）

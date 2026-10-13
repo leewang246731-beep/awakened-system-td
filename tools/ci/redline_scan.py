@@ -4,8 +4,9 @@ redline_scan.py — EraTD CI 红线扫描器（任务 T-027，Wave 0，组件 C-
 
 单文件、零三方依赖（Python 3.8+，`python3 redline_scan.py` 直跑）。
 实现 docs/engineering/06-quality-discussion.md §3.1 二十三条检查中当前对象
-已存在、可机械化的首批 7 条；其余（R1-R4/R6-R8/R10-R12/R14/R15/T5-T8）
-随其对象（数据表/流场/语料/金样/覆盖率工具）落地后在后续任务启用。
+已存在、可机械化的 9 条（Wave 1 收口：R7/T8 上线）；其余
+（R2-R4/R6/R8/R10-R12/R14/R15/T5-T7）随其对象（流场/语料/覆盖率工具）
+落地后在后续任务启用。
 
   R9   绝对/盘符路径扫描（RL9：本机绝对路径禁入代码/测试/配置）
        白名单：tools/**、.gitignore、docs 中登记的环境事实（见 allowlist.txt）
@@ -17,15 +18,34 @@ redline_scan.py — EraTD CI 红线扫描器（任务 T-027，Wave 0，组件 C-
        空 catch、测试方法体内无任何断言）
   R5   密钥模式（sk-[A-Za-z0-9]{20,} 与 api_key/secret/token/password
        非空非占位字面量；排除 config/、docs/、tools/）
+  R7   数值锚点扫描（RL7/CS-2.3）：从 game/content/era1/*.json 提取数值
+       锚点集（塔 dps/成本、敌 hp/甲、时代能源值等；≥10 的整数值，跳过
+       '_' 注解键与 tick_rate_hz/cell_size_px/canvas_size_px 元约定键），
+       扫描 game/src/EraCore/** 产品代码（不含 Tests/obj/bin）中的硬编码
+       整数字面量命中锚点集 → FAIL。域常量白名单：0/1/-1、30（K-1 30Hz
+       tick 域）、10（v3.2 §5「1 件弹药 = 10 发」）、FNV 质数/偏移基
+       （16777619、2166136261、1099511628211、14695981039346656037）。
+       行级豁免：`// ci-allow: R7 <任务ID 理由>`。
   R13  git 基线 8402414 可达性（RL13；--baseline 可覆盖供自测）
+  T8   金样独立 commit（CS-6.2）：`git log` 找出触 game/content/golden/
+       *.json 的 commit，凡同时触 game/src/EraCore/** 产品代码（排除
+       Tests）即 FAIL。首版金样（引擎先于金样存在）同引擎合入属 CS-6.2
+       首版条款允许项，但须 REV 登记 + allowlist `T8: <sha>` 条目豁免
+       （先例 d6f5862，见 REV-20261013-wave1-round3）；更新金样必须独立
+       commit，无豁免通道。
   T3   测试方法 F-ID/C-ID 关联覆盖率（`// [F-xxx]` 注释格式；WARNING 级，
        不影响退出码——报告缺口供 review 与回填）
+
+R1 覆盖声明（W1 收口裁定）：R1（波次参数禁硬编码）不设独立检查，经 R7
+子集实现——R7 对 game/src/EraCore/Balance/**（Balance 命名空间产品代码）
+加严为「禁出现 ≥10 的整型魔数」（命中锚点与否一律 FAIL；公式结构常量
+0.3/1.2/5/3 等浮点或 <10 整数不在扫描口径内）。见 13-quality-gates.md G2。
 
 豁免机制（D-18：豁免须可审查）：
   行级   ：违规行或其上一行含 `ci-allow: R9 T-027 <理由>`（列出检查 ID 或 *）
   路径级 ：tools/ci/allowlist.txt，每条带理由；`路径 :: 节标题` 仅豁免该节
            （节标题行起至下一个 "## " 标题前）；`ID: 路径` 前缀把豁免限定到
-           单个检查。
+           单个检查（T8 以 commit 短 sha 为"路径"登记豁免）。
 
 输出：stdout 人读报告；--json <path> 另存机器报告（违规列表+计数+退出码）。
 退出码：0=无 FAIL（WARNING 允许）；1=存在 FAIL；2=参数/运行错误。
@@ -107,6 +127,31 @@ FID_COMMENT_RE = re.compile(r"\[\s*[FC]-\d{1,3}\s*\]")
 FID_TRAIT_RE = re.compile(r"Trait\s*\(\s*\"[^\"]*\"\s*,\s*\"[FC]-\d{1,3}\"")
 
 CI_ALLOW_RE = re.compile(r"ci-allow:\s*([A-Za-z0-9*,\s\-]+)")
+
+# T8：金样独立 commit（CS-6.2）——触金样的 commit 禁同时触 EraCore 产品代码
+GOLDEN_DIR = "game/content/golden"
+T8_PRODUCT_SRC_PREFIX = "game/src/EraCore/"
+T8_TESTS_PREFIX = "game/src/EraCore.Tests/"
+GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
+# R7：数值锚点扫描（RL7/CS-2.3）——内容 JSON 数值锚点 vs 产品代码硬编码
+R7_CONTENT_DIR = "game/content/era1"
+R7_SRC_PREFIX = "game/src/EraCore"
+R7_BALANCE_PREFIX = "game/src/EraCore/Balance"   # R1 覆盖：Balance 加严为禁 ≥10 魔数
+# 元约定键（tick 域/画布度量，非平衡数值）：不进锚点集
+R7_ANCHOR_SKIP_KEYS = {"tick_rate_hz", "cell_size_px", "canvas_size_px"}
+# 合法域常量：0/1/-1 平凡值；30=K-1 30Hz tick 域；10=v3.2 §5「1 件弹药=10 发」；
+# FNV-1a 质数与偏移基（32/64 位，BottleneckDetector/TowerSupplyMonitor/FlowField 哈希）
+R7_VALUE_WHITELIST = {
+    0, 1, -1, 10, 30,
+    16777619, 2166136261, 1099511628211, 14695981039346656037,
+}
+# 独立整数字面量：前后均非 [\w.]（排除标识符内数字、浮点/版本片段、成员访问）
+R7_INT_LITERAL_RE = re.compile(r"(?<![\w.])\d+(?![\w.])")
+# 行内字符串内容抹除后再匹配（错误消息等文案数字不算硬编码）
+R7_STRING_RE = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+# 生成目录（git 清单正常已排除；文件系统回退时兜底）
+R7_GEN_SEGMENTS = {"obj", "bin"}
 
 
 # ---------------------------------------------------------------- 数据结构
@@ -608,13 +653,175 @@ def check_t3_fid_coverage(ctx: ScanContext):
     return out
 
 
+# ------------------------------------------------ R7 数值锚点（RL7/CS-2.3；R1 覆盖）
+
+def _r7_collect_values(node, anchors: set) -> None:
+    """递归收集内容 JSON 的数值锚点：≥10 的整数值（浮点取整前须为整值）；
+    跳过 '_' 注解键与元约定键（R7_ANCHOR_SKIP_KEYS）。"""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k.startswith("_") or k in R7_ANCHOR_SKIP_KEYS:
+                continue
+            _r7_collect_values(v, anchors)
+    elif isinstance(node, list):
+        for v in node:
+            _r7_collect_values(v, anchors)
+    elif isinstance(node, bool):
+        return  # Python bool 是 int 子类，先排除
+    elif isinstance(node, (int, float)):
+        if float(node).is_integer() and node >= 10:
+            anchors.add(int(node))
+
+
+def _r7_anchors(ctx: ScanContext):
+    """从 game/content/era1/*.json 提取锚点集（扣除域常量白名单）。"""
+    anchors = set()
+    bad = []
+    for rel in ctx.files:
+        if not (ctx.under(rel, R7_CONTENT_DIR) and rel.endswith(".json")):
+            continue
+        try:
+            data = json.loads("\n".join(ctx.read(rel)))
+        except ValueError as exc:
+            bad.append((rel, exc))
+            continue
+        _r7_collect_values(data, anchors)
+    return anchors - R7_VALUE_WHITELIST, bad
+
+
+def check_r7_numeric_anchors(ctx: ScanContext):
+    """R7：产品代码硬编码整数字面量命中内容锚点集 → FAIL；
+    Balance 命名空间加严为禁 ≥10 整型魔数（R1 波次参数禁硬编码，经 R7 覆盖）。
+    范围：game/src/EraCore/**（.cs），不含 Tests 与 obj/bin 生成目录。"""
+    out = []
+    anchors, bad_json = _r7_anchors(ctx)
+    for rel, exc in bad_json:
+        out.append(Finding(
+            "R7", rel, 1, "FAIL",
+            f"内容 JSON 解析失败（{exc}）——锚点集不完整，R7 无法判定"))
+    scanned = 0
+    for rel in ctx.files:
+        if not rel.endswith(".cs"):
+            continue
+        if not ctx.under(rel, R7_SRC_PREFIX):
+            continue
+        if ctx.under(rel, "game/src/EraCore.Tests"):
+            continue
+        if any(seg in R7_GEN_SEGMENTS for seg in rel.split("/")[:-1]):
+            continue
+        scanned += 1
+        in_balance = ctx.under(rel, R7_BALANCE_PREFIX)
+        lines = ctx.read(rel)
+        for i, ln in enumerate(lines, 1):
+            if _is_comment_line(ln, ".cs"):
+                continue
+            code = R7_STRING_RE.sub('""', ln)
+            for m in R7_INT_LITERAL_RE.finditer(code):
+                v = int(m.group(0))
+                if v in R7_VALUE_WHITELIST:
+                    continue
+                if v in anchors:
+                    msg = (f"硬编码整数字面量 {v} 命中内容数值锚点"
+                           f"（RL7/CS-2.3：平衡数值只存 game/content 注册表、"
+                           f"引擎只读表；锚点源 game/content/era1/*.json；"
+                           f"确属文档化域常量则行级豁免 `// ci-allow: R7 <任务ID 理由>`）")
+                elif in_balance and v >= 10:
+                    msg = (f"Balance 命名空间出现 ≥10 整型魔数 {v}"
+                           f"（R1 波次参数禁硬编码，经 R7 覆盖：Balance 产品代码"
+                           f"禁 ≥10 魔数——命中锚点与否一律禁；波次参数走数据表，"
+                           f"公式结构常量须为浮点或 <10）")
+                else:
+                    continue
+                if not ctx.suppressed(rel, i, lines, "R7"):
+                    out.append(Finding("R7", rel, i, "FAIL", msg))
+    ctx.r7_stats = (len(anchors), scanned)
+    return out
+
+
+# ------------------------------------------------ T8 金样独立 commit（CS-6.2）
+
+def _t8_touches_golden(files) -> bool:
+    return any(f.startswith(GOLDEN_DIR + "/") and f.endswith(".json")
+               for f in files)
+
+
+def _t8_touches_product_src(files) -> bool:
+    return any(f.startswith(T8_PRODUCT_SRC_PREFIX)
+               and not f.startswith(T8_TESTS_PREFIX)
+               for f in files)
+
+
+def t8_commit_violates(files) -> bool:
+    """(commit, files) 判定：同时触金样 *.json 与 EraCore 产品代码（Tests 除外）。"""
+    return _t8_touches_golden(files) and _t8_touches_product_src(files)
+
+
+def _t8_parse_log(text: str):
+    """解析 `git log --format=%H --name-only` 输出为 [(sha, [files])]。"""
+    commits = []
+    cur = None
+    for ln in text.splitlines():
+        if GIT_SHA_RE.match(ln):
+            cur = (ln, [])
+            commits.append(cur)
+        elif ln.strip() and cur is not None:
+            cur[1].append(ln.strip())
+    return commits
+
+
+def check_t8_golden_independent(ctx: ScanContext):
+    """T8：触金样的 commit 若同时触 game/src/EraCore/** 产品代码（排除 Tests）
+    → FAIL；首版金样同引擎合入经 allowlist `T8: <sha>` 条目豁免（CS-6.2 首版
+    条款 + REV 登记）；更新金样必须独立 commit。
+    注：取全量 `git log --format=%H --name-only`（无 pathspec——pathspec 会把
+    --name-only 输出裁剪为仅命中文件，commit 的完整触面就丢了），在解析侧
+    过滤触金样的 commit；合并提交在 --name-only 下不列文件，即不会误判
+    （线性历史纪律下无此形态）。"""
+    try:
+        r = _git(ctx.root, "log", "--format=%H", "--name-only")
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return [Finding("T8", "-", 0, "FAIL", f"git 不可用，无法核验金样独立 commit：{exc}")]
+    if r.returncode != 0:
+        return [Finding(
+            "T8", "-", 0, "FAIL",
+            f"git log 失败（rc={r.returncode}），无法核验金样独立 commit（CS-6.2）")]
+    out = []
+    total = exempt = 0
+    for sha, files in _t8_parse_log(r.stdout.decode("utf-8", "replace")):
+        if not _t8_touches_golden(files):
+            continue
+        total += 1
+        if not t8_commit_violates(files):
+            continue
+        short = sha[:7]
+        if (ctx.exemptions.file_exempt(sha, "T8")
+                or ctx.exemptions.file_exempt(short, "T8")):
+            exempt += 1
+            continue
+        golden = [f for f in files if f.startswith(GOLDEN_DIR + "/")]
+        product = [f for f in files
+                   if f.startswith(T8_PRODUCT_SRC_PREFIX)
+                   and not f.startswith(T8_TESTS_PREFIX)]
+        out.append(Finding(
+            "T8", short, 0, "FAIL",
+            f"commit {short} 同时触金样 {len(golden)} 件与 EraCore 产品代码 "
+            f"{len(product)} 件（CS-6.2：更新金样必须独立 commit；首版金样同引擎"
+            f"合入属首版条款，须 REV 登记 + allowlist 登记 `T8: {short} | 理由`；"
+            f"产品侧如 {product[0] if product else '-'}）"))
+    ctx.t8_stats = (total, exempt)
+    return out
+
+
 CHECK_FUNCS = [
     ("R9", "绝对/盘符路径扫描（RL9）", check_r9_abs_paths),
     ("T1", "残留标记扫描（TODO/FIXME/stub/占位/假成功）", check_t1_markers),
     ("T2", "src↔test 文件映射", check_t2_src_test_map),
     ("T4", "恒真/空断言扫描", check_t4_tautology),
     ("R5", "密钥模式扫描（RL5）", check_r5_secrets),
+    ("R7", "数值锚点扫描（RL7/R1 覆盖：Balance 禁 ≥10 魔数）",
+     check_r7_numeric_anchors),
     ("R13", "git 基线可达性（RL13）", check_r13_baseline),
+    ("T8", "金样独立 commit（CS-6.2）", check_t8_golden_independent),
     ("T3", "测试 F-ID 关联覆盖率（WARNING 级）", check_t3_fid_coverage),
 ]
 
@@ -643,6 +850,12 @@ def run_scan(root: str, baseline: str = DEFAULT_BASELINE,
             tagged, total = ctx.t3_stats
             pct = f"{100.0 * tagged / total:.0f}%" if total else "n/a"
             note = f"{tagged}/{total} 方法已关联 ({pct})"
+        elif check_id == "R7" and getattr(ctx, "r7_stats", None):
+            n_anchors, n_files = ctx.r7_stats
+            note = f"{n_anchors} 锚点 | {n_files} 产品文件已扫"
+        elif check_id == "T8" and getattr(ctx, "t8_stats", None):
+            total, exempt = ctx.t8_stats
+            note = f"{total} 金样 commit | {exempt} 首版豁免"
         report.checks.append(
             {"id": check_id, "name": name, "status": status,
              "fail": fail, "warn": warn, "note": note})
@@ -655,7 +868,7 @@ def format_report(report: Report) -> str:
     width = max(len(c["id"]) for c in report.checks) if report.checks else 4
     lines = [
         "=" * 72,
-        f"redline_scan — CI 红线扫描（T-027；06 §3.1 首批 7 条）",
+        f"redline_scan — CI 红线扫描（T-027；06 §3.1 已启用 9 条）",
         f"root: {report.root}   baseline: {report.baseline}   "
         f"files: {report.file_source}",
         "=" * 72,

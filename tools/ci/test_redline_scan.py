@@ -4,11 +4,17 @@ test_redline_scan.py — redline_scan.py 自测（任务 T-027；零三方依赖
 `python3 test_redline_scan.py` 直跑）。
 
 用例（正反样例 + 豁免 + CLI 端到端）：
-  1. clean_tree_passes        正样例：干净仓库 7 项检查全 PASS、退出码 0
+  1. clean_tree_passes        正样例：干净仓库 9 项检查全 PASS、退出码 0
   2. dirty_tree_caught        反样例：故意违规的临时仓库逐条被抓到
                               （检查 ID/文件/行号一一对应，无漏报无多报）
   3. exemptions_work          ci-allow 行级豁免 + allowlist 路径/节级豁免生效
   4. cli_exit_codes_and_json  命令行入口退出码与 JSON 报告结构
+  5. t8_golden_independence   T8 金样独立 commit：(commit, files) 判定表驱动
+                              + 真实 git 仓库端到端（金样+产品同 commit 抓到、
+                              金样+Tests-only 干净、allowlist 首版豁免生效）
+  6. r7_numeric_anchors       R7 数值锚点：锚点提取（跳元约定键/注解键/白名单）
+                              + 产品代码命中抓到 + Balance ≥10 魔数（R1 覆盖）
+                              + 字符串内容不误报 + Tests 不扫 + 行级豁免
 
 样例目录均在系统临时目录中创建、用后删除；git 检查用临时仓库的真实
 HEAD 作为基线（--baseline 覆盖），不伪造任何运行结果。
@@ -289,9 +295,9 @@ def test_clean_tree_passes() -> None:
         baseline = init_repo(t)
         report = rs.run_scan(t, baseline=baseline)
         by_id = {c["id"]: c for c in report.checks}
-        check(len(report.checks) == 7, f"运行全部 7 项检查（实际 {len(report.checks)}）")
+        check(len(report.checks) == 9, f"运行全部 9 项检查（实际 {len(report.checks)}）")
         check(all(c["status"] == "PASS" for c in report.checks),
-              "干净样例 7 项全部 PASS：" +
+              "干净样例 9 项全部 PASS：" +
               ", ".join(f"{c['id']}={c['status']}" for c in report.checks))
         check(report.exit_code == 0, "退出码 0")
         fails = [f for f in report.findings if f.severity == "FAIL"]
@@ -412,9 +418,9 @@ def test_cli_exit_codes_and_json() -> None:
             data = json.load(fh)
         check(data["exit_code"] == 0 and data["counts"]["fail_findings"] == 0,
               "JSON 报告结构与 exit_code 字段正确")
-        check(len(data["checks"]) == 7 and all(
+        check(len(data["checks"]) == 9 and all(
             c["status"] == "PASS" for c in data["checks"]),
-            "JSON 检查表 7 项全 PASS")
+            "JSON 检查表 9 项全 PASS")
 
         build_dirty_root(t)
         baseline2 = init_repo(t)
@@ -424,6 +430,181 @@ def test_cli_exit_codes_and_json() -> None:
         check(r2.returncode == 1, f"违规仓库 CLI 退出码 1（实际 {r2.returncode}）")
         check("R13" in r2.stdout and "R9" in r2.stdout,
               "人读报告包含 R9/R13 检查行")
+    finally:
+        shutil.rmtree(t, ignore_errors=True)
+
+
+# ---------------------------------------------------------------- 用例 5（T8）
+
+def test_t8_predicate_table() -> None:
+    print("[5] T8 金样独立 commit：(commit, files) 判定表驱动")
+    cases = [
+        # (files, 期望 violates)
+        (["game/content/golden/a.json"], False),                       # 仅金样
+        (["game/src/EraCore/Sim/Sim.cs"], False),                      # 仅产品
+        (["game/content/golden/a.json",
+          "game/src/EraCore/Sim/Sim.cs"], True),                       # 金样+产品 → FAIL
+        (["game/content/golden/a.json",
+          "game/src/EraCore.Tests/SimTests.cs"], False),               # Tests 不算产品
+        (["game/content/golden/a.json", "game/src/EraCore.Tests/SimTests.cs",
+          "game/src/EraCore/Sim/Sim.cs"], True),                       # 混合，产品在场 → FAIL
+        (["game/content/golden/readme.txt",
+          "game/src/EraCore/Sim/Sim.cs"], False),                      # 非 .json 金样文件
+        (["game/content/golden2/a.json",
+          "game/src/EraCore/Sim/Sim.cs"], False),                      # 目录前缀不同
+        ([], False),
+    ]
+    for files, want in cases:
+        got = rs.t8_commit_violates(files)
+        check(got == want, f"t8_commit_violates({files[0] if files else '[]'}, …{len(files)}) == {want}")
+
+
+def test_t8_end_to_end() -> None:
+    print("[5b] T8 端到端：真实 git 提交（金样+产品被抓 / 金样+Tests 干净 / 首版豁免）")
+    t = tempfile.mkdtemp(prefix="redline_t8_")
+    try:
+        build_clean_root(t)
+        baseline = init_repo(t)
+
+        # commit 2：金样 + EraCore 产品代码 → 违规（首版未豁免形态）
+        w(t, "game/content/golden/wave-golden.json",
+          '{"content_type": "Golden", "items": [{"wave": 1}]}\n')
+        w(t, "game/src/EraCore/Extra.cs",
+          "namespace EraCore;\n\npublic static class Extra\n{\n"
+          "    public const int A = 1;\n}\n")
+        git(t, "add", "-A")
+        git(t, "commit", "-q", "-m", "golden + engine product code")
+        sha2 = git(t, "rev-parse", "--short", "HEAD").strip()
+
+        # commit 3：金样 + 仅测试代码 → 干净
+        w(t, "game/content/golden/other-golden.json",
+          '{"content_type": "Golden", "items": [{"wave": 2}]}\n')
+        w(t, "game/src/EraCore.Tests/ExtraTests.cs",
+          "using Xunit;\n\nnamespace EraCore.Tests;\n\n"
+          "public class ExtraTests\n{\n"
+          "    [Fact]\n"
+          "    public void A_is_one()\n"
+          "    {\n"
+          "        // [F-999] 自测样例\n"
+          "        Assert.Equal(1, Extra.A);\n"
+          "    }\n"
+          "}\n")
+        git(t, "add", "-A")
+        git(t, "commit", "-q", "-m", "golden + tests only")
+
+        report = rs.run_scan(t, baseline=baseline)
+        t8 = [f for f in report.findings if f.check == "T8"]
+        check(len(t8) == 1 and t8[0].path == sha2,
+              f"金样+产品 commit 被抓且仅此一个（实际 {[(f.path, f.line) for f in t8]}）")
+        check("sim" in t8[0].message.lower() or "产品" in t8[0].message,
+              "T8 消息提示产品侧文件与豁免通道")
+        check(report.exit_code == 1, "T8 违规时退出码 1")
+
+        # allowlist 首版豁免（短 sha 条目）→ T8 归零
+        w(t, "tools/ci/allowlist.txt",
+          "T2: game/src/EraCore/IO/IStore.cs | 纯端口接口（自测样例）\n"
+          f"T8: {sha2} | 自测首版豁免样例\n")
+        git(t, "add", "-A")
+        git(t, "commit", "-q", "-m", "register first-creation exemption")
+        report2 = rs.run_scan(t, baseline=baseline)
+        t8b = [f for f in report2.findings if f.check == "T8"]
+        check(not t8b, f"allowlist `T8: <sha>` 豁免生效（实际 {t8b}）")
+        by_id = {c["id"]: c for c in report2.checks}
+        check(by_id["T8"]["status"] == "PASS" and "1 首版豁免" in by_id["T8"]["note"],
+              f"T8 计数注记含首版豁免（实际 {by_id['T8']['note']}）")
+    finally:
+        shutil.rmtree(t, ignore_errors=True)
+
+
+# ---------------------------------------------------------------- 用例 6（R7）
+
+T8_GOLDEN_JSON = '{"content_type": "Golden", "items": [{"wave": 1}]}\n'
+
+ERA1_TOWERS_JSON = """{
+  "content_type": "Building",
+  "tick_rate_hz": 30,
+  "cell_size_px": 32,
+  "ammo_convention": { "shots_per_ammo_item": 10, "_source": "v3.2" },
+  "_annotation": { "hp": 1234 },
+  "items": [
+    { "id": "era1:tower-x", "hp": 2500, "damage_per_shot": 77,
+      "cost_total": 15, "range_cells": 5.5 }
+  ]
+}
+"""
+
+ANCHORED_CS = """namespace EraCore.Combat;
+
+public static class Anchored
+{
+    public const int BadAnchor = 77;
+    public const int TickRate = 30;
+    public const int ShotsPerItem = 10;
+    public const int NotAnAnchor = 999;
+    public const int AnnotationKey = 1234;
+    // ci-allow: R7 T-999 自测：行级豁免样例
+    public const int ExemptAnchor = 2500;
+    public static string Note() => "hp 2500 出现在字符串里";
+}
+"""
+
+BALANCE_RULE_CS = """namespace EraCore.Balance;
+
+public static class Rule
+{
+    public const int Magic = 12;
+    public const int Small = 9;
+    public const int Tick = 30;
+    public const double Structural = 0.3;
+}
+"""
+
+ANCHORED_TESTVALUES_CS = """namespace EraCore.Tests;
+
+public static class AnchoredTestValues
+{
+    public const int Ghost = 2500;
+}
+"""
+
+
+def test_r7_numeric_anchors() -> None:
+    print("[6] R7 数值锚点：提取口径 + 命中抓取 + R1 覆盖 + 豁免")
+    t = tempfile.mkdtemp(prefix="redline_r7_")
+    try:
+        build_clean_root(t)
+        w(t, "game/content/era1/towers.json", ERA1_TOWERS_JSON)
+        w(t, "game/src/EraCore/Combat/Anchored.cs", ANCHORED_CS)
+        w(t, "game/src/EraCore/Balance/Rule.cs", BALANCE_RULE_CS)
+        w(t, "game/src/EraCore.Tests/AnchoredTestValues.cs", ANCHORED_TESTVALUES_CS)
+        baseline = init_repo(t)
+        report = rs.run_scan(t, baseline=baseline)
+        r7 = {(f.path, f.line) for f in report.findings if f.check == "R7"}
+
+        expected = {
+            ("game/src/EraCore/Combat/Anchored.cs", 5),   # 77 命中 damage_per_shot 锚点
+            ("game/src/EraCore/Balance/Rule.cs", 5),      # 12：Balance ≥10 魔数（R1 覆盖）
+        }
+        check(r7 == expected,
+              f"R7 恰好命中锚点行与 Balance 魔数行（实际 {sorted(r7)}）")
+        by_id = {c["id"]: c for c in report.checks}
+        check(by_id["R7"]["note"].startswith("3 锚点"),
+              f"锚点集=3（2500/77/15；10/30 白名单、32/1234 跳过）实际注记 {by_id['R7']['note']}")
+        # 白名单/跳过键/注解键/字符串内容/Tests 目录均不报：
+        #   TickRate=30、ShotsPerItem=10（域常量白名单）；NotAnAnchor=999（非锚点且非 Balance）；
+        #   AnnotationKey=1234（'_' 注解键不入锚点集）；ExemptAnchor=2500（上一行 ci-allow）；
+        #   Note() 字符串里的 2500（字符串内容抹除）；AnchoredTestValues=2500（Tests 不扫）
+        check(report.exit_code == 1, "R7 存在 FAIL 时退出码 1")
+
+        # 豁免后归零（同一违规行加 ci-allow 行内尾注形态）
+        w(t, "game/src/EraCore/Balance/Rule.cs", BALANCE_RULE_CS.replace(
+            "public const int Magic = 12;",
+            "public const int Magic = 12; // ci-allow: R7 T-999 自测豁免"))
+        git(t, "add", "-A")
+        git(t, "commit", "-q", "-m", "exempt balance magic")
+        report2 = rs.run_scan(t, baseline=baseline)
+        r7b = [f for f in report2.findings if f.check == "R7"]
+        check(len(r7b) == 1, f"仅剩 Combat 锚点行（Balance 行内尾注豁免生效；实际 {r7b}）")
     finally:
         shutil.rmtree(t, ignore_errors=True)
 
@@ -439,6 +620,9 @@ def main() -> int:
     test_dirty_tree_caught()
     test_exemptions_work()
     test_cli_exit_codes_and_json()
+    test_t8_predicate_table()
+    test_t8_end_to_end()
+    test_r7_numeric_anchors()
     print("-" * 60)
     print(f"selftest summary: {PASS} passed, {FAIL} failed")
     return 1 if FAIL else 0

@@ -119,7 +119,7 @@ public sealed class AmmoConverter : ICargoReceiver, ICargoSupplier
         E1CraftTicks);
 
     /// <summary>Craft time of the E1 anchor recipe in ticks (2 s at 30 Hz). [NEW-T-034]</summary>
-    public const int E1CraftTicks = 60;
+    public const int E1CraftTicks = 60; // ci-allow: R7 T-034 [NEW-T-034] E1 薄版配方工艺时长锚点（2s×30Hz；v3.2 仅钉 1 件=10 发，时长为任务卡锚点）——内容注册表接管配方前的文档化域常量，处置见 REV-20261013-wave1-round3
 
     /// <summary>
     /// Energy demand of one converter in points/s.
@@ -134,7 +134,7 @@ public sealed class AmmoConverter : ICargoReceiver, ICargoSupplier
     /// [NEW-T-034] 40 items = 20 anchor crafts — one porter can top the
     /// hopper up without immediate refusal (待卸队列 keeps the rest queued).
     /// </summary>
-    public const int HopperCapacityPerInput = 40;
+    public const int HopperCapacityPerInput = 40; // ci-allow: R7 T-034 [NEW-T-034] 料斗容量=40 件（20 次锚定 crafting）文档化域常量，同 E1CraftTicks 口径
 
     /// <summary>
     /// Output buffer size in ammo items.

@@ -96,7 +96,7 @@ public sealed class BottleneckDetector
     /// at 30 Hz. [NEW-T-048] long enough to ride out single burst gaps in
     /// the delivery window, short enough to alarm well inside one wave.
     /// </summary>
-    public const int DefaultConsecutiveTicks = 60;
+    public const int DefaultConsecutiveTicks = 60; // ci-allow: R7 T-048 [NEW-T-048] 瓶颈判定连击窗 60t=2s（任务卡示例口径，v3.2 未钉数值）
 
     private readonly IClock _clock;
     private readonly TowerSupplyMonitor _monitor;

@@ -87,13 +87,13 @@ public sealed class Carrier
     /// Loading service window in ticks (0.67 s).
     /// [NEW-原型校准] 20 ticks so the reference route realizes 0.3 件/s.
     /// </summary>
-    public const int LoadTicks = 20;
+    public const int LoadTicks = 20; // ci-allow: R7 T-047 [NEW-原型校准] 装载服务窗 20t=0.67s——0.3 件/s 吞吐锚点（160px 参考距口径）的构成常量，v3.2 未钉服务窗
 
     /// <summary>
     /// Unloading service window in ticks (0.67 s).
     /// [NEW-原型校准] 20 ticks so the reference route realizes 0.3 件/s.
     /// </summary>
-    public const int UnloadTicks = 20;
+    public const int UnloadTicks = 20; // ci-allow: R7 T-047 [NEW-原型校准] 卸载服务窗 20t=0.67s——与 LoadTicks 同口径的构成常量
 
     /// <summary>One grid cell = 32 px (CellCoord contract, K-1).</summary>
     public const double CellSizePx = 32.0;

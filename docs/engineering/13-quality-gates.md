@@ -2,8 +2,8 @@
 
 | 项 | 内容 |
 |---|---|
-| 版本 | v1.0 |
-| 日期 | 2026-10-13 |
+| 版本 | v1.1 |
+| 日期 | 2026-10-14 |
 | 状态 | **生效**（T-018 交付；G1~G4 已由 `tools/ci/run_all.sh` 与 `.github/workflows/ci.yml` 实机挂接，G5~G10 为流程性门禁即时生效，G6~G8 标注启用时点） |
 | 任务卡 | T-018（G1~G10 验收挂接表；F 泳道，组件 C-30；验收标准"十缺口逐项挂到波次出口，02 §6 闭环"） |
 | 依据 | 《06-quality-discussion.md》§1/§2/§3/§4/§6；《docs/CODE_STANDARDS.md》CS-1~CS-7 与"规则↔检查映射"；《08-task-plan.md》§3 任务纪律；《02-consistency-audit.md》§6；《07-decided-plan.md》D-13/D-18/D-19 |
@@ -28,11 +28,11 @@ T-018 任务卡的"十缺口逐项挂到波次出口"指后者，挂接表见本
 | # | 门禁 | 定义与判据（可执行） | 检验载体 | 状态 |
 |---|---|---|---|---|
 | G1 | 测试全绿 | `dotnet test game/EraTD.sln` 0 Failed（W0 基线 37/37）；五级测试按 06 §1.6 映射逐级声明"已测/N-A"；测试命名/F-ID 关联合规（CS-3.2，T3 扫描） | run_all.sh step 2 / ci.yml Stage 2 | **生效** |
-| G2 | 红线零违规 | `python tools/ci/redline_scan.py` 退出码 0（0 FAIL；WARNING 允许但须回填）。当前首批 7 条（R9/T1/T2/T4/R5/R13/T3），23 条全量（R1~R15+T1~T8）随对象落地逐条启用——启用清单见 06 §3.1 总表，未启用项不视为已设防 | run_all.sh step 1 / ci.yml Stage 1 | **生效（7/23 条）** |
+| G2 | 红线零违规 | `python tools/ci/redline_scan.py` 退出码 0（0 FAIL；WARNING 允许但须回填）。当前 9 条（R9/T1/T2/T4/R5/R7/R13/T8/T3；W1 收口上线 R7 数值锚点〔RL7/CS-2.3：锚点=game/content/era1/*.json 的 ≥10 整数值，域常量白名单 0/1/-1、30=30Hz、10=件发、FNV 质数〕与 T8 金样独立 commit〔CS-6.2〕；**R1 波次参数禁硬编码经 R7 覆盖**——Balance 命名空间产品代码禁 ≥10 整型魔数，不设独立检查），23 条全量（R1~R15+T1~T8）随对象落地逐条启用——启用清单见 06 §3.1 总表，未启用项不视为已设防 | run_all.sh step 1 / ci.yml Stage 1 | **生效（9/23 条）** |
 | G3 | 构建零警告 | `dotnet build game/EraTD.sln -c Release -p:TreatWarningsAsErrors=true` 退出码 0（警告即红；Directory.Build.props 已开 Nullable+NET Analyzers） | run_all.sh step 3 / ci.yml Stage 4 | **生效** |
 | G4 | 冒烟通过 | `bash tools/ci/smoke_godot.sh` 输出含 `SMOKE_OK`：钉死的 Godot 4.7.2 mono 无头启动 + 托管程序集（EraTD.dll 含 EraCore 引用）真实加载 + EraCore 链路版本号打出，三合一判据。`SKIP_SMOKE=1` 记 **SKIP 不记 PASS**（跳过不是通过；W0 出口条件⑤ 的冒烟证据必须来自不跳过的绿） | run_all.sh step 4 / ci.yml Stage 5 | **生效** |
 | G5 | code-review 双轴归档 | Standards 轴（DOCUMENT_STANDARDS+CODE_STANDARDS 逐 CS-x.y 判定，CS-4.x 红线类违反即 BLOCKER）+ Spec 轴（任务卡验收标准原文逐条）；**0 BLOCKER 且 0 MAJOR 才 PASS**；修复复验只验上轮发现项+受影响面；全轮次追加 `docs/engineering/reviews/REV-<日期>-<任务ID>.md` 不覆盖；MINOR 挂账 debt.md（每组件 ≤5 条） | 人工审查 + REV 记录文件（06 §4） | **生效（流程）** |
-| G6 | 金样独立提交 | `golden/**` 变更必须独立 commit（禁与 `src/**` 产品代码同 commit）、经 `--update-golden` 显式再生成、message 含任务 ID+依据编号、过 review（CS-6.1~6.4；06 §3.1 T8） | 待金样框架落地后由扫描器检查（T-035 波次验算金样首个对象；CI 检查 T8） | **待启用（W1 起随 T-035）** |
+| G6 | 金样独立提交 | `golden/**` 变更必须独立 commit（禁与 `src/**` 产品代码同 commit）、经 `--update-golden` 显式再生成、message 含任务 ID+依据编号、过 review（CS-6.1~6.4；06 §3.1 T8）。**首版例外（W1 收口裁定，CS-6.2 v1.1 首版条款）**：首版金样允许与产生它的引擎代码同 commit（引擎先于金样存在），须 REV 登记+allowlist `T8:` 条目豁免；先例 d6f5862 见 REV-20261013-wave1-round3 | redline_scan **T8（W1 收口已上 CI）**：独立 commit 机械核验；--update-golden/message 依据号/review 三项仍属流程面 | **生效（T8 机械核验；流程面照旧）** |
 | G7 | 覆盖率阈值 | coverlet 阈值门禁：全库行 ≥80%，EraCore.Sim/Agent 行 ≥85%/分支 ≥80%，关键公式模块分支 100%（06 §2.1 DoD-7/T6）；阈值只升不降 | 待覆盖率工具接入 CI（首个含业务逻辑任务 T-032 起逐步收紧；当前 EraCore 37 测试为守卫/IO 层） | **待启用（W1 起）** |
 | G8 | 性能门禁 | 双口径（06 §6，D-19）：**Tier A** CI headless 逻辑预算（sim tick P99 ≤12ms、流场 P99 ≤8ms、分桶 ≤6）+ **Tier B** 真机 60s 窗口 P95 ≤16.6ms 且无 >50ms 帧；劣化 >20% 即红。headless 数字=逻辑预算，不代表 60fps（CS-4.8） | 待 W1 spike①（T-043）基准场景（300 敌+1000 弹迷宫复合）落地后入流水线 perf-budget 段 | **待 W1 spike①** |
 | G9 | 文档三件套 | ① 文档头部三件套：版本号/日期/状态（DOCUMENT_STANDARDS #1，缺任一即 review MAJOR）；② 变更记录：修订必须递增版本并在文末说明来源；③ 审查记录归档：REV 文件真实存在且引用实际命令与输出（与 G5 的判据文件同源） | code-review Standards 轴人工判 + redline_scan 对新增 .md 的 R9 扫描兜底 | **生效（流程）** |
@@ -91,4 +91,5 @@ run_all: 总体 PASS（G1~G4 全 PASS）
 
 ## 5. 变更记录
 
+- v1.1（2026-10-14，W1 收口）：G2 检查数 7→9（R7 数值锚点+T8 金样独立 commit 上线；R1 波次参数禁硬编码经 R7 覆盖——Balance 命名空间禁 ≥10 整型魔数）；G6 由"待启用"转"生效（T8 机械核验）"并登记首版例外条款（CS-6.2 v1.1：首版金样允许同引擎合入，须 REV 登记+allowlist 豁免，先例 d6f5862）。出处=REV-20261013-wave1-round3 / REV-20261014-wave1-exit。
 - v1.0（2026-10-13）：T-018 首次成文。依 06/CODE_STANDARDS 汇总工程门禁 G1~G10（G1~G4 挂接 run_all.sh/ci.yml 实机判定并附首跑全绿记录；G5/G9/G10 流程性生效；G6~G8 显式挂账启用时点）；同时完成 02 §6 十验收缺口（02-G1~02-G10）到波次出口与判定载体的挂接，02 §6 闭环。

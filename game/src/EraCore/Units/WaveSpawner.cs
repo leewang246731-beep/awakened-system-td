@@ -51,7 +51,7 @@ public sealed record WaveSpawnConfig(
     IReadOnlyList<string> RegularRoster,
     bool EliteLineEnabled = false,
     string? EliteEnemyId = null,
-    int BossWave = 20,
+    int BossWave = 20, // ci-allow: R7 T-039 E1 终关 Boss 波=20（任务卡/v3.2 §6 口径）——波表数据接管前的记录缺省值，调用方以配置显式覆盖
     string? BossEnemyId = null,
     double BossHpMultiplier = 1.5,
     double BossDamageMultiplier = 1.3,

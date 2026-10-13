@@ -82,7 +82,7 @@ public sealed class TowerSupplyMonitor
     /// healthy chain reads a steady 1.0 while a cut drains the window within
     /// one window length.
     /// </summary>
-    public const int DefaultWindowTicks = 90;
+    public const int DefaultWindowTicks = 90; // ci-allow: R7 T-048 [NEW-T-048] 效率平滑窗 90t=3s（覆盖民夫交错到达节奏，v3.2 未钉窗口）
 
     /// <summary>
     /// Default fresh-chain warm-up in ticks before the efficiency curve

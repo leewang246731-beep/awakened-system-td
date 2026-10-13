@@ -3,7 +3,7 @@
 # 形态：windows-latest 单 job 多步骤，顺序与本地 tools/ci/run_all.sh 完全一致
 # （08 §3 任务纪律第 4 条 PR 必跑段；06 §3.3 七段布局的 W0 形态——W1 起随
 # 对象落地逐段扩出 regression/perf 段）：
-#   Stage 1 lint-scan    : redline_scan.py（06 §3.1 首批 7 条）+ 扫描器元测试
+#   Stage 1 lint-scan    : redline_scan.py（06 §3.1 已启用 9 条，W1 收口）+ 扫描器元测试
 #   Stage 2 unit-logic   : dotnet test（EraCore.Tests，纯 nuget.org 还原）
 #   Stage 3 godot toolchain: 官方 release 下载 Godot 4.7.2 mono + 镜自带 nupkg
 #                           到本地 feed（等价 tools/ci/setup_local_nuget.sh）
