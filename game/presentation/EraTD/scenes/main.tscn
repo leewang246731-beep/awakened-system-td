@@ -1,11 +1,14 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 ; T-042 (C-21) skeleton scene: Control root + Camera2D + DebugLabel + the
 ; two chunked MultiMesh layers wired by scripts/Main.cs. The 640x360 /
 ; canvas_items / keep / integer stretch policy lives in project.godot.
+; T-055 (C-22): SystemPanel instance (system_panel.tscn) — the hologram
+; panel UI bound to the same real snapshot source as the renderers.
 
 [ext_resource type="Script" path="res://scripts/Main.cs" id="1_main"]
 [ext_resource type="Script" path="res://scripts/MultiMeshRenderer.cs" id="2_mmr"]
+[ext_resource type="PackedScene" path="res://scenes/system_panel.tscn" id="4_syspanel"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -32,3 +35,5 @@ script = ExtResource("2_mmr")
 [node name="UnitLayer" type="MultiMeshInstance2D" parent="."]
 z_index = 10
 script = ExtResource("2_mmr")
+
+[node name="SystemPanel" parent="." instance=ExtResource("4_syspanel")]

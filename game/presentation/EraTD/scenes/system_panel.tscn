@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3]
+
+; T-055 (C-22) system hologram panel scene: root Control + script. The
+; children (HUD strip / bubble / expanded panel / plan card) are built in
+; code (scripts/SystemPanel.cs) from the §13.4 pixel recipe — no binary
+; assets, so the T-045 asset gate is untouched.
+
+[ext_resource type="Script" path="res://scripts/SystemPanel.cs" id="1_syspanel"]
+
+[node name="SystemPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_syspanel")

@@ -1,41 +1,46 @@
+using EraCore.Agent.Pipeline;
+using EraCore.Contracts.Sim;
 using EraCore.Presentation;
 using Godot;
 
 namespace EraTD;
 
 /// <summary>
-/// T-042 scene entry point (C-21 skeleton). Extends the T-029 headless smoke
-/// with the three skeleton acceptance points:
+/// T-042 scene entry (C-21 skeleton), T-055 panel wiring (C-22). The
+/// headless 60→N-frame driver loop runs synchronously inside _Ready because
+/// headless <c>--quit</c> executes a single frame iteration.
 /// <list type="number">
 /// <item>integer-scale init: the pure math lives in
 /// <see cref="ViewportScale"/> (EraCore), the engine-side letterboxing in
-/// project.godot (canvas_items + keep + integer) — both decisions agree;
-/// the computed factor feeds the DebugLabel and the smoke line;</item>
-/// <item>snapshot adapter: <see cref="SimSnapshotBridge"/> consumes the
-/// MOCK source (see the replacement plan in SimSnapshotBridge.cs — C-12
-/// real producer lands Wave 2) and turns snapshot diffs into dirty
-/// chunks;</item>
+/// project.godot — both decisions agree; the computed factor feeds the
+/// DebugLabel and the smoke line;</item>
+/// <item>snapshot adapter — REAL PRODUCER (T-055 mock→real swap):
+/// <see cref="SimHost"/> builds the live C-12 Simulation (E1 content) plus
+/// the T-053 AgentPipeline, and the bridge consumes its two adapters
+/// (ISimSnapshotSource → Simulation.Snapshots.Latest; IFramebufferProvider
+/// → the terrain map). The retired Wave-1 fixture
+/// DeterministicMockSnapshotSource is deleted — this call site is the
+/// second replacement note (the first lives in SimSnapshotBridge.cs);</item>
 /// <item>MultiMesh dirty rebuild: both layers rewrite only the chunks the
-/// bridge drained this frame.</item>
+/// bridge drained this frame;</item>
+/// <item>C-22 panel: HUD three metrics refresh from the same real
+/// snapshots; the panel smoke drives the order box signal, the plan-card
+/// confirm and the off-switch, then prints the PANEL_OK markers.</item>
 /// </list>
-/// The 60-frame driver loop runs synchronously inside _Ready because
-/// headless `--quit` executes a single frame iteration — a _Process-driven
-/// loop would never reach frame 2 under the smoke runner.
 /// </summary>
 public sealed partial class Main : Control
 {
-    private const long MockSeed = DeterministicMockSnapshotSource.DefaultSeed;
-    private const int MapWidthCells = 64;
-    private const int MapHeightCells = 48; // → 2×2 chunks of 32×32 cells
-    private const int UnitCount = 24;
-    private const int SmokeFrames = 60;    // 60 render frames = 2 s of 30 Hz mock ticks
+    private const int SmokeFrames = 660;  // 22 s of sim time — the milestone stream (last tick 600) completes
+    private const int UnitLayerCapacity = 128; // wave-1 budget headroom (grace 108 s ⇒ smoke sees no enemies)
+    private const int HudRefreshFrames = 15;   // HUD redraw cadence (0.5 s of sim time)
 
-    private DeterministicMockSnapshotSource _source = null!;
+    private SimHost _host = null!;
     private SimSnapshotBridge _bridge = null!;
     private MultiMeshRenderer _groundLayer = null!;
     private MultiMeshRenderer _unitLayer = null!;
     private Label _debugLabel = null!;
     private Camera2D _camera = null!;
+    private SystemPanel _panel = null!;
 
     public override void _Ready()
     {
@@ -55,19 +60,25 @@ public sealed partial class Main : Control
         _debugLabel = GetNode<Label>("DebugLabel");
         _groundLayer = GetNode<MultiMeshRenderer>("GroundLayer");
         _unitLayer = GetNode<MultiMeshRenderer>("UnitLayer");
+        _panel = GetNode<SystemPanel>("SystemPanel");
 
+        // ---- 3) REAL sim host + snapshot adapter (mock→real swap, T-055) --
+        _host = new SimHost();
+        _bridge = new SimSnapshotBridge(
+            _host.SnapshotSource, _host.Framebuffer,
+            _host.Framebuffer.WidthCells, _host.Framebuffer.HeightCells);
+        _panel.Bind(_host);
+
+        int mapWidth = _host.Framebuffer.WidthCells;
+        int mapHeight = _host.Framebuffer.HeightCells;
         float cell = SimSnapshotBridge.CellSizePx;
-        _camera.Position = new Vector2(MapWidthCells * cell / 2f, MapHeightCells * cell / 2f);
+        _camera.Position = new Vector2(mapWidth * cell / 2f, mapHeight * cell / 2f);
 
-        // ---- 3) snapshot adapter + mock producer ---------------------------
-        _source = new DeterministicMockSnapshotSource(MockSeed, MapWidthCells, MapHeightCells, UnitCount);
-        _bridge = new SimSnapshotBridge(_source, _source, MapWidthCells, MapHeightCells);
-
-        _groundLayer.SetupGround(MapWidthCells, MapHeightCells, DirtyRegionSet.DefaultChunkCells,
+        _groundLayer.SetupGround(mapWidth, mapHeight, DirtyRegionSet.DefaultChunkCells,
             TerrainAtlas.Build(), TerrainAtlas.TileIndexForColor);
-        _unitLayer.SetupUnits(MapWidthCells, MapHeightCells, DirtyRegionSet.DefaultChunkCells, capacity: UnitCount);
+        _unitLayer.SetupUnits(mapWidth, mapHeight, DirtyRegionSet.DefaultChunkCells, capacity: UnitLayerCapacity);
 
-        // ---- 4) 60-frame dirty-chunk render loop (headless-safe) -----------
+        // ---- 4) dirty-chunk render loop over real ticks (headless-safe) ---
         int framesWithGroundWork = 0;
         int framesWithUnitWork = 0;
         int groundChunksRebuilt = 0;
@@ -75,13 +86,13 @@ public sealed partial class Main : Control
 
         for (int frame = 0; frame < SmokeFrames; frame++)
         {
-            _source.AdvanceOneTick(); // mock 30 Hz tick (C-12 replaces this call site only)
-            _bridge.SyncFrame();      // snapshot diff → dirty chunks
+            _host.Step();       // real 30 Hz C-12 tick (was: mock AdvanceOneTick)
+            _bridge.SyncFrame(); // snapshot diff → dirty chunks
 
             var groundChunks = _bridge.TakeDirtyGroundChunks();
             if (groundChunks.Count > 0)
             {
-                _groundLayer.RebuildGroundChunks(groundChunks, _source);
+                _groundLayer.RebuildGroundChunks(groundChunks, _host.Framebuffer);
                 framesWithGroundWork++;
                 groundChunksRebuilt += groundChunks.Count;
             }
@@ -94,14 +105,29 @@ public sealed partial class Main : Control
                 unitChunksRebuilt += unitChunks.Count;
             }
 
+            if (frame % HudRefreshFrames == 0)
+            {
+                _panel.RefreshHud(_host.BuildHudSnapshot()); // real metrics (F-111)
+            }
+
             UpdateDebugLabel(fit);
         }
 
         // Reverse-seam sanity: the command queue round-trips SimCommands.
-        _bridge.EnqueueCommand(new EraCore.Contracts.Sim.SimCommand(
-            _bridge.Current!.Tick, EraCore.Contracts.Sim.SimCommandKind.TimeControl, "{\"speed\":1}"));
+        _bridge.EnqueueCommand(new SimCommand(
+            _bridge.Current!.Tick, SimCommandKind.TimeControl, "{\"speed\":1}"));
 
-        // ---- 5) markers (smoke_godot.sh asserts SMOKE_OK; scale= is new) --
+        // ---- 5) panel flow smoke (F-115/F-116 + off-switch) ---------------
+        RunPanelSmoke();
+
+        // ---- 5b) T-056 build interaction (C-23 thin, F-036/F-119) ---------
+        // 拖放建造薄版：实例化 build_ui.tscn（EraCore 接线全部在
+        // BuildInteractionUi 脚本内，自带演示用 C-12 实例；headless 下自动
+        // 跑脚本化拖放/取消/红格/拆除序列并打印 BUILD_OK——smoke 建造段
+        // 判据。与其它泳道在本文件的接线冲突由后提交者 rebase。）
+        BuildInteractionUi.Instantiate(this);
+
+        // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.
         GD.Print(
@@ -111,22 +137,82 @@ public sealed partial class Main : Control
             $"2560x1440={ViewportScale.Fit(2560, 1440).Scale} " +
             $"1600x900={ViewportScale.Fit(1600, 900).Scale} " +
             $"offset1600x900=({ViewportScale.Fit(1600, 900).OffsetX},{ViewportScale.Fit(1600, 900).OffsetY})");
-        GD.Print($"SMOKE_OK core={EraCore.VersionInfo.Current} scale={fit.Scale}");
         GD.Print(
             $"ART atlas_tiles={TerrainAtlas.TileCount} tile_px={TerrainAtlas.TilePx} " +
             $"atlas={TerrainAtlas.TileCount * TerrainAtlas.TilePx}x{TerrainAtlas.TilePx} " +
             "scale=2x-nearest source=kenney-tiny-dungeon-cc0");
         GD.Print(
-            $"BRIDGE frames={SmokeFrames} ticks={_bridge.Current.Tick} units={UnitCount} " +
+            $"BRIDGE frames={SmokeFrames} ticks={_bridge.Current.Tick} " +
+            $"units={_bridge.Current.Units.Count} buildings={_bridge.Current.Buildings.Count} " +
             $"ground_chunk_rebuilds={groundChunksRebuilt} unit_chunk_rebuilds={unitChunksRebuilt} " +
             $"frames_with_ground_work={framesWithGroundWork} frames_with_unit_work={framesWithUnitWork} " +
-            $"pending_commands={_bridge.PendingCommandCount} state_hash={_bridge.Current.StateHash}");
+            $"wave_grace_note=no-enemies-before-tick-3240 " +
+            $"pending_commands={_bridge.PendingCommandCount} state_hash={_bridge.Current.StateHash} " +
+            "source=real-c12-simulation");
+        GD.Print($"PANEL journal {_host.JournalDigest()}");
+        GD.Print($"SMOKE_OK core={EraCore.VersionInfo.Current} scale={fit.Scale}");
 
         GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// C-22 thin-panel acceptance run (I 级 smoke): expand → real order
+    /// through the LineEdit signal → plan card → confirm executes in the
+    /// real simulation → off-switch hides every system surface while the
+    /// HUD metrics survive as a neutral banner. Prints the two PANEL_OK
+    /// markers (mode=on / mode=off) the acceptance gate greps for.
+    /// </summary>
+    private void RunPanelSmoke()
+    {
+        int towersBefore = _host.Simulation.Towers.Count;
+
+        // Expand via the panel's own path (bubble press equivalent).
+        _panel.Expand();
+
+        // Order box: type the standing example and press Enter — the real
+        // TextSubmitted signal drives the same handler a live player hits.
+        _panel.OrderInput.Text = SystemPanel.ExampleOrder;
+        _panel.OrderInput.EmitSignal(LineEdit.SignalName.TextSubmitted, SystemPanel.ExampleOrder);
+        bool cardShown = _panel.PlanCardVisible;
+        PipelineOutcomeKind? confirmed = _panel.ConfirmPending();
+        int towersAfter = _host.Simulation.Towers.Count;
+        _panel.RefreshHud(_host.BuildHudSnapshot()); // the confirm built towers — HUD catches up now
+        string hud = _panel.HudText();
+        string report = _panel.ReportText;
+
+        GD.Print(
+            $"PANEL_OK mode=on state={_panel.Machine.State} card={cardShown} " +
+            $"confirm={confirmed} towers={towersBefore}->{towersAfter} hud=\"{hud}\" " +
+            $"report=\"{report}\"");
+
+        // Off-switch (pillar 4): input/wheel/panel hidden, HUD kept neutral.
+        _panel.SetSystemEnabled(false);
+        bool inputHidden = !_panel.OrderInput.IsVisibleInTree();
+        bool metricsKept = _panel.HudText().Length > 0 && _panel.Machine.HudNeutral;
+        GD.Print(
+            $"PANEL_OK mode=off state={_panel.Machine.State} " +
+            $"input_hidden={inputHidden} panel_hidden={ !_panel.Machine.PanelVisible} " +
+            $"hud_neutral_banner=\"{_panel.HudText()}\" metrics_kept={metricsKept}");
+
+        if (!cardShown || confirmed != PipelineOutcomeKind.Completed || towersAfter <= towersBefore)
+        {
+            GD.PushError("panel flow broken: card/confirm/tower evidence failed");
+            GetTree().Quit(1);
+        }
+
+        if (!inputHidden || !metricsKept)
+        {
+            GD.PushError("off-switch broken: input surfaces or HUD metrics did not degrade correctly");
+            GetTree().Quit(1);
+        }
+
+        // Switch back on — the remembered state (Expanded) must return.
+        _panel.SetSystemEnabled(true);
     }
 
     private void UpdateDebugLabel(in ViewportFit fit) =>
         _debugLabel.Text =
             $"scale={fit.Scale} off=({fit.OffsetX},{fit.OffsetY}) " +
-            $"fps={Engine.GetFramesPerSecond()} tick={_bridge.Current?.Tick.ToString() ?? "-"}";
+            $"fps={Engine.GetFramesPerSecond()} tick={_bridge.Current?.Tick.ToString() ?? "-"} " +
+            $"wave={_host.Simulation.CurrentWave}";
 }

@@ -18,8 +18,8 @@ internal static class TerrainAtlas
 
     /// <summary>
     /// Atlas cell order. The index in this array IS the atlas slot the
-    /// shader computes from INSTANCE_CUSTOM.x; the mock framebuffer colors
-    /// below reference these slots.
+    /// shader computes from INSTANCE_CUSTOM.x; the terrain framebuffer
+    /// colors below reference these slots.
     /// </summary>
     private static readonly string[] TileFiles =
     {
@@ -74,20 +74,22 @@ internal static class TerrainAtlas
     }
 
     /// <summary>
-    /// Mock framebuffer color (0xRRGGBB) → atlas slot. The five greens of
-    /// <see cref="DeterministicMockSnapshotSource"/>'s stable color field map
-    /// onto the dirt/floor variety (darkest→rubble, brightest→pool) so the
-    /// headless smoke shows a textured ground; unknown colors fall back to
-    /// plain dirt (slot 0). Wall slots 4..6 are reachable by future callers
-    /// (build/terrain rendering, T-056) without an atlas rebuild.
+    /// Framebuffer color (0xRRGGBB) → atlas slot. The colors are the
+    /// ground-layer terrain keys the REAL sim host reports
+    /// (<see cref="SimHost"/>'s TerrainFramebuffer maps each
+    /// EraCore.World.TerrainKind to one of these): Plain→dirt, Forest→
+    /// pebbled, Rock→rubble, Wall→mottled, Water→pool. Unknown colors fall
+    /// back to plain dirt (slot 0). The remaining wall slots 5..6 stay
+    /// reachable by future callers (build/terrain rendering, T-056) without
+    /// an atlas rebuild.
     /// </summary>
     public static int TileIndexForColor(int rgb) => rgb switch
     {
-        0x2A4430 => 3, // floor-rubble
-        0x2E4A34 => 0, // floor-dirt
-        0x36523C => 1, // floor-dirt-pebbled
-        0x405C42 => 2, // floor-dirt-mottled
-        0x4A6648 => 7, // water-pool
+        0x2A4430 => 3, // Rock → floor-rubble
+        0x2E4A34 => 0, // Plain → floor-dirt
+        0x36523C => 1, // Forest → floor-dirt-pebbled
+        0x405C42 => 2, // Wall → floor-dirt-mottled
+        0x4A6648 => 7, // Water → water-pool
         _ => 0,        // fallback: floor-dirt
     };
 }

@@ -1,20 +1,19 @@
-using EraCore.Contracts.Foundation;
 using EraCore.Contracts.Sim;
 using EraCore.Presentation;
 
 namespace EraTD;
 
-// T-042 (C-21): the presentation-side snapshot adapter layer.
+// T-042 (C-21) adapter layer + the Wave-2 mock→real swap (T-055).
 //
-// Replacement plan for the mock data source: DeterministicMockSnapshotSource
-// is a PRESENTATION DEVELOPMENT FIXTURE only — 03-decomposition granted C-21
-// the right to build against a mock producer before C-12 lands ("mock 快照
-// 可提前动工"). From Wave 2 (C-12 minimal orchestration, T-040/T-053) the
-// fixture is replaced by the real double-buffered SimSnapshot producer; only
-// the two ports below (ISimSnapshotSource, IFramebufferProvider) survive —
-// the renderer skeleton and the dirty-chunk path stay untouched. The RED
-// LINE (CS-3.4, RL2) is mocking the system under test; what is under test
-// here is the render skeleton, so the fixture does not violate it.
+// REPLACEMENT RECORD (the mock producer is gone): through Wave 1 this file
+// also carried DeterministicMockSnapshotSource, a presentation development
+// fixture granted by 03-decomposition ("mock 快照可提前动工"). T-055 (C-22)
+// replaced it with the REAL producer: SimHost (scripts/SimHost.cs) builds a
+// live C-12 Simulation and hands the bridge its two adapters —
+// ISimSnapshotSource → Simulation.Snapshots.Latest (K-6 double buffer) and
+// IFramebufferProvider → the terrain map. The two ports below are the only
+// seam that survived; the bridge and the dirty-chunk render path are
+// untouched. Main.cs carries the second replacement note at the call site.
 
 /// <summary>
 /// Port: read-only view of the latest double-buffered <see cref="SimSnapshot"/>
@@ -49,206 +48,6 @@ public interface IFramebufferProvider
     /// <summary>Cell color as 0xRRGGBB at cell (<paramref name="x"/>, <paramref name="y"/>).</summary>
     /// <exception cref="ArgumentException">Cell outside the grid.</exception>
     int ColorAt(int x, int y);
-}
-
-/// <summary>
-/// MOCK DATA SOURCE (presentation development fixture — see the replacement
-/// plan in the file header). Generates a deterministic fake world from a
-/// fixed seed: a stable per-cell color field and N units that advance along
-/// straight, bounce-bounded lanes. Same seed ⇒ same snapshots, so the smoke
-/// run and future gdUnit scene tests are reproducible.
-/// </summary>
-public sealed class DeterministicMockSnapshotSource : ISimSnapshotSource, IFramebufferProvider
-{
-    public const long DefaultSeed = 20261042L;
-
-    private static readonly int[] Palette = { 0x2E4A34, 0x36523C, 0x405C42, 0x2A4430, 0x4A6648 };
-
-    private readonly int[] _cellColors;
-    private readonly (float Vx, float Vy)[] _velocities;
-    private readonly float[] _x;
-    private readonly float[] _y;
-    private readonly int[] _hp;
-    private readonly int[] _maxHp;
-    private readonly long _seed;
-
-    public DeterministicMockSnapshotSource(
-        long seed, int widthCells, int heightCells, int unitCount)
-    {
-        if (widthCells <= 0 || heightCells <= 0)
-        {
-            throw new ArgumentException($"grid must be positive, got {widthCells}x{heightCells}.");
-        }
-
-        if (unitCount < 0)
-        {
-            throw new ArgumentException($"unit count must be >= 0, got {unitCount}.");
-        }
-
-        _seed = seed;
-        WidthCells = widthCells;
-        HeightCells = heightCells;
-
-        var rng = new MockLcgRng(seed);
-
-        // Stable color field — generated once, never changes afterwards, so
-        // the ground MultiMesh rebuilds exactly once (first frame).
-        _cellColors = new int[widthCells * heightCells];
-        for (int i = 0; i < _cellColors.Length; i++)
-        {
-            _cellColors[i] = Palette[rng.Next(0, Palette.Length)];
-        }
-
-        // N units with seed-fixed spawn positions, lane velocities and HP.
-        float maxPxX = widthCells * SimSnapshotBridge.CellSizePx;
-        float maxPxY = heightCells * SimSnapshotBridge.CellSizePx;
-        _velocities = new (float, float)[unitCount];
-        _x = new float[unitCount];
-        _y = new float[unitCount];
-        _hp = new int[unitCount];
-        _maxHp = new int[unitCount];
-        for (int i = 0; i < unitCount; i++)
-        {
-            _x[i] = (float)(rng.NextDouble() * maxPxX);
-            _y[i] = (float)(rng.NextDouble() * maxPxY);
-            float speed = 0.75f + (float)rng.NextDouble() * 1.75f; // 0.75..2.5 px/tick
-            double angle = rng.NextDouble() * Math.PI * 2.0;
-            _velocities[i] = ((float)Math.Cos(angle) * speed, (float)Math.Sin(angle) * speed);
-            _maxHp[i] = 60 + rng.Next(0, 61);
-            _hp[i] = _maxHp[i];
-        }
-
-        Latest = BuildSnapshot();
-    }
-
-    public int WidthCells { get; }
-
-    public int HeightCells { get; }
-
-    public long FramebufferVersion { get; private set; }
-
-    public SimSnapshot? Latest { get; private set; }
-
-    /// <summary>Advances the fake simulation by one 30 Hz tick and republishes the snapshot.</summary>
-    public void AdvanceOneTick()
-    {
-        float maxPxX = WidthCells * SimSnapshotBridge.CellSizePx;
-        float maxPxY = HeightCells * SimSnapshotBridge.CellSizePx;
-
-        for (int i = 0; i < _x.Length; i++)
-        {
-            _x[i] += _velocities[i].Vx;
-            _y[i] += _velocities[i].Vy;
-
-            if (_x[i] < 0f || _x[i] > maxPxX)
-            {
-                _velocities[i].Vx = -_velocities[i].Vx;
-                _x[i] = Math.Clamp(_x[i], 0f, maxPxX);
-            }
-
-            if (_y[i] < 0f || _y[i] > maxPxY)
-            {
-                _velocities[i].Vy = -_velocities[i].Vy;
-                _y[i] = Math.Clamp(_y[i], 0f, maxPxY);
-            }
-        }
-
-        Latest = BuildSnapshot();
-    }
-
-    public int ColorAt(int x, int y)
-    {
-        if (x < 0 || x >= WidthCells)
-        {
-            throw new ArgumentException($"cell X {x} outside grid [0,{WidthCells}).", nameof(x));
-        }
-
-        if (y < 0 || y >= HeightCells)
-        {
-            throw new ArgumentException($"cell Y {y} outside grid [0,{HeightCells}).", nameof(y));
-        }
-
-        return _cellColors[y * WidthCells + x];
-    }
-
-    private MockSnapshot BuildSnapshot()
-    {
-        long tick = (Latest?.Tick ?? -1) + 1;
-
-        var units = new IUnit[_x.Length];
-        for (int i = 0; i < units.Length; i++)
-        {
-            float vx = _velocities[i].Vx;
-            float vy = _velocities[i].Vy;
-            units[i] = new MockUnit(
-                Id: new EntityId(1000 + i),
-                ContentId: "era1:enemy-beastling",
-                X: _x[i],
-                Y: _y[i],
-                Hp: _hp[i],
-                MaxHp: _maxHp[i],
-                Armor: 2,
-                Shield: 0,
-                SpeedPxPerTick: MathF.Sqrt(vx * vx + vy * vy));
-        }
-
-        // Two static towers keep the IBuilding seam of the frozen snapshot
-        // contract populated; structural rendering lands with T-045/T-056.
-        var buildings = new IBuilding[]
-        {
-            new MockBuilding(new EntityId(500), "era1:tower-wood-arrow", new CellCoord(10, 12), 260, 260, 1),
-            new MockBuilding(new EntityId(501), "era1:tower-wood-arrow", new CellCoord(52, 36), 260, 260, 1),
-        };
-
-        return new MockSnapshot(tick, units, Array.Empty<IProjectile>(), buildings, ComputeHash(tick, units));
-    }
-
-    private long ComputeHash(long tick, IUnit[] units)
-    {
-        // FNV-1a over tick + rounded positions: cheap, deterministic,
-        // sufficient to observe "same seed ⇒ same stream" in the smoke log.
-        long hash = 1469598103934665603L ^ _seed;
-        Mix(tick);
-        foreach (IUnit u in units)
-        {
-            Mix((long)MathF.Round(u.X));
-            Mix((long)MathF.Round(u.Y));
-        }
-
-        return hash;
-
-        void Mix(long value)
-        {
-            hash ^= value;
-            hash *= 1099511628211L;
-        }
-    }
-
-    private sealed record MockUnit(
-        EntityId Id,
-        string ContentId,
-        float X,
-        float Y,
-        int Hp,
-        int MaxHp,
-        int Armor,
-        int Shield,
-        float SpeedPxPerTick) : IUnit;
-
-    private sealed record MockBuilding(
-        EntityId Id,
-        string ContentId,
-        CellCoord Cell,
-        int Hp,
-        int MaxHp,
-        int Tier) : IBuilding;
-
-    private sealed record MockSnapshot(
-        long Tick,
-        IReadOnlyList<IUnit> Units,
-        IReadOnlyList<IProjectile> Projectiles,
-        IReadOnlyList<IBuilding> Buildings,
-        long StateHash) : SimSnapshot;
 }
 
 /// <summary>
@@ -376,37 +175,6 @@ public sealed class SimSnapshotBridge
         // exactly on the border pixel cannot address a cell outside the grid.
         int cellX = Math.Clamp((int)(unit.X / CellSizePx), 0, GroundDirty.WidthCells - 1);
         int cellY = Math.Clamp((int)(unit.Y / CellSizePx), 0, GroundDirty.HeightCells - 1);
-        UnitDirty.MarkDirty(new CellCoord(cellX, cellY));
+        UnitDirty.MarkDirty(new EraCore.Contracts.Foundation.CellCoord(cellX, cellY));
     }
-}
-
-/// <summary>
-/// Deterministic 64-bit LCG behind the mock source, routed through the K-1
-/// <see cref="IRng"/> port (CS-1.4: even fixtures do not use a shared
-/// Random; same seed ⇒ same stream keeps the smoke log reproducible).
-/// </summary>
-internal sealed class MockLcgRng : IRng
-{
-    private ulong _state;
-
-    public MockLcgRng(long seed) => Reseed(seed);
-
-    public int Next(int minValue, int maxValue)
-    {
-        if (minValue >= maxValue)
-        {
-            throw new ArgumentOutOfRangeException(nameof(maxValue));
-        }
-
-        long span = maxValue - (long)minValue;
-        return minValue + (int)(NextDouble() * span);
-    }
-
-    public double NextDouble()
-    {
-        _state = unchecked(_state * 6364136223846793005UL + 1442695040888963407UL);
-        return (_state >> 11) * (1.0 / (1UL << 53));
-    }
-
-    public void Reseed(long seed) => _state = unchecked((ulong)seed);
 }
