@@ -1,0 +1,64 @@
+{
+  "$schema": "urn:eratd:content:era:1",
+  "content_type": "Era",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E1 时代行锚点=v3.2 §4 L58+L65+§5 L78~L79（docs/我在游戏觉醒系统-游戏设计方案.md）",
+  "items": [
+    {
+      "id": "era1:era-ancient",
+      "content_type": "Era",
+      "era_index": 1,
+      "name_zh": "远古",
+      "name_en": "Ancient",
+      "aliases": ["E1", "远古", "远古时代"],
+      "resources": [
+        { "id": "era1:res-wood", "name_zh": "木材", "name_en": "Wood" },
+        { "id": "era1:res-stone", "name_zh": "石料", "name_en": "Stone" },
+        { "id": "era1:res-food", "name_zh": "食物", "name_en": "Food" }
+      ],
+      "energy": {
+        "type": "manpower",
+        "name_zh": "人力",
+        "levels": [
+          { "tier": 1, "output": 10, "_new": true },
+          { "tier": 2, "output": 40, "_new": true }
+        ],
+        "ladder_multiplier_min": 3.0,
+        "ladder_multiplier_max": 5.0,
+        "risk_events": false
+      },
+      "logistics": {
+        "tier": 0,
+        "carrier": "porter",
+        "carrier_zh": "民夫",
+        "throughput_items_per_s": 0.3,
+        "ladder_items_per_s": [0.3, 0.6, 10.0, 15.0, 20.0, null],
+        "_ladder_note": "末位 null=∞（v3.2 §5 L78 物流阶梯 0.3→0.6→10→15→20→∞ 件/s；E1 处于第 0 档）"
+      },
+      "warehouse_level": 1,
+      "towers": [
+        "era1:tower-wood-arrow",
+        "era1:tower-rockfall",
+        "era1:tower-spike-trap",
+        "era1:tower-campfire"
+      ],
+      "boss": {
+        "enemy_id": "era1:enemy-boss",
+        "name_zh": "踏群者",
+        "name_en": "Stomper",
+        "hp": 2500,
+        "armor": 6
+      },
+      "system_stage": "bound",
+      "system_stage_zh": "绑定期",
+      "_new": true,
+      "_new_fields": ["energy.levels[0].output", "energy.levels[1].output"],
+      "_source": "v3.2 §4 L58 E1 行（资源=木材/石料/食物；能源=人力；物流=民夫 0.3 件/s；塔=木箭塔/落石台/陷阱/篝火；Boss=踏群者 HP2500/甲6；系统形态=绑定期）+L65 能源阶梯 ×3~5/级（单位能量点/秒，E1/E2 无风险事件——SP-4 L142）+§5 L78~L79（物流阶梯、仓库等级 E1=1）；能源 L1=10/L2=40 为 T-049 任务卡锚点（倍率 4∈[3,5]，v3.2 未定逐级绝对值）",
+      "_units": {
+        "energy_output": "energy_points_per_second",
+        "throughput_items_per_s": "items_per_second",
+        "hp": "points",
+        "armor": "points"
+      }
+    }
+  ]
+}

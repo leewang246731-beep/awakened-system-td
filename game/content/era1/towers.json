@@ -1,0 +1,167 @@
+{
+  "$schema": "urn:eratd:content:building:1",
+  "content_type": "Building",
+  "era": "era1:era-ancient",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；数值锚点出处见各 item 的 _source 字段（T-049）",
+  "ammo_convention": {
+    "shots_per_ammo_item": 10,
+    "_source": "v3.2 §5 L78「1 件弹药 = 10 发」（docs/我在游戏觉醒系统-游戏设计方案.md）"
+  },
+  "items": [
+    {
+      "id": "era1:tower-wood-arrow",
+      "content_type": "Building",
+      "class": "pierce",
+      "name_zh": "木箭塔",
+      "name_en": "Wood Arrow Tower",
+      "aliases": ["木箭塔", "箭塔", "arrow tower"],
+      "tier": 1,
+      "max_tier": 2,
+      "cost_total": 30,
+      "dps": 10.0,
+      "damage_per_shot": 10,
+      "reload_ticks": 30,
+      "range_cells": 5.0,
+      "hp": 120,
+      "ammo_item": "era1:ammo-arrow",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item"],
+      "_source": "定类锚点 SP-1b L36「E1 木箭塔=穿刺（E1 基础单体线）」+v3.2 §4 L58 塔防特色列；战斗数值无文档锚点（F.5 基准表为 E2 塔）→全部 _new，待 T-035/T-038 原型校准",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era1:tower-rockfall",
+      "content_type": "Building",
+      "class": "physical",
+      "name_zh": "落石台",
+      "name_en": "Rockfall Platform",
+      "aliases": ["落石台", "落石", "rockfall"],
+      "tier": 1,
+      "max_tier": 2,
+      "cost_total": 60,
+      "dps": 20.0,
+      "damage_per_shot": 60,
+      "reload_ticks": 90,
+      "range_cells": 4.0,
+      "hp": 150,
+      "ammo_item": "era1:ammo-stone",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "burst_windup_ticks": 45
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item"],
+      "_source": "定类锚点 SP-1b L37「E1 落石台=物理（单发重钝击；爆发型必有前摇）」+前摇 1.5 s×30 Hz=45 ticks（SP-1b L37 [NEW-原型校准] 值）；其余数值 _new（对铠猪/蛮勇士的克制指向见 SP-3a L101/L104）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "burst_windup_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era1:tower-spike-trap",
+      "content_type": "Building",
+      "class": "slow",
+      "name_zh": "尖刺陷阱",
+      "name_en": "Spike Trap",
+      "aliases": ["尖刺陷阱", "陷阱", "spike trap"],
+      "tier": 1,
+      "max_tier": 2,
+      "cost_total": 15,
+      "dps": 0.0,
+      "damage_per_shot": 0,
+      "reload_ticks": null,
+      "range_cells": 0.0,
+      "hp": 40,
+      "ammo_item": null,
+      "ammo_per_shot": 0,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "one_shot": true,
+        "root_ticks": 60,
+        "slow_percent": 30,
+        "slow_ticks": 120
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "hp"],
+      "_source": "定类锚点 SP-1b L38「E1 陷阱=减速（一次性触发：定身 2 s+减速 30%×4 s [NEW-原型校准]）」——定身 2 s×30 Hz=60 ticks、减速 30%、持续 4 s×30 Hz=120 ticks 为表内锚点；成本/HP _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "root_ticks": "ticks_at_30hz",
+        "slow_ticks": "ticks_at_30hz",
+        "slow_percent": "percent",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era1:tower-campfire",
+      "content_type": "Building",
+      "class": "support",
+      "name_zh": "篝火",
+      "name_en": "Campfire",
+      "aliases": ["篝火", "火堆", "campfire"],
+      "tier": 1,
+      "max_tier": 2,
+      "cost_total": 20,
+      "dps": 0.0,
+      "damage_per_shot": 0,
+      "reload_ticks": null,
+      "range_cells": 3.0,
+      "hp": 80,
+      "ammo_item": null,
+      "ammo_per_shot": 0,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "aura_radius_cells": 3,
+        "aura_effects": ["alert_vision", "ally_regen"],
+        "aura_regen_hp_per_s": 1.0
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "hp", "traits.aura_regen_hp_per_s"],
+      "_source": "定类锚点 SP-1b L39「E1 篝火=支援（光环：半径 3 格警戒视野+区内我方英雄/民夫回复 [NEW-原型校准]）」——半径 3 格为表内锚点（range_cells 同值）；回复速率/成本/HP _new；支援类零伤不入 DPS 验证带（SP-1a L30）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "range_cells": "cells",
+        "aura_radius_cells": "cells",
+        "aura_regen_hp_per_s": "points_per_second",
+        "hp": "points"
+      }
+    }
+  ]
+}
