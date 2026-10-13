@@ -8,6 +8,9 @@ namespace EraCore.Tests.Balance;
 // source cited per assertion); every ACTUAL number is computed through the
 // T-036 formula library plus the DpsCalc/EhpCalc arithmetic — no expected
 // value is ever fed back as an input (CS-4.4).
+// Group 4 re-anchored on the v3.2.1 reconstructed accounting (±20% band
+// around the recomputed 12.28s); the v2.1 57s/107s pair is legacy comment
+// material only — see Q11 in docs/engineering/08-task-plan.md.
 // Float precision 9 = the arithmetic chains carry at most a few ulps of
 // rounding; F.5 prints integers or one decimal.
 // [F-171] wave verification regression (C-29)
@@ -22,11 +25,9 @@ public class GoldenVerifications
     private const double Scaling = 2.0;
     private const double T = 0.75; // F.5 group-1 benchmark threat
 
-    // F.5 wave-30 economy gate, frozen numbers (57s &lt; 107s; v2.1 §14.3
-    // asserts them, the derivation itself is not on file — the gate values
-    // are quoted verbatim in v3.2 附录 F.5 / 04-arch N1 / 07 D-15).
-    private const double GateClearSeconds = 57.0;
-    private const double GateWindowSeconds = 107.0;
+    // F.5 wave-30 economy gate, v2.1 legacy values 57s/107s（v2.1 §14.3 断言，
+    // 推导本身未随档；基线 8402414 已查无存）。v3.2.1 起 group 4 改按重建口径
+    // 断言（下），57/107 不再作为门禁常量，追回挂 08-task-plan 开放问题 Q11。
 
     [Fact] // F.5 group 1: 第 5 波（t=0.75）6 散兵 360 EHP → 2 箭楼 6 s
     public void Group1_wave5_six_skirmishers_fall_to_two_arrow_towers_in_six_seconds()
@@ -91,17 +92,17 @@ public class GoldenVerifications
         Assert.True(seconds < Campaign.WaveIntervalSeconds(T), "clear time must fit the wave window");
     }
 
-    [Fact] // F.5 group 4: 第 30 波 4 火油 57s &lt; 107s（T4 经济验算门禁, 07 N1/D-15）
-    public void Group4_wave30_four_fire_oil_towers_beat_the_57s_gate()
+    [Fact] // F.5 group 4（v3.2.1 重建口径）: 第 30 波 4 火油 ≈12.28s 清场 ≤ 波间隔
+    public void Group4_wave30_four_fire_oil_towers_clear_in_reconstructed_seconds()
     {
         ThreatMultipliers m = Threat.Multipliers(T);
         int count = WaveFormula.Count(30, Base, Begin, Spacing, Scaling, m.Count);
         int elites = Elite.Count(30);
-        Assert.Equal(9, count); // (10+5)/2×1.25 = 9.375 → 9 散兵
+        Assert.Equal(9, count); // (10+⌊25/5⌋)/2×1.25 = 9.375 → 9 散兵
         Assert.Equal(6, elites); // 1+⌊22/4⌋ = 6 攻城锤
 
-        double regularEhp = EhpCalc.Total(count, E2EnemyBench.SkirmisherHp, m.Hp); // 9×60×1.0
-        double eliteEhp = EhpCalc.Total(elites, E2EnemyBench.RamHp, 1.0); // F.5 验算基准（同 group 3）
+        double regularEhp = EhpCalc.Total(count, E2EnemyBench.SkirmisherHp, m.Hp); // 9×60×1.0 = 540
+        double eliteEhp = EhpCalc.Total(elites, E2EnemyBench.RamHp, 1.0); // F.5 验算基准（同 group 3）= 9000
 
         double regularDps = 4 * DpsCalc.EffectiveDps(
             E2TowerBench.FireOilT4Dps, E2TowerBench.FireOilT4Damage, E2EnemyBench.SkirmisherArmor); // armor 0 → 960
@@ -109,13 +110,20 @@ public class GoldenVerifications
             E2TowerBench.FireOilT4Dps, E2TowerBench.FireOilT4Damage, E2EnemyBench.RamArmor); // (60−12)/60 → 768
 
         double seconds = DpsCalc.ClearSeconds(regularEhp, regularDps)
-            + DpsCalc.ClearSeconds(eliteEhp, eliteDps); // 540/960 + 9000/768 = 12.28 s
+            + DpsCalc.ClearSeconds(eliteEhp, eliteDps); // 540/960 + 9000/768 = 12.28125 s
 
-        // F.5 gate: the four fire-oil towers must clear wave 30 no slower than
-        // the frozen 57 s reference line, inside the 107 s window.
-        Assert.True(seconds <= GateClearSeconds, $"computed {seconds:F2}s exceeds the F.5 57s reference");
+        // 重建值 ±20% 带：12.28125×0.8 = 9.825 → 下界 9.8；12.28125×1.2 = 14.7375
+        // → 上界 14.8（带界向外取整留痕）。值本身仍由 T-036 公式库 + F.5/SP-3
+        // 锚点常量真计算得出，带界只作回归哨兵、绝不回灌为输入（CS-4.4）。
+        Assert.InRange(seconds, 9.8, 14.8);
+
+        // 窗口用现行公式：120 s×间隔乘子 1.3(t=0.75) = 156 s（v3.2 §6）。
+        // v2.1 遗留 57s/107s（§14.3 引用，推导未随档、基线 8402414 已查无存）
+        // 降为注释——追回挂 08-task-plan 开放问题 Q11，不再作为断言门禁
+        // （v3.2.1 口径修正，出处=code-review Standards 轴裁决）。
         Assert.True(
-            seconds < GateWindowSeconds,
-            $"computed {seconds:F2}s exceeds the F.5 107s window (火油塔 T4 2430 上线门禁, 07 N1)");
+            seconds < Campaign.WaveIntervalSeconds(T),
+            $"computed {seconds:F2}s exceeds the live wave interval "
+            + $"{Campaign.WaveIntervalSeconds(T):F0}s (120s×间隔乘子@t={T})");
     }
 }

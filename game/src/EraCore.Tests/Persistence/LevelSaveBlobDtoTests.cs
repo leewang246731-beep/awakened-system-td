@@ -2,8 +2,6 @@ using EraCore.Contracts.Persistence;
 using EraCore.Persistence;
 using Xunit;
 
-namespace EraCore.Tests.Persistence;
-
 // [C-04] K-7 save backend: level blob DTO (T-041)
 public class LevelSaveBlobDtoTests
 {
@@ -33,5 +31,33 @@ public class LevelSaveBlobDtoTests
         Assert.Equal(10, blob.WaveCheckpoint);
         Assert.Empty(blob.SimSnapshotPayload);
         Assert.Empty(blob.CommandTailPayload);
+    }
+
+    [Fact] // boundary — both blobs empty at once: a checkpoint with no tail yet
+    public void Empty_blobs_are_carried_verbatim()
+    {
+        ILevelSaveBlob asContract = new LevelSaveBlobDto(10, Array.Empty<byte>(), Array.Empty<byte>());
+
+        Assert.Empty(asContract.SimSnapshotPayload);
+        Assert.Empty(asContract.CommandTailPayload);
+    }
+
+    [Fact] // boundary — checkpoint upper edge (int.MaxValue, far above any win-wave count) plus max-length payloads the DTO must carry without copying or truncating
+    public void Max_checkpoint_and_max_length_payloads_round_trip()
+    {
+        // 1 MiB doubles: two orders above a realistic wave-boundary snapshot,
+        // still far below the SQLite BLOB ceiling — the DTO itself imposes no cap.
+        var sim = new byte[1024 * 1024];
+        var tail = new byte[1024 * 1024];
+        sim[^1] = 0xAB;
+        tail[^1] = 0xCD;
+        ILevelSaveBlob asContract = new LevelSaveBlobDto(int.MaxValue, sim, tail);
+
+        Assert.Equal(int.MaxValue, asContract.WaveCheckpoint);
+        Assert.Same(sim, asContract.SimSnapshotPayload);
+        Assert.Same(tail, asContract.CommandTailPayload);
+        Assert.Equal(1024 * 1024, asContract.SimSnapshotPayload.Length);
+        Assert.Equal(0xAB, asContract.SimSnapshotPayload[^1]);
+        Assert.Equal(0xCD, asContract.CommandTailPayload[^1]);
     }
 }

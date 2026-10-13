@@ -14,11 +14,14 @@ Kenney Tiny Dungeon 为 16×16 CC0 tile 包（14 §1.1 A1），进 32px 网格�
                         允许清单"的尺寸拒绝入库——48 为清单内显式允许的
                         非 2 幂例外，清单本身即判据）
   FILENAME-KEBAB REJECT  文件名非 kebab-case 小写（^[a-z0-9]+(-[a-z0-9]+)*\\.png$）
-  PALETTE-COUNT  WARN    实际使用颜色数 > master 调色板上限 64 色
-                        （14 §3「master ≤64 色」；--strict-palette 可升为 REJECT）
-  FRAME-STRIP    INFO    横条 sheet（宽=高×整数）报告帧数=w/h 供观察；
-                        帧数硬门禁随 sheet 结构规格（14 §3 帧数惯例）在
-                        T-045/T-078 素材实际入库时接入，首版不下判定
+  PALETTE-COUNT  REJECT  实际使用颜色数 > master 调色板上限 64 色
+                        （14 §3「master ≤64 色」；Wave 1 round 1 review #6
+                        起默认拒绝入库；`--allow-oversized-palette` 逃生阀
+                        供美术特批后降为 WARN 放行——审批留痕走审查记录）
+  FRAME-STRIP    INFO    横条 sheet（宽=高×整数）自动报告帧数=w/h 供观察，
+                        首版不下判定（自动帧门禁随 sheet 结构规格在 T-045
+                        接入）；显式给定 `--expect-frames N` 时按声明值判定：
+                        探测帧数≠N（含无法给出帧数的非横条图）→ REJECT
 
 实现说明：
   - 像素尺寸与颜色统计直接解析 PNG 二进制：IHDR 头（宽/高/位深/颜色类型/
@@ -31,7 +34,8 @@ Kenney Tiny Dungeon 为 16×16 CC0 tile 包（14 §1.1 A1），进 32px 网格�
     ≤64 色」的入库口径）。
 
 CLI 语义（自测见 test_asset_validator.py）：
-  python asset_validator.py [--json REPORT] [--strict-palette] DIR [DIR ...]
+  python asset_validator.py [--json REPORT] [--allow-oversized-palette]
+                            [--expect-frames N] DIR [DIR ...]
   退出码：0=无 REJECT（WARN 放行）；1=存在 REJECT；2=参数/IO 错误。
   --json 同时写机器报告（files/rejected/warned/results/exit_code）。
 
@@ -272,8 +276,14 @@ def count_colors(raw, width, height, depth, color_type, plte, trns):
 # ---------------------------------------------------------------- 校验规则
 
 
-def validate_file(path: str, allowed_sizes, max_palette: int, strict_palette: bool) -> dict:
-    """校验单个 PNG，返回 result dict（path/findings[]/尺寸/帧数/颜色数）。"""
+def validate_file(path: str, allowed_sizes, max_palette: int,
+                  allow_oversized_palette: bool, expect_frames) -> dict:
+    """校验单个 PNG，返回 result dict（path/findings[]/尺寸/帧数/颜色数）。
+
+    allow_oversized_palette：调色板超限降为 WARN（美术特批逃生阀，
+    审批留痕须走审查记录）。expect_frames：None=自动帧探测仅 INFO；
+    给定 N=探测帧数≠N（含非横条图无法给出帧数）→ REJECT。
+    """
     rel = path.replace(os.sep, "/")
     findings = []
     result = {
@@ -329,17 +339,35 @@ def validate_file(path: str, allowed_sizes, max_palette: int, strict_palette: bo
         if ncolors > max_palette:
             findings.append({
                 "rule": "PALETTE-COUNT",
-                "severity": "REJECT" if strict_palette else "WARN",
+                "severity": "WARN" if allow_oversized_palette else "REJECT",
                 "message": (f"实际使用颜色 {ncolors} > master 上限 {max_palette}"
-                            f"（14 §3「master ≤64 色」）"),
+                            f"（14 §3「master ≤64 色」"
+                            + ("；--allow-oversized-palette 逃生阀生效（美术特批，审批留痕见审查记录）"
+                               if allow_oversized_palette else "；默认拒绝入库") + "）"),
             })
 
-    if info["frames_hint"] and info["frames_hint"] > 1:
-        findings.append({
-            "rule": "FRAME-STRIP", "severity": "INFO",
-            "message": (f"横条 sheet：{info['frames_hint']} 帧×{info['height']}px"
-                        f"（帧数硬门禁随 sheet 规格在 T-045/T-078 接入，本版仅报告）"),
-        })
+    if expect_frames is None:
+        if info["frames_hint"] and info["frames_hint"] > 1:
+            findings.append({
+                "rule": "FRAME-STRIP", "severity": "INFO",
+                "message": (f"横条 sheet：{info['frames_hint']} 帧×{info['height']}px"
+                            f"（自动帧探测仅报告；自动帧门禁随 sheet 规格在 T-045 接入，"
+                            f"声明式门禁用 --expect-frames N）"),
+            })
+    else:
+        detected = info["frames_hint"]
+        if detected is None:
+            findings.append({
+                "rule": "FRAME-STRIP", "severity": "REJECT",
+                "message": (f"非横条 sheet（{info['width']}x{info['height']}，宽≠高×整数），"
+                            f"无法给出帧数，与 --expect-frames {expect_frames} 不符"),
+            })
+        elif detected != expect_frames:
+            findings.append({
+                "rule": "FRAME-STRIP", "severity": "REJECT",
+                "message": (f"探测帧数 {detected} ≠ 声明 --expect-frames {expect_frames}"
+                            f"（帧数门禁以声明值为准；自动门禁 T-045 接入）"),
+            })
     return result
 
 
@@ -355,7 +383,7 @@ def scan_tree(root: str) -> list:
     return files
 
 
-def run(roots, allowed_sizes, max_palette, strict_palette) -> dict:
+def run(roots, allowed_sizes, max_palette, allow_oversized_palette, expect_frames=None) -> dict:
     results = []
     for root in roots:
         if not os.path.isdir(root):
@@ -367,7 +395,7 @@ def run(roots, allowed_sizes, max_palette, strict_palette) -> dict:
             })
             continue
         results.extend(
-            validate_file(p, allowed_sizes, max_palette, strict_palette)
+            validate_file(p, allowed_sizes, max_palette, allow_oversized_palette, expect_frames)
             for p in scan_tree(root))
 
     rejected = sum(1 for r in results
@@ -382,6 +410,8 @@ def run(roots, allowed_sizes, max_palette, strict_palette) -> dict:
         "warned": warned,
         "allowed_sizes": sorted(allowed_sizes),
         "max_palette": max_palette,
+        "allow_oversized_palette": allow_oversized_palette,
+        "expect_frames": expect_frames,
         "results": results,
         "exit_code": exit_code,
     }
@@ -392,15 +422,20 @@ def run(roots, allowed_sizes, max_palette, strict_palette) -> dict:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        description="资产导入校验器（T-046）：PNG 尺寸/调色板/文件名入库校验")
+        description="资产导入校验器（T-046）：PNG 尺寸/调色板/文件名/帧数入库校验")
     parser.add_argument("dirs", nargs="+", help="待扫描目录（递归；非 PNG 忽略）")
     parser.add_argument("--json", metavar="REPORT", help="机器报告输出路径")
     parser.add_argument("--sizes", default=",".join(str(s) for s in DEFAULT_ALLOWED_SIZES),
                         help="允许尺寸清单（逗号分隔，默认 16,32,48,64）")
     parser.add_argument("--max-palette", type=int, default=DEFAULT_MAX_PALETTE,
                         help="master 调色板颜色上限（默认 64，14 §3）")
-    parser.add_argument("--strict-palette", action="store_true",
-                        help="调色板超限由 WARN 升为 REJECT")
+    parser.add_argument("--allow-oversized-palette", action="store_true",
+                        help="调色板超限（>64 色）由 REJECT 降为 WARN 放行——"
+                             "仅供美术特批后使用，审批留痕须走审查记录")
+    parser.add_argument("--expect-frames", type=int, metavar="N", default=None,
+                        help="声明式帧数门禁：给定 N 时探测帧数≠N（含非横条图"
+                             "无法给出帧数）→ REJECT；缺省=自动帧探测仅 INFO"
+                             "（自动门禁随 T-045 接入）")
     args = parser.parse_args(argv)
 
     try:
@@ -409,8 +444,13 @@ def main(argv=None) -> int:
         print("asset_validator: --sizes 须为逗号分隔整数", file=sys.stderr)
         return 2
 
+    if args.expect_frames is not None and args.expect_frames < 1:
+        print("asset_validator: --expect-frames 须为正整数", file=sys.stderr)
+        return 2
+
     try:
-        report = run(args.dirs, allowed, args.max_palette, args.strict_palette)
+        report = run(args.dirs, allowed, args.max_palette,
+                     args.allow_oversized_palette, args.expect_frames)
     except OSError as exc:
         print(f"asset_validator: IO 错误：{exc}", file=sys.stderr)
         return 2
@@ -422,13 +462,16 @@ def main(argv=None) -> int:
         tag = {"REJECT": "REJECT", "WARN": "WARN"}.get(worst, "ok")
         size = f"{r['width']}x{r['height']}" if r["width"] else "-"
         colors = str(r["palette_colors"]) if r["palette_colors"] is not None else "-"
-        print(f"  [{tag:>6}] {r['path']}  size={size}  colors={colors}")
+        frames = str(r["frames"]) if r["frames"] is not None else "-"
+        print(f"  [{tag:>6}] {r['path']}  size={size}  colors={colors}  frames={frames}")
         for f in r["findings"]:
             if f["severity"] != "INFO":
                 print(f"          {f['severity']:<6} {f['rule']}: {f['message']}")
     print(f"summary: files={report['files']} rejected={report['rejected']} "
           f"warned={report['warned']} allowed_sizes={report['allowed_sizes']} "
-          f"max_palette={report['max_palette']}")
+          f"max_palette={report['max_palette']} "
+          f"allow_oversized_palette={report['allow_oversized_palette']} "
+          f"expect_frames={report['expect_frames']}")
     print(f"exit_code: {report['exit_code']}")
 
     if args.json:

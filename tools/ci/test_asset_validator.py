@@ -7,11 +7,14 @@ test_asset_validator.py — asset_validator.py 自测（任务 T-046；零三方
 不依赖任何外部图片文件：
   1. png_bytes_builder    构造器：任意宽高/位深/颜色类型/像素→合法 PNG 字节
   2. size_rules           尺寸允许清单正反例（16/32/48/64 过；1/20/24/128 拒）
-  3. palette_rules        颜色计数：单色过；>64 色 WARN 放行、--strict-palette 拒；
-                          索引色（PLTE+tRNS）计数正确
-  4. filename_rules       kebab-case 过；大写/下划线拒
-  5. structure_rules      截断/CRC 损坏/非 PNG 拒；隔行图跳过计数不崩
-  6. cli_semantics        CLI 端到端：退出码 0/1、--json 报告结构、
+  3. palette_rules        颜色计数：单色过；>64 色默认 REJECT（Wave 1 round 1
+                          review #6 起默认拒绝）、--allow-oversized-palette
+                          逃生阀降 WARN 放行；索引色（PLTE+tRNS）计数正确
+  4. frames_rules         帧数门禁：缺省自动探测仅 INFO；--expect-frames
+                          匹配过、不匹配拒、非横条图拒
+  5. filename_rules       kebab-case 过；大写/下划线拒
+  6. structure_rules      截断/CRC 损坏/非 PNG 拒；隔行图跳过计数不崩
+  7. cli_semantics        CLI 端到端：退出码 0/1、--json 报告结构、
                           非 PNG 目录（game/content/ 纯 JSON）0 文件通过
 样例均在系统临时目录创建、用后删除。
 """
@@ -163,18 +166,20 @@ def test_palette_rules() -> None:
     os.makedirs(many)
     os.makedirs(idx)
     try:
-        # 65+ 色 RGBA（>64 → WARN；--strict-palette → REJECT）
+        # 65+ 色 RGBA（>64 → 默认 REJECT；--allow-oversized-palette → WARN 放行）
         rows = rgba_rows(16, 16, lambda x, y: ((y * 16 + x) % 256, 0, 0, 255))
         write(many, "many-colors.png", png_bytes(16, 16, 8, 6, pixels=rows))
         report = av.run([many], av.DEFAULT_ALLOWED_SIZES, 64, False)
         r = report["results"][0]
         check(r["palette_colors"] == 256, "颜色计数=256")
-        check(severity_of(r, "PALETTE-COUNT") == "WARN", "65+ 色→WARN（默认放行）")
-        check(report["exit_code"] == 0, "WARN 不改退出码")
-        strict = av.run([many], av.DEFAULT_ALLOWED_SIZES, 64, True)
-        check(severity_of(strict["results"][0], "PALETTE-COUNT") == "REJECT",
-              "--strict-palette 升 REJECT")
-        check(strict["exit_code"] == 1, "严格模式 exit 1")
+        check(severity_of(r, "PALETTE-COUNT") == "REJECT",
+              "65+ 色默认 REJECT（拒绝入库）")
+        check(report["exit_code"] == 1, "默认超限 exit 1")
+        escape = av.run([many], av.DEFAULT_ALLOWED_SIZES, 64, True)
+        check(severity_of(escape["results"][0], "PALETTE-COUNT") == "WARN",
+              "--allow-oversized-palette 逃生阀降 WARN（美术特批）")
+        check(escape["exit_code"] == 0 and escape["warned"] == 1,
+              "逃生阀下 WARN 放行 exit 0 且计入 warned")
 
         # 索引色：PLTE 4 色 + tRNS 1 半透明 → distinct (rgb,a) 计数
         plte = bytes([255, 0, 0, 0, 255, 0, 0, 0, 255, 9, 9, 9])
@@ -187,6 +192,53 @@ def test_palette_rules() -> None:
         check(rep["results"][0]["palette_colors"] == 4,
               "索引色 distinct 颜色计数（tRNS 计入）")
         check(rep["results"][0]["palette_colors"] <= 64, "索引色 ≤64 通过")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_frames_rules() -> None:
+    root = tempfile.mkdtemp(prefix="av_frames_")
+    strip = os.path.join(root, "strip")
+    single = os.path.join(root, "single")
+    os.makedirs(strip)
+    os.makedirs(single)
+    try:
+        # 32×16 横条 sheet：帧数=32/16=2（两帧各 16×16，单色）
+        rows = rgba_rows(32, 16, lambda x, y: (10, 20, 30, 255))
+        write(strip, "walk-sheet.png", png_bytes(32, 16, 8, 6, pixels=rows))
+        # 16×16 方图：frames_hint=1（非多帧横条）
+        write(single, "icon.png", png_bytes(16, 16, 8, 6,
+                                            pixels=rgba_rows(16, 16, lambda x, y: (1, 2, 3, 255))))
+
+        base = av.run([strip], av.DEFAULT_ALLOWED_SIZES, 64, False)
+        check(severity_of(base["results"][0], "FRAME-STRIP") == "INFO",
+              "缺省：自动帧探测仅 INFO（自动门禁 T-045 接入）")
+        check(base["results"][0]["frames"] == 2, "横条帧数探测=宽/高=2")
+        check(base["exit_code"] == 0, "缺省帧探测不改退出码")
+
+        match = av.run([strip], av.DEFAULT_ALLOWED_SIZES, 64, False, expect_frames=2)
+        check("FRAME-STRIP" not in rules_of(match["results"][0]),
+              "--expect-frames 2 与探测一致：无帧数违规")
+        check(match["exit_code"] == 0, "--expect-frames 匹配 exit 0")
+
+        mismatch = av.run([strip], av.DEFAULT_ALLOWED_SIZES, 64, False, expect_frames=4)
+        check(severity_of(mismatch["results"][0], "FRAME-STRIP") == "REJECT",
+              "--expect-frames 4 ≠ 探测 2 → REJECT")
+        check(mismatch["exit_code"] == 1, "帧数不符 exit 1")
+
+        icon = av.run([single], av.DEFAULT_ALLOWED_SIZES, 64, False, expect_frames=2)
+        check(severity_of(icon["results"][0], "FRAME-STRIP") == "REJECT",
+              "非横条图（frames=1≠2）在声明门禁下拒")
+
+        # 16×32 竖条（w<h，frames_hint=None）+ expect-frames → 无法给出帧数即拒
+        tall = os.path.join(root, "tall")
+        os.makedirs(tall)
+        write(tall, "tall-strip.png", png_bytes(16, 32, 8, 6,
+                                                pixels=rgba_rows(16, 32, lambda x, y: (5, 6, 7, 255))))
+        tall_rep = av.run([tall], av.DEFAULT_ALLOWED_SIZES, 64, False, expect_frames=2)
+        check(severity_of(tall_rep["results"][0], "FRAME-STRIP") == "REJECT",
+              "非横条图（无帧数）在声明门禁下拒")
+        check(tall_rep["results"][0]["frames"] is None, "竖条图 frames_hint=None")
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
@@ -264,6 +316,31 @@ def test_cli_semantics() -> None:
         check("SIZE-ALLOWLIST" in r_bad.stdout and "FILENAME-KEBAB" in r_bad.stdout,
               "stdout 摘要含违规规则名")
 
+        # CLI 旗标端到端：横条 sheet 32×16（2 帧）× --expect-frames 4 → REJECT；
+        # --expect-frames 2 → exit 0；非法值（0）→ 参数错误 exit 2
+        frames_dir = tempfile.mkdtemp(prefix="av_cli_frames_")
+        try:
+            strip_rows = rgba_rows(32, 16, lambda x, y: (10, 20, 30, 255))
+            write(frames_dir, "walk-sheet.png", png_bytes(32, 16, 8, 6, pixels=strip_rows))
+            r_mismatch = subprocess.run(
+                [sys.executable, os.path.join(HERE, "asset_validator.py"),
+                 "--expect-frames", "4", frames_dir],
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
+            check(r_mismatch.returncode == 1 and "FRAME-STRIP" in r_mismatch.stdout,
+                  "CLI --expect-frames 不匹配 → exit 1 且 stdout 含 FRAME-STRIP")
+            r_match = subprocess.run(
+                [sys.executable, os.path.join(HERE, "asset_validator.py"),
+                 "--expect-frames", "2", frames_dir],
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
+            check(r_match.returncode == 0, "CLI --expect-frames 匹配 → exit 0")
+            r_badflag = subprocess.run(
+                [sys.executable, os.path.join(HERE, "asset_validator.py"),
+                 "--expect-frames", "0", frames_dir],
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
+            check(r_badflag.returncode == 2, "CLI --expect-frames 0 → 参数错误 exit 2")
+        finally:
+            shutil.rmtree(frames_dir, ignore_errors=True)
+
         r_missing = subprocess.run(
             [sys.executable, os.path.join(HERE, "asset_validator.py"),
              os.path.join(bad, "no-such-dir")],
@@ -284,6 +361,7 @@ def main() -> int:
     test_png_builder_and_parser()
     test_size_rules()
     test_palette_rules()
+    test_frames_rules()
     test_filename_rules()
     test_structure_rules()
     test_cli_semantics()

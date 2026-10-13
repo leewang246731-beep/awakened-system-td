@@ -108,7 +108,7 @@ public class GridWorldTests
             () => new GridWorld(width, height, new LcgRng(SeedA)));
     }
 
-    [Fact] // boundary — extreme legal dimensions accepted
+    [Fact] // boundary — extreme legal dimensions accepted; hash proves determinism + discrimination (review W1R1 #3: NotEqual(0) is near-tautological)
     public void Constructor_accepts_extreme_dimensions()
     {
         var tiny = new GridWorld(1, 1, new LcgRng(SeedA));
@@ -118,7 +118,19 @@ public class GridWorldTests
         var huge = new GridWorld(GridWorld.MaxSide, GridWorld.MaxSide, new LcgRng(SeedA));
         Assert.Equal(GridWorld.MaxSide, huge.Width);
         Assert.Equal(GridWorld.MaxSide, huge.Height);
-        Assert.NotEqual(0L, huge.ComputeMapHash());
+
+        // Determinism: same seed at extreme dimensions → identical hash (F-154).
+        var hugeAgain = new GridWorld(GridWorld.MaxSide, GridWorld.MaxSide, new LcgRng(SeedA));
+        Assert.Equal(huge.ComputeMapHash(), hugeAgain.ComputeMapHash());
+
+        // Seed sensitivity: a different seed redraws the huge map.
+        var hugeOtherSeed = new GridWorld(GridWorld.MaxSide, GridWorld.MaxSide, new LcgRng(SeedB));
+        Assert.NotEqual(huge.ComputeMapHash(), hugeOtherSeed.ComputeMapHash());
+
+        // Discrimination: the huge map hash differs from a medium map's —
+        // dimensions + full terrain both feed the FNV-1a mix.
+        var medium = new GridWorld(64, 64, new LcgRng(SeedA));
+        Assert.NotEqual(medium.ComputeMapHash(), huge.ComputeMapHash());
     }
 
     [Theory] // illegal — ratio corruption rejected

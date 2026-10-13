@@ -233,7 +233,7 @@ public sealed class GridWorld : IFlowGrid
         if (!IsValidZoneId(zoneId))
         {
             throw new ArgumentException(
-                $"Zone id '{zoneId}' is invalid: expected ^[a-z0-9-]+$ (language-neutral lane id).",
+                $"Zone id '{zoneId}' is invalid: expected ^[a-z0-9-]+$ per {nameof(ZoneId)}.IsValid (language-neutral lane id).",
                 nameof(zoneId));
         }
 
@@ -260,14 +260,18 @@ public sealed class GridWorld : IFlowGrid
         _zones.Add(zoneId, new List<CellCoord>(cells));
     }
 
-    /// <summary>Whether a zone with this id exists.</summary>
+    /// <summary>
+    /// Whether a zone with this id exists. Validation is delegated to
+    /// <see cref="ZoneId.IsValid"/> — the single rule shared with the action
+    /// Schema <c>lane</c> family (F-117 same-source requirement).
+    /// </summary>
     public bool ZoneExists(string zoneId) =>
-        IsValidZoneId(zoneId) && _zones.ContainsKey(zoneId);
+        ZoneId.IsValid(zoneId) && _zones.ContainsKey(zoneId);
 
     /// <summary>Looks up the cells of a zone by id.</summary>
     public bool TryGetZoneCells(string zoneId, out IReadOnlyList<CellCoord> cells)
     {
-        if (IsValidZoneId(zoneId) && _zones.TryGetValue(zoneId, out List<CellCoord>? owned))
+        if (ZoneId.IsValid(zoneId) && _zones.TryGetValue(zoneId, out List<CellCoord>? owned))
         {
             cells = owned;
             return true;
@@ -278,33 +282,14 @@ public sealed class GridWorld : IFlowGrid
     }
 
     /// <summary>
-    /// Zone/lane id rule (T-032 task card): matches ^[a-z0-9-]+$ — one or
-    /// more lowercase ASCII letters, digits or hyphens. Deliberately excludes
-    /// underscore, uppercase, spaces and non-ASCII so ids stay stable across
-    /// locales — the localizable display name lives in content data, never in
-    /// the id (same id family the action Schema uses for <c>lane</c>,
-    /// G.2 SetRally/SpawnScout).
+    /// Zone/lane id rule (T-032 task card): thin forwarding wrapper over
+    /// <see cref="ZoneId.IsValid"/> — the single regex source
+    /// (<c>^[a-z0-9-]+$</c>). Kept as a member so existing call sites read
+    /// naturally; the rule itself lives only in <see cref="ZoneId"/> (F-117:
+    /// zone ids and the SetRally/SpawnScout <c>lane</c> parameter are one id
+    /// family, one validator).
     /// </summary>
-    public static bool IsValidZoneId(string? zoneId)
-    {
-        if (string.IsNullOrEmpty(zoneId))
-        {
-            return false;
-        }
-
-        foreach (char c in zoneId)
-        {
-            bool ok = c is >= 'a' and <= 'z'
-                or >= '0' and <= '9'
-                or '-';
-            if (!ok)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    public static bool IsValidZoneId(string? zoneId) => ZoneId.IsValid(zoneId);
 
     /// <summary>
     /// FNV-1a 64 over dimensions + terrain in row-major order. Zones and

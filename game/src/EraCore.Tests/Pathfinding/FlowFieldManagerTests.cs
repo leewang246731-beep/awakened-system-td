@@ -389,59 +389,84 @@ public class FlowFieldManagerTests
     public void FullFlood300x300SparseStaysWithinBudgetEnvelope()
     {
         // [F-043] TierA 性能留档：300×300 稀疏障碍（密度 0.08，seed 42）全图泛洪，
-        // 8ms 预算切片推进。阈值按实测设定并注明余量来源（任务卡要求）：
-        // 空载实测 sliced total=165ms/21 帧/均 7ms/峰 8ms、burst=176ms；并行 CI
-        // （run_all 全量构建+同套件并发）实测最差 total=388ms/41 帧/均 9ms/峰 22ms
-        // （峰值超预算部分=GC/OS 调度抖动，非算法批次粒度——32 pop 批检查空载
-        // 低于 1ms）。断言取实测最差值外加余量：总量 <2000ms（5×余量）、均帧
-        // ≤15ms、单帧 ≤30ms（仍低于一个 30 Hz tick=33.3ms）；真实数字经
-        // ITestOutputHelper 留档。
+        // 8ms 预算切片推进。稳态化口径（Wave 1 round 1 review #2）：
+        //
+        // 语义边界——仿真跑在 K-1 IClock 冻结的 30 Hz 固定 tick 时域上，一个
+        // tick=33.3ms；流场每帧预算 8ms（F-043/v3.2 §6）是 tick 内的切片份额，
+        // 不是帧率本身。因此单帧包络取 30ms（<33.3ms 一个 tick，留 3.3ms 边界
+        // 裕量）：即便某帧被 GC/OS 调度顶穿 8ms 预算，也仍在一个 tick 内完成，
+        // 不侵占下一个 tick 的份额。
+        //
+        // 留档数据（T-037 首测，机器=A5 级开发机）：空载 sliced total=165ms/
+        // 21 帧/均 7ms/峰 8ms、burst=176ms；并行 CI（run_all 全量构建+同套件
+        // 并发）实测最差 total=388ms/41 帧/均 9ms/峰 22ms（峰值超预算部分=
+        // GC/OS 调度抖动，非算法批次粒度——32 pop 批检查空载低于 1ms）。
+        //
+        // 断言稳态化：①单帧峰值断言改为**三次独立运行取中位数**（单次极值
+        // 由一次性调度尖峰主导，中位数抓持续回归不抓毛刺）；②无负载严格
+        // 断言：均帧 ≤10ms——空载留档 7~8ms 支持 8ms 线，CI 并发抖动放宽数
+        // =8ms×1.25=10ms（25% 调度裕量，注明于此）；③总量 <2000ms（对最差
+        // 留档 388ms 约 5× 余量）。真实数字经 ITestOutputHelper 留档。
         var grid = TestMazes.SparseObstacles(300, 42, 0.08);
         var target = new CellCoord(299, 299);
 
         var burstWatch = Stopwatch.StartNew();
         var burst = FlowField.BuildComplete(grid, target);
         burstWatch.Stop();
-
-        var sliced = FlowField.StartBuild(grid, target);
-        long maxFrameTicks = 0;
-        int frames = 0;
-        var totalWatch = Stopwatch.StartNew();
-        while (true)
-        {
-            long frameStart = Stopwatch.GetTimestamp();
-            bool done = sliced.Advance(TimeSpan.FromMilliseconds(8));
-            long frameEnd = Stopwatch.GetTimestamp();
-            maxFrameTicks = Math.Max(maxFrameTicks, frameEnd - frameStart);
-            frames++;
-            if (done)
-            {
-                break;
-            }
-        }
-
-        totalWatch.Stop();
-
-        double totalMs = totalWatch.Elapsed.TotalMilliseconds;
-        double avgMs = totalMs / frames;
-        double maxFrameMs = maxFrameTicks * 1000.0 / Stopwatch.Frequency;
         double burstMs = burstWatch.Elapsed.TotalMilliseconds;
 
-        _output.WriteLine(
-            "[T-037 perf] 300x300 d=0.08 seed=42: sliced total=" + (int)totalMs + "ms frames=" + frames
-            + " avg=" + (int)avgMs + "ms maxFrame=" + (int)maxFrameMs + "ms burst=" + (int)burstMs + "ms"
-            + " mode=" + burst.Mode + " reachableFromSpawn=" + burst.IsReachable(new CellCoord(0, 0)));
+        // Three independent sliced builds; per run: (totalMs, avgMs, maxFrameMs).
+        var runs = new (double Total, double Avg, double Max)[3];
+        for (int run = 0; run < runs.Length; run++)
+        {
+            var sliced = FlowField.StartBuild(grid, target);
+            long maxFrameTicks = 0;
+            int frames = 0;
+            var totalWatch = Stopwatch.StartNew();
+            while (true)
+            {
+                long frameStart = Stopwatch.GetTimestamp();
+                bool done = sliced.Advance(TimeSpan.FromMilliseconds(8));
+                long frameEnd = Stopwatch.GetTimestamp();
+                maxFrameTicks = Math.Max(maxFrameTicks, frameEnd - frameStart);
+                frames++;
+                if (done)
+                {
+                    break;
+                }
+            }
+
+            totalWatch.Stop();
+            double totalMs = totalWatch.Elapsed.TotalMilliseconds;
+            runs[run] = (totalMs, totalMs / frames, maxFrameTicks * 1000.0 / Stopwatch.Frequency);
+            Assert.Equal(burst.Hash, sliced.Hash); // every run bit-identical to the one-shot build
+            _output.WriteLine(
+                "[T-037 perf] 300x300 d=0.08 seed=42 run" + run + ": sliced total=" + (int)totalMs
+                + "ms frames=" + frames + " avg=" + (int)runs[run].Avg + "ms maxFrame="
+                + (int)runs[run].Max + "ms burst=" + (int)burstMs + "ms"
+                + " mode=" + burst.Mode + " reachableFromSpawn=" + burst.IsReachable(new CellCoord(0, 0)));
+        }
+
+        double medianTotal = MedianOf(runs[0].Total, runs[1].Total, runs[2].Total);
+        double medianAvg = MedianOf(runs[0].Avg, runs[1].Avg, runs[2].Avg);
+        double medianMax = MedianOf(runs[0].Max, runs[1].Max, runs[2].Max);
 
         Assert.True(burst.IsReady);
-        Assert.Equal(burst.Hash, sliced.Hash);
         // Envelope = worst measured under loaded CI (388ms/9ms/22ms) + documented
-        // machine-variance margin (~5x total, ~1.7x per-frame); regression catcher,
-        // not wall-clock certification (unloaded numbers recorded above).
-        Assert.True(totalMs < 2000, "total flood time " + (int)totalMs + "ms exceeded the 2000ms envelope");
-        Assert.True(avgMs <= 15.0, "average frame " + (int)avgMs + "ms exceeded the 15ms envelope");
-        Assert.True(maxFrameMs <= 30.0,
-            "worst frame " + (int)maxFrameMs + "ms exceeded the 30ms envelope (one 30Hz tick = 33.3ms)");
+        // machine-variance margin; regression catcher, not wall-clock certification
+        // (unloaded numbers recorded above via _output).
+        Assert.True(medianTotal < 2000, "median total flood time " + (int)medianTotal + "ms exceeded the 2000ms envelope");
+        Assert.True(medianAvg <= 10.0,
+            "median average frame " + (int)medianAvg + "ms exceeded the strict unloaded envelope"
+            + " 10ms (=8ms budget x1.25 CI-jitter margin; unloaded archived avg is 7ms)");
+        Assert.True(medianMax <= 30.0,
+            "median worst frame " + (int)medianMax + "ms exceeded the 30ms envelope"
+            + " (one 30Hz tick = 33.3ms; 3.3ms boundary margin)");
     }
+
+    /// <summary>Middle value of three samples (odd count → exact order statistic).</summary>
+    private static double MedianOf(double a, double b, double c) =>
+        Math.Max(Math.Min(a, b), Math.Min(Math.Max(a, b), c));
 
     /// <summary>Minimal grid carrying dimensions only (ctor rejection input).</summary>
     private sealed class FixedGrid(int width, int height) : IFlowGrid
