@@ -65,6 +65,70 @@ public class DamageTests
         Assert.Throws<ArgumentException>(() => Damage.Direct(d, decay, 0));
     }
 
+    // ---------------------------------------- branch 1 integer twin: DirectInt (F1)
+
+    /// <summary>
+    /// Divergence regression grid (batch2 review F1): every cell of
+    /// d = 1..30 × armor = 0..15 (480 cases) pins <see cref="Damage.DirectInt"/>
+    /// against the legacy ceil semantics max(d−armor, ceil(10%·d)) that the
+    /// pre-unification Unit-local settlement implemented as (d+9)/10. The
+    /// expected value is recomputed with <c>decimal</c> ceil — a formulation
+    /// independent of the implementation's integer path — so a drift on
+    /// EITHER side of the twin turns this grid red.
+    /// </summary>
+    public static TheoryData<int, int, int, int> DirectIntGridRows
+    {
+        get
+        {
+            var rows = new TheoryData<int, int, int, int>();
+            for (int d = 1; d <= 30; d++)
+            {
+                for (int armor = 0; armor <= 15; armor++)
+                {
+                    int ceil10 = (int)Math.Ceiling(0.1m * d); // decimal: exact tenths, no float error
+                    rows.Add(d, armor, Math.Max(d - armor, ceil10), ceil10);
+                }
+            }
+
+            return rows;
+        }
+    }
+
+    [Theory] // legal + boundary — DirectInt ≡ legacy ceil semantics, full grid
+    [MemberData(nameof(DirectIntGridRows))]
+    public void DirectInt_matches_legacy_ceil_semantics_on_full_grid(
+        int d, int armor, int expected, int ceil10)
+    {
+        // [F-029] 分歧回归（batch2 审查 F1）：整数孪生与原 ceil 语义逐格相等。
+        // 第一断言重导出遗留整数式 (d+9)/10；第二断言对独立的 decimal 期望值。
+        Assert.Equal(ceil10, (d + 9) / 10);
+        Assert.Equal(expected, Damage.DirectInt(d, armor));
+    }
+
+    [Fact] // boundary — armor beyond damage: the ceil floor binds (T-039 anchor shape)
+    public void DirectInt_floor_binds_when_armor_exceeds_damage()
+    {
+        // [F-029] max(3−6, ceil(0.3)=1) = 1；max(10−10, ceil(1)=1) = 1
+        Assert.Equal(1, Damage.DirectInt(3, 6));
+        Assert.Equal(1, Damage.DirectInt(10, 10));
+    }
+
+    [Fact] // boundary — negative armor clamps to 0, matching the double branch
+    public void DirectInt_negative_armor_clamps_to_zero()
+    {
+        // [F-029] −30 甲按 0 甲结算，不得变成增益
+        Assert.Equal(Damage.DirectInt(100, 0), Damage.DirectInt(100, -30));
+    }
+
+    [Theory] // illegal — negative damage is rejected (same guard family as Direct)
+    [InlineData(-1)]
+    [InlineData(-100)]
+    public void DirectInt_rejects_negative_damage(int d)
+    {
+        // [F-029] guard: d ≥ 0
+        Assert.Throws<ArgumentException>(() => Damage.DirectInt(d, 0));
+    }
+
     // ------------------------------------------------------------ branch 2: splash decay
 
     public static TheoryData<double, double, double> SplashRows => new()

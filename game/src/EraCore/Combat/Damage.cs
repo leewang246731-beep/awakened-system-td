@@ -59,6 +59,31 @@ public static class Damage
     }
 
     /// <summary>
+    /// Integer twin of the direct branch with decay = 1 (damage-formula
+    /// unification, batch2 review F1): <c>max(d − armor, ceil(0.1×d))</c> —
+    /// the ceil is preserved in pure integer math (<c>(d + 9) / 10</c>),
+    /// armor clamps to ≥0 and can never fully negate a hit.
+    /// <b>唯一权威整数入口，供确定性回放</b>（Unit.ApplyDamage delegates
+    /// here; Units → Combat one-way, 03-decomposition §3.1; the d=1..30 ×
+    /// armor=0..15 divergence grid in DamageTests pins this against the
+    /// legacy ceil semantics so the twin can never drift from
+    /// <see cref="Direct"/>).
+    /// </summary>
+    /// <param name="damage">Undecayed single-shot damage d (≥0).</param>
+    /// <param name="armor">Target armor in points; negative values clamp to 0.</param>
+    /// <exception cref="ArgumentException">damage negative.</exception>
+    public static int DirectInt(int damage, int armor)
+    {
+        if (damage < 0)
+        {
+            throw new ArgumentException($"Damage must be non-negative (got {damage}).", nameof(damage));
+        }
+
+        int floor = (damage + 9) / 10; // ceil(FloorRatio × d) in pure integer math
+        return Math.Max(damage - Math.Max(armor, 0), floor);
+    }
+
+    /// <summary>
     /// Splash decay factor (branch 2): <c>lerp(1 − min(dist/r, 1), 1, 0.4)</c>.
     /// Distance 0 → 1.0; distance ≥ radius → 0.4 (edge floor); in between it
     /// falls linearly. Feed the result into <see cref="Direct"/> as its decay.

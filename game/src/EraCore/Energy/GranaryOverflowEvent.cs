@@ -3,16 +3,21 @@ using EraCore.Contracts.Foundation;
 namespace EraCore.Energy;
 
 /// <summary>
-/// Granary overflow spoilage policy (粮仓满溢事件, C-08 T-033, F-009):
-/// while the food stock of a granary exceeds its capacity, a periodic
-/// spoilage check fires on a fixed <see cref="IClock"/> tick period and a
-/// seeded <see cref="IRng"/> decides the loss kind (rat plague 鼠患 or mold
+/// Granary overflow spoilage policy (粮仓满溢事件, C-08 T-033, F-009;
+/// spec provenance = design v3.2 §4.2 E1 行「粮仓满溢（鼠患/霉变损耗食物）」
+/// — the E1 risk-event row of the energy ladder, successor of v2.1 baseline
+/// §4.2, full wording restored by v3.2.2 batch2 review F4): while the food
+/// stock of a granary exceeds its capacity, a periodic spoilage check fires
+/// on a fixed <see cref="IClock"/> tick period and a seeded
+/// <see cref="IRng"/> decides the loss kind (rat plague 鼠患 or mold
 /// 霉变) and the lost fraction of the overflow. Determinism contract:
 /// the <see cref="IRng"/> is drawn exactly twice per fired event (kind,
 /// then fraction) and never on quiet ticks, so same seed + same tick
 /// sequence ⇒ identical losses (03-decomposition §1.2). All numeric bands
 /// are [NEW-T-033]: v3.2 fixes no E1 granary numbers (era1.json
-/// energy.risk_events=false covers the E3+ ladder risks only — SP-4 L142).
+/// energy.risk_events=false refers to the E3+ load-rate ladder risks only
+/// — SP-4 L142; the granary overflow is the E1 food-loss event and stays
+/// in force, per the restored §4.2 E1 wording).
 /// </summary>
 public sealed class GranaryOverflowEvent
 {

@@ -1,3 +1,4 @@
+using EraCore.Combat;
 using EraCore.Contracts.Foundation;
 using EraCore.Contracts.Sim;
 
@@ -10,10 +11,12 @@ namespace EraCore.Units;
 /// contract: spawn/death ticks, arrival flag, trample tuning and the death
 /// notification.
 /// <para>
-/// Damage settlement is the E1 minimal direct-damage rule of the T-039 task
-/// card — max(d − armor, ceil(10%·d)) — chosen over throwing whenever armor
-/// exceeds damage. The full v3.2 §6 formula (decay term, shields) lives in
-/// Combat (T-038) once that lane merges; this method is the switch point.
+/// Damage settlement delegates to the single authoritative integer entry
+/// <see cref="Damage.DirectInt"/> (damage-formula unification, batch2 review
+/// F1): effective = max(d − armor, ceil(10%·d)) — armor can never fully
+/// negate a hit. The local formula copy that shipped with T-039 was removed;
+/// Units → Combat stays one-way (03-decomposition §3.1) and the divergence
+/// grid in DamageTests pins DirectInt against the legacy ceil semantics.
 /// </para>
 /// <para>
 /// Death raises <see cref="Died"/> exactly once, inline and synchronously
@@ -142,9 +145,10 @@ public sealed class Unit : IUnit
     public int TramplePeriodTicks { get; private set; }
 
     /// <summary>
-    /// E1 minimal direct-damage settlement (T-039 task card):
-    /// effective = max(d − armor, ceil(10%·d)) — armor can never fully
-    /// negate a hit. Integer math only, so results are replay-stable.
+    /// E1 minimal direct-damage settlement (T-039 task card), delegated to
+    /// the authoritative integer twin <see cref="Damage.DirectInt"/> (batch2
+    /// review F1): effective = max(d − armor, ceil(10%·d)) — armor can never
+    /// fully negate a hit. Integer math only, so results are replay-stable.
     /// </summary>
     /// <param name="rawDamage">Incoming raw damage, must be positive.</param>
     /// <param name="tick">Current simulation tick (stamps <see cref="DeathTick"/>).</param>
@@ -162,8 +166,7 @@ public sealed class Unit : IUnit
             return 0;
         }
 
-        int tenPercent = (rawDamage + 9) / 10; // ceil(10%·d) in pure integer math
-        int effective = Math.Max(rawDamage - Armor, tenPercent);
+        int effective = Damage.DirectInt(rawDamage, Armor);
         Hp = Math.Max(0, Hp - effective);
         if (Hp == 0)
         {

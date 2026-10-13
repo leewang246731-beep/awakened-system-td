@@ -58,6 +58,12 @@ public interface ICargoReceiver
 /// (see <see cref="RoundTripTicks"/>) = 6.67 s for <see cref="CapacityItems"/>
 /// = 2 items ⇒ exactly 0.3 items/s. The throughput test replays this by
 /// simulation; six-tier content (马车 0.6 … 传送阵 ∞) lands with T-064.
+/// Caliper freeze (batch2 review F5): the 0.3 items/s anchor holds ONLY at
+/// the reference distance of 160 px one-way — throughput = capacity ÷
+/// round-trip period, and the period is distance-sensitive (travel legs
+/// scale with route length, service windows do not). The six-tier logistics
+/// acceptance (T-064) must therefore compare all tiers at the SAME 160 px
+/// reference distance (统一口径).
 /// </para>
 /// </summary>
 public sealed class Carrier
