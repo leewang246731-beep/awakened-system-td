@@ -1,10 +1,10 @@
-# 12 契约冻结记录：K-1~K-8 C# 契约包（T-019~T-025）
+# 12 契约冻结记录：K-1~K-9 C# 契约包（T-019~T-025）
 
 | 项 | 内容 |
 |---|---|
-| 版本 | v1.0 |
+| 版本 | v1.1 |
 | 日期 | 2026-10-13 |
-| 状态 | K-1/K-2/K-3/K-7/K-8 **冻结**；K-4/K-6 **草案**（07 D-21 两档范围） |
+| 状态 | K-1/K-2/K-3/K-7/K-8 **冻结**；K-4/K-5/K-6/K-9 **草案**（07 D-21 两档范围；K 编号按 03 §6 原文于 round 2 归位，见变更记录） |
 | 任务 | T-019~T-025（Wave 0；泳道 F/B/E/C/A） |
 | 依据 | `03-decomposition.md` §6 契约清单；`07-decided-plan.md` D-11/D-12/D-14/D-20/D-21/D-28/D-32 与修正表 #10/#19/#20；`08-task-plan.md` W0 任务卡；`10-recovered-v21-architecture.md` §一（v2.1 §16）与 §三（19 动作字段表）；`docs/CODE_STANDARDS.md` CS-1.4/CS-2.5/CS-3.7 |
 | 验证 | `dotnet build game/EraTD.sln` 零警告零错误；`python tools/ci/redline_scan.py` 0 FAIL；既有 37 测试全绿（本包不新增行为，无新测试） |
@@ -13,7 +13,7 @@
 
 ## 一、形态与位置
 
-- **C# 契约本体**：`game/src/EraCore/Contracts/`（命名空间 `EraCore.Contracts.*`，七个子目录按 K 契约分域）。全部为纯 interface / enum / record，**零方法实现**——实现属后续任务（C-01~C-04、C-12~C-16）。
+- **C# 契约本体**：`game/src/EraCore/Contracts/`（命名空间 `EraCore.Contracts.*`，八个子目录——Actions/Agent/Content/Foundation/Intents/Journal/Persistence/Sim——按 K 契约分域）。全部为纯 interface / enum / record，**零方法实现**——实现属后续任务（C-01~C-04、C-12~C-16）。
 - **文件头声明**：每文件首行 `// T2: pure contract — K-x …, T-0xx, frozen/draft …`，注明 K 编号、任务号与冻结状态（CODE_STANDARDS CS-3.7 的文件级 T2 声明）。
 - **T2 映射豁免**：整目录统一登记于 `tools/ci/allowlist.txt`（`T2: game/src/EraCore/Contracts`，目录级条目，扫描器按路径前缀匹配）。
 - **非 C# 投影**：`game/contracts/`（D-02 布局保留）预留给 JSON Schema 文件等非 C# 契约投影，随 C-02（T-020 schema 矩阵）与 C-03（T-021）实现任务落地。
@@ -29,6 +29,10 @@
 | `IClock` | `Contracts/Foundation/IClock.cs` | `Tick`（30 Hz 固定时域，确定性时间源）/ `NowMs`（墙钟毫秒，仅诊断，禁入玩法逻辑） |
 | `IGameEvent` + `IEventBus` | `Contracts/Foundation/IGameEvent.cs`、`IEventBus.cs` | 同步单线程分发（07 D-12）：`Subscribe`（返回 IDisposable 退订）/`Publish`（tick 内按触发序内联派发）；事件强制携带 `(tick, seq)`；音频/UI 经 Godot 适配器 `call_deferred` 接力 |
 | `ILogSink`（含 `LogLevel`） | `Contracts/Foundation/ILogSink.cs` | 诊断日志端口（level/tick/message）；与 K-8 战报分流（RL10：日志永不是战报替身） |
+| `IJobPort`（含 `IJobHandle`） | `Contracts/Foundation/IJobPort.cs` | 后台作业端口（**依据 D-31**：EraCore 零直接 Thread 依赖，流场重算等离线程作业全部经此端口；桌面=WorkerThread 桥/Web 单线程=分帧切片退化/测试=同步直跑，03 §1.2 端口表；结果仅在 tick 边界换入，端口自身不改模拟状态）[round 2 补缺] |
+| `CellCoord` | `Contracts/Foundation/CellCoord.cs` | 网格坐标原语 `record(int X, int Y)`（03 §6 K-1 领域原语；1 格=32 px、32×32 chunk，C-05）[round 2 补缺] |
+| `EntityId` | `Contracts/Foundation/EntityId.cs` | 实体标识原语 `record(long Value)`（03 §6 K-1；C-12 签发，不透明值，波界快照随存）[round 2 补缺] |
+| `ResourceKey` | `Contracts/Foundation/ResourceKey.cs` | 资源键原语 `record(string Value)`（03 §6 K-1；包裹 K-2 资源内容全限定 id，账本防混用自由字符串）[round 2 补缺] |
 | `IFileStore`（引用声明） | `game/src/EraCore/IO/IFileStore.cs` | D-03 根注入读写（Exists/ReadAllBytes/WriteAllBytes 原子建目录） |
 
 冻结级别：**冻结**。组件：C-01（Godot 适配属 C-21）。特性：F-154（CS-1.4 时间/随机端口化亦源于此）。
@@ -66,18 +70,33 @@
 
 冻结级别：**草案**（枚举值已按 #19 冻结；槽位键集与签名随 C-15/T-052 滚动收口后升冻结）。组件：C-15（消费 C-13、C-16、C-27）。特性：F-077。
 
-### K-6 智能体管线端口（**草案**，T-023）
+### K-5 智能体管线与卡片端口（**草案**，T-023 交付；round 2 按 03 §6 原文归位——v1.0 曾误标 K-6）
+
+> 归位依据：03 §6 K-5="卡片数据结构（方案卡/澄清卡/汇报），生产组件 C-13"。五段管线端口与其数据载体（方案卡/澄清卡/汇报）同属 C-13 域，故归 K-5。
 
 | 成员 | C# 位置 | 要点 |
 |---|---|---|
 | `IIntentRouter`（含 `IntentRoute`/`RouteKind`） | `game/src/EraCore/Contracts/Agent/IntentRoute.cs`、`IIntentRouter.cs` | 意图路由：直答（只读意图）/计划审批/澄清/拒绝，纯函数 |
-| `IPlanner`（含 `Plan`/`PlanStep`） | `Contracts/Agent/Plan.cs`、`IPlanner.cs` | 意图→Plan：步骤（动作+参数 JSON+点成本）/消耗合计（40% 单波护栏输入，N4）/风险红标（危险位）；整案原子预检（预算或资源不足整案拒绝） |
+| `IPlanner`（含 `Plan`/`PlanStep`） | `Contracts/Agent/Plan.cs`、`IPlanner.cs` | 意图→Plan：步骤（动作+参数 JSON+点成本）/消耗合计（波内系统点支出 ≤上限×40% 护栏输入，v3.2 §11.4/N4）/风险红标（危险位）；整案原子预检（预算或资源不足整案拒绝） |
 | `IApprovalGate`（含 `ApprovalDecision`） | `Contracts/Agent/ApprovalDecision.cs`、`IApprovalGate.cs` | allow/ask/deny 裁决；危险位永不自动允许；关卡级白名单不含危险位；信任档只改措辞不改能力（F.4） |
 | `IActionExecutor` | `Contracts/Agent/IActionExecutor.cs` | 执行：Schema+状态双校验+注册表+预算账本唯一合法路径（RL6 无旁路）；失败回 `ActionResult` 喂 ≤2 次自纠 |
 | `IAgentReporter`（含 `AgentReport`/`Finding`/`FindingVerdict`） | `Contracts/Agent/AgentReport.cs`、`IAgentReporter.cs` | 汇报：summary ≤200 字、findings ≤8、CONFIRMED/RUMOR（界线由 Schema 层强制） |
-| `ILlmTransport`（含 `LlmTransportRequest`/`LlmChatMessage`/`LlmTransportResult`） | `Contracts/Agent/ILlmTransport.cs`、`LlmTransportRequest.cs`、`LlmTransportResult.cs` | LLM 翻译官端口：`SendAsync(消息+工具 schema)→候选动作 JSON`。**传输中立**：零 HTTP/SSE/供应商/端点细节（网络属 C-16 协议机与测试程序集，D-01/D-20）；候选输出在过 Schema+审批+预算前一律视为不可信（注入防护）；Key 永不过境（RL5/K-10） |
 
-冻结级别：**草案**（签名草案，终版由 C-12 落地追认——07 D-21）。范围注记：03 §6 的 K-6 还含 SimSnapshot/SimCommand/IUnit/IProjectile/IBuilding 仿真侧签名，该部分由 C-12 泳道滚动落地（T-067），不在本包。组件：C-13（+C-16 ILlmTransport）。特性：F-065（五段管线编排）、F-079（L3 BYOK 云档）。
+冻结级别：**草案**（签名草案，终版由 C-13 落地追认——07 D-21；03 §6 K-5 原文含方案卡/澄清卡/汇报三卡片结构，Plan/ApprovalDecision/AgentReport/IntentRoute 即其 C# 载体，W3 随 C-13 滚动升冻结）。组件：C-13。特性：F-065（五段管线编排；F-066/F-067 卡片结构随行）。
+
+### K-6 快照/命令/实体接口（**草案**，T-023 补缺——**round 2 本轮补齐仿真侧签名**）
+
+> 03 §6 K-6 原文="SimSnapshot（只读渲染视图）、SimCommand、IUnit/IProjectile/IBuilding、30 Hz tick 约定"，生产组件 C-12（A 泳道）+C-01。v1.0 仅交付了智能体管线端口（当时误挂 K-6 号）；本节为 T-023 余量的仿真侧五接口草案（文件头 `// T2: pure contract — K-6 sim-side draft (T-023 remainder)`），字段语义来自 v3.2 §6。
+
+| 成员 | C# 位置 | 要点 |
+|---|---|---|
+| `SimSnapshot` | `game/src/EraCore/Contracts/Sim/SimSnapshot.cs` | 每 tick 输出的不可变只读渲染视图（双缓冲；表现层只读，反向只经 SimCommand——03 §1.2 快照原则）：`Tick`（30 Hz 时域）/`Units`/`Projectiles`/`Buildings`/`StateHash`（回放不变式：同 seed+同命令流⇒同哈希） |
+| `SimCommand`（含 `SimCommandKind`） | `Contracts/Sim/SimCommand.cs` | 表现→仿真的唯一入口（封闭动词：PlayerBuild/SystemAction/TimeControl）：`IssuedAtTick`+`Kind`+`PayloadJson`（K-3 校验 JSON/K-2 内容 id）；tick 边界按序应用，与 K-8 战报同流（确定性回放） |
+| `IUnit` | `Contracts/Sim/IUnit.cs` | 敌/精英/Boss/英雄只读视图：`Id`/`ContentId`/`X`,`Y`（px，1 格=32 px）/`Hp`/`MaxHp`/`Armor`（clamp≥0，伤害式 max(d×衰减−甲,10%×d×衰减)）/`Shield`（E3 起，破盾 5 s 后 20/s 再生、穿甲打断）/`SpeedPxPerTick`（**30 Hz tick 时域**，K-1 IClock）——C-09/C-10 并行的冻结接缝（03 §3.1） |
+| `IProjectile` | `Contracts/Sim/IProjectile.cs` | 飞行弹体：`Id`/`SourceBuildingId`/`X`,`Y`/`TargetUnitId`（可空=地对点/AOE）/`Damage`（单发未衰减 d，v3.2 §6 符号绑定）/`AgeTicks`；衰减与保底在命中管线应用（溅射边缘保底 40%） |
+| `IBuilding` | `Contracts/Sim/IBuilding.cs` | 已放置建筑（塔/生产/仓储/墙）：`Id`/`ContentId`/`Cell`（CellCoord，占位与血量向网格世界 C-05 登记）/`Hp`/`MaxHp`（流场代价 ×5 依据）/`Tier`（1~4；DPS ×2/级±15%、成本 ×3/级） |
+
+冻结级别：**草案**（30 Hz tick 约定与 K-1 IClock 冻结一致；终版由 C-12 落地追认——07 D-21/T-067）。组件：C-12（+C-01 tick 时域）。特性：F-001（单局循环状态机）、F-155（实体分组）。
 
 ### K-7 存档契约（**冻结**，T-024，泳道 C）
 
@@ -100,6 +119,16 @@
 
 冻结级别：**冻结**（事件目录全集枚举属 C-12 滚动物，本包冻结记录结构与写入语义）。组件：C-01（接线）/C-13（生产者）。特性：F-069（JSONL 战报；回放工具 F-121/F-174 消费）。
 
+### K-9 LLM 传输端口（**草案**，T-023 交付；round 2 按 03 §6 原文归位——v1.0 曾误标 K-6）
+
+> 归位依据：03 §6 K-9="LlmGateway 端口与配置（IChatProvider/SSE 帧回调签名+错误分类枚举），生产组件 C-16"。ILlmTransport 即该端口的传输中立子集草案。
+
+| 成员 | C# 位置 | 要点 |
+|---|---|---|
+| `ILlmTransport`（含 `LlmTransportRequest`/`LlmChatMessage`/`LlmTransportResult`） | `Contracts/Agent/ILlmTransport.cs`、`LlmTransportRequest.cs`、`LlmTransportResult.cs` | LLM 翻译官端口：`SendAsync(消息+工具 schema)→候选动作 JSON`。**传输中立**：零 HTTP/SSE/供应商/端点细节（网络属 C-16 协议机与测试程序集，D-01/D-20）；候选输出在过 Schema+审批+预算前一律视为不可信（注入防护）；Key 永不过境（RL5/K-10） |
+
+冻结级别：**草案**（传输层签名；K-9 其余部分——llm.config.json schema、SSE 帧回调、错误分类枚举——随 C-16/T-072 落地）。组件：C-16。特性：F-079（L3 BYOK 云档）、F-162（LlmGateway 模块）。
+
 ## 三、契约 → 组件 → 特性映射表
 
 | 契约 | 冻结级别 | 生产组件 | 主要消费组件 | 特性（F-ID） | 关联红线 |
@@ -108,7 +137,9 @@
 | K-2 | 冻结 | C-02 | A/B/C/D/E 全泳道 | F-156、F-157、F-023 | CS-2.5（RL7 数值唯一经注册表） |
 | K-3 | 冻结 | C-03 | C-13/C-14/C-16/C-23 | F-062、F-063（→F-070~F-074、F-095） | RL6（动作无旁路） |
 | K-4 | 草案 | C-15 | C-13、C-16、C-27 | F-077 | RL4（盲测纪律） |
-| K-6（管线端口） | 草案 | C-13（ILlmTransport→C-16） | C-14、C-22、C-26 | F-065、F-079 | RL6/RL10（K-5 卡片结构滚动冻结于 W3） |
+| K-5 | 草案 | C-13 | C-14、C-22、C-24 | F-065（F-066/F-067 卡片结构随 C-13 滚动冻结于 W3） | RL6（动作无旁路） |
+| K-6（仿真侧） | 草案 | C-12（+C-01 tick 时域） | C-09、C-10、C-21、C-22（A/B/D 全泳道） | F-001、F-155 | 确定性回放（同 seed+同命令流⇒同哈希） |
+| K-9 | 草案 | C-16 | C-13、C-26、C-27 | F-079、F-162 | RL5（Key 永不过境，K-10 联动） |
 | K-7 | 冻结 | C-04 | C-19、C-20、C-21 | F-160 | R-E2（双后端等价，D-32） |
 | K-8 | 冻结 | C-01（接线）/C-13（生产） | C-25、C-30（回放工具） | F-069（→F-121、F-174） | RL10（禁 console 冒充战报） |
 
@@ -125,4 +156,5 @@
 
 ## 变更记录
 
-- v1.0（2026-10-13）：T-019~T-025 首次成包：K-1/K-2/K-3/K-7/K-8 冻结，K-4/K-6 草案（07 D-21）；33 个纯契约文件（interface/enum/record，零方法实现）落于 `game/src/EraCore/Contracts/` 七子目录；T2 豁免目录级登记于 `tools/ci/allowlist.txt`。
+- v1.0（2026-10-13）：T-019~T-025 首次成包：K-1/K-2/K-3/K-7/K-8 冻结，K-4/K-6 草案（07 D-21）；纯契约文件（interface/enum/record，零方法实现）落于 `game/src/EraCore/Contracts/`；T2 豁免目录级登记于 `tools/ci/allowlist.txt`。
+- v1.1（2026-10-13，round 2 审查处置，REV-20261013-wave0-round2）：①K 标号按 03 §6 原文归位——智能体管线端口 K-6→K-5、ILlmTransport K-6→K-9（v1.0 误标；C# 文件头与 XML 注释同步改写）；②K-6 补仿真侧五接口草案（SimSnapshot/SimCommand/IUnit/IProjectile/IBuilding，新子目录 `Contracts/Sim/`，T-023 余量）；③K-1 补 `IJobPort`（依据 D-31）与领域原语 CellCoord/EntityId/ResourceKey（T-019 余量）；④文件数更正为实数 **45**（v1.0 登记"33"系计数错误，实际 36；本轮 +9）。

@@ -5,9 +5,11 @@ namespace EraCore.Contracts.Content;
 /// <summary>
 /// Closed taxonomy of content kinds (K-2). Every registered content item
 /// carries exactly one kind; modded and first-party content pass through the
-/// same registry pipeline (CODE_STANDARDS CS-2.5). The set extends the
-/// recovered v2.1 ContentType enumeration to the 15-kind v3.2 form
-/// (docs/engineering/10-recovered-v21-architecture.md §一 item 4).
+/// same registry pipeline (CODE_STANDARDS CS-2.5). The 15-kind list first
+/// appears in docs/engineering/12-contracts-frozen.md (K-2 registration),
+/// expanded from the compressed one-line wording of recovered v2.1 §16
+/// item 4 — "ContentType 枚举含'系统（军师）动作参数空间'" (v3.2 appendix
+/// G.1 item 4; docs/engineering/10-recovered-v21-architecture.md §一 item 4).
 /// </summary>
 public enum ContentType
 {
@@ -29,7 +31,7 @@ public enum ContentType
     /// <summary>Wave groups: spawn tables referenced by level schedules.</summary>
     WaveGroup,
 
-    /// <summary>Era definitions: E1 through E6 plus the finale.</summary>
+    /// <summary>Era definitions: E1–E5 plus the finale (era index 6; six eras total, no double counting).</summary>
     Era,
 
     /// <summary>Technology tree nodes (triple gate + instalments, design §7).</summary>

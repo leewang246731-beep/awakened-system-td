@@ -21,7 +21,9 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SLN="$REPO_ROOT/game/EraTD.sln"
 LOG_DIR="$(mktemp -d -t era_runall_XXXXXX)"
-trap 'rm -rf "$LOG_DIR"' EXIT
+# 失败现场保留（round 2 处置 #8）：非 0 退出不删日志目录（各步完整日志在其中），
+# 排查后手动清理；成功路径行为不变（临时目录照删）。
+trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo "run_all: 失败现场保留：$LOG_DIR（完整分步日志在内，排查后手动清理）" >&2; else rm -rf "$LOG_DIR"; fi' EXIT
 
 # ---- 工具解析 ---------------------------------------------------------------
 

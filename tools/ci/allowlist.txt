@@ -32,4 +32,4 @@ docs/Mindustry逆向分析摘要.md               | 逆向分析归档
 # —— T2 src↔test 映射声明（纯契约/纯数据文件：无独立可测行为，经端口实现
 #    与 Fake 在别处覆盖；新增声明须在 code-review 中给出理由）——
 T2: game/src/EraCore/IO/IFileStore.cs       | K-1 端口接口：纯契约，由 DevFileStoreTests 与后续各测试 Fake 覆盖
-T2: game/src/EraCore/Contracts              | K-1~K-8 纯契约目录（T-019~T-025，登记见 docs/engineering/12-contracts-frozen.md）：仅 interface/enum/record，零方法实现，每文件首行 `// T2: pure contract` 声明 K 号与冻结状态；行为经端口实现与测试 Fake 在后续任务（C-01~C-04/C-12~C-16）覆盖
+T2: game/src/EraCore/Contracts              | K-1~K-9 纯契约目录（T-019~T-025 及 round 2 补缺，登记见 docs/engineering/12-contracts-frozen.md v1.1）：仅 interface/enum/record，零方法实现，每文件首行 `// T2: pure contract` 声明 K 号与冻结状态；行为经端口实现与测试 Fake 在后续任务（C-01~C-04/C-12~C-16）覆盖

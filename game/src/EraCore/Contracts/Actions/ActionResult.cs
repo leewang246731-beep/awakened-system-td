@@ -24,8 +24,9 @@ public enum ActionResultStatus
     ErrPermissionDenied,
 
     /// <summary>
-    /// System-point budget guard refused: insufficient points or the
-    /// per-wave spend would exceed 40% of stock (N4; the plan-level 30%
+    /// System-point budget guard refused: insufficient points, or the
+    /// per-wave system-point spend would exceed ceiling × 40% (波内系统点
+    /// 支出 ≤上限×40%, v3.2 §11.4 frozen semantics; N4 — the plan-level 30%
     /// resource guard lives in the same C-14 ledger).
     /// </summary>
     ErrBudgetDenied,
