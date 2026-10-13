@@ -1,0 +1,324 @@
+{"text": "守住东门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"text": "死守北墙", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "north_wall"}, "expected_parse": "success"}
+{"text": "西门不能丢", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "west_gate"}, "expected_parse": "success"}
+{"text": "给我守住南门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "south_gate"}, "expected_parse": "success"}
+{"text": "全力守住城中心", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"text": "守住东城门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"text": "拼死守住西门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "west_gate"}, "expected_parse": "success"}
+{"text": "重点防守北门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "north_gate"}, "expected_parse": "success"}
+{"text": "守好西墙", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "west_wall"}, "expected_parse": "success"}
+{"text": "别让敌人过南墙", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "south_wall"}, "expected_parse": "success"}
+{"text": "东门交给你了，给我守住", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"text": "优先防御东边", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "east_side"}, "expected_parse": "success"}
+{"text": "死守南边", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "south_side"}, "expected_parse": "success"}
+{"text": "北面不能丢", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "north_side"}, "expected_parse": "success"}
+{"text": "全力守住城里", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"text": "给我守住中心", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"text": "优先防御西面", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "west_side"}, "expected_parse": "success"}
+{"text": "守住东侧", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "east_side"}, "expected_parse": "success"}
+{"text": "东门顶住", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"text": "别放敌人进北门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "north_gate"}, "expected_parse": "success"}
+{"text": "南门给我守住", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "south_gate"}, "expected_parse": "success"}
+{"text": "全力防守东门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"text": "守住那个地方", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "HoldRegion"}
+{"text": "到处都守住", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "HoldRegion"}
+{"text": "守住正面", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "HoldRegion"}
+{"text": "在东门建两座木箭塔", "lang": "zh", "intent": "Build", "slots": {"where": "east_gate", "qty": "2", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "在南门造一座篝火", "lang": "zh", "intent": "Build", "slots": {"where": "south_gate", "qty": "1", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "西边建3个尖刺陷阱", "lang": "zh", "intent": "Build", "slots": {"where": "west_side", "qty": "3", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"text": "建十座箭塔", "lang": "zh", "intent": "Build", "slots": {"qty": "10", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "在北墙建两座箭楼", "lang": "zh", "intent": "Build", "slots": {"where": "north_wall", "qty": "2", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "在北门建四座落石台", "lang": "zh", "intent": "Build", "slots": {"where": "north_gate", "qty": "4", "tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"text": "给我在南墙建陷阱", "lang": "zh", "intent": "Build", "slots": {"where": "south_wall", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"text": "建两座篝火", "lang": "zh", "intent": "Build", "slots": {"qty": "2", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "造五座尖刺陷阱", "lang": "zh", "intent": "Build", "slots": {"qty": "5", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"text": "建落石台", "lang": "zh", "intent": "Build", "slots": {"tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"text": "在城里建一座陷阱", "lang": "zh", "intent": "Build", "slots": {"where": "center", "qty": "1", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"text": "在西侧建３座木箭塔", "lang": "zh", "intent": "Build", "slots": {"where": "west_side", "qty": "3", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "北边建十二座箭塔", "lang": "zh", "intent": "Build", "slots": {"where": "north_side", "qty": "12", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "在东墙建箭塔", "lang": "zh", "intent": "Build", "slots": {"where": "east_wall", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "在南面建两座火堆", "lang": "zh", "intent": "Build", "slots": {"where": "south_side", "qty": "2", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "建一座落石", "lang": "zh", "intent": "Build", "slots": {"qty": "1", "tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"text": "东门建两个箭塔", "lang": "zh", "intent": "Build", "slots": {"where": "east_gate", "qty": "2", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "在北门造一座火推", "lang": "zh", "intent": "Build", "slots": {"where": "north_gate", "qty": "1", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "在西门建一座箭塔", "lang": "zh", "intent": "Build", "slots": {"where": "west_gate", "qty": "1", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "城里建尖刺陷阱", "lang": "zh", "intent": "Build", "slots": {"where": "center", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"text": "东边造个火堆", "lang": "zh", "intent": "Build", "slots": {"where": "east_side", "qty": "1", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "南门再来两座箭塔", "lang": "zh", "intent": "Build", "slots": {"where": "south_gate", "qty": "2", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "多造几个箭塔", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "Build"}
+{"text": "把东门建满箭塔", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "Build"}
+{"text": "建塔", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "Build"}
+{"text": "下一波怕什么", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "现在敌情怎么样", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "东门有什么威胁", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "east_gate"}, "expected_parse": "success"}
+{"text": "下一波敌人是什么", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "北边敌情怎么样", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "north_side"}, "expected_parse": "success"}
+{"text": "下一波有什么", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "下一波有什么威胁", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "下一波威胁大吗", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "当前波威胁是什么", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "敌情汇报", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "敌情怎么样", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "下波敌情怎么样", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "西墙有什么威胁", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "west_wall"}, "expected_parse": "success"}
+{"text": "南门敌情怎么样", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "south_gate"}, "expected_parse": "success"}
+{"text": "侦察一下敌情", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "现在有什么威胁", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "北门有什么威胁", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "north_gate"}, "expected_parse": "success"}
+{"text": "东面有什么威胁", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "east_side"}, "expected_parse": "success"}
+{"text": "本波威胁是什么", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "下一波是什么敌人", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "现在的敌情如何", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "敌情如何", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "敌人有多少血", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryThreat"}
+{"text": "下一波几点来", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryThreat"}
+{"text": "3号敌人是什么", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryThreat"}
+{"text": "我们还剩多少木材", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "石头还有多少", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "食物够不够", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "查一下木材", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "还剩什么资源", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"text": "木头还剩多少", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "我们有多少粮食", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "石料存量多少", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "粮还够吗", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "吃的够不够", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "还剩多少木料", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "报一下储备", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"text": "查一下石头", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "木材存量", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "吃的还有多少", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "木材够不够", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "石头存量", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "还剩多少粮食", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "资源还剩多少", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"text": "木材还够吗", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "木材多吗", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "粮草还剩多少", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "弹药还有多少", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryStockpile"}
+{"text": "金币还有多少", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryStockpile"}
+{"text": "仓库里有啥", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryStockpile"}
+{"text": "三分钟后叫我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "180"}, "expected_parse": "success"}
+{"text": "5分钟后提醒我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "设个2分钟的闹钟", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "120"}, "expected_parse": "success"}
+{"text": "十分钟后叫我一声", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"text": "90秒后提醒我一下", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "90"}, "expected_parse": "success"}
+{"text": "两分钟后来喊我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "120"}, "expected_parse": "success"}
+{"text": "定个十分钟的闹钟", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"text": "帮我设5分钟闹钟", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "记得三分钟后叫我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "180"}, "expected_parse": "success"}
+{"text": "设个90秒后的提醒", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "90"}, "expected_parse": "success"}
+{"text": "一分钟后提醒我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "60"}, "expected_parse": "success"}
+{"text": "十分钟后报告敌情", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "600", "reason": "敌情"}, "expected_parse": "success"}
+{"text": "5分钟后开打", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "300", "reason": "开打"}, "expected_parse": "success"}
+{"text": "２分钟后叫我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "120"}, "expected_parse": "success"}
+{"text": "设个一分钟的闹钟", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "60"}, "expected_parse": "success"}
+{"text": "十分钟后提醒我开战", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "600", "reason": "提醒我开战"}, "expected_parse": "success"}
+{"text": "２分钟后来喊我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "120"}, "expected_parse": "success"}
+{"text": "设个５分钟后的提醒", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "十五分钟后叫我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "900"}, "expected_parse": "success"}
+{"text": "五分钟后叫我一声", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "一分钟后来喊我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "60"}, "expected_parse": "success"}
+{"text": "半分钟后叫我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "30"}, "expected_parse": "success"}
+{"text": "明早八点叫我", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "SetAlarm"}
+{"text": "下一波开始前提醒我", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "SetAlarm"}
+{"text": "十分钟后", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "SetAlarm"}
+{"text": "把箭楼升到三级", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "升级东门的塔", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "把北墙的塔升到2级", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "箭塔升级", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "把落石台升级", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "卖掉北墙的旧塔", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "出售东门的两座箭塔", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "把南门的陷阱卖了", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "这个塔卖掉", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "出售篝火", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "集火那个攻城锤", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "集火攻城锤", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "大家集火boss", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "先集火自爆鼩", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "集火左边的敌人", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "改模式优先打强的", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "切换目标到最近的敌人", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "箭塔改模式为打最强", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "切换目标模式为最近的", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "东门箭塔切换目标到最强", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "木材先送南门", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "把木头改道去东门", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "石料先送北墙", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "食物改道送到西边", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "先送粮草去南墙", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "去西边巡逻", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "北门转一圈", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "派侦察去东边巡逻", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "南边巡逻一下", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "去敌后转一圈", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "开火油卷轴", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "用卷轴", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "开冰霜卷轴", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "卷轴都停掉", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "把卷轴停了", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "呃呃呃呃", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "none"}
+{"text": "嗯", "lang": "zh", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "none"}
+{"text": "hold the east gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"text": "defend the north wall", "lang": "en", "intent": "HoldRegion", "slots": {"target": "north_wall"}, "expected_parse": "success"}
+{"text": "don't let them through the west gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "west_gate"}, "expected_parse": "success"}
+{"text": "protect the town center", "lang": "en", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"text": "guard the south gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "south_gate"}, "expected_parse": "success"}
+{"text": "DEFEND THE SOUTH WALL", "lang": "en", "intent": "HoldRegion", "slots": {"target": "south_wall"}, "expected_parse": "success"}
+{"text": "hold the north gate at all costs", "lang": "en", "intent": "HoldRegion", "slots": {"target": "north_gate"}, "expected_parse": "success"}
+{"text": "defend the east side", "lang": "en", "intent": "HoldRegion", "slots": {"target": "east_side"}, "expected_parse": "success"}
+{"text": "keep the west side safe", "lang": "en", "intent": "HoldRegion", "slots": {"target": "west_side"}, "expected_parse": "success"}
+{"text": "the north gate must not fall", "lang": "en", "intent": "HoldRegion", "slots": {"target": "north_gate"}, "expected_parse": "success"}
+{"text": "prioritize the center", "lang": "en", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"text": "hold the line at the east wall", "lang": "en", "intent": "HoldRegion", "slots": {"target": "east_wall"}, "expected_parse": "success"}
+{"text": "stand firm at the south side", "lang": "en", "intent": "HoldRegion", "slots": {"target": "south_side"}, "expected_parse": "success"}
+{"text": "defend west", "lang": "en", "intent": "HoldRegion", "slots": {"target": "west_side"}, "expected_parse": "success"}
+{"text": "hold the city center", "lang": "en", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"text": "guard the north side", "lang": "en", "intent": "HoldRegion", "slots": {"target": "north_side"}, "expected_parse": "success"}
+{"text": "protect the south gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "south_gate"}, "expected_parse": "success"}
+{"text": "hold the west wall at all costs", "lang": "en", "intent": "HoldRegion", "slots": {"target": "west_wall"}, "expected_parse": "success"}
+{"text": "guard the east wall", "lang": "en", "intent": "HoldRegion", "slots": {"target": "east_wall"}, "expected_parse": "success"}
+{"text": "hold the western gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "west_gate"}, "expected_parse": "success"}
+{"text": "keep them off the north side", "lang": "en", "intent": "HoldRegion", "slots": {"target": "north_side"}, "expected_parse": "success"}
+{"text": "east gate, hold it", "lang": "en", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"text": "hold the line everywhere", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "HoldRegion"}
+{"text": "defend that spot over there", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "HoldRegion"}
+{"text": "don't let anything through", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "HoldRegion"}
+{"text": "Build two arrow towers at the east gate", "lang": "en", "intent": "Build", "slots": {"where": "east_gate", "qty": "2", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "build a campfire at the south gate", "lang": "en", "intent": "Build", "slots": {"where": "south_gate", "qty": "1", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "put up 3 spike traps at the west side", "lang": "en", "intent": "Build", "slots": {"where": "west_side", "qty": "3", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"text": "construct ten wood arrow towers", "lang": "en", "intent": "Build", "slots": {"qty": "10", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "build 2 rockfall platforms at the north wall", "lang": "en", "intent": "Build", "slots": {"where": "north_wall", "qty": "2", "tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"text": "build 4 campfires at the north gate", "lang": "en", "intent": "Build", "slots": {"where": "north_gate", "qty": "4", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "build a spike trap at the center", "lang": "en", "intent": "Build", "slots": {"where": "center", "qty": "1", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"text": "construct two rockfalls at the east side", "lang": "en", "intent": "Build", "slots": {"where": "east_side", "qty": "2", "tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"text": "place three arrow towers at the west wall", "lang": "en", "intent": "Build", "slots": {"where": "west_wall", "qty": "3", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "we need 5 spike traps at the south side", "lang": "en", "intent": "Build", "slots": {"where": "south_side", "qty": "5", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"text": "build 2 more campfires at the east gate", "lang": "en", "intent": "Build", "slots": {"where": "east_gate", "qty": "2", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "build 12 arrow towers", "lang": "en", "intent": "Build", "slots": {"qty": "12", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "build arrow towers at the south wall", "lang": "en", "intent": "Build", "slots": {"where": "south_wall", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "construct a campfire", "lang": "en", "intent": "Build", "slots": {"qty": "1", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "build rockfall platforms", "lang": "en", "intent": "Build", "slots": {"tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"text": "build ten spike traps at the north side", "lang": "en", "intent": "Build", "slots": {"where": "north_side", "qty": "10", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"text": "I want arrow towers at the east gate", "lang": "en", "intent": "Build", "slots": {"where": "east_gate", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "build two camfire at the south gate", "lang": "en", "intent": "Build", "slots": {"where": "south_gate", "qty": "2", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "place 2 rockfalls at the west gate", "lang": "en", "intent": "Build", "slots": {"where": "west_gate", "qty": "2", "tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"text": "put up a campfire at the north side", "lang": "en", "intent": "Build", "slots": {"where": "north_side", "qty": "1", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "construct 3 wood arrow towers at the center", "lang": "en", "intent": "Build", "slots": {"where": "center", "qty": "3", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"text": "we need two campfires at the west side", "lang": "en", "intent": "Build", "slots": {"where": "west_side", "qty": "2", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"text": "build towers at the east gate", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "Build"}
+{"text": "build a castle at the east gate", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "Build"}
+{"text": "build something at the east gate", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "Build"}
+{"text": "what's coming next wave", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "current threat situation", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "any threats at the east side", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "east_side"}, "expected_parse": "success"}
+{"text": "how bad is the next wave", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "enemy situation at the north wall", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "north_wall"}, "expected_parse": "success"}
+{"text": "what's coming next", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "next wave threats", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "what's the next wave", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "what's the current threat", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "threat report", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "what enemies are on the field", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "status report on enemies", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "enemy situation at the south gate", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "south_gate"}, "expected_parse": "success"}
+{"text": "any threats at the west side", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "west_side"}, "expected_parse": "success"}
+{"text": "ANY THREATS AT THE NORTH GATE", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "north_gate"}, "expected_parse": "success"}
+{"text": "enemy situation at the center", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "center"}, "expected_parse": "success"}
+{"text": "any threats at the east wall", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "east_wall"}, "expected_parse": "success"}
+{"text": "enemy situation at the west gate", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "west_gate"}, "expected_parse": "success"}
+{"text": "any threats at the south side", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "south_side"}, "expected_parse": "success"}
+{"text": "incoming wave threats", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "what's coming in the next wave", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "how's the situation", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "how much hp does the boss have", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryThreat"}
+{"text": "when does the next wave arrive", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryThreat"}
+{"text": "what is enemy number 3", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryThreat"}
+{"text": "how much wood is left", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "how much stone do we have", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "do we have enough food", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "check our timber", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "stockpile report", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"text": "how many logs do we have", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "lumber remaining", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "grain stock", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "how are we on provisions", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "check our rocks", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "stone remaining", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "what's left in the stockpile", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"text": "report resources", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"text": "how much food is remaining", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "do we have enough lumber", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "how are we on stone", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "check our food", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "how much timber do we have", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "food remaining", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "how are we on supplies", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"text": "wood?", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "are we running low on wood", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "how much ammo do we have", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryStockpile"}
+{"text": "how much gold do we have", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryStockpile"}
+{"text": "what's in the warehouse", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "QueryStockpile"}
+{"text": "remind me in three minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "180"}, "expected_parse": "success"}
+{"text": "set an alarm for 5 minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "set a timer for 2 minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "120"}, "expected_parse": "success"}
+{"text": "notify me in ten minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"text": "ping me in 90 seconds", "lang": "en", "intent": "SetAlarm", "slots": {"after": "90"}, "expected_parse": "success"}
+{"text": "alert me in two minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "120"}, "expected_parse": "success"}
+{"text": "check back in five minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "wake me up in 10 minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"text": "alarm in one minute", "lang": "en", "intent": "SetAlarm", "slots": {"after": "60"}, "expected_parse": "success"}
+{"text": "in 3 minutes remind me", "lang": "en", "intent": "SetAlarm", "slots": {"after": "180"}, "expected_parse": "success"}
+{"text": "remind me in 90 seconds to check the walls", "lang": "en", "intent": "SetAlarm", "slots": {"after": "90", "reason": "checkthewalls"}, "expected_parse": "success"}
+{"text": "set an alarm for ten minutes to build", "lang": "en", "intent": "SetAlarm", "slots": {"after": "600", "reason": "build"}, "expected_parse": "success"}
+{"text": "REMIND ME IN 5 MINUTES", "lang": "en", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "set a timer for 30 seconds", "lang": "en", "intent": "SetAlarm", "slots": {"after": "30"}, "expected_parse": "success"}
+{"text": "notify me in one minute", "lang": "en", "intent": "SetAlarm", "slots": {"after": "60"}, "expected_parse": "success"}
+{"text": "ping me in ten minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"text": "remind me in 2 minutes to attack", "lang": "en", "intent": "SetAlarm", "slots": {"after": "120", "reason": "attack"}, "expected_parse": "success"}
+{"text": "wake me up in five minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "alarm in 10 minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"text": "check back in two minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "120"}, "expected_parse": "success"}
+{"text": "alert me in 90 seconds", "lang": "en", "intent": "SetAlarm", "slots": {"after": "90"}, "expected_parse": "success"}
+{"text": "remind me in half a minute", "lang": "en", "intent": "SetAlarm", "slots": {"after": "30"}, "expected_parse": "success"}
+{"text": "remind me when the wave starts", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "SetAlarm"}
+{"text": "wake me up at 8 am", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "SetAlarm"}
+{"text": "remind me before the boss", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "SetAlarm"}
+{"text": "upgrade the arrow tower to tier 3", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "upgrade all towers on the north wall", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "upgrade the campfire", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "upgrade both rockfalls", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "upgrade the spike traps", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Upgrade"}
+{"text": "sell the old tower on the north wall", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "sell two campfires at the east gate", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "sell everything on the west side", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "sell the spike traps", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "sell that campfire", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Sell"}
+{"text": "focus the ram", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "focus fire on the boar", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "everyone focus the boss", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "focus the boomshrew", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "focus the enemies at the east gate", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "FocusFire"}
+{"text": "target mode: strongest first", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "switch target mode to closest", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "set target mode to first", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "change target mode to last", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "arrow towers target mode strongest", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ChangeFocusMode"}
+{"text": "route wood to the south gate first", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "route all timber to the north wall", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "reroute stone to the east gate", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "route food to the west side", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "route everything to the center", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "RerouteLogistics"}
+{"text": "patrol the west lane", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "patrol the east side", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "send a scout to patrol the north gate", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "patrol both walls", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "patrol the south road", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "Patrol"}
+{"text": "use the fire scroll", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "trigger the ice scroll", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "stop all scrolls", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "scroll of strength, go", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "cancel the fire scroll", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.subset_gap", "gap_intent": "ScrollControl"}
+{"text": "blah blah blah", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "none"}
+{"text": "ok", "lang": "en", "expected_parse": "failure", "expect_key": "agent.clarify.unparsed", "family": "none"}
