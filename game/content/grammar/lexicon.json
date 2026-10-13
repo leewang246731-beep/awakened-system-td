@@ -1,0 +1,40 @@
+{
+  "$schema": "urn:eratd:content:grammar:1",
+  "content_type": "Grammar",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）；本文件=T-052 L1 文法词典（分区/物资/敌情范围/未收录意图关键词），C-15 只读",
+  "_source": "regions 分区/城门名=SP-2 #1 守住X target 槽位（语言无关 id+别名词典）与 #2 where 槽位（分区+东南西北方位词）的 E1 词典；resources id 与 game/content/era1/era.json resources 同源（era1:res-wood/stone/food），口语别名为语法层扩展；threat_scopes=SP-2 #9 scope 槽位（下一波/当前波/分区威胁）；deferred_intents=SP-2 配套口径「意图可解析≠动作可执行」——T-052 子集外的 12 意图关键词命中时走澄清卡 subset_gap 话术键（全量 12 意图文法=T-069）",
+  "regions": [
+    { "id": "east_gate", "surfaces": ["东门", "东城门", "east gate", "eastgate", "eastern gate"] },
+    { "id": "south_gate", "surfaces": ["南门", "南城门", "south gate", "southgate"] },
+    { "id": "west_gate", "surfaces": ["西门", "西城门", "west gate", "westgate"] },
+    { "id": "north_gate", "surfaces": ["北门", "北城门", "north gate", "northgate"] },
+    { "id": "north_wall", "surfaces": ["北墙", "北面城墙", "north wall", "northwall"] },
+    { "id": "south_wall", "surfaces": ["南墙", "south wall"] },
+    { "id": "east_wall", "surfaces": ["东墙", "east wall"] },
+    { "id": "west_wall", "surfaces": ["西墙", "west wall"] },
+    { "id": "east_side", "surfaces": ["东边", "东面", "东侧", "east side", "eastside", "east"] },
+    { "id": "west_side", "surfaces": ["西边", "西面", "西侧", "west side", "westside", "west"] },
+    { "id": "south_side", "surfaces": ["南边", "南面", "南侧", "south side", "southside", "south"] },
+    { "id": "north_side", "surfaces": ["北边", "北面", "北侧", "north side", "northside", "north"] },
+    { "id": "center", "surfaces": ["城中心", "中心", "城里", "城内", "center", "town center", "city center"] }
+  ],
+  "resources": [
+    { "id": "era1:res-wood", "surfaces": ["木材", "木头", "木料", "wood", "timber", "lumber", "logs"] },
+    { "id": "era1:res-stone", "surfaces": ["石料", "石头", "stone", "rocks"] },
+    { "id": "era1:res-food", "surfaces": ["食物", "粮食", "粮", "吃的", "food", "grain", "provisions"] }
+  ],
+  "all_items_surfaces": ["全部", "所有", "资源", "储备", "all", "everything", "resources", "supplies"],
+  "threat_scopes": [
+    { "id": "next_wave", "surfaces": ["下一波", "下波", "接下来的波", "next wave", "nextwave", "incoming wave"] },
+    { "id": "current", "surfaces": ["当前波", "本波", "现在", "当前", "敌情", "current wave", "current threat", "current situation", "now"] }
+  ],
+  "deferred_intents": [
+    { "intent": "Upgrade", "keywords": ["升级", "升到", "upgrade"] },
+    { "intent": "Sell", "keywords": ["卖掉", "出售", "卖", "sell"] },
+    { "intent": "FocusFire", "keywords": ["集火", "focus"] },
+    { "intent": "ChangeFocusMode", "keywords": ["改模式", "切换目标", "target mode"] },
+    { "intent": "RerouteLogistics", "keywords": ["改道", "先送", "route"] },
+    { "intent": "Patrol", "keywords": ["巡逻", "转一圈", "patrol"] },
+    { "intent": "ScrollControl", "keywords": ["卷轴", "scroll"] }
+  ]
+}

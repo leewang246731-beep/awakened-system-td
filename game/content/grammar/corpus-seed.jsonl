@@ -1,0 +1,60 @@
+{"text": "在东门建两座木箭塔", "lang": "zh", "intent": "Build", "slots": {"tower": "era1:tower-wood-arrow", "qty": "2", "where": "east_gate"}, "expected_parse": "success"}
+{"text": "在南门造一座篝火", "lang": "zh", "intent": "Build", "slots": {"tower": "era1:tower-campfire", "qty": "1", "where": "south_gate"}, "expected_parse": "success"}
+{"text": "西边建3个尖刺陷阱", "lang": "zh", "intent": "Build", "slots": {"tower": "era1:tower-spike-trap", "qty": "3", "where": "west_side"}, "expected_parse": "success"}
+{"text": "建十座箭塔", "lang": "zh", "intent": "Build", "slots": {"tower": "era1:tower-wood-arrow", "qty": "10"}, "expected_parse": "success"}
+{"text": "在北墙建两座箭楼", "lang": "zh", "intent": "Build", "slots": {"tower": "era1:tower-wood-arrow", "qty": "2", "where": "north_wall"}, "expected_parse": "success"}
+{"text": "守住东门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"text": "死守北墙", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "north_wall"}, "expected_parse": "success"}
+{"text": "西门不能丢", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "west_gate"}, "expected_parse": "success"}
+{"text": "给我守住南门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "south_gate"}, "expected_parse": "success"}
+{"text": "全力守住城中心", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"text": "下一波怕什么", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "现在敌情怎么样", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "东门有什么威胁", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "east_gate"}, "expected_parse": "success"}
+{"text": "下一波敌人是什么", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "北边敌情怎么样", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "north_side"}, "expected_parse": "success"}
+{"text": "我们还剩多少木材", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "石头还有多少", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "食物够不够", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "查一下木材", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "还剩什么资源", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"text": "三分钟后叫我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "180"}, "expected_parse": "success"}
+{"text": "5分钟后提醒我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "设个2分钟的闹钟", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "120"}, "expected_parse": "success"}
+{"text": "十分钟后叫我一声", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"text": "90秒后提醒我一下", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "90"}, "expected_parse": "success"}
+{"text": "把箭楼升到三级", "lang": "zh", "expected_parse": "failure"}
+{"text": "卖掉北墙的旧塔", "lang": "zh", "expected_parse": "failure"}
+{"text": "集火那个攻城锤", "lang": "zh", "expected_parse": "failure"}
+{"text": "呃呃呃呃", "lang": "zh", "expected_parse": "failure"}
+{"text": "嗯", "lang": "zh", "expected_parse": "failure"}
+{"text": "Build two arrow towers at the east gate", "lang": "en", "intent": "Build", "slots": {"tower": "era1:tower-wood-arrow", "qty": "2", "where": "east_gate"}, "expected_parse": "success"}
+{"text": "build a campfire at the south gate", "lang": "en", "intent": "Build", "slots": {"tower": "era1:tower-campfire", "qty": "1", "where": "south_gate"}, "expected_parse": "success"}
+{"text": "put up 3 spike traps at the west side", "lang": "en", "intent": "Build", "slots": {"tower": "era1:tower-spike-trap", "qty": "3", "where": "west_side"}, "expected_parse": "success"}
+{"text": "construct ten wood arrow towers", "lang": "en", "intent": "Build", "slots": {"tower": "era1:tower-wood-arrow", "qty": "10"}, "expected_parse": "success"}
+{"text": "build 2 rockfall platforms at the north wall", "lang": "en", "intent": "Build", "slots": {"tower": "era1:tower-rockfall", "qty": "2", "where": "north_wall"}, "expected_parse": "success"}
+{"text": "hold the east gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"text": "defend the north wall", "lang": "en", "intent": "HoldRegion", "slots": {"target": "north_wall"}, "expected_parse": "success"}
+{"text": "don't let them through the west gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "west_gate"}, "expected_parse": "success"}
+{"text": "protect the town center", "lang": "en", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"text": "guard the south gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "south_gate"}, "expected_parse": "success"}
+{"text": "what's coming next wave", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "current threat situation", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"text": "any threats at the east side", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "east_side"}, "expected_parse": "success"}
+{"text": "how bad is the next wave", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"text": "enemy situation at the north wall", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "north_wall"}, "expected_parse": "success"}
+{"text": "how much wood is left", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "how much stone do we have", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"text": "do we have enough food", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"text": "check our timber", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"text": "stockpile report", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"text": "remind me in three minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "180"}, "expected_parse": "success"}
+{"text": "set an alarm for 5 minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"text": "set a timer for 2 minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "120"}, "expected_parse": "success"}
+{"text": "notify me in ten minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"text": "ping me in 90 seconds", "lang": "en", "intent": "SetAlarm", "slots": {"after": "90"}, "expected_parse": "success"}
+{"text": "upgrade the arrow tower to tier 3", "lang": "en", "expected_parse": "failure"}
+{"text": "sell the old tower on the north wall", "lang": "en", "expected_parse": "failure"}
+{"text": "focus the ram", "lang": "en", "expected_parse": "failure"}
+{"text": "blah blah blah", "lang": "en", "expected_parse": "failure"}
+{"text": "ok", "lang": "en", "expected_parse": "failure"}
