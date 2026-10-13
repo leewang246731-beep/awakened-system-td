@@ -39,10 +39,11 @@ CLI 语义（自测见 test_asset_validator.py）：
   退出码：0=无 REJECT（WARN 放行）；1=存在 REJECT；2=参数/IO 错误。
   --json 同时写机器报告（files/rejected/warned/results/exit_code）。
 
-run_all.sh 接入点（本版未接入——素材尚未入库，接入后取消下行注释并在
-tools/ci/run_all.sh Step 1.5 挂：
-  python tools/ci/asset_validator.py --json <log>/assets.json game/presentation/EraTD/assets/
-规范依据：docs/engineering/14-art-license-audit.md §3；08-task-plan.md T-046。
+run_all.sh 接入点（T-045 起生效，G2.5 门禁）：tools/ci/run_all.sh Step 1.5 调
+  python tools/ci/asset_validator.py --json <log>/assets.json \
+      game/assets game/presentation/EraTD/textures
+（REJECT=run_all 红；含 game/assets 资产库根——新包入库即被门禁覆盖。）
+规范依据：docs/engineering/14-art-license-audit.md §3；08-task-plan.md T-045/T-046。
 """
 
 from __future__ import annotations

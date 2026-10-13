@@ -63,7 +63,8 @@ public sealed partial class Main : Control
         _source = new DeterministicMockSnapshotSource(MockSeed, MapWidthCells, MapHeightCells, UnitCount);
         _bridge = new SimSnapshotBridge(_source, _source, MapWidthCells, MapHeightCells);
 
-        _groundLayer.SetupGround(MapWidthCells, MapHeightCells, DirtyRegionSet.DefaultChunkCells);
+        _groundLayer.SetupGround(MapWidthCells, MapHeightCells, DirtyRegionSet.DefaultChunkCells,
+            TerrainAtlas.Build(), TerrainAtlas.TileIndexForColor);
         _unitLayer.SetupUnits(MapWidthCells, MapHeightCells, DirtyRegionSet.DefaultChunkCells, capacity: UnitCount);
 
         // ---- 4) 60-frame dirty-chunk render loop (headless-safe) -----------
@@ -111,6 +112,10 @@ public sealed partial class Main : Control
             $"1600x900={ViewportScale.Fit(1600, 900).Scale} " +
             $"offset1600x900=({ViewportScale.Fit(1600, 900).OffsetX},{ViewportScale.Fit(1600, 900).OffsetY})");
         GD.Print($"SMOKE_OK core={EraCore.VersionInfo.Current} scale={fit.Scale}");
+        GD.Print(
+            $"ART atlas_tiles={TerrainAtlas.TileCount} tile_px={TerrainAtlas.TilePx} " +
+            $"atlas={TerrainAtlas.TileCount * TerrainAtlas.TilePx}x{TerrainAtlas.TilePx} " +
+            "scale=2x-nearest source=kenney-tiny-dungeon-cc0");
         GD.Print(
             $"BRIDGE frames={SmokeFrames} ticks={_bridge.Current.Tick} units={UnitCount} " +
             $"ground_chunk_rebuilds={groundChunksRebuilt} unit_chunk_rebuilds={unitChunksRebuilt} " +

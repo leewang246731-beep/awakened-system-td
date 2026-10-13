@@ -13,9 +13,12 @@ namespace EraTD;
 /// previous buffer contents (dirty-mark partial update, 03-decomposition
 /// §1.2-3 / R-E4 mitigation).
 ///
-/// E1 art: quads are SOLID COLOR because no texture atlas exists yet —
-/// T-045 swaps the QuadMesh for the CC0 atlas sprites; the chunk-rebuild
-/// path below does not change with that swap.
+/// E1 art (T-045): the ground layer samples the CC0 terrain atlas — the
+/// tile index rides in per-instance custom data (INSTANCE_CUSTOM.x) and
+/// <c>shaders/terrain-atlas.gdshader</c> picks the 16 px atlas cell, so the
+/// 32 px world cell is an exact 2x nearest-filtered integer scale. The
+/// unit layer and the chunk-rebuild path below are unchanged by that swap;
+/// without an atlas the node keeps the original solid-color quad mode.
 /// </summary>
 public sealed partial class MultiMeshRenderer : MultiMeshInstance2D
 {
@@ -28,6 +31,8 @@ public sealed partial class MultiMeshRenderer : MultiMeshInstance2D
     private readonly Dictionary<long, int> _unitSlots = new(); // EntityId.Value → instance slot
     private int _unitSlotsUsed;
     private int _unitCapacity;
+    private bool _texturedGround;                          // T-045: atlas mode on the ground layer
+    private Func<int, int>? _tileIndexForColor;            // framebuffer 0xRRGGBB → atlas slot
 
     /// <summary>What this node renders. Ground = one quad per cell; Units = one quad per entity.</summary>
     public enum LayerKind
@@ -36,21 +41,40 @@ public sealed partial class MultiMeshRenderer : MultiMeshInstance2D
         Units,
     }
 
-    /// <summary>Configures this node as the ground (cell) layer.</summary>
-    public void SetupGround(int mapWidthCells, int mapHeightCells, int chunkCells)
+    /// <summary>
+    /// Configures this node as the ground (cell) layer. With
+    /// <paramref name="terrainAtlas"/> the layer draws atlas tiles (T-045);
+    /// without it, cells keep the solid-color mode of the T-042 skeleton.
+    /// </summary>
+    public void SetupGround(int mapWidthCells, int mapHeightCells, int chunkCells,
+        Texture2D? terrainAtlas = null, Func<int, int>? tileIndexForColor = null)
     {
         _kind = LayerKind.GroundCells;
         _mapWidthCells = mapWidthCells;
         _mapHeightCells = mapHeightCells;
         _chunkCells = chunkCells;
+        _texturedGround = terrainAtlas is not null;
+        _tileIndexForColor = tileIndexForColor;
 
         Multimesh = new MultiMesh
         {
             TransformFormat = MultiMesh.TransformFormatEnum.Transform2D,
             Mesh = MakeCellQuad(),
             UseColors = true,
+            UseCustomData = _texturedGround, // atlas slot rides in INSTANCE_CUSTOM.x
             InstanceCount = mapWidthCells * mapHeightCells,
         };
+
+        if (terrainAtlas is not null)
+        {
+            var material = new ShaderMaterial
+            {
+                Shader = ResourceLoader.Load<Shader>("res://shaders/terrain-atlas.gdshader"),
+            };
+            material.SetShaderParameter("atlas", terrainAtlas);
+            material.SetShaderParameter("tiles_per_row", TerrainAtlas.TileCount);
+            Material = material;
+        }
     }
 
     /// <summary>
@@ -106,7 +130,19 @@ public sealed partial class MultiMeshRenderer : MultiMeshInstance2D
                     int slot = cellY * _mapWidthCells + cellX;
                     Multimesh.SetInstanceTransform2D(
                         slot, CellTransform(cellX * cell, cellY * cell, cell));
-                    Multimesh.SetInstanceColor(slot, RgbColor(framebuffer.ColorAt(cellX, cellY)));
+                    int rgb = framebuffer.ColorAt(cellX, cellY);
+                    if (_texturedGround)
+                    {
+                        // Atlas mode (T-045): tile slot via custom data, white
+                        // instance color (the shader multiplies it in).
+                        Multimesh.SetInstanceCustomData(
+                            slot, new Color(_tileIndexForColor?.Invoke(rgb) ?? 0, 0f, 0f, 0f));
+                        Multimesh.SetInstanceColor(slot, Colors.White);
+                    }
+                    else
+                    {
+                        Multimesh.SetInstanceColor(slot, RgbColor(rgb));
+                    }
                 }
             }
         }
