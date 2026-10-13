@@ -62,7 +62,7 @@
 | T-024 | K-7 存档格式 v1 契约冻结 | 0 | C | T-002 | F-160 | C-04 | 评审 | M | 双域表结构+波界快照+命令尾+链式迁移规则 |
 | T-025 | K-8 事件目录+同步语义冻结 | 0 | F | — | F-069 | C-01 | 评审 | M | 事件枚举+JSONL 编码+(tick,seq) 单线程分发语义 |
 | T-026 | CODE_STANDARDS.md 冻结 | 0 | F | — | — | C-30 | 评审 | M | 06 §4.2 六节骨架成文入库 |
-| T-027 | CI 骨架：redline_scan.py+Actions 流水线 | 0 | F | T-026 | F-129,F-166 | C-30 | 元测试+CI 冒烟 | L | 23 检查脚本+七段流水线从零跑通一次 [DEBT-W0: Actions 七段流水线未做，W0 出口条件⑤核验时扣住；剩余 16 检查随对象落地] |
+| T-027 | CI 骨架：redline_scan.py+Actions 流水线 | 0 | F | T-026 | F-129,F-166 | C-30 | 元测试+CI 冒烟 | L | 23 检查脚本+七段流水线从零跑通一次 [DEBT-W0: Actions 七段流水线未做，W0 出口条件⑤核验时扣住；剩余 16 检查随对象落地] [RESOLVED-20261013: run_all.sh+ci.yml 落地，见 REV 记录] |
 | T-028 | 解决方案脚手架+架构守卫测试 | 0 | F | T-019 | F-154 | C-01 | U+守卫 | M | sln/EraCore/Tests/presentation 就位，零 GodotSharp 断言绿 |
 | T-029 | gdUnit4Net Day-0 冒烟+runner 裁决 | 0 | F | T-028 | — | C-30 | 冒烟 | M | 4.7.2 上 RequireGodotRuntime 样例跑通，或裁决自研 runner |
 | T-030 | Godot 环境钉死（模板迁 D 盘+根注入约定） | 0 | F | — | — | C-31 | 冒烟 | S | 模板在 D:\game\tools\godot-templates\ 且 headless 启动成功 |

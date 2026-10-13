@@ -1,0 +1,136 @@
+# CI — EraTD GitHub Actions 流水线（T-027 [DEBT-W0] 清账）
+#
+# 形态：windows-latest 单 job 多步骤，顺序与本地 tools/ci/run_all.sh 完全一致
+# （08 §3 任务纪律第 4 条 PR 必跑段；06 §3.3 七段布局的 W0 形态——W1 起随
+# 对象落地逐段扩出 regression/perf 段）：
+#   Stage 1 lint-scan    : redline_scan.py（06 §3.1 首批 7 条）+ 扫描器元测试
+#   Stage 2 unit-logic   : dotnet test（EraCore.Tests，纯 nuget.org 还原）
+#   Stage 3 godot toolchain: 官方 release 下载 Godot 4.7.2 mono + 镜自带 nupkg
+#                           到本地 feed（等价 tools/ci/setup_local_nuget.sh）
+#   Stage 4 build        : dotnet build 全解决方案 Release 零警告（G3）
+#   Stage 5 godot-smoke  : tools/ci/smoke_godot.sh headless 冒烟（G4，判据=SMOKE_OK）
+#
+# nuget.config 本地 feed 处理（不造假绿的关键声明）：
+#   game/nuget.config 的源 `godot-local-4.7.2` 指向 ..\tools\nuget-local——该目录
+#   被 .gitignore 排除（/tools/* 除 tools/ci/），runner 检出后不存在。处理：
+#   ① Stage 2 用 -p:RestoreSources=https://api.nuget.org/v3/index.json 显式覆盖，
+#      先证明 EraCore.Tests+EraCore 不依赖任何 Godot 包、纯 nuget.org 可还原可测；
+#   ② Stage 3 下载官方 Godot 4.7.2 mono（Godot.NET.Sdk/GodotSharp 4.7.2 在
+#      NuGet.org 不托管，唯一权威来源=官方编辑器发行包自带 nupkg），镜像到
+#      tools/nuget-local 后全解决方案按仓库 nuget.config 正常还原构建——与
+#      开发机环境同构（06 §3.3 环境同构；09-env-locked.md）。
+#   Stage 3 失败则 Stage 4/5 无法绿（download 步骤 fail 即 job 红），不存在
+#   「跳过 Godot 段谎报全绿」的路径。
+#
+# SKIP_SMOKE=1：应急开关（workflow_dispatch 输入），跳过且仅跳过 Stage 5 冒烟，
+#   并显式打出跳过横幅（跳过≠通过；W0 出口条件⑤ 的冒烟证据必须来自不跳过的绿）。
+
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      skip_smoke:
+        description: "SKIP_SMOKE=1 时跳过 Stage 5 Godot 冒烟（记跳过，非通过）"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+  # 官方 release URL（已核验可达，asset=Godot_v4.7.2-stable_mono_win64.zip）
+  GODOT_URL: "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_win64.zip"
+  NUGET_PACKAGES: ${{ runner.temp }}\nuget-packages
+  DOTNET_CLI_UI_LANGUAGE: "en"
+  # dispatch 输入映射：skip_smoke=true -> 1，其余事件 -> 0
+  SKIP_SMOKE: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_smoke && '1' || '0' }}
+
+jobs:
+  pipeline:
+    name: "lint-scan -> unit-logic -> godot-toolchain -> build -> godot-smoke"
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "Stage 1 lint-scan: redline_scan.py (G2) + scanner meta-test"
+        shell: bash
+        run: |
+          python tools/ci/redline_scan.py
+          python tools/ci/test_redline_scan.py
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: "Stage 2 unit-logic: dotnet test EraCore.Tests (G1, nuget.org-only restore)"
+        shell: bash
+        run: |
+          # 只测 EraCore.Tests（连带构建 EraCore）：证明其不依赖 Godot 包，
+          # 纯 nuget.org 还原即可全绿（本地已用全新 NUGET_PACKAGES 缓存复验 37/37）。
+          # EraTD(Godot.NET.Sdk 4.7.2) 此时尚不可还原——Stage 3 镜像 nupkg 后
+          # 在 Stage 4 构建全解决方案，如实分段，不提前谎报。
+          dotnet test game/src/EraCore.Tests/EraCore.Tests.csproj \
+            -c Release \
+            -p:RestoreSources=https://api.nuget.org/v3/index.json \
+            --nologo
+
+      - name: "Stage 3a: download pinned Godot (official release)"
+        shell: bash
+        run: |
+          curl -L --fail --retry 3 -o "$RUNNER_TEMP/godot_mono.zip" "$GODOT_URL"
+          mkdir -p tools/godot_extract
+          unzip -q "$RUNNER_TEMP/godot_mono.zip" -d tools/godot_extract
+          ls "tools/godot_extract/Godot_v${GODOT_VERSION}-stable_mono_win64" | head -n 5
+
+      - name: "Stage 3b: mirror Godot nupkgs into local feed"
+        shell: bash
+        run: |
+          # 与 tools/ci/setup_local_nuget.sh 同一事实（编辑器发行包自带 nupkg 是
+          # Godot.NET.Sdk 4.7.2 的唯一权威来源，NuGet.org 不托管 4.7.x）。
+          # 该脚本内含开发机 D 盘纪律检查（拒绝 C 盘检出），runner 工作区盘符
+          # 不归本仓库选择，故此处按同源步骤直接复制（等价物）：
+          mkdir -p tools/nuget-local
+          cp "tools/godot_extract/Godot_v${GODOT_VERSION}-stable_mono_win64/GodotSharp/Tools/nupkgs/"*.nupkg \
+             tools/nuget-local/
+          ls tools/nuget-local
+
+      - name: "Stage 4 build: full solution, Release, warnings-as-errors (G3)"
+        shell: bash
+        run: |
+          # 全解决方案（EraTD 含 Godot.NET.Sdk，经 Stage 3b 的本地 feed 还原）
+          dotnet build game/EraTD.sln -c Release --nologo -p:TreatWarningsAsErrors=true
+
+      - name: "Stage 5 skip notice (only when SKIP_SMOKE=1)"
+        if: env.SKIP_SMOKE == '1'
+        shell: bash
+        run: |
+          echo "=============================================================="
+          echo " SKIP_SMOKE=1 —— Stage 5 Godot 冒烟被显式跳过（跳过不是通过）。"
+          echo " W0 出口条件⑤ 的冒烟证据必须来自不跳过该段的绿色运行。"
+          echo "=============================================================="
+
+      - name: "Stage 5 godot-smoke: headless SMOKE_OK (G4)"
+        if: env.SKIP_SMOKE != '1'
+        continue-on-error: false
+        shell: bash
+        run: |
+          # smoke_godot.sh 按 07 §三（附）/09-env-locked 的钉死路径找 Godot console
+          # exe（tools/godot_extract/...，Stage 3a 已就位）。Godot(mono) 需要
+          # DOTNET_ROOT 定位 .NET 运行时（Windows 形式路径，原生 exe 直接可用）：
+          export DOTNET_ROOT="$(cygpath -w "$(dirname "$(command -v dotnet)")")"
+          echo "DOTNET_ROOT=$DOTNET_ROOT"
+          bash tools/ci/smoke_godot.sh
