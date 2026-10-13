@@ -9,4 +9,14 @@
     <RootNamespace>EraCore</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!--
+      C-04 save backend (T-041, 07 D-11): single dual-domain SQLite store.
+      Desktop-only dependency; the Web JSON backend (D-32) does not reference it.
+      Guard-checked: no GodotSharp / Newtonsoft / System.Net.Http / Reflection.Emit
+      in its closure (EraCore.Tests/Architecture/GodotSharpGuardTests).
+    -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+  </ItemGroup>
+
 </Project>
