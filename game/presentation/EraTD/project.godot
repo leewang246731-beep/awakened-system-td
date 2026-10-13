@@ -14,7 +14,22 @@ config/icon="res://icon.svg"
 
 project/assembly_name="EraTD"
 
+[display]
+
+; T-042 / F-125 pixel-render baseline: 640x360 design resolution,
+; canvas_items stretch + keep aspect + integer scale mode (C-21). The
+; engine-side settings and EraCore.Presentation.ViewportScale share the
+; same decision: floor(min(w/640,h/360)) clamped to >= 1.
+window/size/viewport_width=640
+window/size/viewport_height=360
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+window/stretch/scale_mode="integer"
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+; Global Nearest filter so upscaled 32 px cells stay crisp (13-spec-tables
+; §13.1 render baseline; per-texture overrides may opt back to filtering).
+textures/canvas_textures/default_texture_filter=0

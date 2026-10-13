@@ -1,6 +1,34 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
+
+; T-042 (C-21) skeleton scene: Control root + Camera2D + DebugLabel + the
+; two chunked MultiMesh layers wired by scripts/Main.cs. The 640x360 /
+; canvas_items / keep / integer stretch policy lives in project.godot.
 
 [ext_resource type="Script" path="res://scripts/Main.cs" id="1_main"]
+[ext_resource type="Script" path="res://scripts/MultiMeshRenderer.cs" id="2_mmr"]
 
-[node name="Main" type="Node"]
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("1_main")
+
+[node name="WorldCamera" type="Camera2D" parent="."]
+
+[node name="DebugLabel" type="Label" parent="."]
+layout_mode = 1
+offset_right = 420.0
+offset_bottom = 40.0
+mouse_filter = 2
+
+[node name="GroundLayer" type="MultiMeshInstance2D" parent="."]
+z_index = 0
+script = ExtResource("2_mmr")
+
+[node name="UnitLayer" type="MultiMeshInstance2D" parent="."]
+z_index = 10
+script = ExtResource("2_mmr")
