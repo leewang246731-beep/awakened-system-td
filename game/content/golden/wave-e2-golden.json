@@ -1,0 +1,237 @@
+{
+  "$schema": "urn:eratd:golden:wave:1",
+  "task": "T-035",
+  "_purpose": "E2 波次金样首版（第 1~30 波）：每行 {wave,count,elite,shield,interval_s} 全部由 T-036 公式库生成；行内容禁手改（CS-6.1），唯一再生成入口=regen_command",
+  "regen_command": "python tools/ci/gen_wave_golden.py --update-golden",
+  "check_command": "python tools/ci/gen_wave_golden.py",
+  "_sources": {
+    "threat": "t=0.75 = v3.2 附录 F.5 第 5 波标定威胁（第 5 波 6 散兵 360EHP 的 t）",
+    "params": "E2 波次参数 base/begin/spacing/scaling 为 [NEW-原型校准]（T-035 定标：使第 5 波=(10+0)/2×1.25 落在 F.5 锚点 6）；后续 data/waves/era2.json 落地（T-079）后与本表头对齐",
+    "count": "v3.2 §6 数量公式（07 修正 #26 括号化：先加后除→clamp 0~40→乘数量乘子→取整），数量乘子=(5/3)t（附录 F.2）",
+    "elite": "v3.2 §6 精英线 1+⌊(波−8)/4⌋（精英数量乘子恒 1）",
+    "shield": "v3.2 §6 护盾 E3 起：Shield.At(wave, start_wave=31)=10+8×wave，E2 表内 1~30 波均 <31 → 恒 0",
+    "interval_s": "v3.2 §6 波间隔 120s×间隔乘子（附录 F.2 clamp 0.5~2，t=0.75 → 1.3 → 156.0s），按 interval_s_rounding 位四舍五入"
+  },
+  "threat": 0.75,
+  "params": {
+    "base": 10,
+    "begin": 5,
+    "spacing": 5,
+    "scaling": 2.0
+  },
+  "shield_start_wave": 31,
+  "interval_base_s": 120,
+  "interval_s_rounding": 4,
+  "rows": [
+    {
+      "wave": 1,
+      "count": 6,
+      "elite": 0,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 2,
+      "count": 6,
+      "elite": 0,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 3,
+      "count": 6,
+      "elite": 0,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 4,
+      "count": 6,
+      "elite": 0,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 5,
+      "count": 6,
+      "elite": 0,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 6,
+      "count": 6,
+      "elite": 0,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 7,
+      "count": 6,
+      "elite": 0,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 8,
+      "count": 6,
+      "elite": 1,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 9,
+      "count": 6,
+      "elite": 1,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 10,
+      "count": 6,
+      "elite": 1,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 11,
+      "count": 6,
+      "elite": 1,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 12,
+      "count": 6,
+      "elite": 2,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 13,
+      "count": 6,
+      "elite": 2,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 14,
+      "count": 6,
+      "elite": 2,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 15,
+      "count": 7,
+      "elite": 2,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 16,
+      "count": 7,
+      "elite": 3,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 17,
+      "count": 7,
+      "elite": 3,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 18,
+      "count": 7,
+      "elite": 3,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 19,
+      "count": 7,
+      "elite": 3,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 20,
+      "count": 8,
+      "elite": 4,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 21,
+      "count": 8,
+      "elite": 4,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 22,
+      "count": 8,
+      "elite": 4,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 23,
+      "count": 8,
+      "elite": 4,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 24,
+      "count": 8,
+      "elite": 5,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 25,
+      "count": 8,
+      "elite": 5,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 26,
+      "count": 8,
+      "elite": 5,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 27,
+      "count": 8,
+      "elite": 5,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 28,
+      "count": 8,
+      "elite": 6,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 29,
+      "count": 8,
+      "elite": 6,
+      "shield": 0,
+      "interval_s": 156.0
+    },
+    {
+      "wave": 30,
+      "count": 9,
+      "elite": 6,
+      "shield": 0,
+      "interval_s": 156.0
+    }
+  ]
+}
