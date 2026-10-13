@@ -1,0 +1,17 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <!--
+    Godot 4 C# presentation project (D-02: the only res:// root).
+    SDK is resolved EXACTLY at 4.7.2 from the local D-drive feed
+    (tools/nuget-local, mirrored from the pinned editor's bundled nupkgs) —
+    see nuget.config and D-04 (editor/templates/GodotSharp/gdUnit aligned).
+    TargetFramework net8.0 is pinned solution-wide by Directory.Build.props.
+  -->
+  <PropertyGroup>
+    <RootNamespace>EraTD</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EraCore\EraCore.csproj" />
+  </ItemGroup>
+</Project>

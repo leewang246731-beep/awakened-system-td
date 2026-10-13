@@ -1,0 +1,20 @@
+; Engine configuration file.
+; T-028: presentation/EraTD is the one and only res:// root (D-02).
+
+config_version=5
+
+[application]
+
+config/name="EraTD"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "C#")
+config/icon="res://icon.svg"
+
+[dotnet]
+
+project/assembly_name="EraTD"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

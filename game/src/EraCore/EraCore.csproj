@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    EraCore: pure game logic library (D-01).
+    ZERO GodotSharp dependency — enforced by EraCore.Tests architecture guard.
+    Also banned (D-01/D-05): System.Reflection.Emit, Newtonsoft, direct System.Net.Http.
+  -->
+  <PropertyGroup>
+    <RootNamespace>EraCore</RootNamespace>
+  </PropertyGroup>
+
+</Project>

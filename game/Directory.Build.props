@@ -1,0 +1,17 @@
+<Project>
+  <!--
+    D-04 (07-decided-plan): toolchain pinned in ONE place.
+    Godot 4.7.2-stable mono + net8.0 for the whole solution; no netstandard2.x.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <!-- AOT 红线前置（D-05）：EraCore 禁 Reflection.Emit；发布姿态从 Day-0 起可裁剪 -->
+    <EnableAotAnalyzer Condition="'$(MSBuildProjectName)' == 'EraCore'">true</EnableAotAnalyzer>
+  </PropertyGroup>
+</Project>

@@ -5,3 +5,20 @@ cc-legacy/
 analysis/
 Mindustry.jar
 config/
+
+# --- T-028: Godot editor/cache + .NET artifacts ---
+.godot/
+*.translation
+*.import
+obj/
+bin/
+*.user
+.vs/
+*.DotSettings.user
+
+# --- D-02/D-03: runtime writable data outside res:// (root-injected via IFileStore) ---
+game/data/
+
+# --- T-030: pinned local toolchain payloads (editor, templates, nuget mirror) ---
+/tools/*
+!/tools/ci/
