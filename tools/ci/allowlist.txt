@@ -37,3 +37,4 @@ T2: game/src/EraCore/Contracts              | K-1~K-9 纯契约目录（T-019~T-
 # —— T8 金样独立 commit 豁免（W1 收口；CS-6.2 首版条款：首版金样允许与产生
 #    它的引擎代码同 commit 合入——因果：引擎先于金样存在；须 REV 登记）——
 T8: d6f5862 | first-creation golden：T-040 首版 sim-e1-golden.json 随 C-12 编排引擎首证同 commit（引擎先于金样存在）；MAJOR CS-6.2 裁决与依据号说明见 REV-20261013-wave1-round3；更新金样无豁免通道，必须独立 commit
+T8: 3a92a16 | first-creation golden：T-057 首版 checkpoint-e1-golden.json 随 C-04 检查点引擎首证同 commit（引擎先于金样存在）；依据 CS-6.2 首版条款+N7/07 D-11，登记与验证见 REV-20261014-T057-golden-first-creation；更新金样无豁免通道，必须独立 commit
