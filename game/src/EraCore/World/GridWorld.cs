@@ -319,21 +319,35 @@ public sealed class GridWorld : IFlowGrid
 
     /// <summary>
     /// IFlowGrid passability: terrain layer only. Buildings registered via
-    /// <see cref="RegisterOccupancy"/> do NOT block here — their block+tear
-    /// semantics need building HP, which lands with C-09 (T-038); at that
-    /// point the C-05/C-09/C-11 composition maps occupied cells to
-    /// Passable=false + positive BloodCost per F-044 (tear-down mode).
+    /// <see cref="RegisterOccupancy"/> do NOT block here — the block+tear
+    /// composition is owned by C-09 (T-038): <c>Combat.BuildingRegistry</c>
+    /// implements the composed <c>IFlowGrid</c> view that maps building cells
+    /// to Passable=false + positive BloodCost per F-044 (tear-down mode).
     /// </summary>
     public bool Passable(CellCoord cell) => IsPassable(cell);
 
     /// <summary>
-    /// IFlowGrid tear price: always 0 in C-05 — terrain knows no hit points.
-    /// Building HP×5 pricing is owned by C-09/C-11 (see <see cref="Passable"/>).
+    /// Building-HP lookup hook wired by the combat composition (C-09
+    /// <c>BuildingRegistry.AttachToWorld</c>, T-038). Dependency direction
+    /// stays World ← Combat: the world owns only the delegate, never a
+    /// Combat reference — the combat side wires itself in at composition
+    /// time.
+    /// </summary>
+    public Func<CellCoord, int>? BloodCostOverride { get; set; }
+
+    /// <summary>
+    /// IFlowGrid tear price: the HP of the building standing on the cell when
+    /// <see cref="BloodCostOverride"/> is wired (T-038), 0 otherwise; negative
+    /// lookup results clamp to 0 per the IFlowGrid contract. The ×5
+    /// flow-field multiplier stays a
+    /// <see cref="EraCore.Pathfinding.FlowField"/> constant — World never
+    /// applies it.
     /// </summary>
     public int BloodCost(CellCoord cell)
     {
         _ = TerrainAt(cell); // bounds check only; blood cost is HP-based, not terrain-based
-        return 0;
+        var lookup = BloodCostOverride;
+        return lookup is null ? 0 : Math.Max(0, lookup(cell));
     }
 
     private static ulong Mix(ulong hash, ulong value)
