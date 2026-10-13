@@ -8,7 +8,7 @@
 |---|---|---|
 | S1 | 游戏更名为《我在游戏觉醒系统》 | 文档标题、概念、叙事全线更名；旧名仅存于历史版本 |
 | S2 | 智能体叙事改为"觉醒系统/系统流短剧"思路：觉醒的系统就是这个智能体（系统=军师），玩家可与系统交流如何发展塔防、系统按需求执行 | 叙事章节全面重构为系统流框架；系统流元素（面板/叮/任务/奖励/升级/真相）机制化；系统=智能体的设定贯穿六章；军师称呼统一改为"系统" |
-| S3 | 智能体接 GLM-5.3；配置方式与 ZCode 一致（OpenAI/Anthropic 兼容协议） | BYOK 配置 schema：protocol(openai\|anthropic)/base_url/api_key/model；默认模板=智谱 GLM glm-5.3；**必须写明 Coding Plan 白名单限制**（游戏不可用，默认模板用标准按量端点） |
+| S3 | 智能体接 GLM-5.3（默认模板）+ 小米 MiMo（`mimo-v2.6-pro` 预置模板，甲方追加）；配置方式与 ZCode 一致（OpenAI/Anthropic 兼容协议） | BYOK 配置 schema：protocol(openai\|anthropic)/base_url/api_key/model；默认模板=智谱 GLM glm-5.3；MiMo 模板=api.xiaomimimo.com；**必须写明 Coding Plan 白名单限制**（游戏不可用，默认模板用标准按量端点） |
 | S4 | 云端 AI 档不收费：预留大模型连接配置项让大家自己配（BYOK），用户自己先配 GLM | 商业模式整章移除收费设计（无订阅/无流量包/无内购）；BYOK 配置文件+设置界面规格 |
 | S5 | 美术风格按此前搜集的三方案定稿落地 | 像素风定案（Q1 闭环）：32px 规格、素材库、管线、工作量估算、AI 生图定位（概念图/色板）；概念图引用 docs/assets/ |
 | S6 | 全免费、以自己玩为主，但必须不依赖本机、别人可以下载 | 分发方案：GitHub Releases+itch.io（含 HTML5 Web Demo）+国内镜像；许可证（代码 MIT+资产 CC BY-NC）；路线图去商业化里程碑 |
