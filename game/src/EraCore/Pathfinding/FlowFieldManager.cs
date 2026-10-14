@@ -54,12 +54,27 @@ public sealed record CellRegion(int X, int Y, int Width, int Height)
 /// <see cref="DefaultMaxActiveFields"/> stay resident with LRU eviction.
 /// Rebuilds are driven by dirty regions — <see cref="MarkDirty"/> only flags
 /// buckets whose coverage intersects the changed region, and the next
-/// <see cref="Update"/> recomputes exactly those buckets, batched. While a
-/// rebuild is in flight the previous field keeps serving gradient reads
-/// (results swap in only when complete). Each <see cref="Update"/> call is one
-/// simulation frame's slice: frontier advancement runs under a wall-clock
-/// budget measured with <see cref="Stopwatch"/> (8 ms/frame by default,
-/// parameterizable), so a large flood simply continues on later frames.
+/// <see cref="UpdateDeterministic"/> recomputes exactly those buckets,
+/// batched. While a rebuild is in flight the previous field keeps serving
+/// gradient reads (results swap in only when complete). Each update call is
+/// one simulation frame's slice, with two budget entries (T-067 DEBT 清账):
+/// <list type="bullet">
+/// <item><see cref="UpdateDeterministic(int?)"/> — the SIMULATION entry: a
+/// cell quota (<see cref="DefaultCellsPerTick"/> = 2048 charged work units
+/// per tick, workload- not time-based). A large flood simply continues on
+/// later frames, and the tick on which it completes is a pure function of
+/// the grid snapshot — load-independent by construction, so same-seed
+/// simulations hash identically under any CPU contention (AGENTS.md
+/// discipline 9; the wall-clock entry's budget misses shifted rebuild
+/// completion and diverged hashes — T-086 finding, OffSystemRegressionTests
+/// two divergences under load).</item>
+/// <item><see cref="Update(double?)"/> — the legacy wall-clock entry
+/// (Stopwatch, 8 ms/frame by default), retained for tooling and
+/// already-written callers that never feed simulation ticks.</item>
+/// </list>
+/// The Stopwatch inside <see cref="UpdateDeterministic"/> is demoted to an
+/// observation-only soft guard (warn beyond <see cref="SoftGuardWarnMs"/>,
+/// never a behavior change).
 /// <para>
 /// Per-bucket grid views (T-064, spike2-report §5 pit#3): a bucket key may
 /// carry its OWN <see cref="IFlowGrid"/> view via <see cref="RegisterGridView"/>
@@ -76,6 +91,38 @@ public sealed class FlowFieldManager
 
     /// <summary>Design v3.2 §6 / F-043: 8 ms per frame of flow-field budget.</summary>
     public const double DefaultFrameBudgetMs = 8.0;
+
+    /// <summary>
+    /// Default deterministic quota of <see cref="UpdateDeterministic(int?)"/>
+    /// — charged work units per simulation tick (one per snapshot-scanned
+    /// cell or settled frontier cell; see
+    /// <see cref="FlowField.AdvanceDeterministic(int)"/>).
+    /// <para>
+    /// Calibration (T-067 DEBT 清账, this machine = A5-class dev box,
+    /// 300×300 sparse d=0.08 seed=42 WallTear full flood = 255,794 charged
+    /// units, measured under a parallel CI lane): ≈0.32 µs per charged unit
+    /// ⇒ 2048 units ≈ 0.7 ms/tick — ~11× margin under the 8 ms design slice
+    /// (v3.2 §6) even ×3 CI/OS jitter; quota-run total 82 ms vs wall-clock
+    /// 8 ms slicing 76 ms = 92.8% throughput (≥90% task gate; no Stopwatch
+    /// decision point costs <8%). Completion: 125 ticks for the 300×300
+    /// rebuild (~4.2 s @ 30 Hz), E1 128×128 maps ≈46k units ⇒ ~23 ticks.
+    /// Empirical record pinned by
+    /// FlowFieldManagerTests.DeterministicQuotaThroughputMatchesWallclockOnFullFlood
+    /// and archived in REV-20261015-flowfield-determinism.md; enlarge the
+    /// quota (not below ~3× per-unit worst-case margin) if field-ready
+    /// latency ever matters more than per-tick headroom.
+    /// </para>
+    /// </summary>
+    public const int DefaultCellsPerTick = 2048;
+
+    /// <summary>
+    /// Soft-guard line of <see cref="UpdateDeterministic(int?)"/>: a tick
+    /// slower than this is OBSERVED (counter + optional sink) but never
+    /// changes behavior — the quota stays authoritative. 16 ms ≈ half a
+    /// 30 Hz tick (K-1), the point where sustained overshoot deserves
+    /// eyes, not corrective action.
+    /// </summary>
+    public const double SoftGuardWarnMs = 16.0;
 
     private sealed class Bucket(FlowFieldKey key)
     {
@@ -178,6 +225,38 @@ public sealed class FlowFieldManager
     /// views — never above the bucket cap (see <see cref="RegisterGridView"/>).
     /// </summary>
     public int RegisteredViewCount => _gridViews.Count;
+
+    /// <summary>
+    /// Charged work units spent by the LAST <see cref="UpdateDeterministic"/>
+    /// call across all pending buckets (observation-only telemetry — quota
+    /// accounting, never a behavior input). Zero when the call had nothing
+    /// pending. Spike/perf records read this for per-frame cell throughput.
+    /// </summary>
+    public int LastTickCellsProcessed { get; private set; }
+
+    /// <summary>
+    /// Number of <see cref="UpdateDeterministic"/> ticks whose wall time
+    /// exceeded the soft-guard threshold so far (observation only — see
+    /// <see cref="SoftGuardWarnMs"/>; never influences slicing).
+    /// </summary>
+    public long SlowTickCount { get; private set; }
+
+    /// <summary>
+    /// Soft-guard line actually in force (defaults to
+    /// <see cref="SoftGuardWarnMs"/>; also the deterministic test seam —
+    /// tests lower it to force the observation path without real delay).
+    /// Observation only.
+    /// </summary>
+    public double SoftGuardThresholdMs { get; set; } = SoftGuardWarnMs;
+
+    /// <summary>
+    /// Optional host telemetry sink invoked once per guarded
+    /// (<see cref="SlowTickCount"/>-incrementing) deterministic tick with
+    /// the elapsed milliseconds — the "warning log" of the soft guard
+    /// (EraCore stays a pure logic library with no logger of its own; the
+    /// host decides what a warning means). Observation only.
+    /// </summary>
+    public Action<double>? SlowTickObserver { get; set; }
 
     /// <summary>
     /// T-064 pit#3 (spike2-report §5 坑3 清偿: 双代价视图走 lane×costType
@@ -348,10 +427,18 @@ public sealed class FlowFieldManager
     }
 
     /// <summary>
-    /// One frame's slice: starts rebuilds flagged dirty, then advances all
-    /// pending frontiers in deterministic build order while the shared
-    /// wall-clock budget lasts. Returns true when nothing is pending.
-    /// A zero budget performs no flood work but still reports pending state.
+    /// One frame's slice under the LEGACY wall-clock budget (Stopwatch):
+    /// starts rebuilds flagged dirty, then advances all pending frontiers in
+    /// deterministic build order while the shared wall-clock budget lasts.
+    /// Returns true when nothing is pending. A zero budget performs no flood
+    /// work but still reports pending state.
+    /// <para>
+    /// T-067 DEBT 清账 note: load-dependent work per call makes the rebuild
+    /// completion tick (and with it the seed-simulation hash) diverge under
+    /// CPU contention — simulation must use
+    /// <see cref="UpdateDeterministic(int?)"/>. This entry remains for
+    /// tooling and pre-existing callers that never feed simulation ticks.
+    /// </para>
     /// </summary>
     /// <param name="frameBudgetMs">
     /// Budget for this call; null uses the manager default (8 ms). Zero is the
@@ -367,19 +454,7 @@ public sealed class FlowFieldManager
                 nameof(frameBudgetMs), "Frame budget must not be negative; zero performs no flood work this call.");
         }
 
-        foreach (Bucket bucket in _buckets.Values)
-        {
-            if (!bucket.Dirty)
-            {
-                continue;
-            }
-
-            bucket.Dirty = false;
-            if (bucket.Pending is null)
-            {
-                StartPending(bucket);
-            }
-        }
+        StartDirtyRebuilds();
 
         if (_pending.Count == 0)
         {
@@ -408,6 +483,109 @@ public sealed class FlowFieldManager
 
         _pending.RemoveAll(b => b.Pending is null);
         return _pending.Count == 0;
+    }
+
+    /// <summary>
+    /// One frame's slice under the deterministic cell quota (T-067 DEBT 清账
+    /// — THE simulation entry): starts rebuilds flagged dirty, then advances
+    /// all pending frontiers in deterministic build order while the SHARED
+    /// quota lasts (first bucket in build order eats first, exactly like the
+    /// legacy wall-clock entry's shared deadline). Returns true when nothing
+    /// is pending. A zero quota performs no flood work but still starts
+    /// dirty rebuilds and reports pending state — the legal no-progress
+    /// boundary.
+    /// <para>
+    /// Determinism: work per tick is a function of the quota and the grid
+    /// snapshot only — never of wall-clock — so rebuild completion ticks and
+    /// served-field swaps are identical under any CPU load (the property the
+    /// wall-clock entry lacks; T-086 finding). A Stopwatch wraps the call
+    /// purely as the soft guard: beyond <see cref="SoftGuardThresholdMs"/>
+    /// the counter/sink fire and NOTHING else changes.
+    /// </para>
+    /// </summary>
+    /// <param name="maxCellsPerTick">
+    /// Charged work units for this call; null uses
+    /// <see cref="DefaultCellsPerTick"/>. Zero is the legal no-progress
+    /// boundary.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">quota is negative.</exception>
+    public bool UpdateDeterministic(int? maxCellsPerTick = null)
+    {
+        int quota = maxCellsPerTick ?? DefaultCellsPerTick;
+        if (quota < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxCellsPerTick), quota, "Cell quota must not be negative; zero performs no flood work this call.");
+        }
+
+        long guardStart = Stopwatch.GetTimestamp();
+        StartDirtyRebuilds();
+        LastTickCellsProcessed = 0;
+        if (_pending.Count == 0)
+        {
+            ObserveSoftGuard(guardStart);
+            return true;
+        }
+
+        int remaining = quota;
+        foreach (Bucket bucket in _pending.ToArray())
+        {
+            if (bucket.Pending is null || remaining <= 0)
+            {
+                continue;
+            }
+
+            FlowField pending = bucket.Pending;
+            long before = pending.ProcessedCells;
+            if (pending.AdvanceDeterministic(remaining))
+            {
+                bucket.Live = pending;
+                bucket.Pending = null;
+                bucket.RebuildCount++;
+            }
+
+            int consumed = (int)Math.Min(int.MaxValue, pending.ProcessedCells - before);
+            LastTickCellsProcessed += consumed;
+            remaining -= consumed;
+        }
+
+        _pending.RemoveAll(b => b.Pending is null);
+        ObserveSoftGuard(guardStart);
+        return _pending.Count == 0;
+    }
+
+    /// <summary>
+    /// Soft-guard observation of one deterministic tick (T-067 DEBT 清账):
+    /// elapsed wall time beyond the threshold bumps the counter and the
+    /// optional sink. Observation only — the quota above stays the sole
+    /// behavior input.
+    /// </summary>
+    private void ObserveSoftGuard(long startTimestamp)
+    {
+        double elapsedMs = (Stopwatch.GetTimestamp() - startTimestamp) * 1000.0 / Stopwatch.Frequency;
+        if (elapsedMs > SoftGuardThresholdMs)
+        {
+            SlowTickCount++;
+            SlowTickObserver?.Invoke(elapsedMs);
+        }
+    }
+
+    /// <summary>Starts pending rebuilds for buckets flagged dirty (shared by both update entries).</summary>
+    private void StartDirtyRebuilds()
+    {
+        foreach (Bucket bucket in _buckets.Values)
+        {
+            if (!bucket.Dirty)
+            {
+                continue;
+            }
+
+            bucket.Dirty = false;
+            if (bucket.Pending is null)
+            {
+                StartPending(bucket);
+            }
+        }
     }
 
     /// <summary>The live (served) field of a bucket, or null when absent or never completed.</summary>

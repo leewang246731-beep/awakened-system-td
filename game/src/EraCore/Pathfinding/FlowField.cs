@@ -45,13 +45,20 @@ public enum FlowFieldMode
 /// </para>
 /// <para>
 /// Time slicing — construction snapshots the grid (row-sliced), then the
-/// frontier is advanced by <see cref="Advance"/> under a wall-clock budget
-/// (Stopwatch). Slice boundaries never influence results: settled distances
-/// are a pure function of the input, so a field built in many small frames is
-/// bit-identical to a one-shot build and <see cref="Hash"/> proves it.
-/// The 8 ms/frame budget lives in <see cref="FlowFieldManager"/> (F-043);
-/// simulation itself runs on the fixed 30 Hz tick domain (K-1 IClock), so one
-/// 33.3 ms tick comfortably fits an 8 ms flow-field slice.
+/// frontier is advanced in slices. Slice boundaries never influence
+/// results: settled distances are a pure function of the input, so a field
+/// built in many small frames is bit-identical to a one-shot build and
+/// <see cref="Hash"/> proves it. Two advance entries exist:
+/// <see cref="Advance(TimeSpan)"/> (wall-clock budget, Stopwatch) and
+/// <see cref="AdvanceDeterministic(int)"/> (cell-quota budget, T-067 DEBT
+/// 清账). ONLY the deterministic entry may drive simulation ticks: a
+/// wall-clock slice consumes a load-dependent amount of work per tick, so
+/// the tick on which a rebuild completes (and with it the seed-simulation
+/// hash) diverges under CPU contention (T-086 finding — two hash
+/// divergences in OffSystemRegressionTests under load). The quota entry
+/// spends exactly N charged work units per call — one per snapshot-scanned
+/// cell and one per settled (popped) frontier cell — so completion ticks
+/// and hashes are load-independent by construction.
 /// </para>
 /// </summary>
 public sealed class FlowField
@@ -104,9 +111,11 @@ public sealed class FlowField
     private int _heapCount;
     private int _phase;
     private int _scanRow;
+    private int _scanCol;
     private FlowFieldMode _mode;
     private long _hash;
     private bool _hashComputed;
+    private long _processedCells;
 
     private FlowField(IFlowGrid grid, int width, int height, CellCoord target, int bloodMultiplier)
     {
@@ -139,6 +148,17 @@ public sealed class FlowField
 
     /// <summary>Build mode; <see cref="FlowFieldMode.NotReady"/> until <see cref="IsReady"/>.</summary>
     public FlowFieldMode Mode => _mode;
+
+    /// <summary>
+    /// Cumulative charged work units consumed so far (T-067 DEBT 清账):
+    /// one per snapshot-scanned cell, one per settled (popped) frontier
+    /// cell. Observation-only telemetry — never influences results; used by
+    /// the manager to share one tick's cell quota across pending rebuilds
+    /// and by tests/perf records to reason about throughput. Uncharged
+    /// bounded bookkeeping (frontier-settle scans, flood resets) is
+    /// documented on <see cref="AdvanceDeterministic"/>.
+    /// </summary>
+    public long ProcessedCells => _processedCells;
 
     /// <summary>
     /// Starts a buildable field: grid snapshot and frontier expansion happen
@@ -223,6 +243,63 @@ public sealed class FlowField
             else
             {
                 RunFlood(deadline, tearGraph: true);
+            }
+        }
+
+        return _phase == PhaseReady;
+    }
+
+    /// <summary>
+    /// Advances snapshot scanning and frontier settling by exactly
+    /// <paramref name="cellBudget"/> charged work units at most (T-067 DEBT
+    /// 清账: deterministic per-tick budget). Returns true when the field is
+    /// complete; an incomplete field keeps its previous (possibly empty)
+    /// state and the caller keeps serving any older field meanwhile.
+    /// <para>
+    /// Work accounting — one charged unit per snapshot-scanned cell
+    /// (per-cell with mid-row resume, so any positive quota makes progress
+    /// on any grid width) and one per settled (popped) frontier cell. The
+    /// total charged work of a build is a pure function of the grid
+    /// snapshot (Dijkstra pop order is deterministic), so with a fixed
+    /// per-tick quota the tick on which the field completes is identical
+    /// regardless of wall-clock load — the load-independence property the
+    /// wall-clock <see cref="Advance(TimeSpan)"/> entry cannot offer (CPU
+    /// contention shrinks its per-tick work, shifting completion and
+    /// diverging seed-simulation hashes; T-086 finding).
+    /// </para>
+    /// <para>
+    /// Uncharged bounded bookkeeping: when a flood phase settles (heap
+    /// empty) the unreached-walkable scan, flood reset and mode/phase
+    /// transitions of that settle run within the same call without spending
+    /// quota. Each is O(cells) and happens at most once per phase settle —
+    /// a fixed, slice-independent count per build — so per-tick worst case
+    /// is quota + O(cells) and determinism is unaffected.
+    /// </para>
+    /// </summary>
+    /// <param name="cellBudget">Charged work units this call may spend; zero is the legal no-progress boundary.</param>
+    /// <exception cref="ArgumentOutOfRangeException">cellBudget is negative.</exception>
+    public bool AdvanceDeterministic(int cellBudget)
+    {
+        if (cellBudget < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(cellBudget), cellBudget, "Cell budget must not be negative; zero performs no work this call.");
+        }
+
+        int remaining = cellBudget;
+        while (_phase != PhaseReady && remaining > 0)
+        {
+            if (_phase == PhaseSnapshot)
+            {
+                RunSnapshotQuota(ref remaining);
+            }
+            else if (_phase == PhaseFloodWalk)
+            {
+                RunFloodQuota(ref remaining, tearGraph: false);
+            }
+            else
+            {
+                RunFloodQuota(ref remaining, tearGraph: true);
             }
         }
 
@@ -439,31 +516,80 @@ public sealed class FlowField
                 return;
             }
 
-            int rowBase = _scanRow * _width;
-            for (int x = 0; x < _width; x++)
-            {
-                var cell = new CellCoord(x, _scanRow);
-                long cost = _grid.Cost(cell);
-                long blood = _grid.BloodCost(cell);
-                bool passable = _grid.Passable(cell);
-                if (cost < MinimumCellCost)
-                {
-                    cost = MinimumCellCost;
-                }
-
-                if (blood < 0)
-                {
-                    blood = 0;
-                }
-
-                _cellCost[rowBase + x] = cost + blood * _bloodMultiplier;
-                _walkable[rowBase + x] = passable;
-                _tearable[rowBase + x] = passable || blood > 0;
-            }
-
-            _scanRow++;
+            ScanRow();
         }
 
+        CompleteSnapshot();
+    }
+
+    /// <summary>
+    /// Quota-driven snapshot: scans CELL BY CELL (mid-row resume via
+    /// <see cref="_scanCol"/>) while quota lasts — per-cell charging keeps
+    /// the quota an exact ceiling for every grid width (no whole-row
+    /// granularity, so a quota below the grid width still makes progress).
+    /// </summary>
+    private void RunSnapshotQuota(ref int remaining)
+    {
+        while (_scanRow < _height && remaining > 0)
+        {
+            int rowBase = _scanRow * _width;
+            while (_scanCol < _width && remaining > 0)
+            {
+                ScanCell(rowBase + _scanCol, _scanCol, _scanRow);
+                _scanCol++;
+                remaining--;
+            }
+
+            if (_scanCol >= _width)
+            {
+                _scanCol = 0;
+                _scanRow++;
+            }
+        }
+
+        if (_scanRow >= _height)
+        {
+            CompleteSnapshot();
+        }
+    }
+
+    /// <summary>Scans the row at <see cref="_scanRow"/> into the snapshot arrays.</summary>
+    private void ScanRow()
+    {
+        int rowBase = _scanRow * _width;
+        for (int x = 0; x < _width; x++)
+        {
+            ScanCell(rowBase + x, x, _scanRow);
+        }
+
+        _scanRow++;
+    }
+
+    /// <summary>Reads one cell of the grid into the snapshot arrays and charges one work unit.</summary>
+    private void ScanCell(int index, int x, int y)
+    {
+        var cell = new CellCoord(x, y);
+        long cost = _grid.Cost(cell);
+        long blood = _grid.BloodCost(cell);
+        bool passable = _grid.Passable(cell);
+        if (cost < MinimumCellCost)
+        {
+            cost = MinimumCellCost;
+        }
+
+        if (blood < 0)
+        {
+            blood = 0;
+        }
+
+        _cellCost[index] = cost + blood * _bloodMultiplier;
+        _walkable[index] = passable;
+        _tearable[index] = passable || blood > 0;
+        _processedCells++;
+    }
+
+    private void CompleteSnapshot()
+    {
         ResetFlood();
         _phase = PhaseFloodWalk;
     }
@@ -492,11 +618,45 @@ public sealed class FlowField
 
             batch = batch + 1 == BudgetCheckPopBatch ? 0 : batch + 1;
 
-            int u = HeapPop();
-            _settled[u] = true;
-            Relax(u, graph);
+            PopAndSettle(graph);
         }
 
+        SettleFloodPhase(tearGraph);
+    }
+
+    /// <summary>
+    /// Quota-driven flood: settles at most <paramref name="remaining"/>
+    /// frontier cells. When the quota runs out with frontier work left the
+    /// phase settle is deferred to a later call; when the heap empties the
+    /// (uncharged, bounded) settle bookkeeping runs within this call.
+    /// </summary>
+    private void RunFloodQuota(ref int remaining, bool tearGraph)
+    {
+        bool[] graph = tearGraph ? _tearable : _walkable;
+        while (_heapCount > 0 && remaining > 0)
+        {
+            remaining--;
+            PopAndSettle(graph);
+        }
+
+        if (_heapCount > 0)
+        {
+            return;
+        }
+
+        SettleFloodPhase(tearGraph);
+    }
+
+    private void PopAndSettle(bool[] graph)
+    {
+        int u = HeapPop();
+        _settled[u] = true;
+        _processedCells++;
+        Relax(u, graph);
+    }
+
+    private void SettleFloodPhase(bool tearGraph)
+    {
         if (tearGraph)
         {
             _phase = PhaseReady;

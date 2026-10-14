@@ -10,9 +10,12 @@ namespace EraCore.Tests.Pathfinding;
 /// Logic + performance tests for <see cref="FlowFieldManager"/> (C-11):
 /// bucket cap ≤6 with LRU eviction, dirty-region rebuilds touching exactly the
 /// affected buckets (counter-probe verified), old field served while a rebuild
-/// is in flight, 1 ms budget slicing of a large maze completing over multiple
-/// frames bit-identically to a one-shot build, manager-level determinism, and
-/// the TierA 300×300 full-flood timing record.
+/// is in flight, budget slicing of a large maze completing over multiple
+/// frames bit-identically to a one-shot build (BOTH entries: legacy wall-clock
+/// 1 ms slices and — T-067 DEBT 清账 — the deterministic cell quota the
+/// simulation actually drives), manager-level determinism, load-independent
+/// completion (CPU noise between floods), and the TierA 300×300 full-flood
+/// timing + quota-vs-wallclock throughput records.
 /// </summary>
 // [Collection(PerfSerialCollection.Name)]（F1）：TierA 300×300 全泛洪的
 // total/avg/max 帧包络是墙钟断言——整类进独占串行集合（非计时逻辑用例为
@@ -387,6 +390,204 @@ public class FlowFieldManagerTests
         }
     }
 
+    // ------------------------------------------------------------ deterministic quota entry (T-067 DEBT 清账)
+
+    [Theory] // illegal
+    [InlineData(-1)]
+    [InlineData(-2048)]
+    public void UpdateDeterministicRejectsNegativeQuota(int quota)
+    {
+        var manager = new FlowFieldManager(new MapGrid(4, 4));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => manager.UpdateDeterministic(quota));
+    }
+
+    [Fact] // boundary
+    public void UpdateDeterministicWithZeroQuotaReportsPendingWithoutProgress()
+    {
+        var manager = new FlowFieldManager(new MapGrid(64, 64));
+        var key = new FlowFieldKey(0, 0);
+        manager.Acquire(key, new CellCoord(63, 63));
+
+        Assert.False(manager.UpdateDeterministic(0));
+        Assert.Equal(1, manager.PendingFieldCount);
+        Assert.Equal(0, manager.LastTickCellsProcessed);
+        Assert.Null(manager.GetField(key));
+
+        while (!manager.UpdateDeterministic(4096))
+        {
+        }
+
+        Assert.True(manager.UpdateDeterministic(0)); // 零配额仍如实报告"无挂起"
+        Assert.Equal(0, manager.LastTickCellsProcessed); // 空转 tick 零记账
+    }
+
+    [Fact]
+    public void ManagerDeterministicQuotaSlicesRebuildAcrossFrames()
+    {
+        // [F-043] 管理器级分帧（确定性口径）：256×256 图，512 格/tick 配额
+        // UpdateDeterministic 多次后收敛且就绪——分帧续算语义与墙钟版一致。
+        var manager = new FlowFieldManager(TestMazes.SparseObstacles(256, 11, 0.25));
+        var key = new FlowFieldKey(0, 0);
+        manager.Acquire(key, new CellCoord(255, 255));
+
+        int frames = 0;
+        while (!manager.UpdateDeterministic(512))
+        {
+            frames++;
+            Assert.True(frames < 100_000, "deterministic sliced rebuild must terminate");
+            Assert.True(manager.LastTickCellsProcessed <= 512, "per-tick spend must never exceed the quota");
+        }
+
+        frames++;
+        Assert.True(frames >= 2, $"manager quota slicing must span multiple frames, got {frames}");
+        Assert.True(manager.GetField(key)!.IsReady);
+    }
+
+    [Fact]
+    public void QuotaSlicedManagerBuildEqualsOneShotOnLargeMaze()
+    {
+        // [F-043] 配额切片等价（管理器口径，任务口径 128×128）：小配额分多帧
+        // 完成，与一次算完哈希相等——既有切片等价断言在 tick 预算口径下的
+        // 等价新钉。
+        var grid = TestMazes.SparseObstacles(128, 7, 0.3);
+        var burst = FlowField.BuildComplete(grid, new CellCoord(127, 127));
+
+        var manager = new FlowFieldManager(grid);
+        var key = new FlowFieldKey(0, 0);
+        manager.Acquire(key, new CellCoord(127, 127));
+        int frames = 0;
+        while (!manager.UpdateDeterministic(96))
+        {
+            frames++;
+            Assert.True(frames < 100_000, "quota slicing must terminate");
+        }
+
+        frames++;
+        Assert.True(frames >= 2, $"quota slicing must span multiple frames, got {frames}");
+        var sliced = manager.GetField(key);
+        Assert.NotNull(sliced);
+        Assert.Equal(burst.Hash, sliced!.Hash);
+        Assert.Equal(burst.Mode, sliced.Mode);
+        Assert.Equal(burst.ProcessedCells, sliced.ProcessedCells);
+
+        var rng = new Lcg(99);
+        for (int i = 0; i < 32; i++)
+        {
+            var cell = new CellCoord(rng.NextInt(128), rng.NextInt(128));
+            Assert.Equal(burst.Distance(cell), sliced.Distance(cell));
+            Assert.Equal(burst.NextStep(cell), sliced.NextStep(cell));
+        }
+    }
+
+    [Fact]
+    public void DeterministicQuotaCompletionIsIndependentOfCpuNoise()
+    {
+        // [T-067 DEBT / T-086 发现的机制钉]：墙钟预算在 CPU 争用下每 tick 完
+        // 成的格数缩水 → 流场重建完成的 tick 漂移 → 单位在旧场上多走/少走数
+        // tick → 同种子模拟哈希发散（OffSystemRegression 高负载 2 次实证）。
+        // 确定性配额下完成 tick 是图快照的纯函数：本测试在泛洪间插入确定性
+        // 计数的 CPU 噪声循环（消耗真实墙钟、时长随负载漂移——正是要注入的
+        // 争用），完成 tick / 哈希 / 重建计数 / 总工作量必须与安静对照全等。
+        var noisy = new FlowFieldManager(TearMaze());
+        var quiet = new FlowFieldManager(TearMaze());
+        var key = new FlowFieldKey(0, 0);
+        noisy.Acquire(key, new CellCoord(63, 63));
+        quiet.Acquire(key, new CellCoord(63, 63));
+
+        int noisyTicks = 0, quietTicks = 0;
+        bool noisyDone = false, quietDone = false;
+        while (!noisyDone || !quietDone)
+        {
+            if (!noisyDone)
+            {
+                noisyDone = noisy.UpdateDeterministic(256);
+                noisyTicks++;
+                BurnCpu(1_000_000); // 泛洪间计算噪声（墙钟时长随负载漂移）
+            }
+
+            if (!quietDone)
+            {
+                quietDone = quiet.UpdateDeterministic(256);
+                quietTicks++;
+            }
+        }
+
+        Assert.True(quietTicks >= 2, "the tear maze must take multiple quota ticks");
+        Assert.Equal(quietTicks, noisyTicks); // 完成 tick 与负载无关（核心断言）
+        Assert.Equal(noisy.GetField(key)!.Hash, quiet.GetField(key)!.Hash);
+        Assert.Equal(noisy.GetField(key)!.ProcessedCells, quiet.GetField(key)!.ProcessedCells);
+        Assert.Equal(noisy.GetRebuildCount(key), quiet.GetRebuildCount(key));
+        Assert.Equal(FlowFieldMode.WallTear, noisy.GetField(key)!.Mode); // 确实穿全三阶段
+    }
+
+    [Fact]
+    public void SoftGuardObservesWithoutChangingBehavior()
+    {
+        // [T-067 DEBT 清账] 软护栏语义：超线只观察（计数+可选 sink）不改行
+        // 为。阈值测试缝降到 0 强制触发（任何非零耗时都超线），行为面（完成
+        // tick/哈希/重建计数）必须与默认阈值（从不触发）完全一致。
+        var observed = new List<double>();
+        var guarded = new FlowFieldManager(TestMazes.SparseObstacles(64, 21, 0.25))
+        {
+            SoftGuardThresholdMs = 0.0, // 强制触发观察路径
+            SlowTickObserver = observed.Add,
+        };
+        var plain = new FlowFieldManager(TestMazes.SparseObstacles(64, 21, 0.25));
+        var key = new FlowFieldKey(0, 0);
+        guarded.Acquire(key, new CellCoord(63, 63));
+        plain.Acquire(key, new CellCoord(63, 63));
+
+        int guardedTicks = 0, plainTicks = 0;
+        bool guardedDone = false, plainDone = false;
+        while (!guardedDone || !plainDone)
+        {
+            if (!guardedDone)
+            {
+                guardedDone = guarded.UpdateDeterministic(1024);
+                guardedTicks++;
+            }
+
+            if (!plainDone)
+            {
+                plainDone = plain.UpdateDeterministic(1024);
+                plainTicks++;
+            }
+        }
+
+        Assert.True(guarded.SlowTickCount > 0, "forced threshold must trip the observation");
+        Assert.Equal(guarded.SlowTickCount, observed.Count);
+        Assert.All(observed, ms => Assert.True(ms > 0.0));
+        Assert.Equal(plainTicks, guardedTicks); // 护栏不改变分帧行为
+        Assert.Equal(plain.GetField(key)!.Hash, guarded.GetField(key)!.Hash);
+        Assert.Equal(plain.GetRebuildCount(key), guarded.GetRebuildCount(key));
+        Assert.Equal(0, plain.SlowTickCount); // 默认 16ms 线在 1024 格/tick 下不触发
+    }
+
+    /// <summary>
+    /// 64×64 拆墙图：x=32 全列硬封 + 上下两段血墙（500/5），步行泛洪必留
+    /// 不可达格 → 必然穿三阶段（快照/步行/拆墙重泛洪）的确定性迷宫。
+    /// </summary>
+    private static MapGrid TearMaze() => new MapGrid(64, 64)
+        .BlockColumn(32, 0, 63)
+        .BloodColumn(32, 0, 31, 500)
+        .BloodColumn(32, 32, 63, 5);
+
+    /// <summary>
+    /// 计算噪声（T-086 机制）：固定迭代次数的忙循环——消耗真实 CPU 墙钟
+    /// （时长随机器与负载漂移，正是要注入的争用形态），结果丢弃。
+    /// </summary>
+    private static void BurnCpu(long iterations)
+    {
+        long acc = 0;
+        for (long i = 0; i < iterations; i++)
+        {
+            acc += i % 7;
+        }
+
+        GC.KeepAlive(acc);
+    }
+
     // ------------------------------------------------------------ performance (TierA)
 
     // 首败重跑容差（REV-20261014-wave3-round2 #4 同发现类的第三处落点）：本机
@@ -447,6 +648,110 @@ public class FlowFieldManagerTests
             + string.Join("\n", failures));
     }
 
+    [Fact]
+    public void DeterministicQuotaThroughputMatchesWallclockOnFullFlood()
+    {
+        // [T-067 DEBT 清账] 吞吐对比门禁（配额校准依据，同机同轮自比）：
+        // 300×300 全图泛洪（与上用例同图）在确定性配额
+        // FlowFieldManager.DefaultCellsPerTick 下的总完成 tick 数、均帧格数、
+        // 吞吐（格/ms）留档；与墙钟版（8ms 预算切片）同轮对照——**比率断言**
+        // （≥90%，机器无关）：配额机制去掉的是 Stopwatch 决策位，不该损失
+        // 一成以上吞吐，否则按任务口径调大配额。数字经 _output 留档进
+        // REV-20261015-flowfield-determinism.md。
+        var attempt1 = MeasureQuotaThroughputOnce();
+        var attempts = new List<(double Ratio, int QuotaTicks, double QuotaThroughput, double WallThroughput, long WorkUnits)>
+        {
+            attempt1,
+        };
+
+        if (attempt1.Ratio < 0.9)
+        {
+            _output.WriteLine("首败（吞吐比 <0.9）→ 三泳道负载容差重跑：再补 " + (FirstFailRetryAttempts - 1) + " 次完整测量（REV-20261014-wave3-round2 #4 同口径）");
+            for (int attempt = 1; attempt < FirstFailRetryAttempts; attempt++)
+            {
+                attempts.Add(MeasureQuotaThroughputOnce());
+            }
+
+            double ratio = MedianOf(attempts[0].Ratio, attempts[1].Ratio, attempts[2].Ratio);
+            Assert.True(ratio >= 0.9,
+                $"deterministic quota throughput fell under 90% of the wall-clock entry (median ratio {ratio:F3} "
+                + "— quota needs enlarging per the task card, not a CI excuse)");
+        }
+
+        Assert.True(attempt1.Ratio > 0.0);
+    }
+
+    /// <summary>
+    /// One throughput comparison attempt (same grid, same run): wall-clock
+    /// 8 ms slicing vs the deterministic default quota. Returns the ratio
+    /// (quota throughput / wall-clock throughput) plus the archive numbers.
+    /// Hash equality (burst = wall-clock-sliced = quota-sliced) and the
+    /// quota-side tick determinism are hard asserts — they never enter the
+    /// retry path.
+    /// </summary>
+    private (double Ratio, int QuotaTicks, double QuotaThroughput, double WallThroughput, long WorkUnits) MeasureQuotaThroughputOnce()
+    {
+        var grid = TestMazes.SparseObstacles(300, 42, 0.08);
+        var target = new CellCoord(299, 299);
+        var burst = FlowField.BuildComplete(grid, target);
+
+        // ---- wall-clock reference: 8 ms slices, exactly the production
+        // legacy entry's cadence (same loop the envelope test above runs).
+        var wallSliced = FlowField.StartBuild(grid, target);
+        var wallWatch = Stopwatch.StartNew();
+        int wallFrames = 0;
+        while (!wallSliced.Advance(TimeSpan.FromMilliseconds(8)))
+        {
+            wallFrames++;
+        }
+
+        wallFrames++;
+        wallWatch.Stop();
+
+        // ---- deterministic entry: default quota via the MANAGER (the sim's
+        // real call shape), so per-tick bookkeeping is the production path.
+        var manager = new FlowFieldManager(grid);
+        var key = new FlowFieldKey(0, 0);
+        manager.Acquire(key, target);
+        var quotaWatch = Stopwatch.StartNew();
+        int quotaTicks = 0;
+        long quotaCells = 0;
+        while (!manager.UpdateDeterministic())
+        {
+            quotaTicks++;
+            quotaCells += manager.LastTickCellsProcessed;
+        }
+
+        quotaTicks++;
+        quotaCells += manager.LastTickCellsProcessed;
+        quotaWatch.Stop();
+
+        var quotaField = manager.GetField(key)!;
+        Assert.True(quotaField.IsReady);
+        Assert.Equal(burst.Hash, wallSliced.Hash); // 切片等价（墙钟口径既有钉）
+        Assert.Equal(burst.Hash, quotaField.Hash); // 切片等价（配额口径新钉）
+        Assert.Equal(burst.ProcessedCells, wallSliced.ProcessedCells); // 总工作量与切片方式无关
+        Assert.Equal(burst.ProcessedCells, quotaField.ProcessedCells);
+        Assert.Equal(burst.ProcessedCells, quotaCells); // 管理器记账=字段累计
+
+        double wallMs = wallWatch.Elapsed.TotalMilliseconds;
+        double quotaMs = quotaWatch.Elapsed.TotalMilliseconds;
+        long work = burst.ProcessedCells;
+        double wallThroughput = work / wallMs;
+        double quotaThroughput = work / quotaMs;
+
+        _output.WriteLine(
+            "[T-067 DEBT 清账] 300x300 d=0.08 seed=42: workUnits=" + work
+            + " | wallclock(8ms): frames=" + wallFrames + " total=" + (int)wallMs + "ms throughput=" + wallThroughput.ToString("F1") + " cells/ms"
+            + " | quota(" + FlowFieldManager.DefaultCellsPerTick + "/tick): ticks=" + quotaTicks
+            + " avgCellsPerTick=" + (quotaCells / (double)quotaTicks).ToString("F1")
+            + " total=" + (int)quotaMs + "ms throughput=" + quotaThroughput.ToString("F1") + " cells/ms"
+            + " | ratio=" + (quotaThroughput / wallThroughput).ToString("F3")
+            + " mode=" + burst.Mode);
+
+        return (quotaThroughput / wallThroughput, quotaTicks, quotaThroughput, wallThroughput, work);
+    }
+
     /// <summary>
     /// One measurement attempt: one-shot burst build + three independent sliced
     /// builds; returns the per-metric medians of the three runs. Every sliced
@@ -454,8 +759,7 @@ public class FlowFieldManagerTests
     /// never enters the retry path).
     /// </summary>
     private (double MedianTotal, double MedianAvg, double MedianMax) MeasureFloodEnvelopeOnce()
-    {
-        var grid = TestMazes.SparseObstacles(300, 42, 0.08);
+    {        var grid = TestMazes.SparseObstacles(300, 42, 0.08);
         var target = new CellCoord(299, 299);
 
         var burstWatch = Stopwatch.StartNew();

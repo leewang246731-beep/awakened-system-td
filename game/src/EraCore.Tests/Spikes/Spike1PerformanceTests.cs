@@ -25,7 +25,7 @@ namespace EraCore.Tests.Spikes;
 /// <item>整逻辑帧 = sim <c>Step()</c> Stopwatch 外包裹 + 弹影层步进；均/p95/p99/单帧最大，
 /// 三次独立运行取中位数（T-037 稳态化先例：单次极值由一次性调度尖峰主导）；</item>
 /// <item>流场单列 = attribution twin（<see cref="Spike1WorldFlowView"/> 上的第二个
-/// <see cref="FlowFieldManager"/>，同一 8 ms 预算、同一脏区事件）——Simulation 无分段钩子，
+/// <see cref="FlowFieldManager"/>，同一确定性格配额、同一脏区事件）——Simulation 无分段钩子，
 /// 按 T-043 卡允许的粗粒度外包裹口径，局限注明于报告 §4；</item>
 /// <item>门禁线（Tier A 逻辑层）：均逻辑帧 ≤ 16.6 ms × 60% = 10 ms（渲染余量 40%）、
 /// sim tick p99 ≤ 12 ms（G8 Tier A 原文）、流场帧切片均值 ≤ 8 ms（设计 v3.2 §6）——
@@ -205,8 +205,10 @@ public sealed class Spike1PerformanceTests
         }
 
         // 门禁④ 流场预算机制本身：全程（含 100 次塔放置触发的全图重建）单次
-        // Update 切片 ≤ 10 ms = 8 ms 预算 + 批过冲余量（spike② 同口径断言先例；
-        // 预算机制按 Stopwatch 截断，过冲仅来自 frontier 批粒度与计时器粒度）。
+        // Update 切片 ≤ 10 ms = 8 ms 设计预算 + 过冲余量（spike② 同口径断言先例；
+        // T-067 DEBT 清账后切片机制=确定性格配额 2048 格/tick，墙钟只余软护栏
+        // 观察位——过冲仅来自前沿批粒度与配额外收尾簿记，本门禁继续钉住
+        // "配额一 tick 的墙钟成本不得越过设计包络"）。
         if (g.FlowSliceMaxMs > 10.0)
         {
             failures.Add($"中位流场单切片最大 {g.FlowSliceMaxMs:F2} ms > 10 ms（8 ms 预算+过冲余量，预算机制失效）");
@@ -306,7 +308,9 @@ public sealed class Spike1PerformanceTests
             double simTickMs = swSim.Elapsed.TotalMilliseconds;
 
             swFlow.Restart();
-            twin.Update(FlowFieldManager.DefaultFrameBudgetMs);
+            // T-067 DEBT 清账: twin 与 sim 内部切片同一确定性格配额（不再是
+            // 8ms 墙钟），保证归因对照仍是同一切片机制。
+            twin.UpdateDeterministic();
             swFlow.Stop();
             double flowTickMs = swFlow.Elapsed.TotalMilliseconds;
             flowSliceMaxMs = Math.Max(flowSliceMaxMs, flowTickMs);

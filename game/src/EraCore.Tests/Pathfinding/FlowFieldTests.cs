@@ -315,6 +315,77 @@ public class FlowFieldTests
         Assert.False(field.IsReady);
     }
 
+    // ------------------------------------------------------------ deterministic quota entry (T-067 DEBT 清账)
+
+    [Theory] // illegal: negative cell quota
+    [InlineData(-1)]
+    [InlineData(-2048)]
+    public void AdvanceDeterministicRejectsNegativeCellBudget(int cellBudget)
+    {
+        var field = FlowField.StartBuild(new MapGrid(4, 4), new CellCoord(3, 3));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => field.AdvanceDeterministic(cellBudget));
+    }
+
+    [Fact] // boundary: zero quota performs no charged work but stays legal
+    public void AdvanceDeterministicWithZeroBudgetMakesNoProgress()
+    {
+        var field = FlowField.StartBuild(TestMazes.SparseObstacles(64, 5, 0.2), new CellCoord(63, 63));
+
+        Assert.False(field.AdvanceDeterministic(0));
+        Assert.False(field.AdvanceDeterministic(0));
+        Assert.False(field.IsReady);
+        Assert.Equal(0, field.ProcessedCells);
+    }
+
+    [Fact]
+    public void QuotaSlicedBuildEqualsOneShotAcrossAllPhases()
+    {
+        // [F-043] 配额切片等价（T-067 DEBT 清账口径）：拆墙图三阶段（快照/步
+        // 行泛洪/拆墙重泛洪）用极小配额 3 格/次分片推完，与一次算完哈希相等
+        // ——切片边界（无论按墙钟还是按格）不进入结果。
+        var grid = new MapGrid(32, 32)
+            .BlockColumn(16, 0, 31)
+            .BloodColumn(16, 0, 15, 500)
+            .BloodColumn(16, 16, 31, 5);
+        var burst = FlowField.BuildComplete(grid, new CellCoord(31, 15));
+
+        var sliced = FlowField.StartBuild(grid, new CellCoord(31, 15));
+        int calls = 0;
+        while (!sliced.AdvanceDeterministic(3))
+        {
+            calls++;
+            Assert.True(calls < 100_000, "quota slicing must terminate");
+        }
+
+        calls++;
+        Assert.True(calls >= 2, $"quota slicing must span multiple calls, got {calls}");
+        Assert.Equal(burst.Hash, sliced.Hash);
+        Assert.Equal(burst.Mode, sliced.Mode);
+        Assert.Equal(FlowFieldMode.WallTear, sliced.Mode); // 全封死图确实穿三阶段
+        Assert.Equal(burst.ProcessedCells, sliced.ProcessedCells); // 总工作量也与切片无关
+        Assert.Equal(burst.Distance(new CellCoord(0, 15)), sliced.Distance(new CellCoord(0, 15)));
+        Assert.Equal(burst.NextStep(new CellCoord(0, 15)), sliced.NextStep(new CellCoord(0, 15)));
+    }
+
+    [Fact]
+    public void QuotaSpendingIsExactEvenBelowOneRow()
+    {
+        // [F-043] 配额口径（记账单位）：任何正配额都有进展（逐格快照计费，
+        // 配额可小于行宽——不整行起步也就不会在宽图上停滞），且非收尾调用
+        // 恰好花满配额；花费量=ProcessedCells 增量——确定性配额的记账单位
+        // 就是它。
+        var field = FlowField.StartBuild(TestMazes.SparseObstacles(32, 5, 0.2), new CellCoord(31, 31));
+
+        long before = field.ProcessedCells;
+        Assert.False(field.AdvanceDeterministic(10)); // 10 < 行宽 32 仍推进 10 格
+        Assert.Equal(10, field.ProcessedCells - before);
+
+        before = field.ProcessedCells;
+        Assert.False(field.AdvanceDeterministic(320));
+        Assert.Equal(320, field.ProcessedCells - before);
+    }
+
     // ------------------------------------------------------------ helpers
 
     private static void AssertPathValid(

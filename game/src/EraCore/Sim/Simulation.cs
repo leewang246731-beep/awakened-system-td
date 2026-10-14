@@ -346,6 +346,10 @@ public sealed class Simulation
         _registry = new BuildingRegistry(_world);
         _registry.AttachToWorld();
         _flowGrid = new SimFlowGrid(_registry, _world);
+        // T-067 DEBT 清账: 第三参 defaultFrameBudgetMs 只喂遗留墙钟入口
+        // Update(double?) 的默认值；本模拟的 tick 切片已切至
+        // UpdateDeterministic（见 Step 第 (5) 段），配额走
+        // FlowFieldManager.DefaultCellsPerTick。
         _flows = new FlowFieldManager(_flowGrid, FlowFieldManager.DefaultMaxActiveFields, config.FlowFrameBudgetMs);
         _laneKey = new FlowFieldKey(config.Lane, 0);
         _flows.Acquire(_laneKey, config.BaseCell);
@@ -565,8 +569,14 @@ public sealed class Simulation
             _ = lane.Transfer();
         }
 
-        // (5) Flow-field slice under the frame budget (design v3.2 §6 8 ms).
-        _flows.Update(_config.FlowFrameBudgetMs);
+        // (5) Flow-field slice under the deterministic cell quota (design
+        //     v3.2 §6 8 ms slice, T-067 DEBT 清账: wall-clock budgeting made
+        //     rebuild completion load-dependent and diverged same-seed hashes
+        //     — T-086 finding; quota = workload-based, hash load-independent).
+        //     Sim/ 最小改调用点：原 _flows.Update(_config.FlowFrameBudgetMs)。
+        //     config.FlowFrameBudgetMs 仍传入 ctor（仅作管理器遗留墙钟入口的
+        //     默认值校验），不再参与 tick 切片。
+        _flows.UpdateDeterministic(FlowFieldManager.DefaultCellsPerTick);
 
         // (6) Unit layer. Wave batches materialize into the Units group;
         //     shield regeneration ticks (T-066 framework); the war-drum aura
