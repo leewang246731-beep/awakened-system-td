@@ -9,7 +9,8 @@
 |---|---|---|
 | 游戏项目（代码+文档+测试） | `D:\game`（git 仓库） | ✅ 已在 GitHub：`leewang246731-beep/awakened-system-td`（私有）→ 新机 clone |
 | SSH 密钥（推送 GitHub 用） | `C:\Users\hydsoft\.ssh\id_ed25519(+.pub)` | U 盘（打包脚本已含）或新机新生成+网页添加 |
-| 自定义 skill（视频生成） | `C:\Users\hydsoft\.zcode\skills\ark-video\` | U 盘（脚本已含）；`code-review`/`tdd` 是内置不用管 |
+| 自定义 skill（**全部三个**） | `C:\Users\hydsoft\.zcode\skills\{ark-video, code-review, tdd}` | U 盘（打包脚本已含全部——**code-review/tdd 不是 ZCode 自带**，漏了它们新机就没有审查门禁 skill 和 TDD skill） |
+| **项目记忆/工作宪章** | `D:\game\AGENTS.md`（仓库根） | ✅ **随 git 仓库自动走**——新会话自动读取：十条不可协商纪律（五级测试/双轴门禁/反造假红线/金样/D 盘/并行度/确定性…）+ 文档地图 + 环境速查 + 进度快照。游戏开发的全部要求都在仓库文档里，不依赖任何机器 |
 | API 密钥（vibeapi 生图/MiMo/ark/GitHub token） | `D:\game\config\*.txt` + `secrets.local.json`（**gitignore 不会进 GitHub**） | U 盘（脚本已含）|
 | U 盘素材库 | `E:\game-assets` + `E:\game-videos` | 本来就在 U 盘，直接带走 |
 | .NET SDK 8 | `D:\dotnet` | 新机重装（脚本自动） |
@@ -42,8 +43,8 @@ mkdir -p ~/.ssh ~/.zcode/skills
 unzip E:/zcode-migration/zcode_bundle.zip -d ~/zcode_restore
 # SSH 密钥 →
 cp ~/zcode_restore/ssh/* ~/.ssh/ && chmod 600 ~/.ssh/id_ed25519
-# skill →
-cp -r ~/zcode_restore/skills/ark-video ~/.zcode/skills/
+# skill →（三个全部）
+cp -r ~/zcode_restore/skills/* ~/.zcode/skills/
 # API 密钥 →（等第 4 步建好 D:\game 再放）
 ```
 

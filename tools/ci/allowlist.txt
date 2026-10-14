@@ -50,3 +50,5 @@ T8: 3a92a16 | first-creation golden：T-057 首版 checkpoint-e1-golden.json 随
 # —— T-067（C-12 实体分组）新增声明 ——
 T2: game/src/EraCore/Sim/EntityGroups/ISpatialIndex.cs | 纯接口（G.1 条 2 四叉树可选接入点，T-067 任务卡"接口预留"）：03 分解决议下 spike① 未证明空间查询需求（线性扫描 1.336 ms 达标），仅落接口；实现与行为测试随首个空间查询消费方任务覆盖（EntityGroup/SimEntityGroups 的分组语义由 EntityGroupTests/SimEntityGroupsTests 覆盖）
 T8: 8488523 | first-creation golden：T-067 首版 sim-e2-golden.json 随 C-12 全量编排引擎同 commit（引擎先于金样存在——era2 全子系统哈希由本 commit 的分组+编排引擎产出）；依据 CS-6.2 v1.1 首版条款+G.1 条 2/F-155/v3.2 §6，登记与验证见 docs/engineering/reviews/REV-20261014-T067-golden-first-creation.md；更新金样无豁免通道，必须独立 commit
+R9: docs/engineering/23-migration-plan.md | migration doc is env-facts style (drive letters are its subject), same precedent as 17-21
+R9: AGENTS.md | project charter contains env-facts quick-reference by design (see 09-env-locked precedent)
