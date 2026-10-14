@@ -63,7 +63,7 @@ public class ScrollDataLoaderTests
         Assert.Equal(ScrollVerbTarget.StrongestInTriggerZone, scroll.Action.VerbTarget);
         Assert.Equal(ScrollTargetScope.TriggerZone, scroll.Action.Scope);
         Assert.Equal("research", scroll.Acquisition.Kind);
-        Assert.Equal("era2:tech-codex-i", scroll.Acquisition.Ref);
+        Assert.Equal("campaign:tech-sys-e2-codex-i", scroll.Acquisition.Ref); // REV-20261014-wave3-round2 #2：悬空 era2:tech-codex-* 改指实存节点（techtree.json 已补四典）
     }
 
     [Fact]

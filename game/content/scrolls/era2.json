@@ -33,7 +33,7 @@
         "verb_target": "strongest_in_trigger_zone",
         "scope": "trigger_zone"
       },
-      "acquisition": { "kind": "research", "ref": "era2:tech-codex-i" },
+      "acquisition": { "kind": "research", "ref": "campaign:tech-sys-e2-codex-i" },
       "_new": true,
       "_new_fields": ["priority", "cooldown_ticks"],
       "_source": "SP-5 L161 SC-001「警弦｜条件卡｜当某分区敌数 ≥5→该区全体塔集火最强敌（复用 FocusFire 语义），触发后冷却 45 s」；冷却 45 s×30 Hz=1350 ticks；优先级无文档锚点→_new 待原型校准；条件阈值 count=5 为表内锚点",
@@ -94,7 +94,7 @@
         "magnitude": 0.25,
         "duration_ticks": 450
       },
-      "acquisition": { "kind": "research", "ref": "era2:tech-codex-ii" },
+      "acquisition": { "kind": "research", "ref": "campaign:tech-sys-e2-codex-ii" },
       "_new": true,
       "_new_fields": ["priority", "cooldown_ticks"],
       "_source": "SP-5 L163 SC-003「备刃｜动作卡｜全体穿刺塔攻速 +25%，持续 15 s，冷却 60 s」——动作卡经 TriggerScroll 触发（系统 1 点+3 s 冷却，不占常驻上限）；15 s×30=450 ticks、60 s×30=1800 ticks；优先级 _new",
@@ -127,7 +127,7 @@
         "scope": "trigger_tower",
         "magnitude": 0.2
       },
-      "acquisition": { "kind": "research", "ref": "era2:tech-codex-iii" },
+      "acquisition": { "kind": "research", "ref": "campaign:tech-sys-e2-codex-iii" },
       "_new": true,
       "_new_fields": ["priority"],
       "_source": "SP-5 L164 SC-004「断后｜条件卡｜当任一塔 HP ≤50%→回复该塔 20% 最大 HP（每塔每波 1 次）」——表内锚点：阈值 50%（≤口径）、回复 20%、每塔每波 1 次；无自身冷却（限频=每塔每波上限）；优先级 _new",
@@ -186,7 +186,7 @@
         "magnitude": 1.5,
         "duration_ticks": 900
       },
-      "acquisition": { "kind": "research", "ref": "era2:tech-codex-iv" },
+      "acquisition": { "kind": "research", "ref": "campaign:tech-sys-e2-codex-iv" },
       "_new": true,
       "_new_fields": ["priority", "cooldown_ticks"],
       "_source": "SP-5 L166 SC-006「民夫征调｜动作卡｜物流运力 ×1.5 持续 30 s（不改物流档位上限），冷却 120 s」——30 s×30=900 ticks、120 s×30=3600 ticks；优先级 _new",

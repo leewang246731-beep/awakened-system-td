@@ -25,6 +25,9 @@ namespace EraCore.Tests.Sim;
 // 门禁线 = 0.959（归档基线）× 1.2（任务容差）× 2.25（共享机并发容差，先例
 // 口径）= 2.587 CPU-ms。完整逻辑帧墙钟口径由 Spike1PerformanceTests 的
 // 3.0 ms 回归线持续把守；弹影层是测试侧载荷，不随引擎重构变化，不进本护栏。
+// 首败负载容差（REV-20261014-wave3-round2 #4）：门禁首败不直接红——再补
+// 两次完整测量、三次尝试取中位数后重判，仍超才红（依据=三泳道 worktree
+// 并行共享机对照实测，见 FirstFailRetryAttempts 注释）。
 [Collection(PerfSerialCollection.Name)]
 public sealed class SimGroupingPerfGuardrailTests
 {
@@ -44,8 +47,46 @@ public sealed class SimGroupingPerfGuardrailTests
     /// <summary>共享机并发容差（PerfSerialCollection/REV-20261014-wave2-round1 先例口径 ×2.25）。</summary>
     private const double SharedBoxContentionSlack = 2.25;
 
-    [Fact] // [F-155] 四次完整 3780 tick 运行取优（首跑含 JIT 预热，取优吸收）
+    // 首败重跑容差（REV-20261014-wave3-round2 #4）：本机为三泳道 worktree 并行
+    // 共享机（A/B/C 三条泳道各持一份 worktree 背靠背跑 CI），同代码在三份
+    // worktree 上的对照实测显示：门禁首败由邻居泳道的分钟级负载尖峰主导
+    // （跨 worktree 对照同一次提交，一份红两份绿的形态反复出现），而真实
+    // 劣化在三次重跑中位下稳定复现。故处置=首败不直接红：再补两次完整
+    // 测量，取三次尝试的中位数判线——一次性负载尖峰被中位剔除，真劣化
+    // （三中二超线）仍稳定转红；非首败路径零额外开销。
+    private const int FirstFailRetryAttempts = 3;
+
+    [Fact] // [F-155] 四次完整 3780 tick 运行取优（首跑含 JIT 预热，取优吸收）；首败→三次尝试取中位（负载容差）
     public void Sim_step_mean_stays_within_the_guardrail_after_the_grouping_refactor()
+    {
+        double limit = ArchivedSimStepMeanMs * GuardrailMultiplier * SharedBoxContentionSlack;
+
+        var attempts = new List<double>(FirstFailRetryAttempts) { MeasureBestOfFourRuns() };
+        _output.WriteLine($"分组重构护栏（CPU 时间口径）: 尝试1 sim Step 均 ms = {attempts[0]:F3}（4 次取优）");
+        if (attempts[0] > limit)
+        {
+            // 首败重跑（三泳道 worktree 对照依据见 FirstFailRetryAttempts 注释）
+            for (int attempt = 2; attempt <= FirstFailRetryAttempts; attempt++)
+            {
+                attempts.Add(MeasureBestOfFourRuns());
+                _output.WriteLine($"首败重跑: 尝试{attempt} sim Step 均 ms = {attempts[^1]:F3}（4 次取优）");
+            }
+        }
+
+        double verdict = attempts.Count == 1 ? attempts[0] : MedianOf(attempts);
+        _output.WriteLine($"门禁线 = {ArchivedSimStepMeanMs}（归档基线）×{GuardrailMultiplier}（任务容差）×{SharedBoxContentionSlack}（共享机容差）= {limit:F3} ms");
+        _output.WriteLine(
+            attempts.Count == 1
+                ? "判定样本: 首次尝试即过线，未触发重跑"
+                : $"判定样本: 三次尝试 [{string.Join("/", attempts.Select(v => v.ToString("F3")))}] 取中位 {verdict:F3}（三泳道负载容差，REV-20261014-wave3-round2 #4）");
+        _output.WriteLine("真值判据：配对 A/B 留档（类注释）——重构后/前归一 ×0.94 ≤ ×1.2");
+        Assert.True(verdict <= limit,
+            $"sim Step CPU 均 {verdict:F3} ms（{attempts.Count} 次尝试{(attempts.Count == 1 ? "" : "取中位")}）> 门禁线 {limit:F3} ms（归档 {ArchivedSimStepMeanMs}×{GuardrailMultiplier}×{SharedBoxContentionSlack}）——"
+            + "三次尝试中位仍超线=非邻居噪声，分组迁移显著劣化热路径（对照 docs/engineering/spike1-report.md §3 与类注释的配对 A/B 口径复核分段）");
+    }
+
+    /// <summary>One attempt: four full spike① runs, best of the four (first run absorbs JIT warm-up).</summary>
+    private double MeasureBestOfFourRuns()
     {
         const int runs = 4;
         var perRun = new double[runs];
@@ -54,14 +95,14 @@ public sealed class SimGroupingPerfGuardrailTests
             perRun[run] = RunSimOnlyMeanMs(run);
         }
 
-        double best = perRun.Min();
-        double limit = ArchivedSimStepMeanMs * GuardrailMultiplier * SharedBoxContentionSlack;
-        _output.WriteLine($"分组重构护栏（CPU 时间口径）: sim Step 均 ms = {string.Join("/", perRun.Select(v => v.ToString("F3")))}（{runs} 次取优）");
-        _output.WriteLine($"门禁线 = {ArchivedSimStepMeanMs}（归档基线）×{GuardrailMultiplier}（任务容差）×{SharedBoxContentionSlack}（共享机容差）= {limit:F3} ms");
-        _output.WriteLine("真值判据：配对 A/B 留档（类注释）——重构后/前归一 ×0.94 ≤ ×1.2");
-        Assert.True(best <= limit,
-            $"sim Step CPU 均 {best:F3} ms > 门禁线 {limit:F3} ms（归档 {ArchivedSimStepMeanMs}×{GuardrailMultiplier}×{SharedBoxContentionSlack}）——"
-            + "分组迁移显著劣化热路径（对照 docs/engineering/spike1-report.md §3 与类注释的配对 A/B 口径复核分段）");
+        return perRun.Min();
+    }
+
+    /// <summary>Middle value of an odd-length sample list (first-fail median verdict).</summary>
+    private static double MedianOf(IReadOnlyList<double> samples)
+    {
+        var sorted = samples.OrderBy(v => v).ToList();
+        return sorted[sorted.Count / 2];
     }
 
     /// <summary>

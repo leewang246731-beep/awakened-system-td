@@ -172,7 +172,7 @@ public sealed record ScrollAction(
 /// 掉落——全免费定位无商店). Pure data; the campaign layer resolves it.
 /// </summary>
 /// <param name="Kind">research | boss_drop | era_gift.</param>
-/// <param name="Ref">Referenced node/enemy id (e.g. era2:tech-codex-i, era2:enemy-boss).</param>
+/// <param name="Ref">Referenced node/enemy id (e.g. campaign:tech-sys-e2-codex-i, era2:enemy-boss).</param>
 public sealed record ScrollAcquisition(string Kind, string Ref);
 
 /// <summary>

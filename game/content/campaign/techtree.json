@@ -857,6 +857,166 @@
         "cost_sum": "resource_points",
         "materials.amount": "resource_points"
       }
+    },
+    {
+      "id": "campaign:tech-sys-e2-codex-i",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "system",
+      "kind": "scroll_unlock",
+      "name_zh": "守城智典·警弦篇",
+      "name_en": "Guardian Codex: Alarm String",
+      "aliases": [
+        "守城智典壹"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 20
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 30,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:scroll-alarm-string"
+      ],
+      "_new": true,
+      "_source": "卷轴解锁节点·系统旁支（F-052）：SP-5 获取列『研究节点壹』的落地面——T-071 era2.json acquisition.ref 前指 era2:tech-codex-i，T-073 科技树未落同名节点成悬空引用（REV-20261014-wave3-round2 #2 裁定补齐，ref 同批改指本节点 id）；Σ成本=声明权重 [NEW]（旁支小量口径，主线塔节点成本体系不动）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-sys-e2-codex-ii",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "system",
+      "kind": "scroll_unlock",
+      "name_zh": "守城智典·备刃篇",
+      "name_en": "Guardian Codex: Spare Blades",
+      "aliases": [
+        "守城智典贰"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 20
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 35,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:scroll-spare-blades"
+      ],
+      "_new": true,
+      "_source": "卷轴解锁节点·系统旁支（F-052）：SP-5 获取列『研究节点贰』的落地面——T-071 era2.json acquisition.ref 前指 era2:tech-codex-ii，T-073 科技树未落同名节点成悬空引用（REV-20261014-wave3-round2 #2 裁定补齐，ref 同批改指本节点 id）；Σ成本=声明权重 [NEW]（旁支小量口径，主线塔节点成本体系不动）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-sys-e2-codex-iii",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "system",
+      "kind": "scroll_unlock",
+      "name_zh": "守城智典·断后篇",
+      "name_en": "Guardian Codex: Rearguard",
+      "aliases": [
+        "守城智典叁"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 20
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 40,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:scroll-rearguard"
+      ],
+      "_new": true,
+      "_source": "卷轴解锁节点·系统旁支（F-052）：SP-5 获取列『研究节点叁』的落地面——T-071 era2.json acquisition.ref 前指 era2:tech-codex-iii，T-073 科技树未落同名节点成悬空引用（REV-20261014-wave3-round2 #2 裁定补齐，ref 同批改指本节点 id）；Σ成本=声明权重 [NEW]（旁支小量口径，主线塔节点成本体系不动）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-sys-e2-codex-iv",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "system",
+      "kind": "scroll_unlock",
+      "name_zh": "守城智典·征调篇",
+      "name_en": "Guardian Codex: Press Gang",
+      "aliases": [
+        "守城智典肆"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 20
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 45,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:scroll-press-gang"
+      ],
+      "_new": true,
+      "_source": "卷轴解锁节点·系统旁支（F-052）：SP-5 获取列『研究节点肆』的落地面——T-071 era2.json acquisition.ref 前指 era2:tech-codex-iv，T-073 科技树未落同名节点成悬空引用（REV-20261014-wave3-round2 #2 裁定补齐，ref 同批改指本节点 id）；Σ成本=声明权重 [NEW]（旁支小量口径，主线塔节点成本体系不动）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
     }
   ]
 }

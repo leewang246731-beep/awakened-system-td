@@ -231,8 +231,17 @@ public sealed class TechTree
     /// absorbs the remainder — the split always sums to the total exactly,
     /// same total + same mix ⇒ same split (no largest-remainder ordering
     /// ambiguity).
+    /// <para>
+    /// 超载守卫（REV-20261014-wave3-round2 #6）：本方法是公开静态缝隙，可被
+    /// 宿主/测试以任意手工构造的 mix 直调，不经 <see cref="TechTreeData.Parse"/>
+    /// 的装载校验。shareSum &gt; 1+1e-6 时非末行分配额之和可超过 total，末行
+    /// 吸收项 <c>total − allocated</c> 变负（负扣费=逆向充值漏洞）——与装载侧
+    /// 同口径的 1e-6 浮点容差下直接拒载。欠载（&lt; 1−1e-6）侧由装载校验把守，
+    /// 直调侧末行吸收仍精确回 total，无金额漏洞，不在此重复设卡。
+    /// </para>
     /// </summary>
     /// <exception cref="ArgumentNullException">mix is null or empty.</exception>
+    /// <exception cref="ArgumentException">mix is empty, or its shares sum to more than 1 + 1e-6 (over-allocation would make the last line's charge negative).</exception>
     public static IReadOnlyList<(ResourceKey Resource, long Charge)> SplitCost(
         long total, IReadOnlyList<TechCostLine> mix)
     {
@@ -240,6 +249,20 @@ public sealed class TechTree
         if (mix.Count == 0)
         {
             throw new ArgumentException("A cost mix needs at least one line.", nameof(mix));
+        }
+
+        double shareSum = 0.0;
+        foreach (TechCostLine line in mix)
+        {
+            shareSum += line.Share;
+        }
+
+        if (shareSum > 1.0 + 1e-6)
+        {
+            throw new ArgumentException(
+                $"Cost-mix shares sum to {shareSum} — must not exceed 1 (+1e-6 float tolerance); "
+                + "the last line's remainder-absorb would go negative (over-allocation).",
+                nameof(mix));
         }
 
         var split = new List<(ResourceKey, long)>(mix.Count);

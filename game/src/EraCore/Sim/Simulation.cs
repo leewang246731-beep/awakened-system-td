@@ -829,7 +829,8 @@ public sealed class Simulation
             hash = Mix(hash, (ulong)hero.Stance);
             hash = Mix(hash, hero.HasOrder ? 1UL : 0UL);
             hash = Mix(hash, (ulong)Math.Max(0L, hero.NextSkillReadyTick));
-            hash = Mix(hash, (uint)hero.WavesHeld);        }
+            hash = Mix(hash, (uint)hero.WavesHeld);
+        }
 
         hash = Mix(hash, (ulong)_groups.Buildings.Count);
         for (int i = 0; i < _groups.Buildings.Count; i++)

@@ -6,8 +6,10 @@ using static EraCore.Tests.Progression.ProgressionFixture;
 namespace EraCore.Tests.Progression;
 
 // [F-050][F-051][F-052] 科技树内容数据（T-073）：techtree.json 锚点比对
-// （20 节点/三 kind/两支系/塔节点 Σ成本=towers.json cost_total 逐值对齐/
+// （24 节点/三 kind/两支系/塔节点 Σ成本=towers.json cost_total 逐值对齐/
 // 系统能力旁支对主线零依赖）+ 装载器三行（合法/边界/非法）。[C-19][C-02]
+// 2026-10-14 批 2/3（REV-20261014-wave3-round2 #2）：+4 守城智典卷轴节点
+// （系统旁支），并锚定卷轴 research 获取引用 ↔ 科技节点 id 双向对齐。
 public class TechTreeDataTests
 {
     private static IReadOnlyList<TechNodeSpec> LoadReal() =>
@@ -15,13 +17,13 @@ public class TechTreeDataTests
 
     // ------------------------------------------------------- legal
 
-    [Fact] // legal — 首发节点量：E1+E2 共 20 个（任务卡 "~20"）
+    [Fact] // legal — 节点量：E1+E2 共 24 个（首发 20 + 批 2/3 卷轴典 4，任务卡 "~20" 量级）
     public void Real_tree_carries_the_first_release_node_count()
     {
         IReadOnlyList<TechNodeSpec> nodes = LoadReal();
-        Assert.Equal(20, nodes.Count);
+        Assert.Equal(24, nodes.Count);
         Assert.Equal(10, nodes.Count(node => node.EraIndex == 1));
-        Assert.Equal(10, nodes.Count(node => node.EraIndex == 2));
+        Assert.Equal(14, nodes.Count(node => node.EraIndex == 2));
     }
 
     [Fact] // legal — 三类节点齐备：塔解锁/系统升级/卷轴解锁（任务卡口径）
@@ -30,7 +32,7 @@ public class TechTreeDataTests
         IReadOnlyList<TechNodeSpec> nodes = LoadReal();
         Assert.Equal(9, nodes.Count(node => node.Kind == TechNodeKind.TowerUnlock));
         Assert.Equal(7, nodes.Count(node => node.Kind == TechNodeKind.SystemUpgrade));
-        Assert.Equal(4, nodes.Count(node => node.Kind == TechNodeKind.ScrollUnlock));
+        Assert.Equal(8, nodes.Count(node => node.Kind == TechNodeKind.ScrollUnlock));
     }
 
     [Fact] // legal — 塔解锁节点 Σ成本与 towers.json cost_total 逐值对齐（E1+E2 全 9 塔）
@@ -73,7 +75,7 @@ public class TechTreeDataTests
         }
 
         Assert.Contains(nodes, node => node.Branch == TechBranch.System); // 旁支确实存在
-        Assert.Equal(5, nodes.Count(node => node.Branch == TechBranch.System)); // E1 三支+E2 两支
+        Assert.Equal(9, nodes.Count(node => node.Branch == TechBranch.System)); // E1 三支+E2 六支（两能力支+四守城智典卷轴支）
     }
 
     [Fact] // legal — 三重闸门字段在数据中真实使用：前置/材料/关卡绑定各有节点挂载
@@ -100,10 +102,51 @@ public class TechTreeDataTests
         }
 
         var e2ScrollNodes = nodes.Where(node => node.Kind == TechNodeKind.ScrollUnlock && node.EraIndex == 2).ToList();
-        Assert.Equal(2, e2ScrollNodes.Count);
+        Assert.Equal(6, e2ScrollNodes.Count);
         foreach (TechNodeSpec node in e2ScrollNodes)
         {
             Assert.Contains(Assert.Single(node.Unlocks), scrollIds);
+        }
+    }
+
+    [Fact] // legal — 卷轴 research 获取引用 ↔ 科技节点 id 双向对齐（REV-20261014-wave3-round2 #2：
+           // era2.json 曾前指 era2:tech-codex-i..iv 四个悬空节点名——T-073 科技树从未落同名节点；
+           // 本断言锚定两侧，任何一侧改名/漏节点即红，杜绝该悬空类回归）
+    public void Research_acquisition_refs_resolve_to_real_tech_nodes_both_ways()
+    {
+        IReadOnlyList<TechNodeSpec> nodes = LoadReal();
+        var nodeIds = nodes.Select(node => node.Id).ToHashSet();
+
+        var scrollDoc = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(FindRepoRoot(), "game", "content", "scrolls", "era2.json")));
+        foreach (JsonElement item in scrollDoc.RootElement.GetProperty("items").EnumerateArray())
+        {
+            JsonElement acquisition = item.GetProperty("acquisition");
+            if (acquisition.GetProperty("kind").GetString() != "research")
+            {
+                continue; // boss_drop/era_gift 引用走各自内容域，不进科技树对齐
+            }
+
+            string refId = acquisition.GetProperty("ref").GetString()!;
+            Assert.Contains(refId, nodeIds); // 引用侧：research ref 必须命中实存节点
+        }
+
+        // 节点侧：每个 E2 卷轴解锁节点的 unlocks 必须命中实存卷轴 id（含四典节点）
+        var scrollIds = new HashSet<string>();
+        foreach (JsonElement item in scrollDoc.RootElement.GetProperty("items").EnumerateArray())
+        {
+            scrollIds.Add(item.GetProperty("id").GetString()!);
+        }
+
+        foreach (TechNodeSpec node in nodes.Where(node => node.Kind == TechNodeKind.ScrollUnlock && node.EraIndex == 2))
+        {
+            string unlocked = Assert.Single(node.Unlocks);
+            Assert.Contains(unlocked, scrollIds);
+            if (node.Id.StartsWith("campaign:tech-sys-e2-codex-", StringComparison.Ordinal))
+            {
+                // 四典节点零前置（F-052 旁支根，不发明依赖链）
+                Assert.Empty(node.Prerequisites);
+            }
         }
     }
 

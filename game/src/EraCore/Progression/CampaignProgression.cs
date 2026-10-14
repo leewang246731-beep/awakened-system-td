@@ -11,6 +11,14 @@ namespace EraCore.Progression;
 /// audit seams, so the host carries these numbers into settlement — every
 /// field is a required constructor argument, nothing defaults silently
 /// (CS-4.10: no self-invented lenient standard).
+/// <para>
+/// 命名勘误（REV-20261014-wave3-round2 #1）：本域取名 <c>Progression</c> 而非
+/// <c>Campaign</c>，是取语义清晰（战役进度/科技/结算宿主域）、避免与
+/// <see cref="EraCore.Balance.Campaign"/>（平衡公式静态类）语义混淆的预防性
+/// 选择。T-073 交付时曾把该选择表述为"CS0234 编译冲突避让"——审查探针实证
+/// 不成立：Balance.Campaign 是静态类而非命名空间，同名命名空间与其可共存
+/// 无编译冲突；原表述系事后合理化，特此改正，命名本身维持不变。
+/// </para>
 /// </summary>
 /// <param name="StationsLost">S1: stations lost over the run.</param>
 /// <param name="DefenseIntegrityMin">S2: minimum defense integrity (fraction).</param>

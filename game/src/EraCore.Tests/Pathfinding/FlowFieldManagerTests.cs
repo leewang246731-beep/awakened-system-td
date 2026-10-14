@@ -389,6 +389,14 @@ public class FlowFieldManagerTests
 
     // ------------------------------------------------------------ performance (TierA)
 
+    // 首败重跑容差（REV-20261014-wave3-round2 #4 同发现类的第三处落点）：本机
+    // 为三泳道 worktree 并行共享机，同代码跨 worktree 对照实测门禁首败由
+    // 邻居泳道分钟级负载尖峰主导（本批 gate run 实录：同套件空载 1m41s/
+    // 三泳道满载 41m，本测试均帧 7→11ms 越过 10ms 线）——处置与
+    // Spike1PerformanceTests/SimGroupingPerfGuardrailTests 同口径：首败不直接
+    // 红，再补两次完整测量、三次尝试各指标取中位数后重判，仍超才红。
+    private const int FirstFailRetryAttempts = 3;
+
     [Fact]
     public void FullFlood300x300SparseStaysWithinBudgetEnvelope()
     {
@@ -411,6 +419,42 @@ public class FlowFieldManagerTests
         // 断言：均帧 ≤10ms——空载留档 7~8ms 支持 8ms 线，CI 并发抖动放宽数
         // =8ms×1.25=10ms（25% 调度裕量，注明于此）；③总量 <2000ms（对最差
         // 留档 388ms 约 5× 余量）。真实数字经 ITestOutputHelper 留档。
+        // 首败负载容差（REV-20261014-wave3-round2 #4）：三次运行中位首败→
+        // 再补两次完整测量、三次尝试取中位重判（FirstFailRetryAttempts 注释）。
+        (double MedianTotal, double MedianAvg, double MedianMax) attempt1 = MeasureFloodEnvelopeOnce();
+        var attempts = new List<(double MedianTotal, double MedianAvg, double MedianMax)>(FirstFailRetryAttempts)
+        {
+            attempt1,
+        };
+
+        List<string> failures = EvaluateEnvelope(attempt1);
+        if (failures.Count > 0)
+        {
+            _output.WriteLine("首败（包络超线）→ 三泳道负载容差重跑：再补 " + (FirstFailRetryAttempts - 1) + " 次完整测量（REV-20261014-wave3-round2 #4）");
+            for (int attempt = 1; attempt < FirstFailRetryAttempts; attempt++)
+            {
+                attempts.Add(MeasureFloodEnvelopeOnce());
+            }
+
+            failures = EvaluateEnvelope((
+                MedianOf(attempts[0].MedianTotal, attempts[1].MedianTotal, attempts[2].MedianTotal),
+                MedianOf(attempts[0].MedianAvg, attempts[1].MedianAvg, attempts[2].MedianAvg),
+                MedianOf(attempts[0].MedianMax, attempts[1].MedianMax, attempts[2].MedianMax)));
+        }
+
+        Assert.True(failures.Count == 0,
+            "300x300 full-flood envelope exceeded after first-fail median retry (not explainable as three-lane neighbour noise):\n"
+            + string.Join("\n", failures));
+    }
+
+    /// <summary>
+    /// One measurement attempt: one-shot burst build + three independent sliced
+    /// builds; returns the per-metric medians of the three runs. Every sliced
+    /// build is hash-asserted against the burst (deterministic, fails hard —
+    /// never enters the retry path).
+    /// </summary>
+    private (double MedianTotal, double MedianAvg, double MedianMax) MeasureFloodEnvelopeOnce()
+    {
         var grid = TestMazes.SparseObstacles(300, 42, 0.08);
         var target = new CellCoord(299, 299);
 
@@ -418,6 +462,7 @@ public class FlowFieldManagerTests
         var burst = FlowField.BuildComplete(grid, target);
         burstWatch.Stop();
         double burstMs = burstWatch.Elapsed.TotalMilliseconds;
+        Assert.True(burst.IsReady);
 
         // Three independent sliced builds; per run: (totalMs, avgMs, maxFrameMs).
         var runs = new (double Total, double Avg, double Max)[3];
@@ -451,21 +496,45 @@ public class FlowFieldManagerTests
                 + " mode=" + burst.Mode + " reachableFromSpawn=" + burst.IsReachable(new CellCoord(0, 0)));
         }
 
-        double medianTotal = MedianOf(runs[0].Total, runs[1].Total, runs[2].Total);
-        double medianAvg = MedianOf(runs[0].Avg, runs[1].Avg, runs[2].Avg);
-        double medianMax = MedianOf(runs[0].Max, runs[1].Max, runs[2].Max);
+        return (
+            MedianOf(runs[0].Total, runs[1].Total, runs[2].Total),
+            MedianOf(runs[0].Avg, runs[1].Avg, runs[2].Avg),
+            MedianOf(runs[0].Max, runs[1].Max, runs[2].Max));
+    }
 
-        Assert.True(burst.IsReady);
+    /// <summary>
+    /// Envelope gates (threshold rationale kept verbatim from the original
+    /// assertion comments); returns over-line messages instead of asserting —
+    /// the first-fail retry mechanism re-evaluates the same gates on the
+    /// across-attempt medians.
+    /// </summary>
+    private static List<string> EvaluateEnvelope((double MedianTotal, double MedianAvg, double MedianMax) m)
+    {
+        var failures = new List<string>();
+
         // Envelope = worst measured under loaded CI (388ms/9ms/22ms) + documented
         // machine-variance margin; regression catcher, not wall-clock certification
         // (unloaded numbers recorded above via _output).
-        Assert.True(medianTotal < 2000, "median total flood time " + (int)medianTotal + "ms exceeded the 2000ms envelope");
-        Assert.True(medianAvg <= 10.0,
-            "median average frame " + (int)medianAvg + "ms exceeded the strict unloaded envelope"
-            + " 10ms (=8ms budget x1.25 CI-jitter margin; unloaded archived avg is 7ms)");
-        Assert.True(medianMax <= 30.0,
-            "median worst frame " + (int)medianMax + "ms exceeded the 30ms envelope"
-            + " (one 30Hz tick = 33.3ms; 3.3ms boundary margin)");
+        if (m.MedianTotal >= 2000)
+        {
+            failures.Add("median total flood time " + (int)m.MedianTotal + "ms exceeded the 2000ms envelope");
+        }
+
+        if (m.MedianAvg > 10.0)
+        {
+            failures.Add(
+                "median average frame " + (int)m.MedianAvg + "ms exceeded the strict unloaded envelope"
+                + " 10ms (=8ms budget x1.25 CI-jitter margin; unloaded archived avg is 7ms)");
+        }
+
+        if (m.MedianMax > 30.0)
+        {
+            failures.Add(
+                "median worst frame " + (int)m.MedianMax + "ms exceeded the 30ms envelope"
+                + " (one 30Hz tick = 33.3ms; 3.3ms boundary margin)");
+        }
+
+        return failures;
     }
 
     /// <summary>Middle value of three samples (odd count → exact order statistic).</summary>

@@ -157,6 +157,22 @@ public class TechTreeTests
         Assert.Equal(932L, split3.Sum(line => line.Charge));
     }
 
+    [Fact] // illegal — 超载 mix 拒载守卫：shareSum>1+1e-6 时末行吸收项会变负（负扣费=逆向充值），公开静态缝隙直调即抛（REV-20261014-wave3-round2 #6）
+    [Trait("Feature", "F-051")]
+    public void SplitCost_rejects_a_mix_whose_shares_overallocate_the_total()
+    {
+        // 0.7+0.7=1.4 > 1+1e-6：floor(total×0.7)×2 行先占 2814 > 3013，末行补差 −437 变负
+        var overSum = new[] { new TechCostLine(Wood, 0.7), new TechCostLine(Stone, 0.7) };
+        ArgumentException thrown = Assert.Throws<ArgumentException>(
+            () => TechTree.SplitCost(3013, overSum));
+        Assert.Contains("must not exceed 1", thrown.Message);
+
+        // 边界内贴脸：1.0000008 仍在 1+1e-6 容差内放行（与 TechTreeData.Parse 装载侧同口径）
+        var justInside = new[] { new TechCostLine(Wood, 0.5000004), new TechCostLine(Stone, 0.5000004) };
+        IReadOnlyList<(ResourceKey Resource, long Charge)> tolerated = TechTree.SplitCost(100, justInside);
+        Assert.Equal(100L, tolerated.Sum(line => line.Charge)); // 末行吸收把容差内误差精确回总额
+    }
+
     [Fact] // legal — 多资源分摊付款：每资源独立分期，全部付清才解锁
     [Trait("Feature", "F-051")]
     public void Mixed_cost_pays_off_per_resource()

@@ -29,7 +29,11 @@ namespace EraCore.Tests.Spikes;
 /// 按 T-043 卡允许的粗粒度外包裹口径，局限注明于报告 §4；</item>
 /// <item>门禁线（Tier A 逻辑层）：均逻辑帧 ≤ 16.6 ms × 60% = 10 ms（渲染余量 40%）、
 /// sim tick p99 ≤ 12 ms（G8 Tier A 原文）、流场帧切片均值 ≤ 8 ms（设计 v3.2 §6）——
-/// 阈值裕量推导注释随各断言（首跑留档数字见 docs/engineering/spike1-report.md）。</item>
+/// 阈值裕量推导注释随各断言（首跑留档数字见 docs/engineering/spike1-report.md）；</item>
+/// <item>首败负载容差（REV-20261014-wave3-round2 #4）：门禁首败不直接红——再补
+/// 两批完整测量、三批各指标取中位数后重判，仍超才红；依据=本机三泳道
+/// worktree 并行共享，同代码跨 worktree 对照显示首败由邻居泳道分钟级负载
+/// 尖峰主导（详见测试方法头注释）。场景完整性断言是确定性的，不参与重跑。</item>
 /// </list>
 /// 性能采样全部真实（RL2/CS-4.5：真 Stopwatch、真计数器，无跳过无 mock）。
 /// </para>
@@ -47,8 +51,44 @@ public sealed class Spike1PerformanceTests
         _output = output;
     }
 
-    [Fact] // [F-166] [C-12] 迷宫复合 300 敌 + 1000 弹：整逻辑帧/流场切片预算（三次运行中位数）
+    [Fact] // [F-166] [C-12] 迷宫复合 300 敌 + 1000 弹：整逻辑帧/流场切片预算（三次运行中位数；首败→三批取中位重判）
     public void MazeComposite300Enemies1000ProjectilesLogicBudget()
+    {
+        // 首败重跑容差（REV-20261014-wave3-round2 #4）：本机为三泳道 worktree
+        // 并行共享机（三条泳道各持一份 worktree 背靠背跑 CI），同代码跨三份
+        // worktree 对照实测：门禁首败由邻居泳道分钟级负载尖峰主导（同一次
+        // 提交一份红两份绿的形态反复出现），真劣化在多批中位下稳定复现。
+        // 处置=首败不直接红：再补两批完整测量（每批=3780 tick×3 次运行取中位），
+        // 三批的各指标取中位数后重判——一次性尖峰被中位剔除，真劣化（三中
+        // 二超线）仍稳定转红；非首败路径零额外开销。
+        const int attemptsOnFirstFail = 3;
+
+        (Spike1GateMetrics Gates, List<Spike1RunMetrics> Runs) attempt1 = RunBatch(0);
+        AssertScenarioIntegrity(attempt1.Runs); // 场景完整性是确定性断言，与负载无关，不参与重跑
+
+        var attempts = new List<Spike1GateMetrics>(attemptsOnFirstFail) { attempt1.Gates };
+        List<string> failures = EvaluateGates(attempt1.Gates);
+        if (failures.Count > 0)
+        {
+            _output.WriteLine($"首败（{failures.Count} 条门禁超线）→ 三泳道负载容差重跑：再补 {attemptsOnFirstFail - 1} 批（REV-20261014-wave3-round2 #4，依据见方法头注释）");
+            for (int attempt = 1; attempt < attemptsOnFirstFail; attempt++)
+            {
+                (Spike1GateMetrics Gates, List<Spike1RunMetrics> Runs) retry = RunBatch(attempt);
+                AssertScenarioIntegrity(retry.Runs);
+                attempts.Add(retry.Gates);
+            }
+
+            failures = EvaluateGates(MedianAcrossBatches(attempts));
+        }
+
+        Assert.True(failures.Count == 0,
+            "spike① 逻辑预算门禁超线（三批中位重判后仍超，非三泳道邻居噪声可解释）：\n"
+            + string.Join("\n", failures));
+        _output.WriteLine("判定: PASS —— 300 敌+1000 弹迷宫复合逻辑预算达标（Tier A 口径；真机 60fps 判定属 Tier B，CS-4.8）");
+    }
+
+    /// <summary>One measurement attempt: three full 3780-tick runs, per-gate metric = median of the three.</summary>
+    private (Spike1GateMetrics Gates, List<Spike1RunMetrics> Runs) RunBatch(int batchIndex)
     {
         const int runs = 3;
         var metrics = new Spike1RunMetrics[runs];
@@ -57,14 +97,7 @@ public sealed class Spike1PerformanceTests
             metrics[run] = RunOnce(run);
         }
 
-        double medianFrameMean = MedianOf(metrics[0].FrameMeanMs, metrics[1].FrameMeanMs, metrics[2].FrameMeanMs);
-        double medianSimP99 = MedianOf(metrics[0].SimP99Ms, metrics[1].SimP99Ms, metrics[2].SimP99Ms);
-        double medianFlowMean = MedianOf(metrics[0].FlowWindowMeanMs, metrics[1].FlowWindowMeanMs, metrics[2].FlowWindowMeanMs);
-        double medianFlowMax = MedianOf(metrics[0].FlowWindowMaxMs, metrics[1].FlowWindowMaxMs, metrics[2].FlowWindowMaxMs);
-        double medianProjMean = MedianOf(metrics[0].LiveProjMean, metrics[1].LiveProjMean, metrics[2].LiveProjMean);
-        double medianSliceMax = MedianOf(metrics[0].FlowSliceMaxMs, metrics[1].FlowSliceMaxMs, metrics[2].FlowSliceMaxMs);
-
-        _output.WriteLine("==== spike① 三次运行汇总（T-043 / F-166；每行一次完整 3780 tick 运行） ====");
+        _output.WriteLine($"==== spike① 三次运行汇总（T-043 / F-166；批 {batchIndex}，每行一次完整 3780 tick 运行） ====");
         foreach (Spike1RunMetrics m in metrics)
         {
             _output.WriteLine(
@@ -80,12 +113,25 @@ public sealed class Spike1PerformanceTests
                 $" | 塔={m.TowersPlaced} 命令={m.CommandsApplied} 迷宫比={m.MazePathRatio:F2}({m.MazePathCells}格)");
         }
 
+        var gates = new Spike1GateMetrics(
+            FrameMeanMs: MedianOf(metrics[0].FrameMeanMs, metrics[1].FrameMeanMs, metrics[2].FrameMeanMs),
+            SimP99Ms: MedianOf(metrics[0].SimP99Ms, metrics[1].SimP99Ms, metrics[2].SimP99Ms),
+            FlowWindowMeanMs: MedianOf(metrics[0].FlowWindowMeanMs, metrics[1].FlowWindowMeanMs, metrics[2].FlowWindowMeanMs),
+            FlowWindowMaxMs: MedianOf(metrics[0].FlowWindowMaxMs, metrics[1].FlowWindowMaxMs, metrics[2].FlowWindowMaxMs),
+            FlowSliceMaxMs: MedianOf(metrics[0].FlowSliceMaxMs, metrics[1].FlowSliceMaxMs, metrics[2].FlowSliceMaxMs));
         _output.WriteLine(
-            $"中位数: 逻辑帧均={medianFrameMean:F3}ms sim p99={medianSimP99:F3}ms 流场均={medianFlowMean:F4}ms" +
-            $" 流场窗内最大={medianFlowMax:F3}ms 流场单切片最大(全程)={medianSliceMax:F2}ms 活弹均={medianProjMean:F0}");
+            $"批{batchIndex} 中位数: 逻辑帧均={gates.FrameMeanMs:F3}ms sim p99={gates.SimP99Ms:F3}ms 流场均={gates.FlowWindowMeanMs:F4}ms" +
+            $" 流场窗内最大={gates.FlowWindowMaxMs:F3}ms 流场单切片最大(全程)={gates.FlowSliceMaxMs:F2}ms");
+        return (gates, metrics.ToList());
+    }
 
-        // ---- 场景完整性（先证场景是真的，再看预算） ----------------------
-        // legal: 三次运行全部满足 300 敌在场、弹层达到 1000 量级、百塔全放置全开火。
+    /// <summary>
+    /// Scenario integrity (the load is real before the budget is read) —
+    /// deterministic, immune to neighbour load, so it always fails hard
+    /// and never enters the first-fail retry path.
+    /// </summary>
+    private static void AssertScenarioIntegrity(IReadOnlyList<Spike1RunMetrics> metrics)
+    {
         foreach (Spike1RunMetrics m in metrics)
         {
             Assert.True(m.TowersPlaced == Spike1PerfScenario.TowerCount,
@@ -103,46 +149,87 @@ public sealed class Spike1PerformanceTests
             Assert.True(m.MazePathRatio >= 3.0,
                 $"run{m.RunIndex}: 迷宫化路径比 {m.MazePathRatio:F2} < 3.0（场景不是迷宫）");
         }
+    }
 
-        // ---- Tier A 逻辑预算门禁（三次运行中位数；阈值推导见各注释） ------
-        // 首跑留档中位数（docs/engineering/spike1-report.md §3，2026-10-13 本机）：
-        // 逻辑帧均 1.336 ms、sim p99 1.677 ms、流场窗内均 0.0003 ms、流场窗内最大 0.018 ms。
-        //
+    /// <summary>
+    /// Tier A 逻辑预算门禁（阈值推导见各条注释原文；返回超线明细而非直接
+    /// 断言——首败重跑机制需要在三批中位样本上重判同一组门禁）。
+    /// </summary>
+    private static List<string> EvaluateGates(Spike1GateMetrics g)
+    {
+        var failures = new List<string>();
+
         // 门禁① 均逻辑帧 ≤ 10 ms = 16.6 ms 帧预算 × 60%（60 fps 渲染档留 40% 给表现层，
-        // 08 任务卡 T-043 口径）。实测中位 1.336 ms ⇒ 裕量 7.5×。
+        // 08 任务卡 T-043 口径）。首跑留档中位 1.336 ms ⇒ 裕量 7.5×。
         // 回归线 3.0 ms ≈ 中位 × 2.25（T-037 先例：CI 并发下流场均帧劣化 ~×2.3，
         // 取整覆盖并发抖动、同时仍在设计线 3.3× 以内——回归抓手而非墙钟认证）。
-        Assert.True(medianFrameMean <= 10.0,
-            $"中位均逻辑帧 {medianFrameMean:F3} ms > 10 ms（16.6×60% 设计线，渲染余量口径）");
-        Assert.True(medianFrameMean <= 3.0,
-            $"中位均逻辑帧 {medianFrameMean:F3} ms > 3.0 ms（首跑留档 1.336×2.25 回归线，T-037 并发劣化先例）");
+        if (g.FrameMeanMs > 10.0)
+        {
+            failures.Add($"中位均逻辑帧 {g.FrameMeanMs:F3} ms > 10 ms（16.6×60% 设计线，渲染余量口径）");
+        }
+
+        if (g.FrameMeanMs > 3.0)
+        {
+            failures.Add($"中位均逻辑帧 {g.FrameMeanMs:F3} ms > 3.0 ms（首跑留档 1.336×2.25 回归线，T-037 并发劣化先例）");
+        }
 
         // 门禁② sim tick p99 ≤ 12 ms（G8 Tier A 原文：CI headless 逻辑预算）。
-        // 实测中位 1.677 ms ⇒ 裕量 7.2×；回归线 4.0 ms ≈ 中位 × 2.4（同上推导取整）。
-        Assert.True(medianSimP99 <= 12.0,
-            $"中位 sim p99 {medianSimP99:F3} ms > 12 ms（G8 Tier A）");
-        Assert.True(medianSimP99 <= 4.0,
-            $"中位 sim p99 {medianSimP99:F3} ms > 4.0 ms（首跑留档 1.677×2.4 回归线）");
+        // 首跑留档中位 1.677 ms ⇒ 裕量 7.2×；回归线 4.0 ms ≈ 中位 × 2.4（同上推导取整）。
+        if (g.SimP99Ms > 12.0)
+        {
+            failures.Add($"中位 sim p99 {g.SimP99Ms:F3} ms > 12 ms（G8 Tier A）");
+        }
+
+        if (g.SimP99Ms > 4.0)
+        {
+            failures.Add($"中位 sim p99 {g.SimP99Ms:F3} ms > 4.0 ms（首跑留档 1.677×2.4 回归线）");
+        }
 
         // 门禁③ 流场帧切片 ≤ 8 ms（设计 v3.2 §6）：窗内无建筑事件，切片应近零
-        // （实测中位均 0.0003 ms / 最大 0.018 ms）；均值线 8 ms 为设计预算，
+        // （首跑留档中位均 0.0003 ms / 最大 0.018 ms）；均值线 8 ms 为设计预算，
         // 窗内最大 ≤ 8 ms 锁住"稳态窗内不得有重建"，1.0 ms 回归线 = 中位均的
         // 3000× 量级裕量（空载 vs CI 并发仍在 1 ms 内，spike② 同口径实测）。
-        Assert.True(medianFlowMean <= 8.0,
-            $"中位流场均切片 {medianFlowMean:F4} ms > 8 ms（v3.2 §6 流场预算）");
-        Assert.True(medianFlowMean <= 1.0,
-            $"中位流场均切片 {medianFlowMean:F4} ms > 1.0 ms（稳态窗回归线，留档 0.0003 ms）");
-        Assert.True(medianFlowMax <= 8.0,
-            $"中位流场窗内最大切片 {medianFlowMax:F3} ms > 8 ms（稳态窗内不应有重建过冲）");
+        if (g.FlowWindowMeanMs > 8.0)
+        {
+            failures.Add($"中位流场均切片 {g.FlowWindowMeanMs:F4} ms > 8 ms（v3.2 §6 流场预算）");
+        }
+
+        if (g.FlowWindowMeanMs > 1.0)
+        {
+            failures.Add($"中位流场均切片 {g.FlowWindowMeanMs:F4} ms > 1.0 ms（稳态窗回归线，留档 0.0003 ms）");
+        }
+
+        if (g.FlowWindowMaxMs > 8.0)
+        {
+            failures.Add($"中位流场窗内最大切片 {g.FlowWindowMaxMs:F3} ms > 8 ms（稳态窗内不应有重建过冲）");
+        }
 
         // 门禁④ 流场预算机制本身：全程（含 100 次塔放置触发的全图重建）单次
         // Update 切片 ≤ 10 ms = 8 ms 预算 + 批过冲余量（spike② 同口径断言先例；
         // 预算机制按 Stopwatch 截断，过冲仅来自 frontier 批粒度与计时器粒度）。
-        Assert.True(medianSliceMax <= 10.0,
-            $"中位流场单切片最大 {medianSliceMax:F2} ms > 10 ms（8 ms 预算+过冲余量，预算机制失效）");
+        if (g.FlowSliceMaxMs > 10.0)
+        {
+            failures.Add($"中位流场单切片最大 {g.FlowSliceMaxMs:F2} ms > 10 ms（8 ms 预算+过冲余量，预算机制失效）");
+        }
 
-        _output.WriteLine($"判定: PASS —— 300 敌+1000 弹迷宫复合逻辑预算达标（Tier A 口径；真机 60fps 判定属 Tier B，CS-4.8）");
+        return failures;
     }
+
+    /// <summary>Per-gate-metric median across the (odd-count) retry batches — the first-fail verdict sample.</summary>
+    private static Spike1GateMetrics MedianAcrossBatches(IReadOnlyList<Spike1GateMetrics> batches) => new(
+        FrameMeanMs: MedianOf(batches[0].FrameMeanMs, batches[1].FrameMeanMs, batches[2].FrameMeanMs),
+        SimP99Ms: MedianOf(batches[0].SimP99Ms, batches[1].SimP99Ms, batches[2].SimP99Ms),
+        FlowWindowMeanMs: MedianOf(batches[0].FlowWindowMeanMs, batches[1].FlowWindowMeanMs, batches[2].FlowWindowMeanMs),
+        FlowWindowMaxMs: MedianOf(batches[0].FlowWindowMaxMs, batches[1].FlowWindowMaxMs, batches[2].FlowWindowMaxMs),
+        FlowSliceMaxMs: MedianOf(batches[0].FlowSliceMaxMs, batches[1].FlowSliceMaxMs, batches[2].FlowSliceMaxMs));
+
+    /// <summary>The five median metrics the Tier A gates read (one measurement attempt = one sample).</summary>
+    private sealed record Spike1GateMetrics(
+        double FrameMeanMs,
+        double SimP99Ms,
+        double FlowWindowMeanMs,
+        double FlowWindowMaxMs,
+        double FlowSliceMaxMs);
 
     // ------------------------------------------------------------ 单次完整运行
 
