@@ -24,17 +24,55 @@ public interface ITrampleTarget
 }
 
 /// <summary>
+/// The movement seam both unit families implement (T-066): enemies follow
+/// the flow field, heroes follow ordered destinations — the stride core in
+/// <see cref="UnitMovement"/> is shared through this projection (heroes
+/// reuse <c>UnitMovement</c> per the T-066 task card).
+/// </summary>
+public interface IMovableUnit
+{
+    /// <summary>World position X in px.</summary>
+    float X { get; }
+
+    /// <summary>World position Y in px.</summary>
+    float Y { get; }
+
+    /// <summary>Movement speed after all speed-effect channels, px per tick.</summary>
+    float EffectiveSpeedPxPerTick { get; }
+
+    /// <summary>Whether the unit is still on the field.</summary>
+    bool Alive { get; }
+
+    /// <summary>Whether the unit already reached its movement target.</summary>
+    bool ArrivedAtTarget { get; }
+
+    /// <summary>Marks arrival at the movement target.</summary>
+    void MarkArrived();
+
+    /// <summary>Moves the unit to a world position.</summary>
+    void MoveTo(float x, float y);
+}
+
+/// <summary>
 /// Flow-following unit movement (C-10 E1 thin, T-039): per 30 Hz tick each
 /// unit descends the <see cref="FlowField"/> gradient — current cell →
 /// <see cref="FlowField.NextStep"/> → move <c>speed</c> px toward the next
 /// cell's centre (pure IEEE 754 float math, no engine float intrinsics, so
 /// trajectories are replay-stable). Reaching the field target cell marks
 /// <see cref="Unit.ArrivedAtTarget"/> (base breach) and stops the unit.
+/// T-066: the stride consumed is <see cref="Unit.EffectiveSpeedPxPerTick"/>
+/// (war-drum aura / hero slow / charge burst channels, SP-3b L120~L121);
+/// heroes reach the same core through <see cref="IMovableUnit"/>.
 /// <para>
 /// Trample (SP-3a L107, radius from content data; period/damage from the
 /// spawn-time trample profile, [NEW-原型校准]): every whole period after the
 /// unit's spawn, one pulse damages every <see cref="ITrampleTarget"/> whose
 /// centre lies within the unit's trample radius (inclusive).
+/// </para>
+/// <para>
+/// Charge (冲撞, SP-3b L121 — every 20 s): every whole interval after the
+/// unit's spawn the boss rams every <see cref="ITrampleTarget"/> within its
+/// charge reach and enters a timed speed burst.
 /// </para>
 /// <para>
 /// The tick domain is driven by the caller's IClock loop — this class holds
@@ -101,20 +139,7 @@ public sealed class UnitMovement
 
         float targetX = next.X * _cellSizePx + (_cellSizePx / 2f);
         float targetY = next.Y * _cellSizePx + (_cellSizePx / 2f);
-        float dx = targetX - unit.X;
-        float dy = targetY - unit.Y;
-        float speed = unit.SpeedPxPerTick;
-        double length = Math.Sqrt((dx * dx) + (dy * dy));
-        if (length <= speed)
-        {
-            // Within one tick's stride: land exactly on the centre — keeps
-            // straight-line trajectories from oscillating around centres.
-            unit.MoveTo(targetX, targetY);
-            return;
-        }
-
-        float scale = (float)(speed / length);
-        unit.MoveTo(unit.X + (dx * scale), unit.Y + (dy * scale));
+        MoveToward(unit, targetX, targetY);
     }
 
     /// <summary>Steps every unit once, in list order.</summary>
@@ -125,6 +150,56 @@ public sealed class UnitMovement
         {
             Step(unit);
         }
+    }
+
+    /// <summary>
+    /// Shared stride core (T-066): moves <paramref name="unit"/> one tick's
+    /// worth of <see cref="IMovableUnit.EffectiveSpeedPxPerTick"/> px toward
+    /// the point, landing exactly on it when the remaining distance fits
+    /// inside one stride (keeps trajectories from oscillating around
+    /// centres). This is the single place stride math lives — enemies reach
+    /// it through <see cref="Step"/>, heroes through ordered movement.
+    /// </summary>
+    public static void MoveToward(IMovableUnit unit, float targetX, float targetY)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+        float dx = targetX - unit.X;
+        float dy = targetY - unit.Y;
+        float speed = unit.EffectiveSpeedPxPerTick;
+        double length = Math.Sqrt((dx * dx) + (dy * dy));
+        if (length <= speed)
+        {
+            unit.MoveTo(targetX, targetY);
+            return;
+        }
+
+        float scale = (float)(speed / length);
+        unit.MoveTo(unit.X + (dx * scale), unit.Y + (dy * scale));
+    }
+
+    /// <summary>
+    /// One ordered-movement tick for hero-style movers (T-066): dead or
+    /// arrived movers stay put; otherwise stride toward the ordered point
+    /// and mark arrival when the remaining distance fits one stride.
+    /// </summary>
+    public void StepOrdered(IMovableUnit unit, float targetX, float targetY)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+        if (!unit.Alive || unit.ArrivedAtTarget)
+        {
+            return;
+        }
+
+        float dx = targetX - unit.X;
+        float dy = targetY - unit.Y;
+        if ((dx * dx) + (dy * dy) <= unit.EffectiveSpeedPxPerTick * unit.EffectiveSpeedPxPerTick)
+        {
+            unit.MoveTo(targetX, targetY);
+            unit.MarkArrived();
+            return;
+        }
+
+        MoveToward(unit, targetX, targetY);
     }
 
     /// <summary>
@@ -164,6 +239,60 @@ public sealed class UnitMovement
             if ((dx * dx) + (dy * dy) <= radiusSquared)
             {
                 target.TakeTrample(unit.TrampleDamage);
+                hit.Add(target);
+            }
+        }
+
+        return hit;
+    }
+
+    /// <summary>
+    /// Applies one charge ram if <paramref name="tick"/> is on the unit's
+    /// charge grid (tick − spawnTick divisible by the interval, phase > 0):
+    /// every standing <see cref="ITrampleTarget"/> within the charge reach
+    /// takes <see cref="Unit.ChargeDamage"/> (冲锋撞塔, SP-3b L121), and the
+    /// unit enters its timed charge speed burst. Returns the targets rammed,
+    /// in list order; empty when nothing fires.
+    /// </summary>
+    public IReadOnlyList<ITrampleTarget> PulseCharge(
+        Unit unit,
+        IReadOnlyList<ITrampleTarget> targets,
+        long tick)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+        ArgumentNullException.ThrowIfNull(targets);
+        if (!unit.Alive || unit.ChargeIntervalTicks <= 0)
+        {
+            return Array.Empty<ITrampleTarget>();
+        }
+
+        long phase = tick - unit.SpawnTick;
+        if (phase <= 0 || phase % unit.ChargeIntervalTicks != 0)
+        {
+            return Array.Empty<ITrampleTarget>();
+        }
+
+        unit.BeginChargeBurst(tick + unit.ChargeDurationTicks, unit.ChargeSpeedBonusPercent);
+
+        if (targets.Count == 0)
+        {
+            return Array.Empty<ITrampleTarget>();
+        }
+
+        float reachSquared = unit.ChargeReachPx * unit.ChargeReachPx;
+        var hit = new List<ITrampleTarget>();
+        foreach (ITrampleTarget target in targets)
+        {
+            if (!target.Alive)
+            {
+                continue;
+            }
+
+            float dx = target.X - unit.X;
+            float dy = target.Y - unit.Y;
+            if ((dx * dx) + (dy * dy) <= reachSquared)
+            {
+                target.TakeTrample(unit.ChargeDamage);
                 hit.Add(target);
             }
         }

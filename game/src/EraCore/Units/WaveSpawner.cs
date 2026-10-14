@@ -42,6 +42,11 @@ public sealed record TrampleProfile(int Damage, int PeriodTicks);
 /// <param name="CellSizePx">Cell size in px (K-1: 32).</param>
 /// <param name="EntryCells">Cells units spawn on (one drawn per unit via the injected IRng).</param>
 /// <param name="Trample">Trample tuning for specs carrying a trample radius; null disables trample.</param>
+/// <param name="ShieldStartWave">
+/// First wave of the shielded era for the wave-shield formula
+/// (<see cref="Shield.At"/>, v3.2 §6 护盾 E3 起); null = the era grants no
+/// wave shields (E1/E2). T-114 turns it on for E3.
+/// </param>
 public sealed record WaveSpawnConfig(
     int BaseCount,
     int BeginWave,
@@ -61,7 +66,8 @@ public sealed record WaveSpawnConfig(
     int TickRateHz = 30,
     int CellSizePx = 32,
     IReadOnlyList<CellCoord>? EntryCells = null,
-    TrampleProfile? Trample = null);
+    TrampleProfile? Trample = null,
+    int? ShieldStartWave = null);
 
 /// <summary>
 /// One spawn batch of one wave: <paramref name="Count"/> units materialize
@@ -137,6 +143,14 @@ public sealed record WavePlan(
 /// </summary>
 public sealed class WaveSpawner
 {
+    /// <summary>
+    /// Elite count multiplier, pinned at exactly 1 (v3.2 §6 L84: 精英数量
+    /// 乘子恒 1) — the threat count multiplier scales only the regular line.
+    /// Written as an explicit multiplication so any future drift has to
+    /// touch this one frozen constant.
+    /// </summary>
+    private const double PinnedEliteCountMultiplier = 1.0;
+
     private readonly EnemySpecCatalog _catalog;
     private readonly WaveSpawnConfig _cfg;
     private readonly IRng _rng;
@@ -318,7 +332,13 @@ public sealed class WaveSpawner
 
         int regular = WaveFormula.Count(
             wave, _cfg.BaseCount, _cfg.BeginWave, _cfg.Spacing, _cfg.Scaling, _threatCountMultiplier);
-        int elite = _cfg.EliteLineEnabled && _cfg.EliteEnemyId is not null ? Elite.Count(wave) : 0;
+        // Elite line (F-031): 1+⌊(波−8)/4⌋ scaled by the PINNED elite count
+        // multiplier — the threat count multiplier never enters this line
+        // (v3.2 §6 精英数量乘子恒 1; T-066 strengthens the pin as an
+        // explicit multiplication so drift is visible in one place).
+        int elite = _cfg.EliteLineEnabled && _cfg.EliteEnemyId is not null
+            ? (int)Math.Floor(Elite.Count(wave) * PinnedEliteCountMultiplier)
+            : 0;
         bool boss = _cfg.BossEnemyId is not null && wave == _cfg.BossWave;
 
         var batches = new List<SpawnBatch>();
@@ -387,7 +407,7 @@ public sealed class WaveSpawner
             SpawnBatch batch = plan.Batches[_nextBatchIndex++];
             for (int i = 0; i < batch.Count; i++)
             {
-                spawned.Add(CreateUnit(batch, tick));
+                spawned.Add(CreateUnit(batch, plan.Wave, tick));
             }
         }
 
@@ -419,7 +439,7 @@ public sealed class WaveSpawner
         return spawned;
     }
 
-    private Unit CreateUnit(SpawnBatch batch, long tick)
+    private Unit CreateUnit(SpawnBatch batch, int wave, long tick)
     {
         string enemyId = batch.IsBoss
             ? _cfg.BossEnemyId!
@@ -448,6 +468,37 @@ public sealed class WaveSpawner
                 (int)Math.Ceiling(_cfg.Trample.Damage * damageMultiplier),
                 (float)(spec.TrampleRadiusCells * _cfg.CellSizePx),
                 _cfg.Trample.PeriodTicks);
+        }
+
+        if (spec.WarDrumsRadiusCells > 0)
+        {
+            unit.SetWarDrums(
+                (float)(spec.WarDrumsRadiusCells * _cfg.CellSizePx),
+                spec.WarDrumsSpeedBonusPercent);
+        }
+
+        if (spec.ChargeIntervalTicks > 0)
+        {
+            double chargeMultiplier = batch.IsBoss ? _cfg.BossDamageMultiplier : 1.0;
+            unit.SetCharge(
+                (int)Math.Ceiling(spec.ChargeDamage * chargeMultiplier),
+                (float)(spec.ChargeReachCells * _cfg.CellSizePx),
+                spec.ChargeIntervalTicks,
+                spec.ChargeDurationTicks,
+                spec.ChargeSpeedBonusPercent);
+        }
+
+        // Shield wiring (T-066 framework, F-032): the wave formula feeds
+        // E3+ waves (v3.2 §6 10+8×波); individual spec points are the
+        // per-row slot SP-3b leaves empty (all E2 rows carry 0). The larger
+        // of the two wins; eras without either stay unshielded.
+        int waveShield = _cfg.ShieldStartWave is int startWave
+            ? Shield.At(wave, startWave)
+            : 0;
+        int shield = Math.Max(waveShield, spec.ShieldPoints);
+        if (shield > 0)
+        {
+            unit.SetShield(shield);
         }
 
         return unit;

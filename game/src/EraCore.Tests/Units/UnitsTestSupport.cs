@@ -70,30 +70,44 @@ internal sealed class SplitMixRng : IRng
 /// <summary>Repo-relative loaders for era1 content (RL9: walk up, no absolute paths).</summary>
 internal static class UnitsContent
 {
-    private static string FindEra1Dir()
+    private static DirectoryInfo FindContentDir(string era)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            var probe = Path.Combine(dir.FullName, "game", "content", "era1");
+            var probe = Path.Combine(dir.FullName, "game", "content", era);
             if (Directory.Exists(probe))
             {
-                return probe;
+                return new DirectoryInfo(probe);
             }
 
             dir = dir.Parent;
         }
 
-        throw new InvalidOperationException("未找到 game/content/era1（测试须在仓库内运行）");
+        throw new InvalidOperationException($"未找到 game/content/{era}（测试须在仓库内运行）");
     }
 
-    /// <summary>Parses the real enemies.json into the production catalog.</summary>
-    public static EnemySpecCatalog LoadEnemyCatalog()
+    private static string ReadContentFile(string era, string fileName)
     {
-        string path = Path.Combine(FindEra1Dir(), "enemies.json");
-        Assert.True(File.Exists(path), "内容文件缺失：enemies.json");
-        return EnemySpecCatalog.Parse(File.ReadAllText(path));
+        string path = Path.Combine(FindContentDir(era).FullName, fileName);
+        Assert.True(File.Exists(path), $"内容文件缺失：{era}/{fileName}");
+        return File.ReadAllText(path);
     }
+
+    /// <summary>Parses the real era1 enemies.json into the production catalog.</summary>
+    public static EnemySpecCatalog LoadEnemyCatalog() =>
+        EnemySpecCatalog.Parse(ReadContentFile("era1", "enemies.json"));
+
+    /// <summary>Parses the real era2 enemies.json into the production catalog (SP-3b).</summary>
+    public static EnemySpecCatalog LoadEra2EnemyCatalog() =>
+        EnemySpecCatalog.Parse(ReadContentFile("era2", "enemies.json"));
+
+    /// <summary>Parses the real heroes.json (SP-6 E1+E2 pair in one file) into the production catalog.</summary>
+    public static HeroSpecCatalog LoadHeroCatalog() =>
+        HeroSpecCatalog.Parse(ReadContentFile("era2", "heroes.json"));
+
+    /// <summary>Raw JSON text of the era2 enemy table (anchor comparisons read fields the loader does not map).</summary>
+    public static string ReadEra2EnemiesJson() => ReadContentFile("era2", "enemies.json");
 
     /// <summary>
     /// Wood arrow tower combat constants from towers.json (era1:tower-wood-arrow):
@@ -103,22 +117,31 @@ internal static class UnitsContent
     /// </summary>
     public sealed record TowerStats(int DamagePerShot, int ReloadTicks, double RangeCells, int Hp, int CellSizePx);
 
-    public static TowerStats LoadWoodArrowTower()
+    public static TowerStats LoadWoodArrowTower() => LoadTower("era1:tower-wood-arrow");
+
+    /// <summary>
+    /// Rockfall tower constants (era1:tower-rockfall) — the E2 boss-battle
+    /// harness fires these because era2 towers.json is another task's
+    /// deliverable (T-065); values still come from data JSON (CS-4.4).
+    /// </summary>
+    public static TowerStats LoadRockfallTower() => LoadTower("era1:tower-rockfall");
+
+    private static TowerStats LoadTower(string towerId)
     {
-        string path = Path.Combine(FindEra1Dir(), "towers.json");
+        string path = Path.Combine(FindContentDir("era1").FullName, "towers.json");
         Assert.True(File.Exists(path), "内容文件缺失：towers.json");
         using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
         JsonElement item = default;
         foreach (JsonElement e in doc.RootElement.GetProperty("items").EnumerateArray())
         {
-            if (e.GetProperty("id").GetString() == "era1:tower-wood-arrow")
+            if (e.GetProperty("id").GetString() == towerId)
             {
                 item = e;
                 break;
             }
         }
 
-        Assert.True(item.ValueKind == JsonValueKind.Object, "towers.json 缺 era1:tower-wood-arrow");
+        Assert.True(item.ValueKind == JsonValueKind.Object, $"towers.json 缺 {towerId}");
         int cellSize = doc.RootElement.TryGetProperty("cell_size_px", out JsonElement cs)
             ? cs.GetInt32()
             : 32;
@@ -174,7 +197,7 @@ internal sealed class TestTower : ITrampleTarget
 
     public long DestroyedTick { get; private set; } = -1;
 
-    public void FireAt(IReadOnlyList<Unit> units, long tick)
+    public void FireAt(IReadOnlyList<Unit> units, long tick, bool pierce = false)
     {
         if (!Alive || tick < NextFireTick)
         {
@@ -207,7 +230,7 @@ internal sealed class TestTower : ITrampleTarget
             return;
         }
 
-        DamageDealt += best.ApplyDamage(_damagePerShot, tick);
+        DamageDealt += best.ApplyDamage(_damagePerShot, tick, pierce);
         ShotsFired++;
         NextFireTick = tick + _reloadTicks;
     }

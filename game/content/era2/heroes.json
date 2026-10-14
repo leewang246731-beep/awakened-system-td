@@ -1,0 +1,81 @@
+{
+  "$schema": "urn:eratd:content:hero:1",
+  "content_type": "Hero",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；锚点=SP-6（docs/engineering/11-spec-tables.md L174~L187）；英雄内容为 T-066 一次性交付（SP-6 E1~E2 两代同表），故 E1/E2 两行同文件、逐项携带 era 字段",
+  "tick_rate_hz": 30,
+  "cell_size_px": 32,
+  "_tick_source": "K-1 IClock 30 Hz 冻结（SP-6 速度口径 L177：px/tick @30 tick/s）；技能秒值在本文件存秒（SP-6 表口径），装载器按 tick_rate_hz 换算为 ticks",
+  "items": [
+    {
+      "id": "era1:hero-firstfire",
+      "content_type": "Hero",
+      "sp_id": "h1_firstfire",
+      "era": "era1:era-ancient",
+      "name_zh": "初火守望者",
+      "name_en": "Firstfire Warden",
+      "aliases": ["初火守望者", "守望者", "酋长", "firstfire warden"],
+      "hp": 700,
+      "armor": 0,
+      "speed_px_per_tick": 1.07,
+      "speed_cells_per_s": 1.0,
+      "active": {
+        "kind": "warcry",
+        "name_zh": "战吼",
+        "name_en": "War Cry",
+        "radius_cells": 3,
+        "slow_percent": 30,
+        "duration_s": 5,
+        "cooldown_s": 45
+      },
+      "passive": {
+        "kind": "campfire_affinity",
+        "name_zh": "篝火亲和",
+        "name_en": "Campfire Affinity",
+        "bonus_percent": 50
+      },
+      "respawn_seconds": 60,
+      "canvas_size_px": 32,
+      "_new": false,
+      "_new_fields": ["speed_px_per_tick", "canvas_size_px"],
+      "_source": "SP-6 L181：E1 初火守望者 700 HP/1.07（1.0 格/s）；主动战吼=半径 3 格敌减速 30%×5 s（冷却 45 s）；被动篝火亲和=所在篝火光环效果 +50%；阵亡 60 s 重生（SP-6 L176 定案值）；HP/技能数值为 SP-6 定案锚点（非 _new），速度口径按 30 Hz 换算 [NEW-口径重标]",
+      "_units": { "hp": "points", "armor": "points", "speed_px_per_tick": "px_per_tick_at_30hz", "speed_cells_per_s": "cells_per_second", "slow_percent": "percent", "bonus_percent": "percent", "duration_s": "seconds", "cooldown_s": "seconds", "respawn_seconds": "seconds" }
+    },
+    {
+      "id": "era2:hero-spearwarden",
+      "content_type": "Hero",
+      "sp_id": "h2_spearwarden",
+      "era": "era2:era-classical",
+      "name_zh": "执戈者",
+      "name_en": "Spear Warden",
+      "aliases": ["执戈者", "骑士", "spear warden"],
+      "hp": 1400,
+      "armor": 0,
+      "speed_px_per_tick": 1.17,
+      "speed_cells_per_s": 1.1,
+      "active": {
+        "kind": "armor_thrust",
+        "name_zh": "破甲突刺",
+        "name_en": "Armor Thrust",
+        "damage": 200,
+        "armor_reduction": 4,
+        "duration_s": 10,
+        "cooldown_s": 40,
+        "range_cells": 2
+      },
+      "passive": {
+        "kind": "veteran",
+        "name_zh": "身经百战",
+        "name_en": "Veteran",
+        "waves_per_step": 5,
+        "attack_bonus_percent_per_step": 10,
+        "cap_percent": 30
+      },
+      "respawn_seconds": 60,
+      "canvas_size_px": 32,
+      "_new": false,
+      "_new_fields": ["speed_px_per_tick", "canvas_size_px"],
+      "_source": "SP-6 L182：E2 执戈者 1400 HP/1.17（1.1 格/s）；主动破甲突刺=单体 200 伤害并 −4 甲 10 s（冷却 40 s）——作用距离 SP-6 未给，range_cells=2 [NEW-原型校准]；被动身经百战=每守住 5 波攻击 +10%（上限 +30%）；阵亡 60 s 重生；HP/技能数值为 SP-6 定案锚点（非 _new），速度口径按 30 Hz 换算 [NEW-口径重标]",
+      "_units": { "hp": "points", "armor": "points", "speed_px_per_tick": "px_per_tick_at_30hz", "speed_cells_per_s": "cells_per_second", "damage": "points", "armor_reduction": "points", "range_cells": "cells", "attack_bonus_percent_per_step": "percent", "cap_percent": "percent", "duration_s": "seconds", "cooldown_s": "seconds", "respawn_seconds": "seconds" }
+    }
+  ]
+}

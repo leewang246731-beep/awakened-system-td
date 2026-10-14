@@ -150,4 +150,112 @@ public class UnitTests
         Assert.Throws<ArgumentException>(() => unit.SetTrample(60, 0f, 45));
         Assert.Throws<ArgumentException>(() => unit.SetTrample(60, 64f, 0));
     }
+
+    // ------------------------------------------------ T-066 全量新增（护盾/速度通道/甲减）
+
+    [Fact] // legal — 护盾前置：盾满格吃整发、HP 不动（F-032 接 Unit.ApplyDamage 前置）
+    public void Shield_absorbs_the_whole_hit_before_hp()
+    {
+        Unit unit = NewUnit(maxHp: 200, armor: 6);
+        unit.SetShield(80);
+
+        int settled = unit.ApplyDamage(50, tick: 10);
+
+        Assert.Equal(50, settled);
+        Assert.Equal(30, unit.Shield);
+        Assert.Equal(200, unit.Hp);
+        Assert.True(unit.Alive);
+    }
+
+    [Fact] // legal — 穿甲弹命中打断盾再生（非穿甲不打断——对照在 ShieldStateTests）
+    public void Pierce_shot_interrupts_unit_shield_regeneration()
+    {
+        Unit unit = NewUnit(maxHp: 200);
+        unit.SetShield(60);
+        unit.ApplyDamage(30, tick: 10, pierce: true); // 穿甲命中余 30
+
+        for (long t = 11; t <= 99; t++)
+        {
+            unit.TickShield(t); // 3 s（90 ticks）阻断窗内不回
+        }
+
+        Assert.Equal(30, unit.Shield);
+
+        for (long t = 100; t <= 129; t++)
+        {
+            unit.TickShield(t);
+        }
+
+        Assert.Equal(50, unit.Shield); // 门后 1 s 回 20
+    }
+
+    [Fact] // legal — 甲减 debuff：EffectiveArmorAt 折叠到期、伤害走减后甲（SP-6 破甲突刺）
+    public void Armor_reduction_folds_into_the_damage_formula_until_expiry()
+    {
+        Unit unit = NewUnit(maxHp: 500, armor: 8);
+        Assert.Equal(8, unit.EffectiveArmorAt(0));
+
+        unit.ApplyArmorReduction(4, untilTick: 300);
+        Assert.Equal(4, unit.EffectiveArmorAt(299));
+        Assert.Equal(8, unit.EffectiveArmorAt(300)); // 到期即恢复
+
+        int settled = unit.ApplyDamage(100, tick: 10); // DirectInt(100, 4)=96
+        Assert.Equal(96, settled);
+        Assert.Equal(404, unit.Hp);
+    }
+
+    [Fact] // boundary — 甲减超过基甲：夹 0（v3.2 §6 甲 clamp≥0）
+    public void Armor_reduction_clamps_at_zero()
+    {
+        Unit unit = NewUnit(maxHp: 100, armor: 3);
+        unit.ApplyArmorReduction(9, untilTick: 90);
+        Assert.Equal(0, unit.EffectiveArmorAt(10));
+    }
+
+    [Fact] // legal — 速度通道：光环+冲锋为正、减速为负，总减速封顶 −50%（SP-1a L29）
+    public void Speed_channels_resolve_with_the_fifty_percent_slow_cap()
+    {
+        Unit unit = NewUnit(speed: 2.0f);
+        unit.SetAuraSpeedBonus(15);
+        unit.ResolveSpeedEffects(10);
+        Assert.Equal(15, unit.ResolvedSpeedBonusPercent);
+        Assert.Equal(2.0f * 1.15f, unit.EffectiveSpeedPxPerTick, 5);
+
+        unit.ApplySlow(30, untilTick: 100);
+        unit.ResolveSpeedEffects(50);
+        Assert.Equal(-15, unit.ResolvedSpeedBonusPercent); // +15−30
+        Assert.Equal(2.0f * 0.85f, unit.EffectiveSpeedPxPerTick, 5);
+
+        unit.ApplySlow(90, untilTick: 100); // 强减速重取强者
+        unit.ResolveSpeedEffects(60);
+        Assert.Equal(-75, unit.ResolvedSpeedBonusPercent);
+        Assert.Equal(2.0f * 0.5f, unit.EffectiveSpeedPxPerTick, 5); // 封顶 −50%
+
+        unit.ResolveSpeedEffects(101); // 双双到期+光环仍在
+        Assert.Equal(15, unit.ResolvedSpeedBonusPercent);
+    }
+
+    [Fact] // legal — 冲锋突发通道：BeginChargeBurst 计时窗内 +50%、窗外消失
+    public void Charge_burst_channel_is_time_boxed()
+    {
+        Unit unit = NewUnit(speed: 1.0f);
+        unit.BeginChargeBurst(untilTick: 690, speedBonusPercent: 50);
+        unit.ResolveSpeedEffects(645);
+        Assert.Equal(50, unit.ResolvedSpeedBonusPercent);
+        Assert.Equal(1.5f, unit.EffectiveSpeedPxPerTick, 5);
+
+        unit.ResolveSpeedEffects(690);
+        Assert.Equal(0, unit.ResolvedSpeedBonusPercent);
+    }
+
+    [Theory] // illegal — 非法 slow/deb 调参确实被拒绝
+    [InlineData(0)]
+    [InlineData(-10)]
+    [InlineData(101)]
+    public void ApplySlow_rejects_out_of_band_percents(int percent) =>
+        Assert.Throws<ArgumentException>(() => NewUnit().ApplySlow(percent, untilTick: 10));
+
+    [Fact] // illegal — 非法甲减确实被拒绝
+    public void ApplyArmorReduction_rejects_non_positive() =>
+        Assert.Throws<ArgumentException>(() => NewUnit().ApplyArmorReduction(0, untilTick: 10));
 }

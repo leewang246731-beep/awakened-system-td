@@ -6,7 +6,9 @@ using Xunit;
 
 namespace EraCore.Tests.Agent.Actions;
 
-// [F-062][F-070] C-03 动作注册表：3 动作可调、16 未实现档明确拒绝、清单外拒绝并记日志、时代门
+// [F-062][F-070] C-03 动作注册表：4 动作可调（T-066 起 HeroOrder 三动词真实现，
+// 见 EraCore.Tests/Units/HeroOrderActionTests）、15 未实现档明确拒绝、清单外拒绝
+// 并记日志、时代门
 public class ActionRegistryTests
 {
     private static ActionRegistry CreateRegistry(
@@ -103,7 +105,6 @@ public class ActionRegistryTests
     [InlineData("FocusFire")]
     [InlineData("SetTowerMode")]
     [InlineData("TriggerScroll")]
-    [InlineData("HeroOrder")]
     [InlineData("AskPlayer")]
     [InlineData("TodoBoard")]
     [InlineData("SpawnScout")]

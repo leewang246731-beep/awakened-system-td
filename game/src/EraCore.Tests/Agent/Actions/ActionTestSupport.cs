@@ -284,12 +284,12 @@ internal static class ActionJsonSamples
         ["StopTask"] = StopTask,
     };
 
-    /// <summary>The 16 verbs that stay in the deliberate not-implemented tier of T-051.</summary>
+    /// <summary>The 15 verbs that stay in the deliberate not-implemented tier (HeroOrder went real in T-066).</summary>
     public static readonly IReadOnlyList<string> NotImplementedVerbs = new[]
     {
         "InspectTile", "QueryWorld", "UpgradeTower", "SellTower", "SetRally",
         "RerouteLogistics", "SetStockpile", "FocusFire", "SetTowerMode",
-        "TriggerScroll", "HeroOrder", "AskPlayer", "TodoBoard", "SpawnScout",
+        "TriggerScroll", "AskPlayer", "TodoBoard", "SpawnScout",
         "SetAlarm", "StopTask",
     };
 }
