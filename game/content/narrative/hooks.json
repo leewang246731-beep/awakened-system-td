@@ -1,0 +1,78 @@
+{
+  "$schema": "urn:eratd:content:narrative:hooks:1",
+  "content_type": "CrossEraHookTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-089 跨时代悬念钩子登记（F-098，v3.2 §12.1 谱系线）：5 条=E1 壁画飞艇/E2 预言残页/E3 不该存在图纸/E4 卫星信号（军师私人台词层）/E5 回声低语；埋点-回收链=本章埋（planted）→跨章收（recover/payoff），era3+ 未交付章只登记回收位不落实体",
+  "items": [
+    {
+      "id": "narrative:hook-e1-mural-airship",
+      "ordinal": 1,
+      "title_zh": "壁画飞艇",
+      "planted_era": 1,
+      "planted_level_id": "campaign:level-e1-03",
+      "planted_anchor_zh": "石语河谷西壁",
+      "teaser_zh": "谷壁上有一幅剥落的壁画：一艘浮空的船，船腹里画着星辰。",
+      "recover": { "era": 2, "kind": "archaeology_channel", "channel": "knowledge_scroll" },
+      "payoff_zh": "E2 考古挖出 E1 记忆残卷时，壁画记忆并入零的归档——那艘船不属于任何已存纪元。",
+      "layer": "system_memory",
+      "linked_remanent": "narrative:remnant-e1-mural"
+    },
+    {
+      "id": "narrative:hook-e2-prophecy-page",
+      "ordinal": 2,
+      "title_zh": "预言残页",
+      "planted_era": 2,
+      "planted_level_id": "campaign:level-e2-02",
+      "planted_anchor_zh": "车道与水渠·渠底淤层",
+      "teaser_zh": "清淤的民夫捞出半页不像这个时代的纸，纸上的字谁也不认识。",
+      "recover": { "era": 3, "kind": "chapter_progress" },
+      "payoff_zh": "E3 章节推进时残页译文浮现：『守望者会换一千张脸，门会再开。』",
+      "layer": "system_memory",
+      "linked_remanent": "narrative:remnant-e2-prophecy"
+    },
+    {
+      "id": "narrative:hook-e3-impossible-blueprint",
+      "ordinal": 3,
+      "title_zh": "不该存在的图纸",
+      "planted_era": 3,
+      "planted_level_id": null,
+      "planted_anchor_zh": "E3 工坊废墟（章未交付，登记位）",
+      "teaser_zh": "一张图纸的落款日期，比这座工坊早了一千年。",
+      "recover": { "era": 4, "kind": "chapter_progress" },
+      "payoff_zh": "E4 电力重启旧档案馆时，同一落款再次出现——图纸是给零的。",
+      "layer": "system_memory",
+      "linked_remanent": null
+    },
+    {
+      "id": "narrative:hook-e4-satellite-signal",
+      "ordinal": 4,
+      "title_zh": "卫星信号",
+      "planted_era": 4,
+      "planted_level_id": null,
+      "planted_anchor_zh": "E4 通讯阵地（章未交付，登记位）",
+      "teaser_zh": "军师在私人频道留了一句没人问过它的话：『那个频段，我以前用过。』",
+      "recover": { "era": 5, "kind": "chapter_progress" },
+      "payoff_zh": "E5 轨道残骸解码：信号源是零的孪生碎片——『另一个声音』上线。",
+      "layer": "advisor_private",
+      "linked_remanent": null
+    },
+    {
+      "id": "narrative:hook-e5-echo-whisper",
+      "ordinal": 5,
+      "title_zh": "回声低语",
+      "planted_era": 5,
+      "planted_level_id": null,
+      "planted_anchor_zh": "E5 回声人格混入系统（章未交付，登记位）",
+      "teaser_zh": "系统日志的边缘，开始出现不是零写下的批注。",
+      "recover": { "era": 5, "kind": "chapter_progress" },
+      "payoff_zh": "终章回声选择忠诚——奖励系统使用者，不搞背叛骗局（§12.1 谱系写死）。",
+      "layer": "system_voice",
+      "linked_remanent": null
+    }
+  ],
+  "_source": "T-089 跨时代钩子：E1 埋点=L1-3 石语河谷（08 任务卡指定锚），回收=E2 考古通道 knowledge_scroll（archaeology.json channels 实锚，L2-3 dig_sites 两处+unlocks.features 含 archaeology——一致性测试断言）；E4=军师私人台词层（layer=advisor_private，双载体之一：台词层+卫星信号，v3.2 §12 军师谱系）；E5=回声低语（layer=system_voice，与 remnants.json echo_stage 渐显线汇合）",
+  "_units": {
+    "items[].ordinal": "ordinal_1_5",
+    "items[].planted_era": "era_ordinal_1_5",
+    "items[].recover.era": "era_ordinal_1_5"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "urn:eratd:content:narrative:system-lines:1",
+  "content_type": "SystemLineLibrary",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-089 系统台词库 15 条模板（F-105，v3.2 §12.1『15 条模板入文案库』）：占位语法=【槽位名】；cue=封闭音效位（ding_info/ding_reward/ding_crisis，与 CinematicScript.SoundCues 同表）；40% 警报行=F-111 HUD 完整度阈值联动（测试断言与 OffModeDowngrade.PersonaAlarmLine 逐字一致+阈值 0.40 同源）",
+  "items": [
+    { "key": "sys-detect", "text": "叮！检测到宿主【状态】，触发【事件】。", "cue": "ding_info" },
+    { "key": "sys-quest-issue", "text": "叮！任务发布：守卫【地点】。奖励：【资源或蓝图】×【数量】。", "cue": "ding_info" },
+    { "key": "sys-quest-done", "text": "叮！任务完成，奖励发放中……", "cue": "ding_reward" },
+    { "key": "sys-alarm-integrity", "text": "警告！防线完整度低于 40%，建议立即加固！", "cue": "ding_crisis" },
+    { "key": "sys-snark-prefix", "text": "宿主，本系统检测到【吐槽内容】。", "cue": "ding_info" },
+    { "key": "sys-wave-report", "text": "叮！第【波次】波清场完毕，防线完整度【百分比】%。", "cue": "ding_info" },
+    { "key": "sys-leak-warning", "text": "警告！检测到【数量】个敌人突破防线，核心正在受损！", "cue": "ding_crisis" },
+    { "key": "sys-resource-low", "text": "叮！【资源】储量低于【数量】，建议补充采集。", "cue": "ding_info" },
+    { "key": "sys-ammo-risk", "text": "警告！【建筑】弹药余量不足【数量】发，请检查物流线。", "cue": "ding_crisis" },
+    { "key": "sys-research-done", "text": "叮！研究完成：【科技】已解锁。", "cue": "ding_reward" },
+    { "key": "sys-scroll-hint", "text": "叮！检测到可用卷轴：【卷轴】。是否注入系统点？", "cue": "ding_info" },
+    { "key": "sys-trust-shift", "text": "叮！信任档位变化：【档位】。本系统将调整建议频率。", "cue": "ding_info" },
+    { "key": "sys-era-jump", "text": "叮！时代跃迁完成。宿主，欢迎来到【时代】。", "cue": "ding_reward" },
+    { "key": "sys-arch-find", "text": "叮！考古产出：【残卷】——正在比对记忆库……匹配成功。", "cue": "ding_reward" },
+    { "key": "sys-settlement", "text": "叮！结算完成。本局评价：【评价】。", "cue": "ding_reward" }
+  ],
+  "_source": "T-089 台词库：前 5 条句式框架=v3.2 §12.1 原文展开（检测/任务发布/任务完成/40% 警报/吐槽前缀），后 10 条=同句式族扩充至 15（波报/漏敌/资源/弹药/科研/卷轴/信任档/跃迁/考古/结算，覆盖 F-105 触发面）；模板=中性基底，人格改写层=F-109/T-126 四人格情境库（本库 persona 恒 null，人格加权先落在闲聊池）",
+  "_units": {
+    "items[].cue": "sound_cue_enum"
+  }
+}

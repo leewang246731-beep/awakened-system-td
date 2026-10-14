@@ -1,0 +1,108 @@
+{
+  "$schema": "urn:eratd:content:narrative:story:1",
+  "content_type": "StoryChapter",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-089 第二章叙事（F-098/F-101/F-102/F-105/F-106/F-109）：E2 三幕=城邦被嘲→水力革新→守城名场面（L2-1 谓词：波 2/波 5/波 9）+扮猪吃虎关配置（L2-2 资源压制 ×0.5+NPC 嘲讽→低配翻盘隐藏评价）+卡点预告（E3 精英，era3 未交付→纯文本无实体 id）",
+  "id": "narrative:story-e2",
+  "era": "era2:era-classical",
+  "level_id": "campaign:level-e2-01",
+  "title_zh": "第二章 水轮初鸣",
+  "golden_acts": {
+    "budget_seconds": 900,
+    "acts": [
+      {
+        "id": "narrative:act-e2-humiliation",
+        "title_zh": "受辱·城邦被嘲",
+        "predicate": { "kind": "wave_start", "wave": 2 },
+        "lines": [
+          { "key": "e2.act1.envoy", "speaker": "使者", "text": "边陲小城也配叫城邦？拿木栅栏去挡火矢吧。" },
+          { "key": "e2.act1.zero", "speaker": "零", "text": "叮——检测到外交嘲讽：伤害为零，侮辱性拉满。", "cue": "ding_info" }
+        ]
+      },
+      {
+        "id": "narrative:act-e2-innovation",
+        "title_zh": "觉醒·水力革新",
+        "predicate": { "kind": "wave_start", "wave": 5 },
+        "lines": [
+          { "key": "e2.act2.zero", "speaker": "零", "text": "水轮已转——用水力代替人力，这是革新的第一步。", "cue": "ding_reward" },
+          { "key": "e2.act2.narrator", "speaker": "旁白", "text": "湍流推动木轮，箭簇第一次不需要人力打磨。" }
+        ]
+      },
+      {
+        "id": "narrative:act-e2-face-slap",
+        "title_zh": "打脸·守城名场面",
+        "predicate": { "kind": "wave_start", "wave": 9 },
+        "lines": [
+          { "key": "e2.act3.narrator", "speaker": "旁白", "text": "火矢如雨，水渠边的城墙却越战越亮——城邦史官记下了这一页。" },
+          { "key": "e2.act3.zero", "speaker": "零", "text": "叮！名场面达成。嘲讽者的账，记在城墙上了。", "cue": "ding_reward" }
+        ]
+      }
+    ]
+  },
+  "opening": [
+    { "key": "e2.open.narrator", "speaker": "旁白", "text": "新时代的水汽扑面而来。城邦的界碑立在河谷下游，火矢的烟已经在天边。" },
+    { "key": "e2.open.zero", "speaker": "零", "text": "叮！时代跃迁完成。宿主，这一纪元的答案是——水与铜。", "cue": "ding_info" }
+  ],
+  "intermission_pools": {
+    "skeptical": [
+      { "key": "e2.idle.skept.advisor", "speaker": "零", "text": "宿主，弩塔上弦比木箭慢，提前半拍下令。", "persona": "advisor" },
+      { "key": "e2.idle.skept.snarky", "speaker": "零", "text": "不信我？行，让铜币替我发言。", "persona": "snarky" },
+      { "key": "e2.idle.skept.goofy", "speaker": "零", "text": "水轮咕噜咕噜，比你点头的频率靠谱！", "persona": "goofy" },
+      { "key": "e2.idle.skept.tsundere", "speaker": "零", "text": "哼，我只是顺路提醒，才不是担心你。", "persona": "tsundere" }
+    ],
+    "trustworthy": [
+      { "key": "e2.idle.trust.advisor", "speaker": "零", "text": "水渠沿线无断点，物流余量充足。", "persona": "advisor" },
+      { "key": "e2.idle.trust.snarky", "speaker": "零", "text": "守得不错——使者脸色比火矢还难看。", "persona": "snarky" },
+      { "key": "e2.idle.trust.goofy", "speaker": "零", "text": "这波敌人排队的样子，像来参观水轮的！", "persona": "goofy" },
+      { "key": "e2.idle.trust.tsundere", "speaker": "零", "text": "还行。夸你的话我只说一遍。", "persona": "tsundere" }
+    ],
+    "devoted": [
+      { "key": "e2.idle.devot.advisor", "speaker": "零", "text": "调度方案已备好，等你一句话。", "persona": "advisor" },
+      { "key": "e2.idle.devot.snarky", "speaker": "零", "text": "言听计从第二天，我已经开始享受了。", "persona": "snarky" },
+      { "key": "e2.idle.devot.goofy", "speaker": "零", "text": "你是城邦之魂，我是水轮之心，转！转！", "persona": "goofy" },
+      { "key": "e2.idle.devot.tsundere", "speaker": "零", "text": "全听你的。……才不是心软，是战术。", "persona": "tsundere" }
+    ]
+  },
+  "ending": {
+    "hook_id": "campaign:hook-e2-awakening-awaken",
+    "lines": [
+      { "key": "e2.end.zero", "speaker": "零", "text": "叮！本章归档：嘲笑过你的使者，刚刚求了一份水渠图纸。", "cue": "ding_reward" },
+      { "key": "e2.end.narrator", "speaker": "旁白", "text": "水轮声里，零的记忆库亮起一格又一格——残卷还在更深的土层下。" }
+    ],
+    "tease": {
+      "next_era": null,
+      "elite_id": null,
+      "silhouette_zh": "新敌剪影：披甲的攻城塔正在列装。",
+      "threat_line_zh": "『石头城？正好试试我的新锤。』"
+    }
+  },
+  "mock_arcs": [
+    {
+      "level_id": "campaign:level-e2-02",
+      "kind": "mock_arc_pig",
+      "suppression": { "resource": "era2:res-copper", "multiplier": 0.5 },
+      "taunts": [
+        { "wave": 1, "speaker": "工头", "text": "铜料减半还要守城？我看你是想给撞木腾地方。" },
+        { "wave": 3, "speaker": "使者", "text": "邻邦都在看笑话：一座水渠修到一半的穷城。" },
+        { "wave": 5, "speaker": "工头", "text": "再败一场，工匠们就都去投奔铁邱了。" }
+      ],
+      "low_config": { "max_towers": 3 },
+      "hidden_reward": {
+        "chest_tier": "gold_extra",
+        "item_ids": ["campaign:title-granary-warden", "campaign:perf-drum-camp"],
+        "lines": [
+          { "key": "e2.mock.reward.zero", "speaker": "零", "text": "叮！隐藏翻盘达成——『扮猪吃虎』。劣势开局，名场面守城。", "cue": "ding_reward" },
+          { "key": "e2.mock.reward.narrator", "speaker": "旁白", "text": "使者的车驾调头时，水轮声压过了嘲笑声。" }
+        ]
+      },
+      "_source": "F-101 扮猪吃虎关配置化：L2-2 初始 1600 铜×0.5=800 强制劣势开局（压制参数入数据非硬编码）；命令流塔数=3（两箭塔+连弩）→低配阈值 3；隐藏档同 F-100 复用 gold_extra"
+    }
+  ],
+  "_source": "T-089 第二章（E2）叙事文本：三幕谓词锚 L2-1（threat 0.3→波 2/5/9 起点 960/1680/2640s，生产 WaveSpawner 实锚）；卡点预告 E3=纯文本（era3 未交付，elite_id=null 由 schema 允许且测试断言 E1 侧才带实体 id）",
+  "_units": {
+    "golden_acts.budget_seconds": "seconds",
+    "acts[].predicate.wave": "wave_ordinal",
+    "mock_arcs[].suppression.multiplier": "fraction_multiplier",
+    "mock_arcs[].taunts[].wave": "wave_ordinal",
+    "mock_arcs[].low_config.max_towers": "towers"
+  }
+}

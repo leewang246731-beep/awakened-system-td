@@ -143,6 +143,13 @@ public sealed partial class Main : Control
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         Cinematics.CinematicDirector.Instantiate(this, _host);
 
+        // ---- 5e) T-089 narrative HUD (C-24 叙事薄版, F-098~F-109) ----------
+        // 叙事 HUD 挂载（narrative/NarrativeHud.cs）：E1 章叙事导演接波拍
+        // （幕推进+波间闲聊+打脸嘲讽拍→气泡）；headless 下自带冒烟序列并
+        // 打印 NARR_OK acts=3 loop=720s——smoke 叙事段判据。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        Narrative.NarrativeHud.Instantiate(this, _host);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.

@@ -1,0 +1,109 @@
+{
+  "$schema": "urn:eratd:content:narrative:story:1",
+  "content_type": "StoryChapter",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）。本文件=T-089 C-24 第一章叙事（F-098/F-100/F-102/F-103/F-105/F-106/F-109，v3.2 §12.1）：开场白+波间军师闲聊池（信任三档分池 × 人格四套加权）+黄金三章三幕（受辱→觉醒→打脸，谓词触发：波 2 受辱/绑定演出复用 cinematic:e1-aha/波 5 反推）+胜利交底+卡点预告（E2 精英剪影 era2:enemy-ram）+打脸关配置（L1-1 低配通关→隐藏评价 gold_extra）；全部结构数值在本文件（RL7），运行时 EraCore/Narrative/ 零章节数值",
+  "id": "narrative:story-e1",
+  "era": "era1:era-ancient",
+  "level_id": "campaign:level-e1-01",
+  "title_zh": "第一章 觉醒林地",
+  "golden_acts": {
+    "budget_seconds": 900,
+    "_budget_source": "§12.1 黄金三章=开局 15 分钟内完整『受辱→觉醒→打脸』循环；循环跨度=第三幕触发刻−第一幕触发刻 ≤900s（L1-1 波 2→波 5=3×240s=720s 实锚）。绝对窗口（自进关起算）受 T-085 关卡节拍 RED-FLAG（REV-20261015-wave3-exit F1，生产 WaveSpawner 与估算模型 ~3× 偏差）约束，绝对口径校准归 T-095 复核——叙事侧先执法循环跨度不变式",
+    "acts": [
+      {
+        "id": "narrative:act-e1-humiliation",
+        "title_zh": "受辱·兽群践踏",
+        "predicate": { "kind": "wave_start", "wave": 2 },
+        "lines": [
+          { "key": "e1.act1.narrator", "speaker": "旁白", "text": "兽群踏碎了营地东篱。守了半辈子的猎户，头一次丢下猎弓逃散。" },
+          { "key": "e1.act1.taunt", "speaker": "斥候", "text": "就凭这些木栅栏？兽王打个响鼻就能踏平你们！" },
+          { "key": "e1.act1.system", "speaker": "系统", "text": "叮——检测到防线完整度骤降。宿主，你的营地正在被践踏。", "cue": "ding_crisis" }
+        ]
+      },
+      {
+        "id": "narrative:act-e1-awakening",
+        "title_zh": "觉醒·系统绑定",
+        "predicate": { "kind": "cinematic_fired", "script": "cinematic:e1-aha" },
+        "lines": [
+          { "key": "e1.act2.bind", "speaker": "系统", "text": "叮——绑定完成。本系统『零』，上一纪元残存的核心，正式接管你的面板。", "cue": "ding_reward" },
+          { "key": "e1.act2.proof", "speaker": "系统", "text": "先证明我值得存在：盯住那座断粮的箭塔，民夫已经在路上了。" }
+        ]
+      },
+      {
+        "id": "narrative:act-e1-face-slap",
+        "title_zh": "打脸·反推兽群",
+        "predicate": { "kind": "wave_start", "wave": 5 },
+        "lines": [
+          { "key": "e1.act3.ready", "speaker": "系统", "text": "兽群回来了——但这次，箭塔是满的，民夫在线上。", "cue": "ding_info" },
+          { "key": "e1.act3.narrator", "speaker": "旁白", "text": "第一头野兽在栅栏前倒下时，逃散的猎户停住了脚步。" },
+          { "key": "e1.act3.taunt-back", "speaker": "斥候", "text": "不可能……那些木栅栏，怎么会咬人？！" },
+          { "key": "e1.act3.system", "speaker": "系统", "text": "叮！打脸时刻记录完毕。宿主，反推开始。", "cue": "ding_reward" }
+        ]
+      }
+    ]
+  },
+  "opening": [
+    { "key": "e1.open.narrator", "speaker": "旁白", "text": "林地边缘，篝火将熄。你攥着一柄断矛醒来——这具身体只留下一句话：守住营地。" },
+    { "key": "e1.open.system", "speaker": "系统", "text": "……信号微弱。检测到宿主生命体征，正在尝试接管面板……", "cue": "ding_info" }
+  ],
+  "intermission_pools": {
+    "skeptical": [
+      { "key": "e1.idle.skept.advisor", "speaker": "系统", "text": "宿主，本波建议优先补齐箭塔弹药。", "persona": "advisor" },
+      { "key": "e1.idle.skept.snarky", "speaker": "系统", "text": "还在犹豫要不要信我？箭可不犹豫。", "persona": "snarky" },
+      { "key": "e1.idle.skept.goofy", "speaker": "系统", "text": "我算了算，兽群跑得比你的决定快多了！", "persona": "goofy" },
+      { "key": "e1.idle.skept.tsundere", "speaker": "系统", "text": "哼，不是我想提醒你，是数据看不下去。", "persona": "tsundere" }
+    ],
+    "trustworthy": [
+      { "key": "e1.idle.trust.advisor", "speaker": "系统", "text": "防线运转良好。建议下波前加固东侧。", "persona": "advisor" },
+      { "key": "e1.idle.trust.snarky", "speaker": "系统", "text": "你守得不错——别骄傲，我说的是箭塔。", "persona": "snarky" },
+      { "key": "e1.idle.trust.goofy", "speaker": "系统", "text": "这一波平平无奇，配不上你的操作！", "persona": "goofy" },
+      { "key": "e1.idle.trust.tsundere", "speaker": "系统", "text": "勉强及格。下次做得更好也不许骄傲。", "persona": "tsundere" }
+    ],
+    "devoted": [
+      { "key": "e1.idle.devot.advisor", "speaker": "系统", "text": "宿主下令即可，防线调度交给我。", "persona": "advisor" },
+      { "key": "e1.idle.devot.snarky", "speaker": "系统", "text": "言听计从模式真省心——终于有人懂我了。", "persona": "snarky" },
+      { "key": "e1.idle.devot.goofy", "speaker": "系统", "text": "你指哪我打哪，兽群指哪我们都不去！", "persona": "goofy" },
+      { "key": "e1.idle.devot.tsundere", "speaker": "系统", "text": "都听你的。别、别误会，这是效率问题。", "persona": "tsundere" }
+    ]
+  },
+  "ending": {
+    "hook_id": "campaign:hook-e1-awakening-handover",
+    "lines": [
+      { "key": "e1.end.handover", "speaker": "系统", "text": "叮！交底时间：记忆里有片烧焦的残页，写着『更大的东西醒了』。以后，叫我零。", "cue": "ding_reward" },
+      { "key": "e1.end.narrator", "speaker": "旁白", "text": "营地守住了。远处河谷深处，岩壁上似乎刻着什么。" }
+    ],
+    "tease": {
+      "next_era": "era2:era-classical",
+      "elite_id": "era2:enemy-ram",
+      "silhouette_zh": "新敌剪影：一台蒙皮的巨兽，正拖着撞木上路。",
+      "threat_line_zh": "『城墙？只是更厚的柴堆。』"
+    }
+  },
+  "mock_arcs": [
+    {
+      "level_id": "campaign:level-e1-01",
+      "kind": "face_slap",
+      "taunts": [
+        { "wave": 2, "speaker": "斥候", "text": "就凭这些木栅栏？兽王打个响鼻就能踏平你们！" },
+        { "wave": 4, "speaker": "斥候", "text": "援军？这片林地早没人肯来了。" }
+      ],
+      "low_config": { "max_towers": 3 },
+      "hidden_reward": {
+        "chest_tier": "gold_extra",
+        "item_ids": ["campaign:title-wallkeeper", "campaign:cos-banner-watch"],
+        "lines": [
+          { "key": "e1.mock.reward.system", "speaker": "系统", "text": "叮！隐藏评价达成——『低配通关』。嘲讽者已闭麦，额外奖励发放中。", "cue": "ding_reward" },
+          { "key": "e1.mock.reward.narrator", "speaker": "旁白", "text": "斥候看着满地箭羽，把没说完的话咽了回去。" }
+        ]
+      },
+      "_source": "F-100 打脸关结构配置化：L1-1 命令流塔数=3（两木箭+落石）→低配阈值 3；隐藏档复用 chests.json gold_extra 档（T-087 结算脚本隐藏档接线），奖励物品过 chests.json items 一致性断言"
+    }
+  ],
+  "_source": "T-089 第一章（E1）叙事文本：黄金三章三幕=§12.1 开局 15 分钟受辱→觉醒→打脸（E1=兽群践踏→系统绑定→反推）；绑定幕谓词=cinematic:e1-aha（T-086 已落，CinematicHookRouter 波 2 位）；军师闲聊池=信任三档（TrustBadge skeptical/trustworthy/devoted，F.4 阈值 40/70）×人格四套（snarky/advisor/goofy/tsundere，F-109 只改表达不改能力）；卡点预告=E2 精英 era2:enemy-ram（era2/enemies.json 实锚）",
+  "_units": {
+    "golden_acts.budget_seconds": "seconds",
+    "acts[].predicate.wave": "wave_ordinal",
+    "mock_arcs[].taunts[].wave": "wave_ordinal",
+    "mock_arcs[].low_config.max_towers": "towers"
+  }
+}
