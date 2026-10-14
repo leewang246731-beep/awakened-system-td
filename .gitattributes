@@ -66,3 +66,6 @@
 *.so         binary
 *.dylib      binary
 *.meta       binary
+
+# ---- Windows launcher: CRLF pinned (cmd.exe batch reliability, T-096) ----
+*.bat       eol=crlf

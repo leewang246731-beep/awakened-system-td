@@ -1,0 +1,28 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+# T-096 (F-141): Godot's export tooling (GodotTools.Export) REQUIRES a
+# solution next to project.godot to run its dotnet-publish step. The
+# authoritative full solution (EraCore + EraCore.Tests + EraTD) stays at
+# game/EraTD.sln (D-02); this shim exists only for Godot tooling and
+# contains just the presentation project (its ProjectReference pulls in
+# EraCore). Do not add test projects here.
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EraTD", "EraTD.csproj", "{AAAAAA01-96B5-4B9E-8C9B-000000000001}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AAAAAA01-96B5-4B9E-8C9B-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAAAAA01-96B5-4B9E-8C9B-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAAAAA01-96B5-4B9E-8C9B-000000000001}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{AAAAAA01-96B5-4B9E-8C9B-000000000001}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{AAAAAA01-96B5-4B9E-8C9B-000000000001}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{AAAAAA01-96B5-4B9E-8C9B-000000000001}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{AAAAAA01-96B5-4B9E-8C9B-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAAAAA01-96B5-4B9E-8C9B-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

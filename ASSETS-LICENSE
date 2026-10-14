@@ -1,0 +1,68 @@
+ASSETS-LICENSE — 美术与音频资产许可证（v0.1.0-alpha）
+
+本项目采用双许可证：代码 = MIT（见 LICENSE 文件）；随游戏分发的美术/音频资产 =
+CC BY-NC 4.0。本文件是资产侧许可的权威说明与第三方素材清单。
+
+============================================================
+ 1. 项目原创资产：CC BY-NC 4.0
+============================================================
+
+范围（随包分发的资产面，位于 game/presentation/EraTD/ 下）：
+  - textures/（era1、era2、tiles 全部像素纹理——含 tools/art/*.py 程序合成像素图）
+  - audio/（BGM 程序合成参数产物、音效合成产物；第三方 CC0 OGG 见第 2 节）
+  - shaders/、scenes/ 内嵌的原创视觉资源
+  - docs/assets/concept-*.png（概念图）与 docs/screenshots/*.png（截图）
+
+许可：Creative Commons Attribution-NonCommercial 4.0 International
+      https://creativecommons.org/licenses/by-nc/4.0/
+
+NC（非商业）边界说明（写给玩家与二创作者）：
+  - 允许：游玩、录屏、直播、写攻略/视频、临摹学习、非商业二次创作与分发
+    （直播与视频平台的常规收益不属于"对资产本身的商业使用"）。
+  - 不允许：出售/转售资产本身或其轻微改版；将资产或其改编用于商业产品
+    （付费游戏、付费素材包、商业广告素材等）。
+  - 署名要求：分发或改编时注明本项目
+    （leewang246731-beep / awakened-system-td）并链接许可原文。
+
+说明：程序合成像素图由本仓库 MIT 代码生成；按项目定位将其与手绘资产
+统一纳入 CC BY-NC 资产面（设计 §16.2 双许可证决议）。
+
+============================================================
+ 2. 第三方 CC0 素材（保持公有领域状态，清单）
+============================================================
+
+以下第三方素材为 CC0（Creative Commons Zero / 公有领域），按 CC0 条款
+可任意使用，不因本项目再分发而改变；此处列出以示尊重与可追溯。逐包
+许可证快照（页面直链 + zip sha256 + 包内 License.txt 逐字节快照）归档于
+docs/assets/licenses/；入库审计台账见：
+  - docs/engineering/14-art-license-audit.md（美术管线与许可证审计，A1 行起）
+  - docs/engineering/24-t078-era2-art.md（E2 两包入库复验）
+  - docs/engineering/26-t092-audio.md（音频 CC0 台账）
+  - docs/engineering/28-t094-art-freeze.md（v0.1 资产冻结清单，§4 sha256）
+
+| 包 | 作者 | 许可 | 用途 | 快照 |
+|---|---|---|---|---|
+| Tiny Dungeon | Kenney (kenney.nl) | CC0 | E1/E2 地形与实体像素基底 | docs/assets/licenses/kenney-tiny-dungeon.txt |
+| Tiny Town | Kenney (kenney.nl) | CC0 | E2 建筑/tile 基底 | docs/assets/licenses/kenney-tiny-town.txt |
+| Medieval RTS | Kenney (kenney.nl) | CC0 | E2 建筑件（瞭望塔/城门/城墙） | docs/assets/licenses/kenney-medieval-rts.txt |
+| Music Jingles | Kenney (kenney.nl) | CC0 | 一次性旁白 stinger ×2（OGG） | docs/assets/licenses/kenney-music-jingles.txt |
+
+原始包入库树（完整未删减副本，含各自的 License.txt）位于
+game/assets/（gitignore 外的入库部分随仓库分发，许可同为 CC0）。
+
+第三方 CC0 素材的原始下载页（2026-10-13 实访核验）：
+  https://kenney.nl/assets/tiny-dungeon
+  https://kenney.nl/assets/tiny-town
+  https://kenney.nl/assets/medieval-rts
+  https://kenney.nl/assets/music-jingles
+
+============================================================
+ 3. 不随包分发的参考域
+============================================================
+
+docs/assets/concept-*.png 为 AI 生成概念图，仅作开发期氛围/色板参考，
+不进入游戏分发包（红线：AI PNG 零张进入 presentation，见 28 号台账 §1）。
+
+============================================================
+ 版本：v1.0（2026-10-15，任务 T-096 / 特性 F-146）
+ 变更须走 REV 流程（AGENTS.md 纪律 7）。

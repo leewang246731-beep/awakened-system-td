@@ -23,6 +23,10 @@ game/data/
 /tools/*
 !/tools/ci/
 !/tools/art/
+!/tools/release/
+
+# --- T-096: local release build output (zip staging never committed) ---
+/release/
 
 # --- T-078: era2 CC0 raw download zips (untracked archive; intake subset in game/assets/era2/) ---
 game/assets/*/downloads/

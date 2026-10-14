@@ -146,14 +146,25 @@ public sealed partial class AudioDirector : Node
                 continue;
             }
 
-            byte[] bytes = Godot.FileAccess.GetFileAsBytes($"{Cc0Dir}/{cue.StingerFile}");
-            if (bytes.Length == 0)
+            // T-096 (F-141 export fix): exported packs serve imported OGGs via
+            // the .import remap, not the raw res:// source path — raw
+            // FileAccess.GetFileAsBytes returns empty there. Load through
+            // ResourceLoader (remap-aware in exports, source-aware in dev);
+            // keep the raw-bytes path as dev fallback for un-imported trees.
+            var stream = ResourceLoader.Load<AudioStreamOggVorbis>($"{Cc0Dir}/{cue.StingerFile}");
+            if (stream is null)
             {
-                GD.PushError($"CC0 stinger missing: {cue.StingerFile}（台账 docs/engineering/26-t092-audio.md）");
-                continue;
+                byte[] bytes = Godot.FileAccess.GetFileAsBytes($"{Cc0Dir}/{cue.StingerFile}");
+                if (bytes.Length == 0)
+                {
+                    GD.PushError($"CC0 stinger missing: {cue.StingerFile}（台账 docs/engineering/26-t092-audio.md）");
+                    continue;
+                }
+
+                stream = AudioStreamOggVorbis.LoadFromBuffer(bytes);
             }
 
-            _stingers[cue.StingerFile] = AudioStreamOggVorbis.LoadFromBuffer(bytes);
+            _stingers[cue.StingerFile] = stream;
         }
 
         // ---- headless acceptance --------------------------------------------
