@@ -702,9 +702,21 @@ public static class LlmCassettes
         return Path.Combine(contentDir, "llm-cassettes");
     }
 
-    /// <summary>config/secrets.local.json path (repo-relative walk, RL9).</summary>
-    public static string SecretsFilePath() => FindRepoDir(
-        Path.Combine("config", "secrets.local.json"), "config/secrets.local.json");
+    /// <summary>
+    /// config/secrets.local.json path (repo-relative walk, RL9). The secrets
+    /// file is gitignored, so it is located by anchoring on the always-present
+    /// game/content root — probing by the file's own existence would throw on
+    /// keyless checkouts (CI runners) instead of reaching OnlineSkipped's
+    /// documented "no key file → skip" semantics (CI fix, T-096 era).
+    /// </summary>
+    public static string SecretsFilePath()
+    {
+        // contentRoot = <repo>/game/content → two levels up is the repo root
+        // (game/content lives under the game/ code root, D-02).
+        var contentRoot = FindRepoDir(Path.Combine("game", "content"), "game/content");
+        var repoRoot = Directory.GetParent(Directory.GetParent(contentRoot)!.FullName)!.FullName;
+        return Path.Combine(repoRoot, "config", "secrets.local.json");
+    }
 
     /// <summary>True when online tests are skipped (SKIP_ONLINE=1 or no key file).</summary>
     public static bool OnlineSkipped(out string reason)
