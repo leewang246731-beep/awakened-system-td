@@ -2,11 +2,11 @@
 
 | 项 | 内容 |
 |---|---|
-| 登记对象 | commit `f0d0593`（"T-067: C-12 full orchestration (entity groups, era2 subsystems, golden+replay still deterministic)"）——首版金样 `game/content/golden/sim-e2-golden.json` 与产生它的 C-12 全量编排引擎同 commit 合入 |
+| 登记对象 | commit `8488523`（"T-067: C-12 full orchestration (entity groups, era2 subsystems, golden+replay still deterministic)"）——首版金样 `game/content/golden/sim-e2-golden.json` 与产生它的 C-12 全量编排引擎同 commit 合入 |
 | 登记日期 | 2026-10-14 |
 | 条款依据 | CODE_STANDARDS CS-6.2 v1.1 首版条款（先例 d6f5862/T-040、3a92a16/T-057）；CS-6.3 依据号已入 commit message（G.1 条 2 / F-155 / v3.2 §6 / spike① 报告 §3） |
 | 引擎触面 | `game/src/EraCore/Sim/`（Simulation/SimulationConfig 扩展 + EntityGroups/ 3 新文件 + SimProjectile + SimTeleporterLane），全部为本 commit 新增或本任务内扩展——引擎先于金样存在的首版因果成立（分组+全子系统编排引擎即金样产生器） |
-| 豁免登记 | `tools/ci/allowlist.txt` 增 `T8: f0d0593` 条目（本 REV 即登记处；更新金样无豁免通道，必须独立 commit） |
+| 豁免登记 | `tools/ci/allowlist.txt` 增 `T8: 8488523` 条目（本 REV 即登记处；更新金样无豁免通道，必须独立 commit） |
 
 ## 一、金样内容与验证
 
