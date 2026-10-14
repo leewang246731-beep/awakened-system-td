@@ -1,0 +1,120 @@
+{"id": "holdout-zh-01", "text": "看住西门", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "west_gate"}, "expected_parse": "success"}
+{"id": "holdout-zh-02", "text": "东门一定要守住", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"id": "holdout-zh-03", "text": "南面不能丢", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "south_side"}, "expected_parse": "success"}
+{"id": "holdout-zh-04", "text": "死守城中心", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"id": "holdout-zh-05", "text": "南门顶住", "lang": "zh", "intent": "HoldRegion", "slots": {"target": "south_gate"}, "expected_parse": "success"}
+{"id": "holdout-zh-06", "text": "东门来四座箭塔", "lang": "zh", "intent": "Build", "slots": {"where": "east_gate", "qty": "4", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"id": "holdout-zh-07", "text": "建１２座箭塔", "lang": "zh", "intent": "Build", "slots": {"qty": "12", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"id": "holdout-zh-08", "text": "城中心造个篝火", "lang": "zh", "intent": "Build", "slots": {"where": "center", "qty": "1", "tower": "era1:tower-campfire"}, "expected_parse": "success"}
+{"id": "holdout-zh-09", "text": "帮我在南墙建两座落石台", "lang": "zh", "intent": "Build", "slots": {"where": "south_wall", "qty": "2", "tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"id": "holdout-zh-10", "text": "东门建两座箭榻", "lang": "zh", "intent": "Build", "slots": {"where": "east_gate", "qty": "2", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"id": "holdout-zh-11", "text": "把东门的箭塔升到满级", "lang": "zh", "intent": "Upgrade", "slots": {"target": "east_gate+era1:tower-wood-arrow", "to_tier": "4"}, "expected_parse": "success"}
+{"id": "holdout-zh-12", "text": "把篝火升到２级", "lang": "zh", "intent": "Upgrade", "slots": {"target": "era1:tower-campfire", "to_tier": "2"}, "expected_parse": "success"}
+{"id": "holdout-zh-13", "text": "给北墙的塔升级", "lang": "zh", "intent": "Upgrade", "slots": {"target": "north_wall+any"}, "expected_parse": "success"}
+{"id": "holdout-zh-14", "text": "3号塔升到三级", "lang": "zh", "intent": "Upgrade", "slots": {"target": "ord:3", "to_tier": "3"}, "expected_parse": "success"}
+{"id": "holdout-zh-15", "text": "升级所有箭塔", "lang": "zh", "intent": "Upgrade", "slots": {"target": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"id": "holdout-zh-16", "text": "把南门的篝火都卖了", "lang": "zh", "intent": "Sell", "slots": {"target": "south_gate+era1:tower-campfire"}, "expected_parse": "success"}
+{"id": "holdout-zh-17", "text": "出售两座箭塔", "lang": "zh", "intent": "Sell", "slots": {"target": "era1:tower-wood-arrowx2"}, "expected_parse": "success"}
+{"id": "holdout-zh-18", "text": "南墙的陷阱不要了", "lang": "zh", "intent": "Sell", "slots": {"target": "south_wall+era1:tower-spike-trap"}, "expected_parse": "success"}
+{"id": "holdout-zh-19", "text": "出售３号塔", "lang": "zh", "intent": "Sell", "slots": {"target": "ord:3"}, "expected_parse": "success"}
+{"id": "holdout-zh-20", "text": "卖掉全部箭塔", "lang": "zh", "intent": "Sell", "slots": {"target": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"id": "holdout-zh-21", "text": "优先打攻城锤", "lang": "zh", "intent": "FocusFire", "slots": {"target": "era2:enemy-ram"}, "expected_parse": "success"}
+{"id": "holdout-zh-22", "text": "集火那只野猪", "lang": "zh", "intent": "FocusFire", "slots": {"target": "era1:enemy-boar"}, "expected_parse": "success"}
+{"id": "holdout-zh-23", "text": "全体集火铠猪", "lang": "zh", "intent": "FocusFire", "slots": {"target": "era1:enemy-boar"}, "expected_parse": "success"}
+{"id": "holdout-zh-24", "text": "集火右边的敌人", "lang": "zh", "intent": "FocusFire", "slots": {"target": "side:right"}, "expected_parse": "success"}
+{"id": "holdout-zh-25", "text": "集火7号敌人", "lang": "zh", "intent": "FocusFire", "slots": {"target": "ord:7"}, "expected_parse": "success"}
+{"id": "holdout-zh-26", "text": "箭塔改成优先打最强", "lang": "zh", "intent": "ChangeFocusMode", "slots": {"target_towers": "era1:tower-wood-arrow", "mode": "strong"}, "expected_parse": "success"}
+{"id": "holdout-zh-27", "text": "目标改成最近的", "lang": "zh", "intent": "ChangeFocusMode", "slots": {"mode": "closest"}, "expected_parse": "success"}
+{"id": "holdout-zh-28", "text": "全部塔改成先打", "lang": "zh", "intent": "ChangeFocusMode", "slots": {"target_towers": "all", "mode": "first"}, "expected_parse": "success"}
+{"id": "holdout-zh-29", "text": "东门的塔改模式为最近", "lang": "zh", "intent": "ChangeFocusMode", "slots": {"target_towers": "east_gate+any", "mode": "closest"}, "expected_parse": "success"}
+{"id": "holdout-zh-30", "text": "改成打前面的", "lang": "zh", "intent": "ChangeFocusMode", "slots": {"mode": "first"}, "expected_parse": "success"}
+{"id": "holdout-zh-31", "text": "粮食优先送南墙", "lang": "zh", "intent": "RerouteLogistics", "slots": {"item": "era1:res-food", "to": "south_wall"}, "expected_parse": "success"}
+{"id": "holdout-zh-32", "text": "先送吃的去东门", "lang": "zh", "intent": "RerouteLogistics", "slots": {"item": "era1:res-food", "to": "east_gate"}, "expected_parse": "success"}
+{"id": "holdout-zh-33", "text": "石头先送北墙", "lang": "zh", "intent": "RerouteLogistics", "slots": {"item": "era1:res-stone", "to": "north_wall"}, "expected_parse": "success"}
+{"id": "holdout-zh-34", "text": "把粮食改道去北墙", "lang": "zh", "intent": "RerouteLogistics", "slots": {"item": "era1:res-food", "to": "north_wall"}, "expected_parse": "success"}
+{"id": "holdout-zh-35", "text": "木材全部送去西门", "lang": "zh", "intent": "RerouteLogistics", "slots": {"item": "era1:res-wood", "to": "west_gate", "rate": "1"}, "expected_parse": "success"}
+{"id": "holdout-zh-36", "text": "查一下木料", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"id": "holdout-zh-37", "text": "粮食还剩多少", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"id": "holdout-zh-38", "text": "吃的还剩多少", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"id": "holdout-zh-39", "text": "粮草多吗", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"id": "holdout-zh-40", "text": "报一下资源", "lang": "zh", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"id": "holdout-zh-41", "text": "下波敌人是什么", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"id": "holdout-zh-42", "text": "西门敌情怎么样", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "west_gate"}, "expected_parse": "success"}
+{"id": "holdout-zh-43", "text": "现在威胁是什么", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"id": "holdout-zh-44", "text": "当前敌情怎么样", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"id": "holdout-zh-45", "text": "下一波有啥威胁", "lang": "zh", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"id": "holdout-zh-46", "text": "３分钟后提醒我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "180"}, "expected_parse": "success"}
+{"id": "holdout-zh-47", "text": "十分钟后提醒我一下", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"id": "holdout-zh-48", "text": "９０秒后喊我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "90"}, "expected_parse": "success"}
+{"id": "holdout-zh-49", "text": "十分钟后喊我一声", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"id": "holdout-zh-50", "text": "过五分钟提醒我", "lang": "zh", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"id": "holdout-zh-51", "text": "派侦察去西边看看", "lang": "zh", "intent": "Patrol", "slots": {"lane": "lane_west", "duration": "60"}, "expected_parse": "success"}
+{"id": "holdout-zh-52", "text": "去北线巡逻三分钟", "lang": "zh", "intent": "Patrol", "slots": {"lane": "lane_north", "duration": "180"}, "expected_parse": "success"}
+{"id": "holdout-zh-53", "text": "敌后转一圈", "lang": "zh", "intent": "Patrol", "slots": {"lane": "lane_rear", "duration": "60"}, "expected_parse": "success"}
+{"id": "holdout-zh-54", "text": "侦察北门", "lang": "zh", "intent": "Patrol", "slots": {"lane": "lane_north", "duration": "60"}, "expected_parse": "success"}
+{"id": "holdout-zh-55", "text": "去南线转转", "lang": "zh", "intent": "Patrol", "slots": {"lane": "lane_south", "duration": "60"}, "expected_parse": "success"}
+{"id": "holdout-zh-56", "text": "开警弦卷轴", "lang": "zh", "intent": "ScrollControl", "slots": {"scroll": "era2:scroll-alarm-string"}, "expected_parse": "success"}
+{"id": "holdout-zh-57", "text": "把烽火开了", "lang": "zh", "intent": "ScrollControl", "slots": {"scroll": "era2:scroll-beacon"}, "expected_parse": "success"}
+{"id": "holdout-zh-58", "text": "启动民夫征调", "lang": "zh", "intent": "ScrollControl", "slots": {"scroll": "era2:scroll-press-gang"}, "expected_parse": "success"}
+{"id": "holdout-zh-59", "text": "用备刃", "lang": "zh", "intent": "ScrollControl", "slots": {"scroll": "era2:scroll-spare-blades"}, "expected_parse": "success"}
+{"id": "holdout-zh-60", "text": "开静默卷轴", "lang": "zh", "intent": "ScrollControl", "slots": {"scroll": "era2:scroll-silence"}, "expected_parse": "success"}
+{"id": "holdout-en-01", "text": "watch the west gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "west_gate"}, "expected_parse": "success"}
+{"id": "holdout-en-02", "text": "the east gate must hold", "lang": "en", "intent": "HoldRegion", "slots": {"target": "east_gate"}, "expected_parse": "success"}
+{"id": "holdout-en-03", "text": "hold the town centre", "lang": "en", "intent": "HoldRegion", "slots": {"target": "center"}, "expected_parse": "success"}
+{"id": "holdout-en-04", "text": "defend the northern gate", "lang": "en", "intent": "HoldRegion", "slots": {"target": "north_gate"}, "expected_parse": "success"}
+{"id": "holdout-en-05", "text": "keep the east side safe", "lang": "en", "intent": "HoldRegion", "slots": {"target": "east_side"}, "expected_parse": "success"}
+{"id": "holdout-en-06", "text": "build two wood arrow towers at the south gate", "lang": "en", "intent": "Build", "slots": {"where": "south_gate", "qty": "2", "tower": "era1:tower-wood-arrow"}, "expected_parse": "success"}
+{"id": "holdout-en-07", "text": "put up a couple of spike traps at the north wall", "lang": "en", "intent": "Build", "slots": {"where": "north_wall", "qty": "2", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"id": "holdout-en-08", "text": "throw up three rockfall platforms at the west side", "lang": "en", "intent": "Build", "slots": {"where": "west_side", "qty": "3", "tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"id": "holdout-en-09", "text": "we need two rockfalls at the south gate", "lang": "en", "intent": "Build", "slots": {"where": "south_gate", "qty": "2", "tower": "era1:tower-rockfall"}, "expected_parse": "success"}
+{"id": "holdout-en-10", "text": "build ２ spike traps at the center", "lang": "en", "intent": "Build", "slots": {"where": "center", "qty": "2", "tower": "era1:tower-spike-trap"}, "expected_parse": "success"}
+{"id": "holdout-en-11", "text": "bump the arrow towers up to tier 2", "lang": "en", "intent": "Upgrade", "slots": {"target": "era1:tower-wood-arrow", "to_tier": "2"}, "expected_parse": "success"}
+{"id": "holdout-en-12", "text": "take the rockfall to tier 4", "lang": "en", "intent": "Upgrade", "slots": {"target": "era1:tower-rockfall", "to_tier": "4"}, "expected_parse": "success"}
+{"id": "holdout-en-13", "text": "upgrade the towers on the north wall", "lang": "en", "intent": "Upgrade", "slots": {"target": "north_wall+any"}, "expected_parse": "success"}
+{"id": "holdout-en-14", "text": "upgrade both spike traps", "lang": "en", "intent": "Upgrade", "slots": {"target": "era1:tower-spike-trapx2"}, "expected_parse": "success"}
+{"id": "holdout-en-15", "text": "level up both campfires", "lang": "en", "intent": "Upgrade", "slots": {"target": "era1:tower-campfirex2"}, "expected_parse": "success"}
+{"id": "holdout-en-16", "text": "get rid of the old campfires", "lang": "en", "intent": "Sell", "slots": {"target": "era1:tower-campfire"}, "expected_parse": "success"}
+{"id": "holdout-en-17", "text": "sell the two campfires at the east gate", "lang": "en", "intent": "Sell", "slots": {"target": "east_gate+era1:tower-campfirex2"}, "expected_parse": "success"}
+{"id": "holdout-en-18", "text": "I want to sell the old towers on the west wall", "lang": "en", "intent": "Sell", "slots": {"target": "west_wall+any"}, "expected_parse": "success"}
+{"id": "holdout-en-19", "text": "offload everything", "lang": "en", "intent": "Sell", "slots": {"target": "all"}, "expected_parse": "success"}
+{"id": "holdout-en-20", "text": "sell tower 7", "lang": "en", "intent": "Sell", "slots": {"target": "ord:7"}, "expected_parse": "success"}
+{"id": "holdout-en-21", "text": "take out the boar", "lang": "en", "intent": "FocusFire", "slots": {"target": "era1:enemy-boar"}, "expected_parse": "success"}
+{"id": "holdout-en-22", "text": "take down the boomshrew first", "lang": "en", "intent": "FocusFire", "slots": {"target": "era1:enemy-boomshrew"}, "expected_parse": "success"}
+{"id": "holdout-en-23", "text": "prioritize the siege ram", "lang": "en", "intent": "FocusFire", "slots": {"target": "era2:enemy-ram"}, "expected_parse": "success"}
+{"id": "holdout-en-24", "text": "all towers focus the champion", "lang": "en", "intent": "FocusFire", "slots": {"target": "era1:enemy-champion"}, "expected_parse": "success"}
+{"id": "holdout-en-25", "text": "focus fire on enemy 5", "lang": "en", "intent": "FocusFire", "slots": {"target": "ord:5"}, "expected_parse": "success"}
+{"id": "holdout-en-26", "text": "arrow towers should target closest", "lang": "en", "intent": "ChangeFocusMode", "slots": {"target_towers": "era1:tower-wood-arrow", "mode": "closest"}, "expected_parse": "success"}
+{"id": "holdout-en-27", "text": "switch to strongest", "lang": "en", "intent": "ChangeFocusMode", "slots": {"mode": "strong"}, "expected_parse": "success"}
+{"id": "holdout-en-28", "text": "target mode strongest", "lang": "en", "intent": "ChangeFocusMode", "slots": {"mode": "strong"}, "expected_parse": "success"}
+{"id": "holdout-en-29", "text": "make the campfires target last", "lang": "en", "intent": "ChangeFocusMode", "slots": {"target_towers": "era1:tower-campfire", "mode": "last"}, "expected_parse": "success"}
+{"id": "holdout-en-30", "text": "change to closest", "lang": "en", "intent": "ChangeFocusMode", "slots": {"mode": "closest"}, "expected_parse": "success"}
+{"id": "holdout-en-31", "text": "wood goes to the east gate", "lang": "en", "intent": "RerouteLogistics", "slots": {"item": "era1:res-wood", "to": "east_gate", "rate": "1"}, "expected_parse": "success"}
+{"id": "holdout-en-32", "text": "send the timber to the north gate first", "lang": "en", "intent": "RerouteLogistics", "slots": {"item": "era1:res-wood", "to": "north_gate"}, "expected_parse": "success"}
+{"id": "holdout-en-33", "text": "reroute everything to the west wall", "lang": "en", "intent": "RerouteLogistics", "slots": {"item": "all", "to": "west_wall"}, "expected_parse": "success"}
+{"id": "holdout-en-34", "text": "divert half the grain to the south side", "lang": "en", "intent": "RerouteLogistics", "slots": {"item": "era1:res-food", "to": "south_side", "rate": "0.5"}, "expected_parse": "success"}
+{"id": "holdout-en-35", "text": "route stone to the north wall", "lang": "en", "intent": "RerouteLogistics", "slots": {"item": "era1:res-stone", "to": "north_wall"}, "expected_parse": "success"}
+{"id": "holdout-en-36", "text": "how much food is left", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"id": "holdout-en-37", "text": "stone?", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-stone"}, "expected_parse": "success"}
+{"id": "holdout-en-38", "text": "do we still have enough wood", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-wood"}, "expected_parse": "success"}
+{"id": "holdout-en-39", "text": "how are we doing on food", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "era1:res-food"}, "expected_parse": "success"}
+{"id": "holdout-en-40", "text": "check our supplies", "lang": "en", "intent": "QueryStockpile", "slots": {"item": "all"}, "expected_parse": "success"}
+{"id": "holdout-en-41", "text": "situation report", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"id": "holdout-en-42", "text": "enemy situation at the north side", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "north_side"}, "expected_parse": "success"}
+{"id": "holdout-en-43", "text": "any threats at the east gate", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "east_gate"}, "expected_parse": "success"}
+{"id": "holdout-en-44", "text": "what's the incoming wave", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "next_wave"}, "expected_parse": "success"}
+{"id": "holdout-en-45", "text": "current threats", "lang": "en", "intent": "QueryThreat", "slots": {"scope": "current"}, "expected_parse": "success"}
+{"id": "holdout-en-46", "text": "remind me in ４ minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "240"}, "expected_parse": "success"}
+{"id": "holdout-en-47", "text": "set a timer for 15 minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "900"}, "expected_parse": "success"}
+{"id": "holdout-en-48", "text": "give me a heads up in five minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "300"}, "expected_parse": "success"}
+{"id": "holdout-en-49", "text": "wake me in ten minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "600"}, "expected_parse": "success"}
+{"id": "holdout-en-50", "text": "notify me in 15 minutes", "lang": "en", "intent": "SetAlarm", "slots": {"after": "900"}, "expected_parse": "success"}
+{"id": "holdout-en-51", "text": "do a sweep of the west lane", "lang": "en", "intent": "Patrol", "slots": {"lane": "lane_west", "duration": "60"}, "expected_parse": "success"}
+{"id": "holdout-en-52", "text": "patrol the southern road", "lang": "en", "intent": "Patrol", "slots": {"lane": "lane_south", "duration": "60"}, "expected_parse": "success"}
+{"id": "holdout-en-53", "text": "scout behind enemy lines", "lang": "en", "intent": "Patrol", "slots": {"lane": "lane_rear", "duration": "60"}, "expected_parse": "success"}
+{"id": "holdout-en-54", "text": "have a look at the north side", "lang": "en", "intent": "Patrol", "slots": {"lane": "lane_north", "duration": "60"}, "expected_parse": "success"}
+{"id": "holdout-en-55", "text": "patrol the walls for two minutes", "lang": "en", "intent": "Patrol", "slots": {"lane": "lane_walls", "duration": "120"}, "expected_parse": "success"}
+{"id": "holdout-en-56", "text": "trigger the alarm string", "lang": "en", "intent": "ScrollControl", "slots": {"scroll": "era2:scroll-alarm-string"}, "expected_parse": "success"}
+{"id": "holdout-en-57", "text": "use the spare blades", "lang": "en", "intent": "ScrollControl", "slots": {"scroll": "era2:scroll-spare-blades"}, "expected_parse": "success"}
+{"id": "holdout-en-58", "text": "activate the beacon", "lang": "en", "intent": "ScrollControl", "slots": {"scroll": "era2:scroll-beacon"}, "expected_parse": "success"}
+{"id": "holdout-en-59", "text": "the rearguard, go", "lang": "en", "intent": "ScrollControl", "slots": {"scroll": "era2:scroll-rearguard"}, "expected_parse": "success"}
+{"id": "holdout-en-60", "text": "cancel the press gang", "lang": "en", "intent": "ScrollControl", "slots": {"task": "era2:scroll-press-gang"}, "expected_parse": "success"}

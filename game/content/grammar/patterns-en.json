@@ -2,9 +2,9 @@
   "$schema": "urn:eratd:content:grammar:1",
   "content_type": "Grammar",
   "lang": "en",
-  "version": 2,
+  "version": 3,
   "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；模板语法=字面量+{槽位}，匹配前经 TextNormalizer 归一（去空白/撇号/标点+小写折叠），故模板内空格与 don't 等在编译期同样归一；slots=模板外常量槽位",
-  "_coverage_note": "T-069 全量 12 意图（SP-2 冻结表）：T-052 起步 5 意图每意图 12 变体 + T-061 miss 修复变体（hold-13~15/build-13~14/threat-13~15/stock-13）+ 7 新意图各 ≥10 变体；与 patterns-zh.json 合计 285 条 ≥240 出货线；英文量词复数（towers）由塔名交替项的可选复数后缀（es|s）吸收",
+  "_coverage_note": "T-069 全量 12 意图（SP-2 冻结表）：T-052 起步 5 意图每意图 12 变体 + T-061 miss 修复变体（hold-13~15/build-13~14/threat-13~15/stock-13）+ 7 新意图各 ≥10 变体；与 patterns-zh.json 合计 285 条 ≥240 出货线；英文量词复数（towers）由塔名交替项的可选复数后缀（es|s）吸收。T-090 盲测调优（留出集首跑暴露缺口，只修缺口）：尾部追加 21 条通用变体（watch/must hold/throw up/bump up/take to/offload/take out/take down first/focus fire on 无 the 形/switch to/change to/goes to/divert half/still have/doing on/situation report/what's the {scope}/heads up/wake me in/do a sweep/scout 无 the 形）",
   "_slot_source": "槽位定义=11-spec-tables.md SP-2；槽位值归一为目标 id；塔指认复合值方案见 lexicon.json _canonical_scheme",
   "patterns": [
     { "id": "hold-en-01", "intent": "HoldRegion", "template": "hold the {target}" },
@@ -161,6 +161,28 @@
     { "id": "scroll-en-07", "intent": "ScrollControl", "template": "stop {task}" },
     { "id": "scroll-en-08", "intent": "ScrollControl", "template": "stop the {task}" },
     { "id": "scroll-en-09", "intent": "ScrollControl", "template": "cancel the {task}" },
-    { "id": "scroll-en-10", "intent": "ScrollControl", "template": "shut down {task}" }
+    { "id": "scroll-en-10", "intent": "ScrollControl", "template": "shut down {task}" },
+
+    { "id": "hold-en-17", "intent": "HoldRegion", "template": "watch the {target}" },
+    { "id": "hold-en-18", "intent": "HoldRegion", "template": "the {target} must hold" },
+    { "id": "build-en-15", "intent": "Build", "template": "throw up {qty} {tower} at the {where}" },
+    { "id": "upgrade-en-13", "intent": "Upgrade", "template": "bump the {target} up to {to_tier}" },
+    { "id": "upgrade-en-14", "intent": "Upgrade", "template": "take the {target} to {to_tier}" },
+    { "id": "sell-en-11", "intent": "Sell", "template": "offload {target}" },
+    { "id": "focus-en-13", "intent": "FocusFire", "template": "take out the {target}" },
+    { "id": "focus-en-14", "intent": "FocusFire", "template": "take down the {target} first" },
+    { "id": "focus-en-15", "intent": "FocusFire", "template": "focus fire on {target}" },
+    { "id": "mode-en-11", "intent": "ChangeFocusMode", "template": "switch to {mode}" },
+    { "id": "mode-en-12", "intent": "ChangeFocusMode", "template": "change to {mode}" },
+    { "id": "reroute-en-11", "intent": "RerouteLogistics", "template": "{item} goes to the {to}", "slots": { "rate": "1" } },
+    { "id": "reroute-en-12", "intent": "RerouteLogistics", "template": "divert half the {item} to the {to}", "slots": { "rate": "0.5" } },
+    { "id": "stock-en-14", "intent": "QueryStockpile", "template": "do we still have enough {item}" },
+    { "id": "stock-en-15", "intent": "QueryStockpile", "template": "how are we doing on {item}" },
+    { "id": "threat-en-16", "intent": "QueryThreat", "template": "situation report", "slots": { "scope": "current" } },
+    { "id": "threat-en-17", "intent": "QueryThreat", "template": "what's the {scope}" },
+    { "id": "alarm-en-13", "intent": "SetAlarm", "template": "give me a heads up in {after}" },
+    { "id": "alarm-en-14", "intent": "SetAlarm", "template": "wake me in {after}" },
+    { "id": "patrol-en-11", "intent": "Patrol", "template": "do a sweep of the {lane}", "slots": { "duration": "60" } },
+    { "id": "patrol-en-12", "intent": "Patrol", "template": "scout {lane}", "slots": { "duration": "60" } }
   ]
 }

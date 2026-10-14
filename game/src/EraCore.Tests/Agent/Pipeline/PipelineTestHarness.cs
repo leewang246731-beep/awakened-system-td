@@ -89,14 +89,15 @@ internal sealed class PipelineHarness : IDisposable
             },
         };
 
-    /// <summary>Era-2 grammar parser（era2 塔/敌别名——箭楼/弩塔/攻城锤等）。</summary>
+    /// <summary>Era-2 grammar parser（era2 塔/敌/卷轴别名——箭楼/弩塔/攻城锤/警弦等）。</summary>
     public static EraCore.Agent.Grammar.L1IntentParser Era2Parser() =>
         EraCore.Agent.Grammar.L1IntentParser.FromJson(
             EraCore.Tests.Agent.Grammar.GrammarTestPaths.ReadGrammarFile("patterns-zh.json"),
             EraCore.Tests.Agent.Grammar.GrammarTestPaths.ReadGrammarFile("patterns-en.json"),
             EraCore.Tests.Agent.Grammar.GrammarTestPaths.ReadGrammarFile("lexicon.json"),
             EraCore.Tests.Agent.Grammar.GrammarTestPaths.Era2TowersJson(),
-            EraCore.Tests.Agent.Grammar.GrammarTestPaths.Era2EnemiesJson());
+            EraCore.Tests.Agent.Grammar.GrammarTestPaths.Era2EnemiesJson(),
+            EraCore.Tests.Agent.Grammar.GrammarTestPaths.Era2ScrollsJson());
 
     public void Dispose()
     {

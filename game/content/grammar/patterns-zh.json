@@ -2,9 +2,9 @@
   "$schema": "urn:eratd:content:grammar:1",
   "content_type": "Grammar",
   "lang": "zh",
-  "version": 2,
+  "version": 3,
   "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；模板语法=字面量+{槽位}，匹配前经 TextNormalizer 归一（全半角/大小写/去空白标点）；slots=模板外常量槽位（字面量句式的槽位值）",
-  "_coverage_note": "T-069 全量 12 意图（SP-2 冻结表）：T-052 起步 5 意图每意图 12 变体 + T-061 miss 修复变体（hold-13~16/build-13~16/threat-13~16/stock-13~14）+ 7 新意图（升级/出售/集火/改集火模式/物流改道/巡逻/卷轴触发+停止）各 ≥10 变体；与 patterns-en.json 合计 285 条 ≥240 出货线",
+  "_coverage_note": "T-069 全量 12 意图（SP-2 冻结表）：T-052 起步 5 意图每意图 12 变体 + T-061 miss 修复变体（hold-13~16/build-13~16/threat-13~16/stock-13~14）+ 7 新意图（升级/出售/集火/改集火模式/物流改道/巡逻/卷轴触发+停止）各 ≥10 变体；与 patterns-en.json 合计 285 条 ≥240 出货线。T-090 盲测调优（留出集首跑暴露缺口，只修缺口）：alarm-13/14 插在 alarm-09/10 之前防 {reason} 误捕动词短语；尾部追加 15 条通用变体（看住/一定要守住/来 N 座/帮我建/都卖了/优先打/那只/目标改成/优先送/报一下/敌人是什么/有啥威胁/过 X 提醒/转转/派个人）",
   "_slot_source": "槽位定义=11-spec-tables.md SP-2；槽位值归一为目标 id（塔/敌=内容注册表 id，分区/通道/模式=lexicon id，数量=阿拉伯数字串，时长=秒，档位=1~4 数字）；塔指认复合值方案见 lexicon.json _canonical_scheme",
   "patterns": [
     { "id": "hold-zh-01", "intent": "HoldRegion", "template": "守住{target}" },
@@ -82,6 +82,8 @@
     { "id": "alarm-zh-06", "intent": "SetAlarm", "template": "定个{after}的闹钟" },
     { "id": "alarm-zh-07", "intent": "SetAlarm", "template": "帮我设{after}闹钟" },
     { "id": "alarm-zh-08", "intent": "SetAlarm", "template": "{after}后叫我一声" },
+    { "id": "alarm-zh-13", "intent": "SetAlarm", "template": "{after}后喊我" },
+    { "id": "alarm-zh-14", "intent": "SetAlarm", "template": "{after}后喊我一声" },
     { "id": "alarm-zh-09", "intent": "SetAlarm", "template": "{after}后报告{reason}" },
     { "id": "alarm-zh-10", "intent": "SetAlarm", "template": "{after}后{reason}" },
     { "id": "alarm-zh-11", "intent": "SetAlarm", "template": "记得{after}后叫我" },
@@ -166,6 +168,22 @@
     { "id": "scroll-zh-07", "intent": "ScrollControl", "template": "{scroll}都停掉", "slots": { "task": "all" } },
     { "id": "scroll-zh-08", "intent": "ScrollControl", "template": "把{task}停了" },
     { "id": "scroll-zh-09", "intent": "ScrollControl", "template": "停掉{task}" },
-    { "id": "scroll-zh-10", "intent": "ScrollControl", "template": "{task}都停了" }
+    { "id": "scroll-zh-10", "intent": "ScrollControl", "template": "{task}都停了" },
+
+    { "id": "hold-zh-18", "intent": "HoldRegion", "template": "看住{target}" },
+    { "id": "hold-zh-19", "intent": "HoldRegion", "template": "{target}一定要守住" },
+    { "id": "build-zh-17", "intent": "Build", "template": "{where}来{qty}座{tower}" },
+    { "id": "build-zh-18", "intent": "Build", "template": "帮我在{where}建{qty}座{tower}" },
+    { "id": "sell-zh-11", "intent": "Sell", "template": "把{target}都卖了" },
+    { "id": "focus-zh-13", "intent": "FocusFire", "template": "优先打{target}" },
+    { "id": "focus-zh-14", "intent": "FocusFire", "template": "集火那只{target}" },
+    { "id": "mode-zh-11", "intent": "ChangeFocusMode", "template": "目标改成{mode}" },
+    { "id": "reroute-zh-11", "intent": "RerouteLogistics", "template": "{item}优先送{to}" },
+    { "id": "stock-zh-15", "intent": "QueryStockpile", "template": "报一下{item}" },
+    { "id": "threat-zh-17", "intent": "QueryThreat", "template": "{scope}敌人是什么" },
+    { "id": "threat-zh-18", "intent": "QueryThreat", "template": "{scope}有啥威胁" },
+    { "id": "alarm-zh-15", "intent": "SetAlarm", "template": "过{after}提醒我" },
+    { "id": "patrol-zh-11", "intent": "Patrol", "template": "去{lane}转转", "slots": { "duration": "60" } },
+    { "id": "patrol-zh-12", "intent": "Patrol", "template": "派个人去{lane}看看", "slots": { "duration": "60" } }
   ]
 }

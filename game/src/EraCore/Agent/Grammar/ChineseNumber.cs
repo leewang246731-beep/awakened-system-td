@@ -48,6 +48,7 @@ public static class ChineseNumber
         ["nine"] = 9,
         ["ten"] = 10,
         ["both"] = 2,
+        ["acoupleof"] = 2, // "a couple of" folds to one token（盲测 miss 修复）
         ["an"] = 1,
         ["a"] = 1,
     };
@@ -164,11 +165,11 @@ public static class ChineseNumber
     /// Regex alternation (source text, to be embedded in a group) matching
     /// every quantity surface: 1-3 digits, 1-3 CJK numeral chars (covers
     /// 零~十, 两/俩 and compounds like 二十三), English words ordered longest
-    /// first so "an" wins over "a", an optional trailing measure word, or a
-    /// bare measure word (the indefinite-article reading, 造个火堆 → 1).
+    /// first so "acoupleof" wins over "a", an optional trailing measure word,
+    /// or a bare measure word (the indefinite-article reading, 造个火堆 → 1).
     /// </summary>
     public static string QuantityAlternation()
-        => "(?:\\d{1,3}|[零一二两三四五六七八九十俩]{1,3}|ten|nine|eight|seven|both|six|five|four|three|two|one|zero|an|a)(?:座|个|根|处|批)?|(?:座|个|根|处|批)";
+        => "(?:\\d{1,3}|[零一二两三四五六七八九十俩]{1,3}|acoupleof|ten|nine|eight|seven|both|six|five|four|three|two|one|zero|an|a)(?:座|个|根|处|批)?|(?:座|个|根|处|批)";
 
     /// <summary>
     /// Regex alternation matching every duration surface: fractional

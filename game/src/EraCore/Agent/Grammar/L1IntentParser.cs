@@ -65,6 +65,7 @@ public sealed class L1IntentParser : IIntentParser
     private static readonly string[] EnSideWords = { "left", "right", "front", "back" };
     private static readonly string[] AllTaskMarkers =
         { "所有卷轴", "全部卷轴", "allscrolls", "everyscroll", "scrolls", "卷轴", "所有", "全部", "all" };
+    private static readonly string[] TypeAllMarkers = { "所有", "全部" };
 
     private static readonly Regex CoordinateSuffix = new(
         @"[@＠]\s*(\d{1,3})\s*[,，、]\s*(\d{1,3})\s*$",
@@ -103,12 +104,20 @@ public sealed class L1IntentParser : IIntentParser
     /// Enemy alias dictionary from the content registry (era1 enemies.json);
     /// null ⇒ enemies come from the lexicon extras alone.
     /// </param>
+    /// <param name="scrolls">
+    /// Scroll alias dictionary from the scroll content registry
+    /// (scrolls/era2.json, T-090 DEBT 清偿：卷轴面进入封闭别名词典——注册
+    /// 表面优先于 lexicon 补充面，K-2 同源；纯 CJK 注册面同时生成「卷轴/卷」
+    /// 口语变体，对齐 lexicon 既有惯例)。null ⇒ scrolls come from the
+    /// lexicon faces alone (T-069 行为，兼容既有装配)。
+    /// </param>
     public L1IntentParser(
         GrammarBook zh,
         GrammarBook en,
         GrammarLexicon lexicon,
         AliasDictionary towers,
-        AliasDictionary? enemies = null)
+        AliasDictionary? enemies = null,
+        AliasDictionary? scrolls = null)
     {
         ArgumentNullException.ThrowIfNull(zh);
         ArgumentNullException.ThrowIfNull(en);
@@ -147,6 +156,7 @@ public sealed class L1IntentParser : IIntentParser
         BuildSurfaceMap(lexicon.FocusModes, _modeById, nameof(lexicon.FocusModes));
         BuildSurfaceMap(lexicon.Lanes, _laneById, nameof(lexicon.Lanes));
         BuildSurfaceMap(lexicon.Scrolls, _scrollById, nameof(lexicon.Scrolls));
+        MergeScrollRegistryFaces(scrolls);
         BuildSurfaceMap(lexicon.Pointing, _pointingById, nameof(lexicon.Pointing));
         if (_regionById.Count == 0 || _scopeById.Count == 0 || _itemById.Count == 0
             || _modeById.Count == 0 || _laneById.Count == 0 || _scrollById.Count == 0
@@ -194,11 +204,14 @@ public sealed class L1IntentParser : IIntentParser
 
         // Protected-word list for FuzzyRepair: every closed-vocabulary word a
         // tower-surface rewrite could destroy — lexicon surfaces plus enemy
-        // surfaces, the generic tower/enemy designators, the all-markers and
-        // the side words (T-061 §5 root cause: the guard must cover adjacent
-        // dictionary words, not just tower surfaces).
+        // surfaces, the merged scroll faces (T-090: 烽火 is one substitution
+        // away from the tower surface 篝火), the generic tower/enemy
+        // designators, the all-markers and the side words (T-061 §5 root
+        // cause: the guard must cover adjacent dictionary words, not just
+        // tower surfaces).
         _protectedSurfaces = lexicon.AllProtectedSurfaces()
             .Concat(_enemyById.Keys)
+            .Concat(_scrollById.Keys)
             .Concat(ZhGenericEnemyWords)
             .Concat(EnGenericEnemyWords)
             .Concat(ZhGenericTowerWords)
@@ -234,13 +247,63 @@ public sealed class L1IntentParser : IIntentParser
 
     /// <summary>Convenience factory from the content file payloads.</summary>
     public static L1IntentParser FromJson(
-        string patternsZhJson, string patternsEnJson, string lexiconJson, string towersJson, string? enemiesJson = null)
+        string patternsZhJson,
+        string patternsEnJson,
+        string lexiconJson,
+        string towersJson,
+        string? enemiesJson = null,
+        string? scrollsJson = null)
         => new(
             GrammarData.FromPatterns(patternsZhJson, "zh"),
             GrammarData.FromPatterns(patternsEnJson, "en"),
             GrammarData.FromLexicon(lexiconJson),
             AliasDictionary.FromTowerJson(towersJson),
-            enemiesJson is null ? null : AliasDictionary.FromTowerJson(enemiesJson));
+            enemiesJson is null ? null : AliasDictionary.FromTowerJson(enemiesJson),
+            scrollsJson is null ? null : AliasDictionary.FromContentRegistryJson(scrollsJson));
+
+    /// <summary>
+    /// Merges the scroll content-registry face into the scroll vocabulary
+    /// (T-090 DEBT 清偿：卷轴面进入封闭别名词典). Registry surfaces win over
+    /// same-surface lexicon claims only when the ids agree — a cross-source
+    /// surface claimed by two different scroll ids throws (K-2 conflicts
+    /// surface). Pure-CJK registry surfaces additionally grow the colloquial
+    /// 「卷轴/卷」suffix variants the lexicon convention carries
+    /// (火油卷轴/火油卷), so「开警弦卷轴」and「用备刃」are both first-class.
+    /// </summary>
+    private void MergeScrollRegistryFaces(AliasDictionary? scrolls)
+    {
+        if (scrolls is null)
+        {
+            return;
+        }
+
+        foreach (var (surface, scrollId) in scrolls.Entries)
+        {
+            if (_scrollById.TryGetValue(surface, out var owner) && owner != scrollId)
+            {
+                throw new ArgumentException(
+                    $"Scroll surface '{surface}' claimed by both lexicon '{owner}' and registry '{scrollId}' (K-2: conflicts surface).",
+                    nameof(scrolls));
+            }
+
+            _scrollById[surface] = scrollId;
+            if (!IsAllCjk(surface))
+            {
+                continue;
+            }
+
+            foreach (var suffix in ScrollSuffixVariants)
+            {
+                _scrollById.TryAdd(surface + suffix, scrollId);
+            }
+        }
+    }
+
+    /// <summary>Colloquial suffixes grown on pure-CJK registry scroll faces.</summary>
+    private static readonly string[] ScrollSuffixVariants = { "卷轴", "卷" };
+
+    private static bool IsAllCjk(string surface)
+        => surface.Length > 0 && surface.All(c => c >= '\u4E00' && c <= '\u9FFF');
 
     /// <inheritdoc />
     /// <remarks>
@@ -564,6 +627,9 @@ public sealed class L1IntentParser : IIntentParser
             $"(?:{region})(?:的)?(?:{tower})",
             // all towers on the north wall / everything on the west side / all
             $"(?:{all})(?:{linker})?(?:{region})?",
+            // 所有箭塔 / 全部的篝火 — every tower OF A TYPE (T-090: bare-type
+            // capture, canonicalizes to the bare tower id = "all of this type")
+            $"(?:全部|所有)(?:的)?(?:{tower})",
             // (the) (old/new) towers on the north wall
             $"(?:the)?(?:old|new)?towers?(?:{linker})(?:{region})",
             // two campfires at the east gate / that campfire / 篝火 / 两座箭塔
@@ -663,6 +729,30 @@ public sealed class L1IntentParser : IIntentParser
         {
             value = "all";
             return true;
+        }
+
+        // 所有{tower} / 全部的{tower} — every tower of one type. The bare
+        // tower id already reads as "the towers of this type" at the action
+        // layer (upgrade the spike traps ⇒ era1:tower-spike-trap), so the
+        // marker is dropped, never guessed into a count (T-090).
+        foreach (var marker in TypeAllMarkers)
+        {
+            if (!raw.StartsWith(marker, StringComparison.Ordinal) || raw.Length <= marker.Length)
+            {
+                continue;
+            }
+
+            var rest = raw[marker.Length..];
+            if (rest.StartsWith('的'))
+            {
+                rest = rest[1..];
+            }
+
+            if (rest.Length > 0 && _towers.TryResolve(rest, out var typeTowerId))
+            {
+                value = typeTowerId;
+                return true;
+            }
         }
 
         if (ZhGenericTowerWords.Contains(raw, StringComparer.Ordinal) || EnGenericTowerWords.Contains(raw, StringComparer.Ordinal))

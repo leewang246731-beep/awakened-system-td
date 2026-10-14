@@ -176,4 +176,44 @@ public class AliasDictionaryTests
 
         Assert.Equal(first.Surfaces, second.Surfaces);
     }
+
+    // ---- T-090：内容注册表面通用装载（卷轴面——封闭别名词典扩容） ----------------
+
+    [Fact] // legal：卷轴注册表面装载（含英文多词面 alarm string 类归一后一等键）
+    public void FromContentRegistryJson_loads_scroll_faces()
+    {
+        var scrolls = AliasDictionary.FromContentRegistryJson(GrammarTestPaths.Era2ScrollsJson());
+
+        Assert.Contains("alarmstring", scrolls.Surfaces);
+        Assert.Contains("spareblades", scrolls.Surfaces);
+        Assert.Contains("barbicanretort", scrolls.Surfaces);
+        Assert.True(scrolls.TryResolve("警弦", out var alarmId));
+        Assert.Equal("era2:scroll-alarm-string", alarmId);
+        Assert.True(scrolls.TryResolve("alarmstring", out var alarmIdEn));
+        Assert.Equal("era2:scroll-alarm-string", alarmIdEn);
+        Assert.True(scrolls.TryResolve("pressgang", out var gangId));
+        Assert.Equal("era2:scroll-press-gang", gangId);
+    }
+
+    [Fact] // boundary：带空格的英文原面不解析（①b 精确匹配不猜——LLM 档 deny-by-design，REV-20261014-T082 观察）
+    public void FromContentRegistryJson_raw_spaced_surface_does_not_resolve()
+    {
+        var scrolls = AliasDictionary.FromContentRegistryJson(GrammarTestPaths.Era2ScrollsJson());
+
+        // 键是归一形（无空格）；原始空格面按未知处理，交由闭表诚实拒绝。
+        // 「①b 规整前先做 Normalize」为 REV-20261014-T082 登记的另立任务，不在 T-090 范围。
+        Assert.False(scrolls.TryResolve("alarm string", out _));
+    }
+
+    [Fact] // illegal：缺 items 数组 / 同面双主 → 与塔面同一严格口径
+    public void FromContentRegistryJson_rejects_damaged_or_conflicting_documents()
+    {
+        Assert.Throws<JsonException>(() => AliasDictionary.FromContentRegistryJson("{\"era\": \"era2:era-classical\"}"));
+        Assert.Throws<InvalidOperationException>(() => AliasDictionary.FromContentRegistryJson("""
+            {"items": [
+              {"id": "era2:scroll-a", "name_zh": "烽火", "name_en": "Beacon"},
+              {"id": "era2:scroll-b", "aliases": ["beacon"]}
+            ]}
+            """)); // name_en "Beacon" 与 alias "beacon" 同面双主
+    }
 }

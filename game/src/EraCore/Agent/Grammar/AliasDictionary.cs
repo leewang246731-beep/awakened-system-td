@@ -7,11 +7,15 @@ namespace EraCore.Agent.Grammar;
 /// The tower alias dictionary of the L1 grammar (C-15, T-052), built from
 /// the content registry tower file (<c>game/content/era1/towers.json</c>:
 /// id + name_zh + name_en + aliases — K-2「别名词典与 ContentType aliases[]
-/// 同源」, SP-2 配套口径). Every surface is TextNormalizer-normalized at
-/// load; lookups resolve a captured surface to the namespaced tower id.
-/// Includes the homophone tolerance pass (v3.2 §11.5「同音容错」): a tower
-/// surface with one substituted character (弩塔-style near miss, 箭楼 vs 箭塔)
-/// is repaired in the normalized input before pattern matching.
+/// 同源」, SP-2 配套口径). T-090 generalizes the same loader to every
+/// content-registry face of that shape (<see cref="FromContentRegistryJson"/>,
+/// e.g. the scroll registry <c>game/content/scrolls/era2.json</c> — the
+/// closed dictionary no longer anchors the tower face alone). Every surface
+/// is TextNormalizer-normalized at load; lookups resolve a captured surface
+/// to the namespaced tower id. Includes the homophone tolerance pass
+/// (v3.2 §11.5「同音容错」): a tower surface with one substituted character
+/// (弩塔-style near miss, 箭楼 vs 箭塔) is repaired in the normalized input
+/// before pattern matching.
 /// </summary>
 public sealed class AliasDictionary
 {
@@ -37,6 +41,19 @@ public sealed class AliasDictionary
     /// (strict content stance, same as TowerSpec).
     /// </summary>
     public static AliasDictionary FromTowerJson(string json)
+        => FromItemsJson(json, "Tower alias");
+
+    /// <summary>
+    /// Builds the dictionary from any content-registry document carrying the
+    /// {items:[{id, name_zh, name_en, aliases[]}]} shape (T-090 DEBT 清偿：
+    /// 封闭别名词典面扩容——卷轴面 scrolls/era2.json 与塔面同形装载，英文
+    /// 多词别名 alarm string 类归一后即一等键)。Same strictness and the same
+    /// deterministic ordering as <see cref="FromTowerJson"/>.
+    /// </summary>
+    public static AliasDictionary FromContentRegistryJson(string json)
+        => FromItemsJson(json, "Content registry alias");
+
+    private static AliasDictionary FromItemsJson(string json, string label)
     {
         ArgumentNullException.ThrowIfNull(json);
 
@@ -45,7 +62,7 @@ public sealed class AliasDictionary
             || !document.RootElement.TryGetProperty("items", out var itemsElement)
             || itemsElement.ValueKind != JsonValueKind.Array)
         {
-            throw new JsonException("Tower alias document has no items array.");
+            throw new JsonException($"{label} document has no items array.");
         }
 
         var rows = new List<(string Id, List<string> Surfaces)>();
@@ -55,7 +72,7 @@ public sealed class AliasDictionary
                 || !item.TryGetProperty("id", out var idElement)
                 || idElement.ValueKind != JsonValueKind.String)
             {
-                throw new JsonException("Tower alias item without a string id.");
+                throw new JsonException($"{label} item without a string id.");
             }
 
             var id = idElement.GetString()!;

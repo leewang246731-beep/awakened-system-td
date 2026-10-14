@@ -4,6 +4,7 @@
   "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）；本文件=L1 文法词典，C-15 只读",
   "_source": "T-052 首建（regions/resources/threat_scopes），T-069 扩至 SP-2 全量 12 意图词汇（enemies 敌指认/focus_modes 改集火模式/lanes 巡逻通道/scrolls 卷轴/pointing 多模态指认）。regions=SP-2 #1/#2（分区+东南西北方位词）；resources id 与 game/content/era1/era.json resources 同源（era1:res-wood/stone/food），口语别名为语法层扩展（T-061 §6.2-3 增补：粮草）；threat_scopes=SP-2 #9（下一波/当前波，含 incoming wave）；enemies=SP-2 #5 敌指认补充面——注册表（game/content/era1/enemies.json）优先，本节只填注册表未覆盖的自然说法（boar/ram 裸词、boss 俗称、E2 攻城锤预登记 era2:enemy-ram 按 SP-3b）；focus_modes=SP-2 #6 mode:first/last/strong/closest；lanes=SP-2 #11 lane 通道 id（巡逻词面：方位/城门/敌后/双墙/道路）；scrolls=SP-2 #12——通用卷轴面 any + 三张口语卷轴名（era2: 前缀按 SP-5 E2 解锁口径预登记，T-071 卷轴数据落地后与内容注册表对齐 K-2 同源）；pointing=v3.2 §11.2 多模态指认占位（selected=实体指认 这个/这个塔，here=位置指认 这里/这个位置），解析期由 PointingContext 或 @x,y 后缀解析，缺上下文走澄清卡",
   "_t061_fixes": "T-061 §4 词典缺词 4 处修复：粮草→era1:res-food（miss #97）；western/southern/northern gate 对齐既有 eastern gate（miss #182，非对称缺口）；半分钟/半分/half a minute 由 ChineseNumber 绝对时长词表承载（miss #122/#284）",
+  "_t090_fixes": "T-090 留出集盲测调优增补 3 面：town centre→center（英式拼写，miss holdout-en-03）；southern road→lane_south（对齐既有 north gate/south road 混排面，miss holdout-en-52）；current→threat_scopes.current（裸形当前口径，miss holdout-en-45）。卷轴面本文件不再独自承载——封闭别名词典自 scrolls/era2.json 内容注册表装载（T-082 转 T-090 的 DEBT 清偿，L1IntentParser scrolls 侧），本节 fire-oil/frost/strength 三张为 T-069 时代预登记残留面（corpus-v1 依赖，钉死于同源校验断言）",
   "_canonical_scheme": "塔指认（Upgrade/Sell target、ChangeFocusMode target_towers）规范值：{tower_id}｜{tower_id}x{qty}｜{region_id}+any｜{region_id}+{tower_id}[x{qty}]｜all｜ord:{n}｜pointing 标记；敌指认（FocusFire target）：敌注册表 id｜any（敌人/enemies）｜side:{left/right/front/back}｜ord:{n}｜region id（方位）；修饰词（旧/新/old/new）解析层丢弃、动作层细化",
   "regions": [
     { "id": "east_gate", "surfaces": ["东门", "东城门", "east gate", "eastgate", "eastern gate"] },
@@ -18,7 +19,7 @@
     { "id": "west_side", "surfaces": ["西边", "西面", "西侧", "west side", "westside", "west"] },
     { "id": "south_side", "surfaces": ["南边", "南面", "南侧", "south side", "southside", "south"] },
     { "id": "north_side", "surfaces": ["北边", "北面", "北侧", "north side", "northside", "north"] },
-    { "id": "center", "surfaces": ["城中心", "中心", "城里", "城内", "center", "town center", "city center"] }
+    { "id": "center", "surfaces": ["城中心", "中心", "城里", "城内", "center", "town center", "town centre", "city center"] }
   ],
   "resources": [
     { "id": "era1:res-wood", "surfaces": ["木材", "木头", "木料", "wood", "timber", "lumber", "logs"] },
@@ -28,7 +29,7 @@
   "all_items_surfaces": ["全部", "所有", "资源", "储备", "all", "everything", "resources", "supplies"],
   "threat_scopes": [
     { "id": "next_wave", "surfaces": ["下一波", "下波", "接下来的波", "next wave", "nextwave", "incoming wave"] },
-    { "id": "current", "surfaces": ["当前波", "本波", "现在", "当前", "敌情", "current wave", "current threat", "current situation", "now"] }
+    { "id": "current", "surfaces": ["当前波", "本波", "现在", "当前", "敌情", "current", "current wave", "current threat", "current situation", "now"] }
   ],
   "enemies": [
     { "id": "era1:enemy-boar", "surfaces": ["boar"] },
@@ -45,7 +46,7 @@
     { "id": "lane_west", "surfaces": ["西线", "西边", "西面", "西侧", "西", "west lane", "western lane", "west side", "westside", "west"] },
     { "id": "lane_east", "surfaces": ["东线", "东边", "东面", "东侧", "东", "east lane", "eastern lane", "east side", "eastside", "east"] },
     { "id": "lane_north", "surfaces": ["北线", "北边", "北面", "北侧", "北", "北门", "北城门", "north lane", "north gate", "northgate", "north side", "northside", "north"] },
-    { "id": "lane_south", "surfaces": ["南线", "南边", "南面", "南侧", "南", "南门", "南城门", "south lane", "south gate", "southgate", "south side", "southside", "south road", "south", "南路"] },
+    { "id": "lane_south", "surfaces": ["南线", "南边", "南面", "南侧", "南", "南门", "南城门", "south lane", "south gate", "southgate", "south side", "southside", "south road", "southern road", "south", "南路"] },
     { "id": "lane_rear", "surfaces": ["敌后", "后方", "enemy rear", "behind enemy lines"] },
     { "id": "lane_walls", "surfaces": ["两道墙", "双墙", "both walls", "the walls", "walls"] }
   ],

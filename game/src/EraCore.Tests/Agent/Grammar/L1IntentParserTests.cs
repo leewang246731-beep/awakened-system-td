@@ -8,14 +8,18 @@ namespace EraCore.Tests.Agent.Grammar;
 // 确定性指纹。逐意图正反例矩阵在 L1IntentParserLogicTests。
 public class L1IntentParserTests
 {
-    /// <summary>从仓库内容构造的完整解析器（两语言书+词典+era1 塔/敌别名，T-069）。</summary>
+    /// <summary>
+    /// 从仓库内容构造的完整解析器（两语言书+词典+era1 塔/敌别名，T-069；
+    /// T-090 起卷轴面自 scrolls/era2.json 内容注册表装载——封闭别名词典扩容）。
+    /// </summary>
     internal static L1IntentParser CreateParser()
         => L1IntentParser.FromJson(
             GrammarTestPaths.ReadGrammarFile("patterns-zh.json"),
             GrammarTestPaths.ReadGrammarFile("patterns-en.json"),
             GrammarTestPaths.ReadGrammarFile("lexicon.json"),
             GrammarTestPaths.Era1TowersJson(),
-            GrammarTestPaths.Era1EnemiesJson());
+            GrammarTestPaths.Era1EnemiesJson(),
+            GrammarTestPaths.Era2ScrollsJson());
 
     [Fact] // legal：T-069 全量=SP-2 12 意图冻结表（T-052 起步 5 意图子集扩容收口）
     public void SupportedIntents_is_the_full_sp2_table()
