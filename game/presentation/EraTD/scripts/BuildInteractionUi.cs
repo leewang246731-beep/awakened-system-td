@@ -5,6 +5,7 @@ using EraCore.Combat;
 using EraCore.Contracts.Actions;
 using EraCore.Contracts.Foundation;
 using EraCore.Contracts.Journal;
+using EraCore.Contracts.Sim;
 using EraCore.Presentation;
 using EraCore.Sim;
 using EraCore.Units;
@@ -16,17 +17,31 @@ namespace EraTD;
 // build_ui.tscn（本脚本唯一挂载点；Main.cs 仅追加实例化行——并行纪律：
 // 与 T-055 的冲突面在 Main.cs，后提交者 rebase）。
 //
-// 交互链：建造栏 4 塔 icon（E1 目录驱动+类色色块）→按下拖动=矩形选格
-// （单格=1×1 矩形；cells≤4+2×E 同限截断）→绿/红格预览（合法性=BuildPlan
-// 草案输出，红格带共享拒绝码）→松开→BuildPlan 动作 JSON→PlayerBuildLane
-// （与军师同一咽喉：PipelineExecutor.InvokeStep→ActionRegistry.Invoke→
-// SimCommand 落子；不扣系统点——口径裁定见 PlayerBuildLane.cs 注释）。
-// ESC=取消清预览；右键点塔=拆除模式（confirm 弹层，confirm_sell=true 走
-// SellTower 同路径草案——E1/薄版注册表诚实拒绝并记 actor=player 战报）。
+// T-076（C-23 全量建造交互）在其上追加：
+//   §10.5 暂停可建造+变速——空格=暂停/恢复（PauseClock；暂停中松手=命令
+//   入队暂存，恢复瞬间 FlushInto 同一 K-6 SimCommandQueue，(tick,seq) 语义
+//   不变保确定性），1/2/3=1x/2x/3x 变速（宿主每帧步进 N tick）；
+//   §10.7 两级灰度——预览格三色（绿/黄灰=缺资源 tooltip/红=不可放置原因
+//   ——BuildGreyMap 纯映射，判定输入=BuildPlan 草案同源输出）+建造栏逐项
+//   染色（时代锁红/缺资源黄灰）；
+//   §6.1 批量同限 UX——超限截断提示（「军师与你同限」）+R/C 整行/整列
+//   快捷（仍受 cells≤4+2×E 截断）。
+//
+// 交互链：建造栏 4 塔 icon（E1 目录驱动+类色色块+两级灰度染色）→按下拖动
+// =矩形选格（单格=1×1 矩形；cells≤4+2×E 同限截断）→三色格预览（合法性
+// =BuildPlan 草案输出，红格带共享拒绝码；黄灰格带逐项造价缺口）→松开→
+// BuildPlan 动作 JSON→PlayerBuildLane（与军师同一咽喉：PipelineExecutor.
+// InvokeStep→ActionRegistry.Invoke→SimCommand 落子；不扣系统点——口径裁定
+// 见 PlayerBuildLane.cs 注释）。暂停中松开=同一批 build-tower 命令入
+// PauseClock 暂存队列（payload 与执行道 PlaceBuildableCells 逐字节同构），
+// 恢复后按序入同一队列。ESC=取消清预览；右键点塔=拆除模式（confirm 弹层，
+// confirm_sell=true 走 SellTower 同路径草案——暂停中拆除被拒（其结算立即
+// 步进，破坏冻结窗口），恢复后再试）。
 //
 // headless（smoke）下自动跑一遍脚本化拖放/取消/红格/拆除序列并打印
-// BUILD_OK（含注册表调用计数）；有头模式走真实鼠标输入，同一控制器与
-// 泳道，无第二套逻辑。
+// BUILD_OK（含注册表调用计数），随后跑全量序列打印 BUILD_V2（pause=speed3
+// grey=two-tier cap=trunc——任一自检不过即 Quit(1)）；有头模式走真实鼠标
+// 输入，同一控制器与泳道，无第二套逻辑。
 
 /// <summary>
 /// The C-23 thin build-interaction control (T-056): build bar, drag
@@ -66,6 +81,21 @@ public sealed partial class BuildInteractionUi : Control
     private string? _armedTower;
     private bool _leftDrag;
     private long _demolishTargetId;
+
+    /// <summary>
+    /// T-076 (F-118) 暂停/变速时钟：0 tick/帧 while paused（建造照常，
+    /// 命令暂存），否则 1x/2x/3x。headless 帧循环与有头 _Process 同一
+    /// RunFrame 入口，无第二套节奏。
+    /// </summary>
+    private readonly EraCore.Presentation.PauseClock _pauseClock = new();
+
+    // §10.7 两级灰度色板：绿=可放置且付得起；黄灰=缺资源（tooltip 报
+    // 缺什么/需多少/差多少）；红=不可放置（地形/占用/时代锁）。
+    private static readonly Color TintGreen = new(0.20f, 1.00f, 0.30f, 0.45f);
+    private static readonly Color TintYellowGrey = new(0.87f, 0.76f, 0.34f, 0.52f);
+    private static readonly Color TintRed = new(1.00f, 0.20f, 0.20f, 0.45f);
+    private static readonly Color BarTintYellowGrey = new(1.00f, 0.92f, 0.55f);
+    private static readonly Color BarTintRed = new(1.00f, 0.55f, 0.55f);
 
     /// <summary>Instance factory for the host (Main.cs appends one init line).</summary>
     public static BuildInteractionUi Instantiate(Control host)
@@ -121,13 +151,42 @@ public sealed partial class BuildInteractionUi : Control
 
     public override void _UnhandledKeyInput(InputEvent @event)
     {
-        if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
+        if (@event is not InputEventKey { Pressed: true } key)
         {
-            _controller.Cancel(); // ESC 清预览/取消拖放（含拆除弹层）
-            HideDemolishCard();
-            RepaintPreview();
-            SetStatus("已取消（ESC）");
-            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        switch (key.Keycode)
+        {
+            case Key.Escape:
+                _controller.Cancel(); // ESC 清预览/取消拖放（含拆除弹层）
+                HideDemolishCard();
+                RepaintPreview();
+                SetStatus("已取消（ESC）");
+                GetViewport().SetInputAsHandled();
+                break;
+            case Key.Space: // T-076 §10.5：空格=暂停/恢复（恢复时冲刷暂存命令）
+                TogglePauseAndFlush();
+                GetViewport().SetInputAsHandled();
+                break;
+            case Key.Key1:
+            case Key.Key2:
+            case Key.Key3: // 1x/2x/3x 变速（暂停中改档合法——恢复即生效）
+                _pauseClock.SetSpeed(key.Keycode switch
+                {
+                    Key.Key2 => 2,
+                    Key.Key3 => 3,
+                    _ => 1,
+                });
+                SetStatus(PaceStatus());
+                GetViewport().SetInputAsHandled();
+                break;
+            case Key.R: // 整行快捷（锚格→行尾，仍受 cells≤4+2×E 同限截断）
+                ExpandShortcut(row: true);
+                break;
+            case Key.C: // 整列快捷（锚格→列尾，同限截断）
+                ExpandShortcut(row: false);
+                break;
         }
     }
 
@@ -156,7 +215,8 @@ public sealed partial class BuildInteractionUi : Control
         _lane = PlayerBuildLane.OverSimulation(
             _sim, DemoConfig(catalog, enemies), () => AgentEra, new SequencingJournalWriter(_journal), _registrySink);
         _controller = new BuildDragController(_lane.View, () => AgentEra);
-        SetStatus("建栏选塔 → 左键拖矩形 → 松开建造（ESC 取消 / 右键拆除）");
+        SetStatus("建栏选塔 → 左键拖矩形 → 松开建造（ESC 取消 / 右键拆除 / 空格暂停 / 1-2-3 变速 / R 整行 C 整列）");
+        RefreshBarTints(); // §10.7 建造栏两级灰度（时代锁红 / 缺资源黄灰 / 可建绿）
     }
 
     private void BuildBar()
@@ -198,10 +258,32 @@ public sealed partial class BuildInteractionUi : Control
             return;
         }
 
+        // §10.5 暂停可建造：Sim tick 冻结，松手产生的 build-tower 命令入
+        // PauseClock 暂存队列——payload 与执行道 PipelineExecutor.PlaceBuildable
+        // Cells 逐字节同构（BuildTowerCommandJson 源生成），恢复时 FlushInto
+        // 同一 K-6 SimCommandQueue 按 (tick,seq) 原序应用（迟到命令本就合法）。
+        if (_pauseClock.IsPaused)
+        {
+            long applyTick = _sim.CurrentTick + 1; // 冻结 tick + 1（与执行道 applyTick 同式）
+            foreach (CellCoord cell in commit.Cells)
+            {
+                _pauseClock.EnqueueWhilePaused(new SimCommand(
+                    applyTick,
+                    SimCommandKind.PlayerBuild,
+                    JsonSerializer.Serialize(
+                        new BuildTowerCommandJson("build-tower", commit.TowerId, new CellJson(cell.X, cell.Y)),
+                        PipelinePlannerJsonContext.Default.BuildTowerCommandJson)));
+            }
+
+            SetStatus($"暂停中：{commit.TowerId} ×{commit.Cells.Count} 格已入队，恢复后按序应用（空格恢复）");
+            return;
+        }
+
         PlayerBuildOutcome outcome = _lane.Build(commit.TowerId, commit.Cells);
         SetStatus(outcome.Result.Status == ActionResultStatus.Ok
             ? $"已建 {outcome.CellsPlaced} 座（走 ActionRegistry→SimCommand 同一咽喉）"
             : $"建造被拒：{outcome.Result.ErrorMessage}");
+        RefreshBarTints(); // 木料变动——建造栏两级灰度即时刷新
     }
 
     private void EnterDemolishMode(CellCoord cell)
@@ -224,6 +306,15 @@ public sealed partial class BuildInteractionUi : Control
 
     private void OnDemolishConfirmed()
     {
+        // 暂停中拆除被拒：SellTower 走 EnqueueAndApply 立即步进结算，会击穿
+        // 冻结窗口（§10.5 暂停=Sim tick 不动）——恢复后再试（诚实拒绝，不静默）。
+        if (_pauseClock.IsPaused)
+        {
+            SetStatus("暂停中不可拆除（SellTower 立即步进结算）——空格恢复后再试");
+            HideDemolishCard();
+            return;
+        }
+
         PlayerBuildOutcome outcome = _lane.Sell(_demolishTargetId, confirmSell: true);
         SetStatus(outcome.Result.Status == ActionResultStatus.Ok
             ? $"已拆除 #{_demolishTargetId}"
@@ -233,6 +324,92 @@ public sealed partial class BuildInteractionUi : Control
 
     private void HideDemolishCard() => _demolishCard.Visible = false;
 
+    /// <summary>空格：暂停⇄恢复。恢复瞬间把暂存命令按入队序冲刷进同一 K-6 队列。</summary>
+    private void TogglePauseAndFlush()
+    {
+        if (_pauseClock.IsPaused)
+        {
+            _pauseClock.Resume();
+            int flushed = _pauseClock.FlushInto(_sim);
+            SetStatus(flushed > 0
+                ? $"已恢复 {PaceStatus()}——{flushed} 道暂停期命令按 (tick,seq) 原序入队，下一 tick 生效"
+                : $"已恢复 {PaceStatus()}");
+        }
+        else
+        {
+            _pauseClock.Pause();
+            SetStatus("已暂停（建造照常下达，恢复后按序应用）——空格恢复 / 1-2-3 变速");
+        }
+    }
+
+    /// <summary>R/C 整行/整列快捷：控制器扩到行/列尾，同限截断时状态栏给「军师与你同限」提示。</summary>
+    private void ExpandShortcut(bool row)
+    {
+        if (row)
+        {
+            _controller.ExpandToRow();
+        }
+        else
+        {
+            _controller.ExpandToColumn();
+        }
+
+        RepaintPreview(); // CappedByLimit 时状态栏即显截断提示
+    }
+
+    /// <summary>当前节奏描述（状态栏用）——暂停 0 tick/帧，否则 N tick/帧。</summary>
+    private string PaceStatus() => _pauseClock.IsPaused
+        ? "暂停（0 tick/帧，建造入队暂存）"
+        : $"{_pauseClock.SpeedMultiplier}x（{_pauseClock.SpeedMultiplier} tick/帧）";
+
+    /// <summary>
+    /// 建造栏两级灰度（§10.7 第一表面）：时代锁=红、缺资源=黄灰（tooltip 报
+    /// 逐项造价缺口）、可建=原色。判定全部走 BuildGreyMap.BarEntry 纯映射
+    /// （解锁时代读 K-3 冻结表），本类只做颜色翻译。SelfModulate 与选中态的
+    /// Modulate 分离——两级灰度不干扰 armed 高亮。
+    /// </summary>
+    private void RefreshBarTints()
+    {
+        double available = _lane.View.ResourceAmount(_lane.View.CostCurrency);
+        string currency = _lane.View.CostCurrency.Value;
+        foreach (KeyValuePair<string, Button> pair in _towerButtons)
+        {
+            _lane.View.TryGetTowerCost(pair.Key, out double unitCost);
+            BuildTintVerdict verdict = BuildGreyMap.BarEntry(AgentEra, unitCost, available, currency);
+            pair.Value.SelfModulate = verdict.Tier switch
+            {
+                BuildTintTier.YellowGrey => BarTintYellowGrey,
+                BuildTintTier.Red => BarTintRed,
+                _ => Colors.White,
+            };
+            pair.Value.TooltipText = verdict.Reason ?? $"{pair.Key}：可建造（{unitCost:0} {currency}）";
+        }
+    }
+
+    /// <summary>
+    /// 预览帧 → 逐格两级灰度判定（Repaint 与 headless 演示同一入口，无第二
+    /// 套映射）：可放置格按计划序累计造价（含本格），首格绿、库存耗尽后的
+    /// 可放置格转黄灰（一级），拒绝码格红（二级——红优先于黄灰）。
+    /// </summary>
+    private List<(BuildDragPreviewCell Cell, BuildTintVerdict Verdict)> TintedPreview(BuildDragPreview preview)
+    {
+        double available = _lane.View.ResourceAmount(_lane.View.CostCurrency);
+        string currency = _lane.View.CostCurrency.Value;
+        double cumulative = 0;
+        var tinted = new List<(BuildDragPreviewCell, BuildTintVerdict)>(preview.Cells.Count);
+        foreach (BuildDragPreviewCell cell in preview.Cells)
+        {
+            if (cell.Buildable)
+            {
+                cumulative += preview.UnitCost;
+            }
+
+            tinted.Add((cell, BuildGreyMap.Cell(cell, cumulative, available, currency)));
+        }
+
+        return tinted;
+    }
+
     private void RepaintPreview()
     {
         foreach (ColorRect rect in _highlights)
@@ -241,19 +418,34 @@ public sealed partial class BuildInteractionUi : Control
         }
 
         _highlights.Clear();
-        foreach (BuildDragPreviewCell cell in _controller.Preview().Cells)
+        BuildDragPreview preview = _controller.Preview();
+        foreach ((BuildDragPreviewCell cell, BuildTintVerdict verdict) in TintedPreview(preview))
         {
             var rect = new ColorRect
             {
                 Position = new Vector2(cell.Cell.X * Cell, cell.Cell.Y * Cell),
                 Size = new Vector2(Cell, Cell),
-                Color = cell.Buildable
-                    ? new Color(0.2f, 1.0f, 0.3f, 0.45f)
-                    : new Color(1.0f, 0.2f, 0.2f, 0.45f),
+                Color = verdict.Tier switch
+                {
+                    BuildTintTier.YellowGrey => TintYellowGrey,
+                    BuildTintTier.Red => TintRed,
+                    _ => TintGreen,
+                },
                 MouseFilter = MouseFilterEnum.Ignore,
             };
+            if (verdict.Reason is not null)
+            {
+                rect.TooltipText = verdict.Reason; // 黄灰=缺什么/差多少；红=不可放置原因
+            }
+
             _previewLayer.AddChild(rect);
             _highlights.Add(rect);
+        }
+
+        if (preview.CappedByLimit)
+        {
+            // §6.1 批量同限截断 UX：玩家与系统公平同规（上限读 K-3 冻结表）
+            SetStatus(BuildGreyMap.CapTruncationNote(preview.Cells.Count, AgentEra));
         }
     }
 
@@ -324,7 +516,228 @@ public sealed partial class BuildInteractionUi : Control
             $"sell_refusals={sellRefused} player_journal_events={_journal.PlayerEvents} " +
             $"player_journal_last_seq={_journal.LastPlayerSeq} " +
             $"tick={_sim.CurrentTick} state_hash={_sim.ComputeStateHash()}");
+
+        // ---- T-076 (C-23 全量) 第二幕：暂停+变速 / 两级灰度 / 同限截断 ----
+        RunFullInteractionDemoV2();
     }
+
+    /// <summary>
+    /// BUILD_V2 冒烟段（任务卡判据 pause=speed3 grey=two-tier cap=trunc）：
+    /// ①暂停中拖放松手→命令暂存（冻结证据：暂停帧 0 tick、塔数不动）→恢复
+    /// 冲刷→下一 tick 按序落子；②3x 变速=每帧 3 tick（4 帧=12 tick），暂停
+    /// 闸住变速（暂停帧 0 tick）；③两级灰度可区分——同一预览帧绿/黄灰/红
+    /// 三色齐全（黄灰=缺资源 tooltip、红=占用原因）；④整行快捷超限截断
+    /// （kept=上限，读 K-3 冻结表）。任一自检不过即 Quit(1)。
+    /// </summary>
+    private void RunFullInteractionDemoV2()
+    {
+        _pauseClock.SetSpeed(1);
+
+        // ① 暂停可建造：冻结 tick 上拖放两格 → 暂存 → 冻结帧证据 → 恢复冲刷
+        _pauseClock.Pause();
+        CellCoord pauseAnchor = FirstBuildableCell();
+        _controller.BeginDrag("era1:tower-wood-arrow", pauseAnchor);
+        _controller.UpdateDrag(pauseAnchor with { X = pauseAnchor.X + 1 }); // 1×2 两格
+        int pendingBefore = _pauseClock.PendingCount;
+        CommitDrag(); // 走 UI 同一路径（暂停分支=入队暂存）
+        int parked = _pauseClock.PendingCount - pendingBefore; // 期望 2（两可建格）
+
+        long frozenTick = _sim.CurrentTick;
+        int frozenTowers = _sim.Towers.Count;
+        const int frozenFrames = 3;
+        for (int frame = 0; frame < frozenFrames; frame++)
+        {
+            RunFrame();
+        }
+
+        bool frozenHeld = _sim.CurrentTick == frozenTick && _sim.Towers.Count == frozenTowers;
+        _controller.Cancel();
+
+        _pauseClock.Resume();
+        int flushed = _pauseClock.FlushInto(_sim);
+        RunFrame(); // 1x 一帧=1 tick——冲刷命令在本 tick 边界按 (tick,seq) 应用
+        bool resumeApplied = _sim.Towers.Count == frozenTowers + flushed;
+
+        // ② 变速：3x=每帧 3 tick；暂停闸住变速（0 tick/帧）
+        _pauseClock.SetSpeed(3);
+        long speedTickBefore = _sim.CurrentTick;
+        const int speedFrames = 4;
+        for (int frame = 0; frame < speedFrames; frame++)
+        {
+            RunFrame();
+        }
+
+        long speedTicks = _sim.CurrentTick - speedTickBefore; // 期望 12
+        _pauseClock.Pause();
+        long gatedTick = _sim.CurrentTick;
+        for (int frame = 0; frame < 2; frame++)
+        {
+            RunFrame();
+        }
+
+        bool pauseGatesSpeed = _sim.CurrentTick == gatedTick;
+        _pauseClock.Resume();
+        _pauseClock.SetSpeed(1); // 回 1x——后续木料核算按 1 tick/帧推进
+
+        // ③ 两级灰度：把库存抽到 [60,120)——rockfall 60/座 ⇒ 行内首格绿、
+        // 第二格起黄灰（累计 120 > 库存）；行内既有占用/地形格=红。
+        DrainWoodBelow(keepBelow: 120);
+        CellCoord greyAnchor = FindRowAnchorForGreyDemo();
+        _controller.BeginDrag("era1:tower-rockfall", greyAnchor);
+        _controller.ExpandToRow(); // ④ 同一预览兼证 cap=trunc（行长>上限 8）
+        BuildDragPreview greyPreview = _controller.Preview();
+        bool capped = greyPreview.CappedByLimit;
+        int kept = greyPreview.Cells.Count;
+        int tierGreen = 0, tierYellow = 0, tierRed = 0;
+        string? yellowTooltip = null, redTooltip = null;
+        foreach ((BuildDragPreviewCell cell, BuildTintVerdict verdict) in TintedPreview(greyPreview))
+        {
+            switch (verdict.Tier)
+            {
+                case BuildTintTier.Green:
+                    tierGreen++;
+                    break;
+                case BuildTintTier.YellowGrey:
+                    tierYellow++;
+                    yellowTooltip ??= verdict.Reason;
+                    break;
+                default:
+                    tierRed++;
+                    redTooltip ??= verdict.Reason;
+                    break;
+            }
+        }
+
+        // 红格补证：仓库格（恒占用）单独预览，拒绝码归「占用」类
+        _controller.BeginDrag("era1:tower-rockfall", new CellCoord(2, 14));
+        BuildTintVerdict warehouse = TintedPreview(_controller.Preview())[0].Verdict;
+        _controller.Cancel();
+        bool warehouseRed = warehouse.Tier == BuildTintTier.Red;
+        if (warehouseRed)
+        {
+            redTooltip ??= warehouse.Reason;
+        }
+
+        string capNote = BuildGreyMap.CapTruncationNote(kept, AgentEra);
+        int tierRedTotal = tierRed + (warehouseRed ? 1 : 0);
+        GD.Print(
+            $"BUILD_V2 pause=speed3 parked={parked} flushed={flushed} frozen_frames={frozenFrames} " +
+            $"frozen_held={frozenHeld} resume_applied={resumeApplied} " +
+            $"speed3_frames={speedFrames} speed3_ticks={speedTicks} pause_gates_speed={pauseGatesSpeed} " +
+            $"grey=two-tier green={tierGreen} yellow={tierYellow} red={tierRedTotal} " +
+            $"yellow_tooltip=\"{yellowTooltip ?? "none"}\" red_tooltip=\"{redTooltip ?? "none"}\" " +
+            $"cap=trunc kept={kept} limit={PlayerBuildLane.MaxBuildCells(AgentEra)} capped={capped} " +
+            $"note=\"{capNote}\" towers={_sim.Towers.Count} tick={_sim.CurrentTick} " +
+            $"wood={_lane.View.ResourceAmount(_lane.View.CostCurrency):0} " +
+            $"state_hash={_sim.ComputeStateHash()}");
+
+        // 自检门（与 PANEL 冒烟同判据形态）：任一不过即非 0 退出
+        if (parked < 1 || flushed != parked || !frozenHeld || !resumeApplied)
+        {
+            GD.PushError(
+                $"BUILD_V2 pause self-check failed: parked={parked} flushed={flushed} " +
+                $"frozen_held={frozenHeld} resume_applied={resumeApplied}");
+            GetTree().Quit(1);
+            return;
+        }
+
+        if (speedTicks != 3 * speedFrames || !pauseGatesSpeed)
+        {
+            GD.PushError(
+                $"BUILD_V2 speed self-check failed: speed3_ticks={speedTicks} " +
+                $"(want {3 * speedFrames}) pause_gates_speed={pauseGatesSpeed}");
+            GetTree().Quit(1);
+            return;
+        }
+
+        if (tierGreen < 1 || tierYellow < 1 || tierRedTotal < 1
+            || yellowTooltip is null || redTooltip is null || !warehouseRed)
+        {
+            GD.PushError(
+                $"BUILD_V2 grey self-check failed: green={tierGreen} yellow={tierYellow} " +
+                $"red={tierRedTotal} warehouse_red={warehouseRed} " +
+                $"yellow_tooltip=\"{yellowTooltip}\" red_tooltip=\"{redTooltip}\"");
+            GetTree().Quit(1);
+            return;
+        }
+
+        if (!capped || kept != PlayerBuildLane.MaxBuildCells(AgentEra))
+        {
+            GD.PushError(
+                $"BUILD_V2 cap self-check failed: capped={capped} kept={kept} " +
+                $"limit={PlayerBuildLane.MaxBuildCells(AgentEra)}");
+            GetTree().Quit(1);
+        }
+    }
+
+    /// <summary>一个 render 帧经 PauseClock：0 tick while paused，否则 SpeedMultiplier 个（SimHost.StepFrame 同式）。
+    /// 预算每帧只取一次——TicksThisFrame() 带计数副作用，不得置于循环条件。</summary>
+    private void RunFrame()
+    {
+        int ticks = _pauseClock.TicksThisFrame();
+        for (int t = 0; t < ticks; t++)
+        {
+            _sim.Step();
+        }
+    }
+
+    /// <summary>
+    /// 木料抽干到 keepBelow 以下（BUILD_V2 黄灰段夹具）：逐座 30 木箭塔走
+    /// 同一咽喉扣款，直至库存 < keepBelow。起始 1000 且全部支出为 30/60 的
+    /// 整数倍 ⇒ 终值恒为 100（∈[90,120)）——rockfall 60/座下首格绿、次格起
+    /// 黄灰，两格即分档。
+    /// </summary>
+    private void DrainWoodBelow(double keepBelow)
+    {
+        var tried = new HashSet<CellCoord>();
+        for (int guard = 0; guard < 60; guard++)
+        {
+            if (_lane.View.ResourceAmount(_lane.View.CostCurrency) < keepBelow)
+            {
+                return;
+            }
+
+            if (FirstBuildableCell(exclude: tried) is not { } cell)
+            {
+                return; // 排除集打满（不可能在冒烟里发生）——按现状继续，黄灰自检兜底
+            }
+
+            tried.Add(cell);
+            _lane.Build("era1:tower-wood-arrow", new[] { cell });
+            RefreshBarTints();
+        }
+    }
+
+    /// <summary>
+    /// 黄灰演示的整行锚：自底向上找一行，其最左可建格 x≤7（保证整行快捷
+    /// 长 ≥9 格 > 上限 8 ⇒ 截断）且行内可建格 ≥2（保证绿+黄灰并存）。
+    /// 种子钉死 ⇒ 每次运行同一锚。
+    /// </summary>
+    private CellCoord FindRowAnchorForGreyDemo()
+    {
+        for (int y = MapHeightCells - 1; y >= 0; y--)
+        {
+            int buildable = 0;
+            CellCoord? leftmost = null;
+            for (int x = 0; x < MapWidthCells; x++)
+            {
+                var cell = new CellCoord(x, y);
+                if (!_lane.View.IsBuildable(cell, out _))
+                {
+                    continue;
+                }
+
+                leftmost ??= cell;
+                buildable++;
+            }
+
+            if (buildable >= 2 && leftmost!.X <= MapWidthCells / 2)
+            {
+                return leftmost;
+            }
+        }
+
+        throw new InvalidOperationException("grey demo 找不到可建 ≥2 且最左格 x≤7 的行（内容/种子漂移）");    }
 
     private int CommitDemo(string towerId, CellCoord anchor)
     {
@@ -338,13 +751,18 @@ public sealed partial class BuildInteractionUi : Control
         return outcome.Result.Status == ActionResultStatus.Ok ? 1 : 0;
     }
 
-    private CellCoord FirstBuildableCell()
+    private CellCoord FirstBuildableCell(HashSet<CellCoord>? exclude = null)
     {
         for (int y = 0; y < MapHeightCells; y++)
         {
             for (int x = 0; x < MapWidthCells; x++)
             {
                 var cell = new CellCoord(x, y);
+                if (exclude?.Contains(cell) == true)
+                {
+                    continue;
+                }
+
                 if (_lane.View.IsBuildable(cell, out _))
                 {
                     return cell;
@@ -352,7 +770,9 @@ public sealed partial class BuildInteractionUi : Control
             }
         }
 
-        throw new InvalidOperationException("demo 地图无可建格（内容/种子漂移）");
+        return exclude is null
+            ? throw new InvalidOperationException("demo 地图无可建格（内容/种子漂移）")
+            : null!; // 排除集打满：调用方按「无处可建」处理
     }
 
     private void StepUntilEnemies(int maxTicks)

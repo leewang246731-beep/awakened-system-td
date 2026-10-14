@@ -161,4 +161,92 @@ public class BuildDragControllerTests
         Assert.Equal(SimEra1Content.WoodArrowTower().CostTotal * buildable, preview.TotalCost);
         Assert.True(preview.Affordable);
     }
+
+    // ---- T-076 (C-23 全量, F-036/F-118/F-119) --------------------------------
+
+    [Fact] // legal：整行快捷——锚格向右至行尾，仍受 cells≤4+2×E 同限截断（军师与你同限）
+    public void Row_shortcut_expands_to_the_row_end_and_truncates_at_the_shared_cap() // [F-036]
+    {
+        (SimulationActionView view, Func<int> era) = MakeView();
+        var controller = new BuildDragController(view, era);
+
+        controller.BeginDrag(WoodArrow, new CellCoord(2, 10)); // 行 (2..15,10)=14 格 > E2 上限 8
+        controller.ExpandToRow();
+        BuildDragPreview preview = controller.Preview();
+        Assert.True(preview.CappedByLimit);
+        Assert.Equal(PlayerBuildLane.MaxBuildCells(2), preview.Cells.Count);
+        Assert.All(preview.Cells, cell => Assert.Equal(10, cell.Cell.Y)); // 行选择（同 Y）
+        Assert.Equal(new CellCoord(2, 10), preview.Cells[0].Cell); // 行-major 前缀自锚格起
+        Assert.Equal(new CellCoord(9, 10), preview.Cells[^1].Cell); // 前 8 格=锚格右移 7 格
+
+        // 截断提示（UX）：含「军师与你同限」口号与上限读表值
+        string note = BuildGreyMap.CapTruncationNote(preview.Cells.Count, PipelineHarness.AgentEra);
+        Assert.Contains("军师与你同限", note);
+    }
+
+    [Fact] // legal：整列快捷——锚格向下至列尾，同限截断；未超限的短行不触发截断标志
+    public void Column_shortcut_expands_down_and_truncates_and_a_short_row_stays_uncapped() // [F-036]
+    {
+        (SimulationActionView view, Func<int> era) = MakeView();
+        var controller = new BuildDragController(view, era);
+
+        controller.BeginDrag(WoodArrow, new CellCoord(12, 4)); // 列 (12,4..23)=20 格 > 8
+        controller.ExpandToColumn();
+        BuildDragPreview column = controller.Preview();
+        Assert.True(column.CappedByLimit);
+        Assert.Equal(PlayerBuildLane.MaxBuildCells(2), column.Cells.Count);
+        Assert.All(column.Cells, cell => Assert.Equal(12, cell.Cell.X)); // 列选择（同 X）
+        Assert.Equal(new CellCoord(12, 11), column.Cells[^1].Cell); // 前 8 格=锚格下移 7 格
+
+        controller.BeginDrag(WoodArrow, new CellCoord(14, 10)); // 行 (14,15)=2 格 ≤ 8
+        controller.ExpandToRow();
+        BuildDragPreview shortRow = controller.Preview();
+        Assert.False(shortRow.CappedByLimit);
+        Assert.Equal(2, shortRow.Cells.Count);
+    }
+
+    [Fact] // boundary：快捷键在 Idle 态无副作用（未武装时 R/C 不产生预览、不改状态）
+    public void Row_and_column_shortcuts_are_inert_at_idle() // [F-036]
+    {
+        (SimulationActionView view, Func<int> era) = MakeView();
+        var controller = new BuildDragController(view, era);
+
+        controller.ExpandToRow();
+        controller.ExpandToColumn();
+        Assert.Equal(BuildDragState.Idle, controller.State);
+        Assert.Empty(controller.Preview().Cells);
+    }
+
+    [Fact] // legal：暂停兼容——idle→drag→invalid→cancel 状态机在冻结模拟（从不步进）上行为不变
+    public void State_machine_is_unchanged_on_a_frozen_never_stepped_simulation() // [F-118]
+    {
+        // PauseClock 冻结窗口的同一形态：模拟 0 步进，视图静止
+        (SimulationActionView view, Func<int> era) = MakeView();
+        var clock = new PauseClock();
+        clock.Pause();
+        var controller = new BuildDragController(view, era);
+
+        controller.BeginDrag(WoodArrow, SimE1Fixture.WarehouseCell); // 全红格 → Invalid
+        Assert.Equal(BuildDragState.Invalid, controller.State);
+
+        controller.Cancel(); // 暂停态 ESC 取消照样清预览回 Idle（放置前撤销）
+        Assert.Equal(BuildDragState.Idle, controller.State);
+        Assert.Empty(controller.Preview().Cells);
+
+        controller.BeginDrag(WoodArrow, new CellCoord(11, 11)); // 暂停中照常武装/拖放
+        controller.UpdateDrag(new CellCoord(12, 12));
+        controller.ExpandToRow();
+        Assert.Equal(BuildDragState.Dragging, controller.State);
+
+        BuildDragCommit? commit = controller.Commit(); // 暂停中松手照样产出提交（入队/暂缓由宿主裁定）
+        Assert.NotNull(commit);
+        Assert.All(commit!.Cells, cell => Assert.Equal(11, cell.Y)); // 整行快捷产出的行选择
+
+        // 冻结证据：整个交互序列期间 0 tick 发放
+        Assert.Equal(0, clock.TicksIssued);
+        for (int frame = 0; frame < 3; frame++)
+        {
+            Assert.Equal(0, clock.TicksThisFrame());
+        }
+    }
 }

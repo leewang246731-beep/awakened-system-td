@@ -86,7 +86,7 @@ public sealed partial class Main : Control
 
         for (int frame = 0; frame < SmokeFrames; frame++)
         {
-            _host.Step();       // real 30 Hz C-12 tick (was: mock AdvanceOneTick)
+            _host.StepFrame(); // T-076 (F-118): one render frame through the pause/speed clock (default 1x ⇒ tick-for-tick identical to the retired Step call)
             _bridge.SyncFrame(); // snapshot diff → dirty chunks
 
             var groundChunks = _bridge.TakeDirtyGroundChunks();

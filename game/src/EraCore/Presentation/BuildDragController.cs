@@ -3,7 +3,10 @@ using EraCore.Contracts.Foundation;
 
 namespace EraCore.Presentation;
 
-// T-056 (C-23 建造交互薄版, F-036/F-119)：拖放建造的纯逻辑状态机。表现层
+// T-056 (C-23 建造交互薄版, F-036/F-119)：拖放建造的纯逻辑状态机。T-076
+// (C-23 全量) 追加整行/整列快捷选择（ExpandToRow/ExpandToColumn——仍受
+// cells≤4+2×E 同限截断）；三级染色映射下沉 BuildGreyMap（本类保持状态机
+// 职责）。表现层
 // （Godot 侧 BuildInteractionUi）只做事件翻译：鼠标按下→BeginDrag、移动→
 // UpdateDrag（矩形从锚格到当前格，单格=1×1 矩形，与批量同一交互）、ESC→
 // Cancel、松开→Commit。格子合法性直接复用 BuildPlan 的校验输出
@@ -136,6 +139,52 @@ public sealed class BuildDragController
     public void Cancel()
     {
         Reset();
+    }
+
+    /// <summary>
+    /// Whole-row quick select (T-076 批量同限 UX): extends the rectangle
+    /// from the anchor to the right edge of the anchor's row (grid bounds
+    /// read through the view — no local map size). The shared
+    /// cells≤4+2×E cap still applies: an over-long row truncates to the
+    /// row-major prefix exactly like a hand-drawn rectangle (军师与你同限).
+    /// </summary>
+    public void ExpandToRow()
+    {
+        if (State == BuildDragState.Idle)
+        {
+            return; // nothing armed — the shortcut is inert
+        }
+
+        int x = _anchor.X;
+        while (_view.IsInsideGrid(new CellCoord(x + 1, _anchor.Y)))
+        {
+            x++;
+        }
+
+        _corner = new CellCoord(x, _anchor.Y);
+        Refresh();
+    }
+
+    /// <summary>
+    /// Whole-column quick select (T-076): extends the rectangle from the
+    /// anchor down to the bottom edge of the anchor's column, capped by
+    /// the same shared batch limit as every other selection.
+    /// </summary>
+    public void ExpandToColumn()
+    {
+        if (State == BuildDragState.Idle)
+        {
+            return; // nothing armed — the shortcut is inert
+        }
+
+        int y = _anchor.Y;
+        while (_view.IsInsideGrid(new CellCoord(_anchor.X, y + 1)))
+        {
+            y++;
+        }
+
+        _corner = new CellCoord(_anchor.X, y);
+        Refresh();
     }
 
     /// <summary>

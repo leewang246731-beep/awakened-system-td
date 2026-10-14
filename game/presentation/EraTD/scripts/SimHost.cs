@@ -73,6 +73,15 @@ internal sealed class SimHost
     internal IFileStore Store { get; }
 
     /// <summary>
+    /// The T-076 single-player pause/speed clock (C-23 全量, F-118, 设计
+    /// v3.2 §10.5): render frames map to 0 sim ticks while paused, else the
+    /// 1x/2x/3x multiplier. The frame loop calls <see cref="StepFrame"/>;
+    /// commands issued during a pause park in the clock and re-enter the
+    /// SAME K-6 SimCommand queue on resume — (tick, seq) semantics unchanged.
+    /// </summary>
+    internal EraCore.Presentation.PauseClock Clock { get; } = new();
+
+    /// <summary>
     /// The live trust model the badge tier follows (T-075, F-111/§11.4).
     /// Nothing in the E1 panel mutates it yet — alarm/advice outcomes wire in
     /// their own tasks; the presenter only reads <see cref="TrustModel.Score"/>.
@@ -139,6 +148,23 @@ internal sealed class SimHost
 
     /// <summary>Advances the real simulation by one 30 Hz tick (publishes a snapshot per tick).</summary>
     internal void Step() => Simulation.Step();
+
+    /// <summary>
+    /// One RENDER frame through the pause/speed clock (T-076, F-118 变速=
+    /// 宿主每帧步进 N tick): steps <see cref="Simulation"/> exactly
+    /// <c>Clock.TicksThisFrame()</c> times — 0 while paused (建造/军令窗口
+    /// 冻结), else the 1x/2x/3x multiplier. At the default 1x this is
+    /// tick-for-tick identical to the retired per-frame <see cref="Step"/>
+    /// call, so the headless smoke line stays byte-stable.
+    /// </summary>
+    internal void StepFrame()
+    {
+        int ticks = Clock.TicksThisFrame();
+        for (int i = 0; i < ticks; i++)
+        {
+            Simulation.Step();
+        }
+    }
 
     /// <summary>
     /// Extracts the HUD three metrics from the live simulation (F-111):
