@@ -1,0 +1,147 @@
+{
+  "$schema": "urn:eratd:content:ui:glossary:1",
+  "content_type": "Glossary",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-093 词汇表（F-124 术语表数据化，§10.12 F1 帮助面板）：术语 id 即谓词提示（hints.json 的 term 字段）与帮助面板互链的稳定锚点；related 指向其它词条 id（面板内跳转）。全部释义口径引用设计文档章节，禁自造新机制。",
+  "items": [
+    {
+      "id": "threat",
+      "term_zh": "威胁度",
+      "term_en": "Threat",
+      "def_zh": "关卡危险等级（0~1 带小数），决定波量与敌种构成；战役图节点按邻接敌营派生，手工关按节奏定值（SP-9）。",
+      "def_en": "Level danger rating (0..1) that scales wave size and roster; derived from adjacent enemy camps on the campaign map, hand-picked for authored levels (SP-9).",
+      "aliases": ["威胁", "threat", "危险度"],
+      "related": ["wave", "enemy_armor"],
+      "_source": "v3.2 §7 手工关威胁度=SP-9 节奏定值先例（levels/e1.json threat 字段）"
+    },
+    {
+      "id": "system_points",
+      "term_zh": "系统点",
+      "term_en": "System Points",
+      "def_zh": "军师行动的预算点数（E2=5→终章=13），每波开始回满至上限，Boss 波只回 50%；建造 2/战斗 1/物流 1/巡逻 1/侦察 0。",
+      "def_en": "The advisor's action budget (E2=5 to finale=13), refilled to cap at each wave start, 50% on boss waves; costs: build 2, combat 1, logistics 1, patrol 1, scout 0.",
+      "aliases": ["系统点数", "点数", "system points", "sp"],
+      "related": ["trust", "advisor_order"],
+      "_source": "v3.2 §11.4（系统点计价与回满语义）"
+    },
+    {
+      "id": "trust",
+      "term_zh": "信任度",
+      "term_en": "Trust",
+      "def_zh": "你对军师的信任分（0~100）：<40 将信将疑、40~69 可托付、≥70 言听计从；只改军师表达幅度，不改其能力。",
+      "def_en": "Your trust score in the advisor (0..100): <40 skeptical, 40-69 dependable, >=70 devoted; shifts how the advisor talks, never what it can do.",
+      "aliases": ["信任", "trust"],
+      "related": ["system_points", "persona"],
+      "_source": "v3.2 §11.4（三档徽记阈值与口径）"
+    },
+    {
+      "id": "efficiency",
+      "term_zh": "效率",
+      "term_en": "Efficiency",
+      "def_zh": "塔的供弹满足率（0~100%）：滑动窗内交付发数÷需求发数；塔射速按效率打折——效率低先查供给线。",
+      "def_en": "A tower's ammo satisfaction ratio (0..100%): delivered shots over demanded shots in a sliding window; fire rate scales by it — low efficiency means check the supply line first.",
+      "aliases": ["效率", "efficiency", "供弹效率"],
+      "related": ["bottleneck", "carrier", "ammo"],
+      "_source": "v3.2 §5 效率曲线+§10.1 因果提示（塔效率<50%→检查供给线）"
+    },
+    {
+      "id": "counter",
+      "term_zh": "克制",
+      "term_en": "Counter",
+      "def_zh": "塔类×敌种的定性克制：物理克重甲、穿刺克无甲群、溅射克密集、能量克护盾/重甲、减速克快速、支援提供光环；敌表 counters 列为数据源。",
+      "def_en": "Qualitative tower-class vs enemy matchups: physical beats heavy armor, pierce beats unarmored swarms, splash beats density, energy beats shields/armor, slow beats speed, support carries auras; the enemy table's counters column is the data source.",
+      "aliases": ["克制", "counter", "克制关系"],
+      "related": ["enemy_armor", "tower_class"],
+      "_source": "SP-1a 六类塔职责表克制指向列（docs/engineering/11-spec-tables.md）+SP-3a 敌表 counters 列"
+    },
+    {
+      "id": "carrier",
+      "term_zh": "民夫",
+      "term_en": "Carrier",
+      "def_zh": "搬运生产链产物的脚夫（物流最低档）：装货→出仓→卸货→回程四相位；卸货被拒会排队重试。",
+      "def_en": "The porter tier of the logistics chain: loading, outbound, unloading, inbound; a refused unload queues and retries.",
+      "aliases": ["民夫", "脚夫", "carrier", "porter"],
+      "related": ["bottleneck", "efficiency"],
+      "_source": "v3.2 §5 供需基准（2 塔:1 民夫:1 伐木场）+CarrierPhase（F-042）"
+    },
+    {
+      "id": "bottleneck",
+      "term_zh": "断流",
+      "term_en": "Supply Bottleneck",
+      "def_zh": "塔效率持续低于阈值触发的断供事件：界面在瓶颈位打红圈、该线路民夫流变灰；修复供给后恢复。",
+      "def_en": "A starvation event raised when a tower's efficiency stays under threshold: the UI draws a red ring at the bottleneck and greys that line's carrier flow; recovers once supply is fixed.",
+      "aliases": ["断流", "瓶颈", "bottleneck", "supply bottleneck"],
+      "related": ["efficiency", "carrier"],
+      "_source": "F-046 断点可观测（SupplyBottleneckEvent，§10.8 物流断流可视化）"
+    },
+    {
+      "id": "ammo",
+      "term_zh": "弹药",
+      "term_en": "Ammo",
+      "def_zh": "塔的消耗品：1 件弹药=10 发；民夫把弹药搬进塔的弹匣，弹匣空了塔就打不出满速。",
+      "def_en": "Tower consumables: 1 ammo item = 10 shots; carriers move items into the tower magazine, and an empty magazine throttles fire.",
+      "aliases": ["弹药", "ammo", "弹匣"],
+      "related": ["efficiency", "carrier"],
+      "_source": "v3.2 §5 L78「1 件弹药 = 10 发」"
+    },
+    {
+      "id": "zone",
+      "term_zh": "分区",
+      "term_en": "Zone",
+      "def_zh": "地图上的命名区块（如东门/南门/仓城）：地名与军令 lane 枚举同一数据源（zones.json），改名双向同步；镜头靠近时浮显区名。",
+      "def_en": "Named map regions (e.g. east gate, south gate, warehouse): place names share one data source with order lane enums (zones.json), renaming syncs both; labels surface when the camera nears.",
+      "aliases": ["分区", "zone", "地名"],
+      "related": ["advisor_order"],
+      "_source": "v3.2 §10.5 分区命名标注层（地名与枚举同源）"
+    },
+    {
+      "id": "persona",
+      "term_zh": "系统人格",
+      "term_en": "System Persona",
+      "def_zh": "军师的四种表达人格（毒舌/参谋/沙雕/傲娇）：只改台词与音色，不改能力；关闭系统=警报降级中性横幅，功能无损、成就不绑定。",
+      "def_en": "The advisor's four expression personas (snarky/advisor/goofy/tsundere): they change lines and timbre only, never capability; turning the system off downgrades alarms to a neutral banner with zero feature loss and no achievement binding.",
+      "aliases": ["人格", "persona", "系统人格"],
+      "related": ["trust"],
+      "_source": "v3.2 §10.7（人格可切换+关闭系统功能无损）"
+    },
+    {
+      "id": "advisor_order",
+      "term_zh": "军令",
+      "term_en": "Advisor Order",
+      "def_zh": "你对军师下的自然语言指令（12 意图冻结，中英双语）：军师先出方案卡（步骤+消耗+风险红标），你确认才执行；没听懂会给澄清卡+快捷轮盘。",
+      "def_en": "Your natural-language command to the advisor (12 frozen intents, zh/en): it answers with a plan card (steps, cost, risk flags) and only acts on your confirm; unknown orders get a clarification card plus the quick wheel.",
+      "aliases": ["军令", "order", "指令"],
+      "related": ["system_points", "zone"],
+      "_source": "v3.2 §11.2 五段管线+§11.5 L1 12 意图枚举冻结"
+    },
+    {
+      "id": "wave",
+      "term_zh": "波次",
+      "term_en": "Wave",
+      "def_zh": "敌人的进攻节奏单位：波间隔=120s×乘子；HUD 的下波预览读波次表只读投影。",
+      "def_en": "The assault cadence unit: wave spacing = 120 s x multiplier; the HUD next-wave preview is a read-only projection of the wave schedule.",
+      "aliases": ["波次", "wave", "下一波"],
+      "related": ["threat"],
+      "_source": "v3.2 §6 波间隔公式（F.2 表）"
+    },
+    {
+      "id": "enemy_armor",
+      "term_zh": "护甲",
+      "term_en": "Armor",
+      "def_zh": "敌人的减伤点数：伤害式=max(单发×衰减−甲, 10%×单发×衰减)；重甲怕物理，无甲群怕穿刺。",
+      "def_en": "Enemy flat damage reduction: damage = max(shot x decay - armor, 10% x shot x decay); heavy armor fears physical, unarmored swarms fear pierce.",
+      "aliases": ["甲", "armor", "护甲"],
+      "related": ["counter"],
+      "_source": "v3.2 §6 伤害式（11-spec-tables SP-3 头部单位约定）"
+    },
+    {
+      "id": "tower_class",
+      "term_zh": "塔类",
+      "term_en": "Tower Class",
+      "def_zh": "六类塔枚举（物理/穿刺/溅射/能量/减速/支援）：决定克制指向与验证带；升级走成本合计 ×3/级严格律。",
+      "def_en": "The six tower classes (physical/pierce/splash/energy/slow/support): they decide counter direction and verification bands; upgrades follow the strict x3 total-cost ladder.",
+      "aliases": ["塔类", "tower class", "class"],
+      "related": ["counter"],
+      "_source": "SP-1a/SP-1b（07 修正表 #24 六类枚举冻结）"
+    }
+  ]
+}

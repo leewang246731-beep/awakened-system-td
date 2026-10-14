@@ -1,0 +1,95 @@
+{
+  "$schema": "urn:eratd:content:ui:hints:1",
+  "content_type": "HintTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-093 谓词式提示库（F-110 谓词式+因果型，§10.1/附录 G.3：行为触发+持久化+可跳过+冷静期）：predicate=EraCore HintPredicateKind 枚举名；priority 越小越先出；cooldown_s=冷静期（同提示再次触发的间隔下限）；once=true 表示已读后永不再弹（新玩家首 10 分钟引导）；term=词汇表词条 id（提示与帮助互链）。因果型提示（F-110 第二类）= first_bottleneck / low_integrity 两行，文案必须给出因果指向（查哪里、为什么）。",
+  "items": [
+    {
+      "id": "hint-start-help",
+      "predicate": "GameStart",
+      "priority": 10,
+      "cooldown_s": 0,
+      "once": true,
+      "text_zh": "欢迎来到大陆。F1 打开词汇表，随时查「威胁度/系统点/信任度/效率」这些词。",
+      "text_en": "Welcome to the continent. F1 opens the glossary - look up threat, system points, trust and efficiency any time.",
+      "term": null,
+      "_source": "§10.1 首次引导串联（F1 帮助入口告知）"
+    },
+    {
+      "id": "hint-first-production",
+      "predicate": "FirstProduction",
+      "priority": 20,
+      "cooldown_s": 0,
+      "once": true,
+      "text_zh": "第一座生产建筑落成：伐木场产出木料，转换器把它做成弹药——生产链是塔防的粮草。",
+      "text_en": "First production building placed: harvesters make wood, converters turn it into ammo - the production chain feeds the defense.",
+      "term": "ammo",
+      "_source": "v3.2 §5 供需基准（生产链先于塔线）"
+    },
+    {
+      "id": "hint-first-tower",
+      "predicate": "FirstTower",
+      "priority": 30,
+      "cooldown_s": 0,
+      "once": true,
+      "text_zh": "第一座塔落成。点塔可看详情卡（DPS/射程/弹种/克制）与升级预览；塔头状态条=弹药余量。",
+      "text_en": "First tower placed. Click a tower for its detail card (DPS/range/ammo/counters) and upgrade preview; the bar over its head is the ammo reserve.",
+      "term": "tower_class",
+      "_source": "§10.6 三层信息（静态面板+塔头状态条）"
+    },
+    {
+      "id": "hint-first-wave",
+      "predicate": "WaveIncoming",
+      "priority": 40,
+      "cooldown_s": 0,
+      "once": true,
+      "text_zh": "首波来袭。HUD 的「下波」行是只读预览——提前看构成，补对应克制的塔。",
+      "text_en": "First wave inbound. The HUD's next-wave line is a read-only preview - read the roster early and build the countering class.",
+      "term": "wave",
+      "_source": "F-111 波次构成分析（下波预览）"
+    },
+    {
+      "id": "hint-clarify-card",
+      "predicate": "ClarifyCard",
+      "priority": 50,
+      "cooldown_s": 30,
+      "once": true,
+      "text_zh": "军师没听懂这道令（澄清卡）：可用快捷轮盘点常用令，或换句式重说。",
+      "text_en": "The advisor did not parse that order (clarification card): use the quick wheel for common orders or rephrase.",
+      "term": "advisor_order",
+      "_source": "§11.2 意图层失败=澄清卡+快捷轮盘（输入）"
+    },
+    {
+      "id": "hint-first-bottleneck",
+      "predicate": "FirstBottleneck",
+      "priority": 5,
+      "cooldown_s": 45,
+      "once": true,
+      "text_zh": "因果提示：有塔效率低于一半——先查供给线。红圈=瓶颈位（断点格或最低库存中转），灰线=断流线路；补民夫/清断点后恢复。",
+      "text_en": "CAUSAL: a tower's efficiency fell under half - check the supply line first. The red ring marks the bottleneck (break cell or lowest-stock relay), the grey line is the cut route; add porters or clear the break to recover.",
+      "term": "efficiency",
+      "_source": "§10.1 因果型提示（塔效率<50%→检查供给线）+§10.8 物流断流可视化"
+    },
+    {
+      "id": "hint-low-integrity",
+      "predicate": "LowIntegrity",
+      "priority": 1,
+      "cooldown_s": 60,
+      "once": false,
+      "text_zh": "因果提示：防线完整度低于 40%——塔在掉血。修塔（拆重建或升级加 HP）比继续铺塔更急。",
+      "text_en": "CAUSAL: defense integrity under 40% - towers are taking hits. Repairing (rebuild or upgrade for HP) beats expanding the line right now.",
+      "term": "threat",
+      "_source": "§10.3 警报线（防线完整度低于 40% 立即加固）"
+    },
+    {
+      "id": "hint-zone-labels",
+      "predicate": "CameraNearZone",
+      "priority": 60,
+      "cooldown_s": 0,
+      "once": true,
+      "text_zh": "分区标注：镜头靠近的区域会浮显地名（东门/南门/仓城）。点名这些地名的军令，军师听得懂。",
+      "text_en": "Zone labels: regions surface their names as the camera nears (east gate / south gate / warehouse). Orders naming these places parse.",
+      "term": "zone",
+      "_source": "§10.5 分区命名标注层（地名与枚举同源）"
+    }
+  ]
+}

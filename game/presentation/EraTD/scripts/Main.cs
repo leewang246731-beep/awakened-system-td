@@ -158,6 +158,15 @@ public sealed partial class Main : Control
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         Audio.AudioDirector.Instantiate(this, _host);
 
+        // ---- 5g) T-093 info layers (C-22/C-23 UI/UX polish) ----------------
+        // 信息层总装（scripts/InfoLayersUi.cs）：三层信息（塔详情卡+塔头状态
+        // 条+断流红圈灰线）+分区命名标注（镜头靠近浮显+chip 点击定位）+F1
+        // 词汇表（术语搜索+提示互链）+谓词驱动提示队列（优先级+冷静期+已读
+        // 持久化）；headless 下自带冒烟并打印 UI_OK layers=3——smoke 信息层
+        // 判据，另存关键 UI 状态截图（D-03 根 ui-snapshots/，口径见 SNAP 行）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        InfoLayersUi.Instantiate(this, _host);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.
@@ -195,7 +204,14 @@ public sealed partial class Main : Control
         GD.Print($"PANEL journal {_host.JournalDigest()}");
         GD.Print($"SMOKE_OK core={EraCore.VersionInfo.Current} scale={fit.Scale}");
 
-        GetTree().Quit(0);
+        // T-093：显式 Quit 仅 headless（--quit 本就在首次迭代后退出，显式
+        // 调用只为钉住退出码）；窗口运行让主循环迭代真实帧——信息层截图
+        // 留档（ForceDraw 在窗口映射前只画出清屏色，取不到首帧像素）。
+        // 窗口跑法：无参运行=活机窗口；--quit-after N=N 帧后自动退。
+        if (OS.HasFeature("headless") || DisplayServer.GetName() == "headless")
+        {
+            GetTree().Quit(0);
+        }
     }
 
     /// <summary>

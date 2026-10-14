@@ -1,0 +1,39 @@
+{
+  "$schema": "urn:eratd:content:ui:zones:1",
+  "content_type": "ZoneLabels",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-093 分区命名标注层（F-117，§10.5/§10.12：地名与枚举同源）：zone id 即军令 lane 枚举与令簿地名共用的稳定键（SimHost 锚点表 keys=east_gate/south_gate；冒烟断言运行时逐格互证同源）。cell=分区代表格（16×24 开发宿主图坐标）；镜头靠近浮显由 ZoneLabels 纯逻辑判定。",
+  "items": [
+    {
+      "id": "east_gate",
+      "name_zh": "东门",
+      "name_en": "East Gate",
+      "cell": { "x": 12, "y": 12 },
+      "aliases": ["东门", "east gate", "东面"],
+      "_source": "SimHost.EastGateAnchor (12,12)（T-053 军师 HoldRegion 环扫锚，令簿 lane 枚举同源键）"
+    },
+    {
+      "id": "south_gate",
+      "name_zh": "南门",
+      "name_en": "South Gate",
+      "cell": { "x": 4, "y": 8 },
+      "aliases": ["南门", "south gate", "南面"],
+      "_source": "SimHost.SouthGateAnchor (4,8)（T-053 军师锚，令簿 lane 枚举同源键）"
+    },
+    {
+      "id": "warehouse",
+      "name_zh": "仓城",
+      "name_en": "Warehouse Yard",
+      "cell": { "x": 2, "y": 14 },
+      "aliases": ["仓城", "仓库", "warehouse", "货栈"],
+      "_source": "SimHost.WarehouseCell (2,14)（D-03 公共池仓库位，e1.json warehouse_cell 同值）"
+    },
+    {
+      "id": "base_camp",
+      "name_zh": "营垒",
+      "name_en": "Base Camp",
+      "cell": { "x": 8, "y": 23 },
+      "aliases": ["营垒", "基地", "base", "核心"],
+      "_source": "SimHost BuildConfig BaseCell (8,23)（C-12 防线核心格，e1.json base_cell 同值）"
+    }
+  ]
+}
