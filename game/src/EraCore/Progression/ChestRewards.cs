@@ -94,16 +94,19 @@ public sealed record ChestTierSpec(string Tier, int ItemRolls, int BonusRolls);
 /// <summary>
 /// The validated chest table: rarity weights in frozen order
 /// (Common→Rare→Legendary, cumulative walk is deterministic), the four
-/// tier rows and the decorative item pools grouped per rarity (ordered by
-/// id — registration order determinism, K-2).
+/// tier rows, the decorative item pools grouped per rarity (ordered by
+/// id — registration order determinism, K-2) and the T-088 pity
+/// threshold (0 = no pity block in the document, legacy behavior).
 /// </summary>
 /// <param name="OrderedWeights">Weights per rarity in Common,Rare,Legendary order (the 60/30/10 of SP-8c).</param>
 /// <param name="Tiers">The four tier rows.</param>
 /// <param name="ItemsByRarity">Item pools per rarity, id-sorted.</param>
+/// <param name="PityMaxMisses">Pity threshold: consecutive items without a Legendary that force the next one (T-088, [NEW-原型校准]; 0 = pity off).</param>
 public sealed record ChestTable(
     IReadOnlyList<(RewardRarity Rarity, double Weight)> OrderedWeights,
     IReadOnlyList<ChestTierSpec> Tiers,
-    IReadOnlyDictionary<RewardRarity, IReadOnlyList<ChestItemSpec>> ItemsByRarity);
+    IReadOnlyDictionary<RewardRarity, IReadOnlyList<ChestItemSpec>> ItemsByRarity,
+    int PityMaxMisses = 0);
 
 /// <summary>JSON shape of one chests.json items[] row.</summary>
 public sealed record ChestItemDto(
@@ -117,16 +120,22 @@ public sealed record ChestItemDto(
 /// <summary>JSON shape of one chests.json tiers[] row.</summary>
 public sealed record ChestTierDto(string? Tier, int? ItemRolls, int? BonusRolls);
 
+/// <summary>JSON shape of the optional chests.json pity block (T-088).</summary>
+/// <param name="MaxMissesWithoutLegendary">Consecutive non-Legendary items that force the next one Legendary.</param>
+public sealed record ChestPityDto(int? MaxMissesWithoutLegendary);
+
 /// <summary>Root shape of chests.json.</summary>
 /// <param name="ContentType">K-2 content kind declaration ("DropTable").</param>
 /// <param name="RarityWeights">Weight per rarity key (<c>common</c>…).</param>
 /// <param name="Tiers">Tier rows.</param>
 /// <param name="Items">Decorative item rows.</param>
+/// <param name="Pity">Optional pity block (absent = pity off, legacy behavior).</param>
 public sealed record ChestsDocument(
     string? ContentType,
     IReadOnlyDictionary<string, double>? RarityWeights,
     IReadOnlyList<ChestTierDto>? Tiers,
-    IReadOnlyList<ChestItemDto>? Items);
+    IReadOnlyList<ChestItemDto>? Items,
+    ChestPityDto? Pity = null);
 
 /// <summary>
 /// Loader + validator of the chest document (T-073): enforces the frozen
@@ -253,12 +262,25 @@ public static class ChestRewardsData
             pool.Sort((left, right) => string.Compare(left.Id, right.Id, StringComparison.Ordinal));
         }
 
+        int pityMaxMisses = 0;
+        if (document.Pity is not null)
+        {
+            if (document.Pity.MaxMissesWithoutLegendary is null or < 1)
+            {
+                throw new ArgumentException(
+                    $"Pity max_misses_without_legendary must be at least 1 (got {document.Pity.MaxMissesWithoutLegendary}).");
+            }
+
+            pityMaxMisses = document.Pity.MaxMissesWithoutLegendary.Value;
+        }
+
         return new ChestTable(
             weights.OrderBy(line => line.Item1).Select(line => (line.Item1, line.Item2)).ToList(),
             tiers,
             byRarity.ToDictionary(
                 pair => pair.Key,
-                pair => (IReadOnlyList<ChestItemSpec>)pair.Value));
+                pair => (IReadOnlyList<ChestItemSpec>)pair.Value),
+            pityMaxMisses);
     }
 }
 
@@ -302,6 +324,21 @@ public sealed class ChestRewards
     /// </summary>
     /// <exception cref="ArgumentException">tierId unknown.</exception>
     public IReadOnlyList<GrantedChestItem> Open(string tierId, long runSeed)
+        => Open(tierId, runSeed, pity: null);
+
+    /// <summary>
+    /// Pity-enabled open (T-088, F-177): identical to <see cref="Open(string,long)"/>
+    /// except that when the tier's miss counter inside <paramref name="pity"/>
+    /// is full (<see cref="ChestPity.ForcesLegendary"/>), the item's rarity is
+    /// forced Legendary — the natural rarity roll is still drawn and discarded
+    /// (draw-then-override: the RNG stream shape stays byte-identical with and
+    /// without pity, so the 60/30/10 natural distribution is untouched) and the
+    /// forced item still draws uniformly from the Legendary pool (R9 whitelist
+    /// unchanged). Determinism: same (tier, seed, counter state) ⇒ same items —
+    /// the counter is part of the replay state (<see cref="ChestPity.MissesByTier"/>).
+    /// </summary>
+    /// <exception cref="ArgumentException">tierId unknown.</exception>
+    public IReadOnlyList<GrantedChestItem> Open(string tierId, long runSeed, ChestPity? pity)
     {
         ChestTierSpec tier = _table.Tiers.FirstOrDefault(candidate => candidate.Tier == tierId)
             ?? throw new ArgumentException($"Unknown chest tier '{tierId}'.", nameof(tierId));
@@ -311,6 +348,17 @@ public sealed class ChestRewards
         for (int i = 0; i < tier.ItemRolls + tier.BonusRolls; i++)
         {
             RewardRarity rarity = RollRarity();
+            if (pity is not null)
+            {
+                bool forced = pity.ForcesLegendary(tierId);
+                if (forced)
+                {
+                    rarity = RewardRarity.Legendary;
+                }
+
+                pity.Record(tierId, rarity, forced);
+            }
+
             IReadOnlyList<ChestItemSpec> pool = _table.ItemsByRarity[rarity];
             ChestItemSpec item = pool[_rng.Next(0, pool.Count)];
             granted.Add(new GrantedChestItem(item.Id, item.Rarity, item.RewardClass));
@@ -356,5 +404,6 @@ public sealed class ChestRewards
 [JsonSerializable(typeof(ChestsDocument))]
 [JsonSerializable(typeof(ChestItemDto))]
 [JsonSerializable(typeof(ChestTierDto))]
+[JsonSerializable(typeof(ChestPityDto))]
 [JsonSerializable(typeof(RewardRarity))]
 public sealed partial class ChestsJsonContext : JsonSerializerContext;
