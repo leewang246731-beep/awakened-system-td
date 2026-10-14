@@ -115,9 +115,13 @@ public sealed class TechTree
     private readonly ResourceStock _pool;
     private readonly List<string> _unlockedInOrder = new();
     private readonly HashSet<string> _capturedLevels = new();
-    private readonly int _eraIndex;
 
     private ActiveResearch? _active;
+
+    // [T-074 小扩展：C-20 跃迁事务] _eraIndex 由 readonly 改可写——跃迁提交时
+    // SetEraIndex(+1) 切换科技时代根，任一步失败由事务日志以旧值回调恢复；
+    // 除此之外时代根不可变（v3.2 §5：仓库/时代只在跃迁时推进）。
+    private int _eraIndex;
 
     /// <param name="nodes">Validated node table (<see cref="TechTreeData.Parse"/> output).</param>
     /// <param name="pool">Campaign resource pool — materials and installments withdraw here.</param>
@@ -151,6 +155,44 @@ public sealed class TechTree
 
     /// <summary>Number of unlocked nodes — the 全局因子 input.</summary>
     public int UnlockedCount => _unlockedInOrder.Count;
+
+    /// <summary>Current campaign era of the tree (the era-gate input). [T-074 小扩展：C-20 事务需读现值以校验/回滚]</summary>
+    public int EraIndex => _eraIndex;
+
+    /// <summary>
+    /// Switches the tech-tree era root (T-074 任务卡步骤「科技时代根切换」).
+    /// [T-074 小扩展：C-20 跃迁事务专用] — 提交侧调用 (era+1) 打开新时代节点，
+    /// 失败回滚由事务日志以快照旧值回调本方法；除 C-20 事务外无调用方。
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">eraIndex outside 1..6.</exception>
+    public void SetEraIndex(int eraIndex)
+    {
+        if (eraIndex is < 1 or > 6)
+        {
+            throw new ArgumentOutOfRangeException(nameof(eraIndex), eraIndex, "Era index must be 1..6 (E1=1 … 终章=6).");
+        }
+
+        _eraIndex = eraIndex;
+    }
+
+    /// <summary>
+    /// The frozen research cost of one node under one merged relief share
+    /// (F-059 接入点). [T-074 小扩展：C-20 Legacy.StackingRule 作为唯一咽喉
+    /// 合并残卷/奇观/纪念馆减免后的份额在此作用于公式总价；份额已含 50%
+    /// 下限钳制，本方法只做 [0,0.5] 域校验与乘法。]
+    /// </summary>
+    /// <exception cref="ArgumentNullException">node is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">reliefShare outside [0,0.5].</exception>
+    public long ResearchCost(TechNodeSpec node, double reliefShare)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        if (!double.IsFinite(reliefShare) || reliefShare is < 0 or > 0.5)
+        {
+            throw new ArgumentOutOfRangeException(nameof(reliefShare), reliefShare, "Relief share must be in [0,0.5] (StackingRule 钳制口径).");
+        }
+
+        return (long)Math.Round(RawCost(node.CostSum, UnlockedCount) * (1.0 - reliefShare), MidpointRounding.AwayFromZero);
+    }
 
     /// <summary>The single installment slot; null when no research is running (F-050 分期).</summary>
     public ActiveResearch? Active => _active;
@@ -290,7 +332,18 @@ public sealed class TechTree
     /// </summary>
     /// <exception cref="ArgumentException">nodeId unknown.</exception>
     /// <exception cref="InvalidOperationException">Any gate failed, or materials vanished mid-withdrawal (rolled back).</exception>
-    public void BeginResearch(string nodeId)
+    public void BeginResearch(string nodeId) => BeginResearch(nodeId, reliefShare: 0.0);
+
+    /// <summary>
+    /// Begins researching a node under one merged relief share
+    /// (F-059/F.3): the installment total locks at
+    /// <see cref="ResearchCost(TechNodeSpec, double)"/>.
+    /// [T-074 小扩展：C-20 Legacy.StackingRule 唯一咽喉的 Progression 接入点；
+    /// 缺省 0 保持原行为。]
+    /// </summary>
+    /// <exception cref="ArgumentException">nodeId unknown, or reliefShare outside [0,0.5].</exception>
+    /// <exception cref="InvalidOperationException">Any gate failed, or materials vanished mid-withdrawal (rolled back).</exception>
+    public void BeginResearch(string nodeId, double reliefShare)
     {
         TechNodeSpec node = RequireNode(nodeId);
         TechGateReport report = CheckGates(nodeId);
@@ -318,7 +371,7 @@ public sealed class TechTree
             withdrawn.Add((material.Resource, material.Amount));
         }
 
-        long total = ResearchCost(node);
+        long total = ResearchCost(node, reliefShare);
         var balances = new List<TechCostBalance>();
         foreach ((ResourceKey resource, long charge) in SplitCost(total, node.CostMix))
         {

@@ -1,0 +1,87 @@
+{
+  "$schema": "urn:eratd:content:legacy:archaeology:1",
+  "content_type": "DropTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；本文件=C-20 考古产出表（T-074，F-058/F-059/F-099）",
+  "dig": {
+    "manpower_cost": 20,
+    "energy_cost": 35,
+    "min_duration_seconds": 30,
+    "max_duration_seconds": 90,
+    "tier_duration_seconds": { "1": 30, "2": 50, "3": 70, "4": 90 },
+    "drill_ticks_per_second": 30,
+    "_source": "T-074 任务卡：考古队人力/能量消耗 30~90s [NEW 钻探 tick]；drill_ticks_per_second 与 K-1 30 Hz 对齐（SimClock.TicksPerSecond）"
+  },
+  "channels": {
+    "knowledge_scroll": 50,
+    "ancient_blueprint": 30,
+    "restoration": 20,
+    "_source": "F-058 三通道（知识残卷/远古图纸/修复）按产出表三选一；权重=T-074 结构旋钮（首个落表值，非设计文档冻结锚点）"
+  },
+  "knowledge_scrolls": [
+    {
+      "id": "legacy:scroll-mem-e1-siege",
+      "tech_node": "campaign:tech-e2-arrow",
+      "relief_share": 0.10,
+      "memory_zh": "……第七纪元残页：敌群踏过河滩时，木头会先于人类尖叫。箭，要从高处落下。",
+      "memory_en": "Fragment of the 7th epoch: when the horde crosses the shallows, the wood screams before the men do. Arrows must fall from above."
+    },
+    {
+      "id": "legacy:scroll-mem-e1-granary",
+      "tech_node": "campaign:tech-e2-crossbow",
+      "relief_share": 0.10,
+      "memory_zh": "……粮仓失守那夜的记录：鼠群与霉变同至，守军学会了把食物抬离地面——以及把箭簇抬得更高。",
+      "memory_en": "Record of the night the granary fell: rats and rot arrived together; the garrison learned to lift the food off the ground - and the bolt heads higher."
+    },
+    {
+      "id": "legacy:scroll-mem-e1-porter",
+      "tech_node": "campaign:tech-e2-logistics",
+      "relief_share": 0.10,
+      "memory_zh": "……一位民夫的遗言被刻在辕木上：路要直，车要满。我走了一千趟，第一千零一趟交给你。",
+      "memory_en": "A porter's last words carved into a shaft: roads straight, carts full. I walked it a thousand times; the thousand-and-first is yours."
+    },
+    {
+      "id": "legacy:scroll-mem-e1-beacon",
+      "tech_node": "campaign:tech-e2-scroll-beacon",
+      "relief_share": 0.10,
+      "memory_zh": "……烽火台灰烬里的值班表：每柱烟都是一个字，整夜的天空是一句话。读它的人不在了，话还在。",
+      "memory_en": "A duty roster found in beacon ashes: each column of smoke was a word, the whole night sky a sentence. The reader is gone; the sentence stays."
+    }
+  ],
+  "_scroll_note": "知识残卷=系统『丢失的记忆碎片』（F-099：读残卷=恢复系统上一纪元的记忆）；同一科技节点至多 1 张（附录 F.3，Legacy.KnowledgeScrollBoard 执法）；relief_share 经 Legacy.StackingRule 单一咽喉与其它减免乘法叠加、总下限 50%",
+  "ancient_blueprints": [
+    {
+      "id": "legacy:blueprint-mixed-bastion",
+      "name_zh": "辕木棱堡图",
+      "name_en": "Shaft-Wood Bastion Blueprint",
+      "mix": ["era1:tower-wood-arrow", "era2:tower-crossbow"],
+      "_source": "F-058 远古图纸：跨时代混合建筑解锁（E1 构件+E2 结构，T-074 首批两张）"
+    },
+    {
+      "id": "legacy:blueprint-mixed-slingyard",
+      "name_zh": "夯土砲场图",
+      "name_en": "Rammed-Earth Slingyard Blueprint",
+      "mix": ["era1:tower-rockfall", "era2:tower-onager"],
+      "_source": "F-058 远古图纸：跨时代混合建筑解锁（E1 构件+E2 结构，T-074 首批两张）"
+    }
+  ],
+  "restoration": {
+    "wreck_repair_cost_fraction": 0.3,
+    "new_era_conversion_rate": 0.8,
+    "functional_weight": 60,
+    "memorial_weight": 40,
+    "memorial_auras": {
+      "repair_discount": 0.05,
+      "research_relief": 0.04
+    },
+    "_source": "07 修正表 #28：残骸修复成本×30%×0.8 叠加；纪念馆光环取最大、全图至多 3 座生效（附录 F.3，Legacy.MemorialAuraBoard 执法）；aura 值=T-074 结构旋钮"
+  },
+  "_units": {
+    "dig.manpower_cost": "manpower_points",
+    "dig.energy_cost": "energy_points",
+    "dig.duration": "seconds",
+    "knowledge_scrolls.relief_share": "fraction_discount",
+    "restoration.wreck_repair_cost_fraction": "fraction_of_wreck_value",
+    "restoration.new_era_conversion_rate": "fraction_multiplier",
+    "restoration.memorial_auras": "fraction"
+  }
+}

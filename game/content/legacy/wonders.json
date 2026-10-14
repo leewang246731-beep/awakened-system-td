@@ -1,0 +1,87 @@
+{
+  "$schema": "urn:eratd:content:legacy:wonders:1",
+  "content_type": "Wonder",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；六奇观=跃迁硬条件+各自全局加成（附录 F.3，v3.2）",
+  "items": [
+    {
+      "id": "campaign:wonder-pyramid",
+      "content_type": "Wonder",
+      "era_index": 1,
+      "tech_node": "campaign:tech-e1-wonder-pyramid",
+      "name_zh": "金字塔",
+      "name_en": "Great Pyramid",
+      "aliases": ["金字塔", "E1 奇观"],
+      "bonus_kind": "resource_cap",
+      "bonus_value": 0.2,
+      "_source": "附录 F.3：金字塔（E1，资源上限 +20%）；ResourceStock.PyramidBonus 同值对齐（Economy/ResourceStock.cs）"
+    },
+    {
+      "id": "campaign:wonder-great-library",
+      "content_type": "Wonder",
+      "era_index": 2,
+      "tech_node": "campaign:tech-e2-wonder-great-library",
+      "name_zh": "大图书馆",
+      "name_en": "Great Library",
+      "aliases": ["大图书馆", "E2 奇观"],
+      "bonus_kind": "research_cost",
+      "bonus_value": 0.15,
+      "_source": "附录 F.3：大图书馆（E2，研究 −15%）；减免经 Legacy.StackingRule 单一咽喉叠乘（F.3 叠加规则）"
+    },
+    {
+      "id": "campaign:wonder-expo",
+      "content_type": "Wonder",
+      "era_index": 3,
+      "tech_node": "campaign:tech-e3-wonder-expo",
+      "name_zh": "世界博览会",
+      "name_en": "World Exposition",
+      "aliases": ["世博会", "E3 奇观"],
+      "bonus_kind": "logistics_throughput",
+      "bonus_value": 0.25,
+      "_source": "附录 F.3：世界博览会（E3，物流吞吐 +25%）；E2→E3 跃迁=T-117 扩展位"
+    },
+    {
+      "id": "campaign:wonder-internet",
+      "content_type": "Wonder",
+      "era_index": 4,
+      "tech_node": "campaign:tech-e4-wonder-internet",
+      "name_zh": "互联网",
+      "name_en": "The Internet",
+      "aliases": ["互联网", "E4 奇观"],
+      "bonus_kind": "radar_shared",
+      "bonus_value": 1.0,
+      "_source": "附录 F.3：互联网（E4，雷达全图共享）"
+    },
+    {
+      "id": "campaign:wonder-dyson-cloud",
+      "content_type": "Wonder",
+      "era_index": 5,
+      "tech_node": "campaign:tech-e5-wonder-dyson-cloud",
+      "name_zh": "戴森云",
+      "name_en": "Dyson Cloud",
+      "aliases": ["戴森云", "E5 奇观"],
+      "bonus_kind": "energy_output",
+      "bonus_value": 2.0,
+      "_source": "附录 F.3：戴森云（E5，能源 ×2）"
+    },
+    {
+      "id": "campaign:wonder-era-gate",
+      "content_type": "Wonder",
+      "era_index": 6,
+      "tech_node": "campaign:tech-e6-wonder-era-gate",
+      "name_zh": "纪元之门",
+      "name_en": "Gate of Eras",
+      "aliases": ["纪元之门", "终章奇观"],
+      "bonus_kind": "finale_gate",
+      "bonus_value": 1.0,
+      "_source": "附录 F.3：纪元之门（终章，通关之门）"
+    }
+  ],
+  "_units": {
+    "bonus_value:resource_cap": "fraction_additive",
+    "bonus_value:research_cost": "fraction_discount",
+    "bonus_value:logistics_throughput": "fraction_additive",
+    "bonus_value:radar_shared": "fraction",
+    "bonus_value:energy_output": "multiplier",
+    "bonus_value:finale_gate": "fraction"
+  }
+}

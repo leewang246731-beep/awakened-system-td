@@ -1,0 +1,34 @@
+{
+  "$schema": "urn:eratd:content:legacy:relic-mapping:1",
+  "content_type": "DropTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；本文件=C-20 遗迹映射参数表（T-074 产品化 spike3，参数=spike3-report §6 推荐值采纳）",
+  "core_zone": {
+    "core_radius_cells": 10,
+    "build_margin_cells": 2,
+    "reserve_area_cap_fraction": 0.15,
+    "_source": "A5 裁定（07 修正表 #13）：遗迹城核心区=以主城为中心切比雪夫半径 10 格 ∩ 本时代已建区外扩 2 格，格子集合显式快照持久化；reserve_area_cap_fraction=0.15 为 T-074 任务卡『新大陆核心区 15% 面积标记（threat 生成让位）』上限"
+  },
+  "replay": {
+    "shift_radius_cells": 2,
+    "_source": "spike3-report §6 推荐参数 3：移位半径 2（F.7 移位档，独立噪声地形下挽回 100% 原位冲突；真实聚簇地形落地后重标定——spike3 坑 1）"
+  },
+  "new_continent": {
+    "map_size_cells": 96,
+    "forest_ratio": 0.15,
+    "rock_ratio": 0.10,
+    "water_ratio": 0.08,
+    "resource_node_count": 12,
+    "terrain_yield_radius_cells": 10,
+    "resource_avoid_yield_zone": true,
+    "threat_node_count": 9,
+    "_source": "spike3-report §6 推荐参数 1/2：让位半径=核心区半径 10（Water/Rock→Plain，实测核心区完好率 98.9%）+资源点布设避开让位区（半径 10 内不刷资源点，把核心区残留损失 1.1% 压至 ~0）；地形比例三值与 GridWorld.Default*Ratio 逐值一致（GridWorld 预原型校准锚点，此处按 CS-2.3 落数据表）；threat_node_count=T-074 threat 生成让位演示旋钮"
+  },
+  "orientations_quarters": [0, 90, 180, 270],
+  "_units": {
+    "core_radius_cells": "cells",
+    "shift_radius_cells": "cells",
+    "reserve_area_cap_fraction": "fraction_of_map_cells",
+    "map_size_cells": "cells",
+    "terrain_yield_radius_cells": "cells"
+  }
+}

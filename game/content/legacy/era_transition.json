@@ -1,0 +1,53 @@
+{
+  "$schema": "urn:eratd:content:legacy:era-transition:1",
+  "content_type": "Era",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；本文件=C-20 E1→E2 跃迁事务参数表（T-074，F-003/F-011）",
+  "preconditions": {
+    "requires_final_level": true,
+    "requires_wonder": true,
+    "_source": "T-074 任务卡：跃迁硬前置=[终局关+奇观]（附录 F.3 时代奇观清单=跃迁硬条件）"
+  },
+  "levy": {
+    "carried_share": 0.3,
+    "useless_fold_divisor": 3,
+    "_source": "Mindustry 逆向映射「30% 课税+文明基金 3:1」（§附录 A / §4 跨代资源行）：跃迁带走=每资源 floor(30%×存量)，留存侧恰 70%（T-074 验收『资源恰 70%』）；带走份额中新时代无用途资源按 3:1 折算文明基金（用途=仅传承商店，见 heritage_shop.json）"
+  },
+  "warehouse": {
+    "level_gain_per_transition": 1,
+    "_source": "v3.2 §5：仓库等级每次时代跃迁自动 +1（E1=1→E2=2…终章=6，不可手动升级）；池上限公式 2000×等级×(1+金字塔 0.2)（附录 F.3，ResourceStock 同式）"
+  },
+  "pyramid_bonus_carries_over": true,
+  "_pyramid_note": "金字塔=E1 奇观且实体随遗迹城跨代保留（F.7 映射回放），其资源上限 +20% 项随仓库新等级继续生效（附录 F.3 池上限公式只有金字塔一个奇观项）",
+  "final_levels": {
+    "1": "campaign:level-e1-final",
+    "_source": "各时代终局关 id（占位：E1 终局关；E2+ 随 T-117/T-079 内容行扩展）"
+  },
+  "first_three_schedule": [
+    {
+      "slot": 1,
+      "level_id": "campaign:level-e2-01",
+      "focus": "new_energy",
+      "focus_zh": "新能源",
+      "_source": "v3.2 §4：新时代前三关排期——关 1 新能源"
+    },
+    {
+      "slot": 2,
+      "level_id": "campaign:level-e2-02",
+      "focus": "new_logistics",
+      "focus_zh": "新物流",
+      "_source": "v3.2 §4：新时代前三关排期——关 2 新物流"
+    },
+    {
+      "slot": 3,
+      "level_id": "campaign:level-e2-03",
+      "focus": "archaeology_hero_system",
+      "focus_zh": "考古+英雄+系统新能力",
+      "_source": "v3.2 §4：新时代前三关排期——关 3 考古+英雄+系统新能力（§11.8）"
+    }
+  ],
+  "_units": {
+    "levy.carried_share": "fraction_of_pool_amount",
+    "levy.useless_fold_divisor": "old_resource_units_per_fund_unit",
+    "warehouse.level_gain_per_transition": "levels"
+  }
+}
