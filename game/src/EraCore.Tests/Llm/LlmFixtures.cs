@@ -92,6 +92,44 @@ public static class LlmFixtures
     public const string MimoUnsupportedModelBody =
         """{"error":{"message":"Unsupported model: MIMO-V2.6-PRO","type":"invalid_request_error"}}""";
 
+    /// <summary>OpenAI SSE 多工具并发交错样例（T-091 矩阵）：index 1 先到、index 0/1 参数交错、空串参数片、name 重复下发、usage 尾帧。</summary>
+    public const string OpenAiSseMultiToolInterleaved =
+        """
+        data: {"id":"x","choices":[{"index":0,"delta":{"reasoning_content":"两步：先建塔。"}}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{"content":"收到。"}}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{"reasoning_content":"再出售旧塔。"}}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{"content":"正在执行。"}}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"id":"call_b","type":"function","function":{"name":"SellTower","arguments":""}}]}},{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"BuildPlan","arguments":""}}]}}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":"{\"tower_id\":"}}]}},{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"tower_id\":\"cross"}}]}}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"name":"BuildPlan","arguments":"bow_t2\",\"cells\":[{\"x\":3,\"y\":7}]}"}}]}},{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":"\"arrow_t1\"}"}}]}}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{}}],"usage":{"prompt_tokens":128,"completion_tokens":64,"total_tokens":192}}
+
+        data: [DONE]
+
+        """;
+
+    /// <summary>OpenAI SSE 乱序 index 样例（T-091 矩阵）：index=1 片段先于 index=0 到达——归约仍按最小 index 取首工具。</summary>
+    public const string OpenAiSseIndexOutOfOrder =
+        """
+        data: {"id":"x","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"name":"SellTower","arguments":"{\"tower_id\":\"arrow_t1\"}"}}]}}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"name":"BuildPlan","arguments":"{\"tower_id\":\"crossbow_t2\",\"cells\":[{\"x\":1,\"y\":1}]}"}}]}}]}
+
+        data: {"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+
+        data: [DONE]
+
+        """;
+
     /// <summary>
     /// 完整可调用的测试 provider 行（默认 openai 协议、启用、虚拟域名——
     /// 非真实端点，绝不真连）。
@@ -101,7 +139,10 @@ public static class LlmFixtures
         bool enable = true,
         string baseUrl = "https://api.test.example.com/v1",
         LlmProtocol protocol = LlmProtocol.OpenAi,
-        bool useStream = true) => new()
+        bool useStream = true,
+        int retries = 0,
+        int historyRounds = 10,
+        int contextBudgetTokens = 16000) => new()
     {
         Id = id,
         Name = "测试服务",
@@ -113,9 +154,9 @@ public static class LlmFixtures
         MaxTokens = 1024,
         RequestTimeoutS = 30,
         ConnectTimeoutS = 10,
-        Retries = 2,
-        HistoryRounds = 10,
-        ContextBudgetTokens = 16000,
+        Retries = retries,
+        HistoryRounds = historyRounds,
+        ContextBudgetTokens = contextBudgetTokens,
         UseStream = useStream,
         Note = "测试行",
     };

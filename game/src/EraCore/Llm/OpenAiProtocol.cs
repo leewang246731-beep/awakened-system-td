@@ -105,6 +105,7 @@ public sealed class OpenAiProtocol : IChatProtocol
             reducer.FinishReason = finish.GetString();
         }
 
+        reducer.AbsorbUsage(root);
         return reducer.BuildOutcome();
     }
 
@@ -154,7 +155,32 @@ public sealed class OpenAiProtocol : IChatProtocol
                     AbsorbChoice(choice);
                 }
             }
+
+            // Providers append the usage block on the final frame (some only
+            // with stream_options; relays at any point) — last report wins.
+            AbsorbUsage(root);
         }
+
+        /// <summary>Captures <c>usage.{prompt,completion}_tokens</c> when a frame carries it.</summary>
+        internal void AbsorbUsage(JsonElement root)
+        {
+            if (!root.TryGetProperty("usage", out var usage)
+                || usage.ValueKind != JsonValueKind.Object)
+            {
+                return;
+            }
+
+            Usage = new LlmTokenUsage(
+                ReadCount(usage, "prompt_tokens"),
+                ReadCount(usage, "completion_tokens"));
+        }
+
+        private static int? ReadCount(JsonElement usage, string name) =>
+            usage.TryGetProperty(name, out var value)
+                && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var count)
+                    ? count
+                    : null;
 
         internal void AbsorbMessage(JsonElement message)
         {

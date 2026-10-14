@@ -216,6 +216,239 @@ public sealed class StalledStream : Stream
 }
 
 /// <summary>
+/// Stream that never serves a single byte — headers arrived (2xx reply)
+/// but the body never starts; drives the stream-phase first-byte timeout
+/// (§11.7 首字节预算覆盖流首读, T-091).
+/// </summary>
+public sealed class FirstByteStallStream : Stream
+{
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+        return 0;
+    }
+
+    public override int Read(byte[] buffer, int offset, int count) =>
+        ReadAsync(buffer.AsMemory(offset, count)).AsTask().GetAwaiter().GetResult();
+
+    public override void Flush() { }
+
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+    public override void SetLength(long value) => throw new NotSupportedException();
+
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Stream serving a prefix, then sleeping a wall-clock <see cref="Gap"/>
+/// before serving the suffix — the 时间可控注入 for chunk-idle boundary
+/// tests (gap below budget ⇒ pass, above ⇒ TimeoutIdle; T-091).
+/// </summary>
+public sealed class GapStream : Stream
+{
+    private readonly byte[] _prefix;
+    private readonly byte[] _suffix;
+    private bool _prefixServed;
+    private bool _suffixServed;
+
+    public GapStream(string prefix, TimeSpan gap, string suffix)
+    {
+        _prefix = Encoding.UTF8.GetBytes(prefix);
+        Gap = gap;
+        _suffix = Encoding.UTF8.GetBytes(suffix);
+    }
+
+    /// <summary>Wall-clock delay between prefix and suffix.</summary>
+    public TimeSpan Gap { get; }
+
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        if (!_prefixServed)
+        {
+            _prefixServed = true;
+            var take = Math.Min(buffer.Length, _prefix.Length);
+            _prefix.AsSpan(0, take).CopyTo(buffer.Span);
+            return take;
+        }
+
+        if (!_suffixServed)
+        {
+            _suffixServed = true;
+            await Task.Delay(Gap, cancellationToken).ConfigureAwait(false);
+            var take = Math.Min(buffer.Length, _suffix.Length);
+            _suffix.AsSpan(0, take).CopyTo(buffer.Span);
+            return take;
+        }
+
+        return 0;
+    }
+
+    public override int Read(byte[] buffer, int offset, int count) =>
+        ReadAsync(buffer.AsMemory(offset, count)).AsTask().GetAwaiter().GetResult();
+
+    public override void Flush() { }
+
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+    public override void SetLength(long value) => throw new NotSupportedException();
+
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Stream that serves a prefix then dies with <see cref="IOException"/> —
+/// the mid-body disconnect oracle (首字节窗口内/流中途断连, T-091). An
+/// empty prefix makes the very FIRST read throw (disconnect before the
+/// first body byte).
+/// </summary>
+public sealed class DisconnectStream : Stream
+{
+    private readonly byte[] _prefix;
+    private bool _prefixServed;
+
+    public DisconnectStream(string prefix)
+    {
+        _prefix = Encoding.UTF8.GetBytes(prefix);
+        _prefixServed = _prefix.Length == 0;
+    }
+
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        if (_prefixServed)
+        {
+            throw new IOException("connection reset by peer (synthetic)");
+        }
+
+        _prefixServed = true;
+        var take = Math.Min(buffer.Length, _prefix.Length);
+        _prefix.AsSpan(0, take).CopyTo(buffer.Span);
+        return ValueTask.FromResult(take);
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        if (_prefixServed)
+        {
+            throw new IOException("connection reset by peer (synthetic)");
+        }
+
+        _prefixServed = true;
+        var take = Math.Min(count, _prefix.Length);
+        _prefix.AsSpan(0, take).CopyTo(buffer.AsSpan(offset, take));
+        return take;
+    }
+
+    public override void Flush() { }
+
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+    public override void SetLength(long value) => throw new NotSupportedException();
+
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Wrapper counting Dispose/DisposeAsync calls — the resource-cleanup
+/// oracle for timeout/断连 verdicts (T-091: the gateway must close the
+/// body stream on every exit path).
+/// </summary>
+public sealed class DisposeTrackingStream : Stream
+{
+    private readonly Stream _inner;
+
+    public DisposeTrackingStream(Stream inner) => _inner = inner;
+
+    /// <summary>True after either dispose flavor fired.</summary>
+    public bool Disposed { get; private set; }
+
+    public override bool CanRead => _inner.CanRead;
+
+    public override bool CanSeek => _inner.CanSeek;
+
+    public override bool CanWrite => _inner.CanWrite;
+
+    public override long Length => _inner.Length;
+
+    public override long Position { get => _inner.Position; set => _inner.Position = value; }
+
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+        _inner.ReadAsync(buffer, cancellationToken);
+
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+        _inner.ReadAsync(buffer, offset, count, cancellationToken);
+
+    public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+
+    public override void Flush() => _inner.Flush();
+
+    public override long Seek(long offset, SeekOrigin origin) => _inner.Seek(offset, origin);
+
+    public override void SetLength(long value) => _inner.SetLength(value);
+
+    public override void Write(byte[] buffer, int offset, int count) => _inner.Write(buffer, offset, count);
+
+    protected override void Dispose(bool disposing)
+    {
+        Disposed = true;
+        base.Dispose(disposing);
+        _inner.Dispose();
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        await _inner.DisposeAsync().ConfigureAwait(false);
+        // Skip the sync base path (double-dispose of the same inner stream).
+        GC.SuppressFinalize(this);
+    }
+}
+
+/// <summary>Deterministic wall clock for F-091 call-log timestamp tests (CS-1.4).</summary>
+public sealed class FixedWallClock : EraCore.Contracts.Foundation.IClock
+{
+    private long _nowMs;
+
+    public FixedWallClock(long nowMs) => _nowMs = nowMs;
+
+    public long Tick => 0;
+
+    public long NowMs => _nowMs;
+
+    public void Advance(long deltaMs) => _nowMs += deltaMs;
+}
+
+/// <summary>
 /// The one REAL <see cref="IHttpPort"/> implementation (CS-1.3: real
 /// networking lives only in the test assembly) — System.Net.Http based,
 /// used by the MiMo online tests and the cassette recorder. Production
@@ -355,7 +588,8 @@ public sealed class RecordingPort : IHttpPort
     /// </summary>
     public LlmCassette BuildCassette(
         string name, string recordedAtUtc, string providerId,
-        string protocol, string model, string baseUrl)
+        string protocol, string model, string baseUrl,
+        string? source = null)
     {
         if (_lastRequest is null || _lastResponse is not { } reply)
         {
@@ -371,7 +605,7 @@ public sealed class RecordingPort : IHttpPort
             _lastRequest.Url.AbsoluteUri,
             new Dictionary<string, string>(_lastRequest.Headers, StringComparer.OrdinalIgnoreCase),
             _lastRequest.BodyJson,
-            reply.Status, reply.IsStream, lines);
+            reply.Status, reply.IsStream, lines, source);
     }
 }
 
@@ -427,6 +661,9 @@ public sealed class TeeStream : Stream
 /// LLM cassette (录制器产物, D-20/CS-3.4: cassettes are always recorder
 /// output, never handwritten). Auth headers are dropped at record time and
 /// the serialized text is asserted key-free before it is ever written.
+/// <paramref name="Source"/> marks provenance: null = live recording
+/// (mimo 金样); "synthetic-fakewireport" = recorder run over a scripted
+/// FakeWirePort (T-091 错误/多工具矩阵，零成本合成，标注来源).
 /// </summary>
 public sealed record LlmCassette(
     string Cassette,
@@ -440,7 +677,12 @@ public sealed record LlmCassette(
     string RequestBody,
     int ResponseStatus,
     bool ResponseIsSse,
-    IReadOnlyList<string> ResponseLines);
+    IReadOnlyList<string> ResponseLines,
+    string? Source = null)
+{
+    /// <summary>Provenance tag for synthetic cassettes (FakeWirePort scripting).</summary>
+    public const string SyntheticSource = "synthetic-fakewireport";
+}
 
 /// <summary>Cassette path + mask helpers shared by recorder and replay tests.</summary>
 public static class LlmCassettes

@@ -124,6 +124,7 @@ public sealed class AnthropicProtocol : IChatProtocol
             reducer.FinishReason = stop.GetString();
         }
 
+        reducer.AbsorbNonStreamUsage(root);
         return reducer.BuildOutcome();
     }
 
@@ -165,6 +166,11 @@ public sealed class AnthropicProtocol : IChatProtocol
         // tool_use block index → (name from content_block_start, json fragments)
         private readonly Dictionary<int, (string Name, StringBuilder Args)> _toolBlocks = [];
 
+        // Anthropic splits usage across message_start (input) and
+        // message_delta (output); both halves merge into one LlmTokenUsage.
+        private int? _inputTokens;
+        private int? _outputTokens;
+
         public override void OnDataLine(string payload)
         {
             using var document = JsonDocument.Parse(payload);
@@ -192,12 +198,15 @@ public sealed class AnthropicProtocol : IChatProtocol
                         FinishReason = stop;
                     }
 
+                    AbsorbOutputUsage(root);
                     break;
                 case "message_stop":
                     IsDone = true;
                     break;
                 case "ping":
                 case "message_start":
+                    AbsorbMessageStartUsage(root);
+                    break;
                 case "content_block_stop":
                 case "error":
                     break;
@@ -206,6 +215,55 @@ public sealed class AnthropicProtocol : IChatProtocol
                     // append new advisory events over time).
                     break;
             }
+        }
+
+        /// <summary>message_start carries <c>message.usage.input_tokens</c>.</summary>
+        private void AbsorbMessageStartUsage(JsonElement root)
+        {
+            if (root.TryGetProperty("message", out var message)
+                && message.ValueKind == JsonValueKind.Object
+                && message.TryGetProperty("usage", out var usage)
+                && usage.ValueKind == JsonValueKind.Object
+                && usage.TryGetProperty("input_tokens", out var count)
+                && count.ValueKind == JsonValueKind.Number
+                && count.TryGetInt32(out var input))
+            {
+                _inputTokens = input;
+                RefreshUsage();
+            }
+        }
+
+        /// <summary>message_delta carries <c>usage.output_tokens</c> (cumulative).</summary>
+        private void AbsorbOutputUsage(JsonElement root)
+        {
+            var output = ReadUsageCount(root, "usage", "output_tokens");
+            if (output is not null)
+            {
+                _outputTokens = output;
+                RefreshUsage();
+            }
+        }
+
+        private static int? ReadUsageCount(JsonElement root, string container, string field)
+        {
+            return root.TryGetProperty(container, out var node)
+                && node.ValueKind == JsonValueKind.Object
+                && node.TryGetProperty(field, out var count)
+                && count.ValueKind == JsonValueKind.Number
+                && count.TryGetInt32(out var value)
+                    ? value
+                    : null;
+        }
+
+        private void RefreshUsage() =>
+            Usage = new LlmTokenUsage(_inputTokens, _outputTokens);
+
+        /// <summary>Non-stream replies carry one <c>usage</c> object on the root.</summary>
+        internal void AbsorbNonStreamUsage(JsonElement root)
+        {
+            _inputTokens = ReadUsageCount(root, "usage", "input_tokens") ?? _inputTokens;
+            _outputTokens = ReadUsageCount(root, "usage", "output_tokens") ?? _outputTokens;
+            RefreshUsage();
         }
 
         private void AbsorbBlockStart(JsonElement root)

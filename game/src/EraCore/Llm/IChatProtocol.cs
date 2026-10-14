@@ -23,6 +23,22 @@ public sealed record LlmChatRequestSpec(
     bool Stream);
 
 /// <summary>
+/// Provider-reported token usage of one reply (F-091 调用日志 token 数):
+/// prompt/completion counts as the wire reported them — null when the
+/// provider did not report (streaming relays often omit usage).
+/// </summary>
+/// <param name="PromptTokens">Input/prompt tokens when reported.</param>
+/// <param name="CompletionTokens">Output/completion tokens when reported.</param>
+public sealed record LlmTokenUsage(int? PromptTokens, int? CompletionTokens)
+{
+    /// <summary>Sum when both halves are known; else whichever half is known; else null.</summary>
+    public int? TotalTokens =>
+        PromptTokens is { } prompt && CompletionTokens is { } completion
+            ? prompt + completion
+            : PromptTokens ?? CompletionTokens;
+}
+
+/// <summary>
 /// Fully-reduced outcome of one model reply (streaming or not): the two
 /// text channels of reasoning models plus the first tool call. Content is
 /// the player-facing 正文; Reasoning is the 折叠思考 channel
@@ -33,12 +49,14 @@ public sealed record LlmChatRequestSpec(
 /// <param name="ToolName">First tool call's function name; null when none.</param>
 /// <param name="ToolArgumentsJson">First tool call's arguments as raw JSON text ("" when absent).</param>
 /// <param name="FinishReason">Provider stop reason (stop/tool_use/max_tokens…), when reported.</param>
+/// <param name="Usage">Provider-reported token usage; null when unreported.</param>
 public sealed record LlmStreamOutcome(
     string ContentText,
     string ReasoningText,
     string? ToolName,
     string ToolArgumentsJson,
-    string? FinishReason)
+    string? FinishReason,
+    LlmTokenUsage? Usage = null)
 {
     /// <summary>True when the model issued at least one tool call.</summary>
     public bool SawToolCall => ToolName is not null;
@@ -48,7 +66,7 @@ public sealed record LlmStreamOutcome(
 
     /// <summary>Empty outcome (stream aborted before any frame reduced).</summary>
     public static LlmStreamOutcome Empty { get; } =
-        new(string.Empty, string.Empty, null, string.Empty, null);
+        new(string.Empty, string.Empty, null, string.Empty, null, null);
 }
 
 /// <summary>
@@ -146,11 +164,15 @@ internal abstract class ChatStreamReducerBase : IChatStreamReducer
             _reasoning.ToString(),
             name,
             args,
-            FinishReason);
+            FinishReason,
+            Usage);
     }
 
     /// <summary>Stop reason as reported by the protocol, when seen.</summary>
     public string? FinishReason { get; internal set; }
+
+    /// <summary>Token usage as reported by the protocol, when seen (F-091).</summary>
+    public LlmTokenUsage? Usage { get; internal set; }
 
     /// <summary>Accumulates 正文 text.</summary>
     protected void AppendContent(string text) => _content.Append(text);
