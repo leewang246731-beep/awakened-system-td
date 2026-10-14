@@ -74,7 +74,7 @@ def git(root: str, *args: str) -> str:
     r = subprocess.run(
         ["git", "-C", root, "-c", "user.email=selftest@local",
          "-c", "user.name=selftest", *args],
-        capture_output=True, text=True, timeout=60)
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     if r.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {r.stderr}")
     return r.stdout
@@ -420,7 +420,7 @@ def test_cli_exit_codes_and_json() -> None:
         r = subprocess.run(
             [sys.executable, scanner, "--root", t, "--baseline", baseline,
              "--json", json_path],
-            capture_output=True, text=True, timeout=120)
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
         check(r.returncode == 0, f"干净仓库 CLI 退出码 0（实际 {r.returncode}）")
         with open(json_path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
@@ -434,7 +434,7 @@ def test_cli_exit_codes_and_json() -> None:
         baseline2 = init_repo(t)
         r2 = subprocess.run(
             [sys.executable, scanner, "--root", t, "--baseline", "0" * 40],
-            capture_output=True, text=True, timeout=120)
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
         check(r2.returncode == 1, f"违规仓库 CLI 退出码 1（实际 {r2.returncode}）")
         check("R13" in r2.stdout and "R9" in r2.stdout,
               "人读报告包含 R9/R13 检查行")
