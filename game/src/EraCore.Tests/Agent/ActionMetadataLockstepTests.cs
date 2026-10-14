@@ -5,77 +5,74 @@ using Xunit;
 
 namespace EraCore.Tests.Agent;
 
-// [F-062] C-03 注册表 ↔ C-14 关税表 lockstep 守卫（REV-20261014-wave2-round1 #3）。
-// 已知双源：Actions.ActionCatalog（T-051）与 Governance.SystemActionTariffTable
-// （T-050）各写一份 19 动作元数据，另 PermissionTier 与 ActionPermissionTier
-// 双枚举同构——结构性收口（Catalog 升格唯一行源+派生视图+枚举合并）挂
-// T-070 DEBT。单源化落地前，本守卫把"单侧改动→静默分叉"变成"立即红"：
-// 逐 19 动作对计价/权限档/解锁时代/Boss 加倍语义/危险位五字段 cross-check，
-// 任一不一致即失败。
+// [F-062][C-03][C-14] 单源守卫（T-070 收口 REV-20261014-wave2-round1 #3）。
+// 自 T-070 起 Actions.ActionCatalog 是 19 动作元数据的唯一行源（组/权限档/
+// 计价/解锁时代/Boss 加倍/危险位六字段全量持有），Governance.
+// SystemActionTariffTable 是它的派生视图（一行 Select 投影，零手写字面量）；
+// 原 PermissionTier 双枚举已并入 ActionPermissionTier。本守卫盯两件事：
+// ① Catalog 对封闭枚举的完备性（19 行、恰好一次）；② 派生视图与源的逐字段
+// 一致（若有人把视图改回手写表并改错一行，立即红）。
 
-/// <summary>[F-062] TariffTable ↔ Catalog lockstep guard over the 19 closed verbs.</summary>
+/// <summary>[F-062] Single-source guard: the catalog is the only row source; the tariff view derives from it.</summary>
 public class ActionMetadataLockstepTests
 {
-    [Fact] // structural — both tables describe the same closed verb set, each kind exactly once
-    public void Both_tables_cover_the_same_19_verbs_exactly_once()
+    [Fact] // structural — the catalog (single source) covers the closed enum exactly once
+    public void Catalog_covers_the_closed_19_verbs_exactly_once()
     {
         var enumVerbs = Enum.GetValues<SystemActionKind>().OrderBy(v => v).ToArray();
-        var tariffVerbs = SystemActionTariffTable.Rows.Select(r => r.Verb).OrderBy(v => v).ToArray();
-        var catalogVerbs = ActionCatalog.All.Select(d => d.Kind).OrderBy(v => v).ToArray();
+        var catalogVerbs = ActionCatalog.All.Select(d => d.Kind).ToArray();
 
         Assert.Equal(19, enumVerbs.Length);
-        Assert.Equal(enumVerbs, tariffVerbs);
-        Assert.Equal(enumVerbs, catalogVerbs);
-        Assert.Equal(tariffVerbs.Length, tariffVerbs.Distinct().Count());
-        Assert.Equal(catalogVerbs.Length, catalogVerbs.Distinct().Count());
+        Assert.Equal(19, catalogVerbs.Length);
+        Assert.Equal(enumVerbs, catalogVerbs.OrderBy(v => v).ToArray());
+        Assert.Equal(catalogVerbs.Length, catalogVerbs.Distinct().Count()); // no duplicates
     }
 
-    [Fact] // lockstep — per-verb five-field cross-check (计价/权限档/解锁时代/Boss 加倍/危险位)
-    public void Every_verb_agrees_on_all_five_metadata_fields()
+    [Fact] // single source — every row carries all six metadata fields explicitly (no defaulted gaps)
+    public void Every_catalog_row_carries_explicit_group_and_surge_metadata()
     {
-        var mismatches = new List<string>();
-        foreach (SystemActionKind verb in Enum.GetValues<SystemActionKind>())
+        foreach (ActionDescriptor descriptor in ActionCatalog.All)
         {
-            SystemActionTariff tariff = SystemActionTariffTable.Get(verb);
-            ActionDescriptor catalog = ActionCatalog.Descriptor(verb);
+            Assert.True(Enum.IsDefined(descriptor.Group), $"{descriptor.Kind}: group undefined");
+            Assert.True(Enum.IsDefined(descriptor.Tier), $"{descriptor.Kind}: tier undefined");
 
-            // ① 计价（§11.4 点数）
-            if (tariff.PointCost != catalog.PointCost)
-            {
-                mismatches.Add($"{verb}: PointCost tariff={tariff.PointCost} catalog={catalog.PointCost}");
-            }
+            // The §11.4 invariant the explicit field replaced: Boss surge is
+            // exactly the combat family — now data on the row, not a string compare.
+            Assert.Equal(descriptor.Group == ActionGroup.Combat, descriptor.DoubledOnBossWave);
+        }
+    }
 
-            // ② 权限档（两套同构枚举：PermissionTier ↔ ActionPermissionTier）
-            ActionPermissionTier expectedTier = tariff.DefaultTier == PermissionTier.Allow
-                ? ActionPermissionTier.Allow
-                : ActionPermissionTier.Ask;
-            if (expectedTier != catalog.Tier)
-            {
-                mismatches.Add($"{verb}: Tier tariff={tariff.DefaultTier} catalog={catalog.Tier}");
-            }
+    [Fact] // derived view — tariff rows are the projection of the catalog rows, field by field, in order
+    public void Tariff_rows_are_the_derived_view_of_the_catalog()
+    {
+        Assert.Equal(ActionCatalog.All.Count, SystemActionTariffTable.Rows.Count);
 
-            // ③ 解锁时代（附录 G.2 解锁时代列，E1=1 … 终章=6）
-            if (tariff.UnlockEra != catalog.UnlockEra)
-            {
-                mismatches.Add($"{verb}: UnlockEra tariff={tariff.UnlockEra} catalog={catalog.UnlockEra}");
-            }
+        var mismatches = new List<string>();
+        for (int i = 0; i < ActionCatalog.All.Count; i++)
+        {
+            ActionDescriptor source = ActionCatalog.All[i];
+            SystemActionTariff view = SystemActionTariffTable.Rows[i];
 
-            // ④ Boss 加倍语义（§11.4 战斗类 ×2——目录侧无显式位，派生自 group=combat）
-            bool catalogBossSurge = string.Equals(catalog.Group, "combat", StringComparison.Ordinal);
-            if (tariff.DoubledOnBossWave != catalogBossSurge)
-            {
-                mismatches.Add(
-                    $"{verb}: Boss surge tariff={tariff.DoubledOnBossWave} catalog=(group={catalog.Group})");
-            }
-
-            // ⑤ 危险位（F.4 永不自动允许 ↔ confirm_* 必填危险位）
-            if (tariff.NeverAutoApprove != catalog.RequiresExplicitConfirmation)
-            {
-                mismatches.Add(
-                    $"{verb}: Danger bit tariff={tariff.NeverAutoApprove} catalog={catalog.RequiresExplicitConfirmation}");
-            }
+            if (view.Verb != source.Kind) mismatches.Add($"{i}: Verb {view.Verb} != {source.Kind}");
+            if (view.Group != source.Group) mismatches.Add($"{source.Kind}: Group {view.Group} != {source.Group}");
+            if (view.PointCost != source.PointCost) mismatches.Add($"{source.Kind}: PointCost {view.PointCost} != {source.PointCost}");
+            if (view.DefaultTier != source.Tier) mismatches.Add($"{source.Kind}: Tier {view.DefaultTier} != {source.Tier}");
+            if (view.UnlockEra != source.UnlockEra) mismatches.Add($"{source.Kind}: UnlockEra {view.UnlockEra} != {source.UnlockEra}");
+            if (view.DoubledOnBossWave != source.DoubledOnBossWave) mismatches.Add($"{source.Kind}: Boss surge {view.DoubledOnBossWave} != {source.DoubledOnBossWave}");
+            if (view.NeverAutoApprove != source.RequiresExplicitConfirmation) mismatches.Add($"{source.Kind}: NeverAutoApprove {view.NeverAutoApprove} != danger bit {source.RequiresExplicitConfirmation}");
         }
 
         Assert.Empty(mismatches);
+    }
+
+    [Fact] // derived view — the per-verb lookup answers the same derived rows
+    public void Tariff_lookup_answers_the_derived_rows()
+    {
+        foreach (ActionDescriptor source in ActionCatalog.All)
+        {
+            SystemActionTariff row = SystemActionTariffTable.Get(source.Kind);
+            Assert.Equal(source.PointCost, row.PointCost);
+            Assert.Equal(source.Tier, row.DefaultTier);
+        }
     }
 }

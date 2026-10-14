@@ -1,4 +1,5 @@
 using System.Text.Json;
+using EraCore.Agent.Actions;
 using EraCore.Contracts.Agent;
 using EraCore.Contracts.Actions;
 
@@ -118,7 +119,7 @@ public sealed class ApprovalGate : IApprovalGate
                 nameof(verb));
         }
 
-        if (enabled && tariff.DefaultTier == PermissionTier.Allow)
+        if (enabled && tariff.DefaultTier == ActionPermissionTier.Allow)
         {
             throw new ArgumentException(
                 $"{verb} is Allow-tier already; auto-approve whitelists apply to Ask-tier verbs only.",
@@ -206,7 +207,7 @@ public sealed class ApprovalGate : IApprovalGate
             }
         }
 
-        if (tariff.DefaultTier == PermissionTier.Allow && !dangerForcedAsk)
+        if (tariff.DefaultTier == ActionPermissionTier.Allow && !dangerForcedAsk)
         {
             return new ApprovalDecision(ApprovalDecisionKind.Allow);
         }

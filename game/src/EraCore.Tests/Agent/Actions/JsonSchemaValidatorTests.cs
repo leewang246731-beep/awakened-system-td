@@ -48,14 +48,18 @@ public class JsonSchemaValidatorTests
         Assert.True(result.IsValid, Describe(result));
     }
 
-    [Theory] // illegal
+    [Theory] // legal（T-070 DEBT-4 裁定：钳制而非拒绝）——after_seconds 越界值
+    // 不再是 schema 违规：ActionSchemaClamper 在闭 schema 闸前把越界值钳到
+    // 边界（SP-2 #10/G.2"钳制[30,600]"原文措辞；裁定登记=11-spec-tables
+    // 变更记录 v1.4）。钳制行为本身见 ActionSchemaClamperTests。
+    [InlineData(0.0)]
     [InlineData(29.9)]
     [InlineData(600.1)]
-    public void SetAlarm_after_seconds_rejects_out_of_range(double seconds)
+    [InlineData(9000.0)]
+    public void SetAlarm_after_seconds_out_of_range_is_clamped_not_rejected(double seconds)
     {
         SchemaValidationResult result = Validate(ActionJsonSamples.SetAlarmAfter(seconds));
-        Assert.False(result.IsValid, $"after_seconds={seconds} 应非法：{Describe(result)}");
-        Assert.Contains(result.Errors, e => e.Pointer == "/after_seconds");
+        Assert.True(result.IsValid, $"after_seconds={seconds} 应过闸待钳（钳制语义）：{Describe(result)}");
     }
 
     [Theory] // boundary：rate [0.0,1.0] 端点合法

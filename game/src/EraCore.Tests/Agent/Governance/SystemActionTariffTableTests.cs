@@ -1,16 +1,16 @@
+using EraCore.Agent.Actions;
 using EraCore.Agent.Governance;
 using EraCore.Contracts.Actions;
 using Xunit;
 
 namespace EraCore.Tests.Agent.Governance;
 
-// [C-14][F-064][F-063] The frozen 19-verb tariff table (T-050): pricing
-// (§11.4 建造 2/战斗 1/物流 1/巡逻 1/侦察 0), permission tiers (§11.4
-// allow/ask split), unlock eras (appendix G.2) and the two danger flags
-// (F.4: SellTower 永不自动允许; combat-only Boss surge). The table is the
-// single data source for ledger AND gate — these tests pin every row.
+// [C-14][F-064][F-063] 派生关税视图守卫（T-050 引入；T-070 单源化后行源=
+// ActionCatalog，本表为其投影）：计价（§11.4 建造 2/战斗 1/物流 1/巡逻 1/侦察 0）、
+// 权限档（§11.4 allow/ask）、解锁时代（附录 G.2）与危险位（F.4: SellTower
+// 永不自动允许; 战斗组 Boss 加倍）——这些测试逐行钉住冻结值（源被改错即红）。
 
-/// <summary>[C-14][F-064] Tariff table: pricing, tiers, unlock eras, flags.</summary>
+/// <summary>[C-14][F-064] Derived tariff view: pricing, tiers, unlock eras, flags (source = ActionCatalog).</summary>
 public class SystemActionTariffTableTests
 {
     [Fact] // legal — the closed K-3 set has exactly 19 verbs and the table covers each exactly once
@@ -60,26 +60,26 @@ public class SystemActionTariffTableTests
     }
 
     [Theory] // legal — §11.4 tier split: recon+management allow; construction/logistics/combat ask
-    [InlineData(SystemActionKind.LookAround, PermissionTier.Allow)]
-    [InlineData(SystemActionKind.InspectTile, PermissionTier.Allow)]
-    [InlineData(SystemActionKind.QueryWorld, PermissionTier.Allow)]
-    [InlineData(SystemActionKind.BuildPlan, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.UpgradeTower, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.SellTower, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.SetRally, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.RerouteLogistics, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.SetStockpile, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.FocusFire, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.SetTowerMode, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.TriggerScroll, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.HeroOrder, PermissionTier.Ask)]
-    [InlineData(SystemActionKind.AskPlayer, PermissionTier.Allow)]
-    [InlineData(SystemActionKind.ReportToPlayer, PermissionTier.Allow)]
-    [InlineData(SystemActionKind.TodoBoard, PermissionTier.Allow)]
-    [InlineData(SystemActionKind.SpawnScout, PermissionTier.Allow)]
-    [InlineData(SystemActionKind.SetAlarm, PermissionTier.Allow)]
-    [InlineData(SystemActionKind.StopTask, PermissionTier.Allow)]
-    public void Default_tiers_match_the_f4_split(SystemActionKind verb, PermissionTier expectedTier)
+    [InlineData(SystemActionKind.LookAround, ActionPermissionTier.Allow)]
+    [InlineData(SystemActionKind.InspectTile, ActionPermissionTier.Allow)]
+    [InlineData(SystemActionKind.QueryWorld, ActionPermissionTier.Allow)]
+    [InlineData(SystemActionKind.BuildPlan, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.UpgradeTower, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.SellTower, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.SetRally, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.RerouteLogistics, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.SetStockpile, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.FocusFire, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.SetTowerMode, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.TriggerScroll, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.HeroOrder, ActionPermissionTier.Ask)]
+    [InlineData(SystemActionKind.AskPlayer, ActionPermissionTier.Allow)]
+    [InlineData(SystemActionKind.ReportToPlayer, ActionPermissionTier.Allow)]
+    [InlineData(SystemActionKind.TodoBoard, ActionPermissionTier.Allow)]
+    [InlineData(SystemActionKind.SpawnScout, ActionPermissionTier.Allow)]
+    [InlineData(SystemActionKind.SetAlarm, ActionPermissionTier.Allow)]
+    [InlineData(SystemActionKind.StopTask, ActionPermissionTier.Allow)]
+    public void Default_tiers_match_the_f4_split(SystemActionKind verb, ActionPermissionTier expectedTier)
     {
         Assert.Equal(expectedTier, SystemActionTariffTable.Get(verb).DefaultTier);
     }

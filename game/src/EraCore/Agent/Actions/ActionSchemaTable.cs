@@ -34,6 +34,26 @@ internal enum FieldType
 }
 
 /// <summary>
+/// Out-of-range semantics of a numeric field (T-070 DEBT-4 ruling,
+/// registered in docs/engineering/11-spec-tables.md 变更记录 v1.4):
+/// <see cref="Reject"/> is the default closed-schema behavior (violation
+/// reported, action denied); <see cref="Clamp"/> rewrites out-of-range
+/// values to the nearest boundary instead of denying — the frozen wording
+/// of the fields the spec itself marks 钳制 (G.2: SetAlarm
+/// after_seconds 钳制[30,600], SP-2 row 10). Clamp rewriting runs in
+/// <see cref="ActionSchemaClamper"/> before the closed-schema gate; the
+/// validator then never sees an out-of-range value on that field.
+/// </summary>
+internal enum NumberRangeMode
+{
+    /// <summary>Out-of-range values are schema violations (default).</summary>
+    Reject,
+
+    /// <summary>Out-of-range values are clamped to [MinNumber, MaxNumber] before validation.</summary>
+    Clamp,
+}
+
+/// <summary>
 /// One field constraint of one action verb — the code form of one cell of
 /// the recovered v2.1 §11.3 field table (docs/engineering/
 /// 10-recovered-v21-architecture.md §三, T-004). Only the constraint slots
@@ -55,6 +75,7 @@ internal enum FieldType
 /// <param name="CountCapBase">Era-dependent cap: <c>Base + PerEra × era</c> overrides <see cref="MaxCount"/>.</param>
 /// <param name="CountCapPerEra">Era multiplier of the era-dependent cap.</param>
 /// <param name="ItemMaxLength">Per-item string length bound inside arrays.</param>
+/// <param name="NumberRange">Out-of-range semantics of a Number field: Reject (default) or Clamp (T-070 DEBT-4).</param>
 internal sealed record FieldRule(
     string Name,
     FieldType Type,
@@ -70,7 +91,8 @@ internal sealed record FieldRule(
     int? MaxCount = null,
     int? CountCapBase = null,
     int? CountCapPerEra = null,
-    int? ItemMaxLength = null)
+    int? ItemMaxLength = null,
+    NumberRangeMode NumberRange = NumberRangeMode.Reject)
 {
     /// <summary>Effective array item-count cap at one era ordinal (fixed cap when no era terms exist).</summary>
     public int EffectiveMaxCount(int eraOrdinal)
@@ -250,7 +272,9 @@ internal static class ActionSchemaTable
                 nameof(SystemActionKind.SetAlarm),
                 new FieldRule[]
                 {
-                    new("after_seconds", FieldType.Number, Required: true, MinNumber: 30.0, MaxNumber: 600.0),
+                    // 钳制语义（T-070 DEBT-4 裁定，SP-2 #10/G.2 原文"钳制[30,600]"）：
+                    // 越界值由 ActionSchemaClamper 钳到边界后过闸，而非拒绝。
+                    new("after_seconds", FieldType.Number, Required: true, MinNumber: 30.0, MaxNumber: 600.0, NumberRange: NumberRangeMode.Clamp), // ci-allow: R7 T-051 K-3 after_seconds 钳制[30,600]s（G.2 冻结域常量）
                     new("reason", FieldType.String, Required: true),
                 }),
             [nameof(SystemActionKind.StopTask)] = new(

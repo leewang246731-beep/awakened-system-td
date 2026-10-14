@@ -39,6 +39,12 @@ public static partial class ActionLog
         return Scrub($"action-registry verdict=refused reason={reason} action={Scrub(actionName)}");
     }
 
+    /// <summary>Hook line: a PreAction hook rewrote the payload (F-075) — the notice (提示) is recorded.</summary>
+    public static string HookRewriteLine(string actionName, string notes)
+    {
+        return Scrub($"action-registry verdict=hook-rewrite action={Scrub(actionName)} notes={Scrub(notes)}");
+    }
+
     /// <summary>Routine line: action executed successfully.</summary>
     public static string OkLine(string actionName, int eraOrdinal)
     {

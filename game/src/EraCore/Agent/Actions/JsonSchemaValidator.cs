@@ -229,7 +229,13 @@ public sealed class JsonSchemaValidator : ISchemaValidator
                     break;
                 }
 
-                if ((rule.MinNumber is { } min && number < min) || (rule.MaxNumber is { } max && number > max))
+                // Clamp fields (T-070 DEBT-4): out-of-range values are
+                // rewritten to the boundary by ActionSchemaClamper BEFORE
+                // this gate — the declared semantic is 钳制 not rejection
+                // (SP-2 #10/G.2), so the validator enforces type/finiteness
+                // only and leaves the range to the clamp rewrite.
+                if (rule.NumberRange == NumberRangeMode.Reject
+                    && ((rule.MinNumber is { } min && number < min) || (rule.MaxNumber is { } max && number > max)))
                 {
                     errors.Add(new SchemaValidationError(
                         pointer, line,
