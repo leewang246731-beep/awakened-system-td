@@ -32,19 +32,24 @@ internal sealed class PipelineHarness : IDisposable
 
     private readonly string _rootDir;
 
-    public PipelineHarness(double initialWood = 200.0, int eraIndex = AgentEra)
+    public PipelineHarness(
+        double initialWood = 200.0,
+        int eraIndex = AgentEra,
+        SimulationConfig? config = null,
+        IReadOnlySet<string>? armedScrolls = null,
+        EraCore.Agent.Grammar.L1IntentParser? parser = null)
     {
         _rootDir = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(), "eratd-t053-" + System.Guid.NewGuid().ToString("N"));
-        SimulationConfig config = Config(initialWood);
-        Simulation = new Simulation(config, new SimRng(Seed), Seed);
+        SimulationConfig configUsed = config ?? Config(initialWood);
+        Simulation = new Simulation(configUsed, new SimRng(Seed), Seed);
         JournalPath = System.IO.Path.Combine(_rootDir, "war-report.jsonl");
         Journal = new JsonlJournalWriter(JournalPath);
         LogSink = new CapturingLogSink();
         Pipeline = AgentPipeline.OverSimulation(
             Simulation,
-            config,
-            L1IntentParserTests.CreateParser(),
+            configUsed,
+            parser ?? L1IntentParserTests.CreateParser(),
             eraIndex,
             Journal,
             LogSink,
@@ -52,7 +57,8 @@ internal sealed class PipelineHarness : IDisposable
             {
                 ["east_gate"] = EastGateAnchor,
                 ["south_gate"] = SouthGateAnchor,
-            });
+            },
+            armedScrolls: armedScrolls);
         Pipeline.Ledger.BeginWave(1, isBossWave: false);
     }
 
@@ -69,6 +75,28 @@ internal sealed class PipelineHarness : IDisposable
     /// <summary>The E1 fixture config with an explicit initial wood grant.</summary>
     public static SimulationConfig Config(double initialWood = 200.0) =>
         SimE1Fixture.Config(initialStock: new List<KeyValuePair<ResourceKey, double>> { new(Wood, initialWood) });
+
+    /// <summary>
+    /// T-068 era-2 harness config（升级/出售/英雄走 E2 塔链）——E2 内容塔 +
+    /// 英雄 + 3000 木材（复用 SimE2Fixture 口径，初始授予改由参数决定）。
+    /// </summary>
+    public static SimulationConfig Era2Config(double initialTimber = 3000.0) =>
+        SimE2Fixture.Config() with
+        {
+            InitialStock = new List<KeyValuePair<ResourceKey, double>>
+            {
+                new(new ResourceKey("era2:res-timber"), initialTimber),
+            },
+        };
+
+    /// <summary>Era-2 grammar parser（era2 塔/敌别名——箭楼/弩塔/攻城锤等）。</summary>
+    public static EraCore.Agent.Grammar.L1IntentParser Era2Parser() =>
+        EraCore.Agent.Grammar.L1IntentParser.FromJson(
+            EraCore.Tests.Agent.Grammar.GrammarTestPaths.ReadGrammarFile("patterns-zh.json"),
+            EraCore.Tests.Agent.Grammar.GrammarTestPaths.ReadGrammarFile("patterns-en.json"),
+            EraCore.Tests.Agent.Grammar.GrammarTestPaths.ReadGrammarFile("lexicon.json"),
+            EraCore.Tests.Agent.Grammar.GrammarTestPaths.Era2TowersJson(),
+            EraCore.Tests.Agent.Grammar.GrammarTestPaths.Era2EnemiesJson());
 
     public void Dispose()
     {

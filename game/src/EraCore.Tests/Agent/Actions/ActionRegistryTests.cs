@@ -6,9 +6,9 @@ using Xunit;
 
 namespace EraCore.Tests.Agent.Actions;
 
-// [F-062][F-070] C-03 动作注册表：4 动作可调（T-066 起 HeroOrder 三动词真实现，
-// 见 EraCore.Tests/Units/HeroOrderActionTests）、15 未实现档明确拒绝、清单外拒绝
-// 并记日志、时代门
+// [F-062][F-070][F-065] C-03 动作注册表（T-068 后 19 动作全量）：
+// T-068 13 动作真 handler（治理态+状态投影）、T-065 estate 对未接线显式拒绝、
+// 清单外拒绝并记日志、时代门（SpawnScout E1 锁/E2 活）
 public class ActionRegistryTests
 {
     private static ActionRegistry CreateRegistry(
@@ -92,36 +92,76 @@ public class ActionRegistryTests
         Assert.Contains("world-view-missing", outcome.Result.ErrorMessage);
     }
 
-    // ------------------------------------------------ 16 个未实现档：明确拒绝、绝不冒充成功
+    // ------------------------------------------------ T-068：13 个新 handler 全部可调
 
-    [Theory] // legal 载荷 × 未交付 handler → 必须是显式拒绝（红线：禁止假成功）
+    [Theory] // legal：视图+治理态在位 → 13 个 T-068 动作全部真实执行（真 handler，禁止伪报成功）
     [InlineData("InspectTile")]
     [InlineData("QueryWorld")]
-    [InlineData("UpgradeTower")]
-    [InlineData("SellTower")]
     [InlineData("SetRally")]
-    [InlineData("RerouteLogistics")]
     [InlineData("SetStockpile")]
     [InlineData("FocusFire")]
     [InlineData("SetTowerMode")]
     [InlineData("TriggerScroll")]
+    [InlineData("RerouteLogistics")]
     [InlineData("AskPlayer")]
     [InlineData("TodoBoard")]
     [InlineData("SpawnScout")]
     [InlineData("SetAlarm")]
     [InlineData("StopTask")]
-    public void Not_yet_delivered_verbs_refuse_with_an_explicit_status(string verb)
+    public void T068_verbs_execute_against_real_state_or_refuse_honestly(string verb)
     {
+        // legal：带视图的注册表——动作要么真执行（目标合法时 Ok+载荷），
+        // 要么按状态显式拒绝（目标不在场等）——两者都绝不是 not-implemented。
         var sink = new CapturingLogSink();
-        ActionRegistry registry = CreateRegistry(sink, view: null, era: EraOrdinals.E2);
+        var (simulation, view) = RegistryFixture.Create();
+        var registry = new ActionRegistry(
+            sink, view, eraOrdinalProvider: () => EraOrdinals.E2,
+            towerEstate: simulation.Estate,
+            armedScrolls: new HashSet<string>(StringComparer.Ordinal) { "era1:scroll-arrow-rain" });
+        Assert.True(registry.HasLiveHandler(ActionCatalog.TryResolveName(verb, out var kind) ? kind : default));
 
         ActionOutcome outcome = registry.Invoke(ActionJsonSamples.All()[verb]());
-        Assert.NotEqual(ActionResultStatus.Ok, outcome.Result.Status);
+        // 非 Ok 的只能是状态性拒绝（ErrTargetInvalid 等），未接线档与伪报成功都被排除
+        if (outcome.Result.Status != ActionResultStatus.Ok)
+        {
+            Assert.Contains("target-invalid", outcome.Result.ErrorMessage);
+            Assert.DoesNotContain("not-implemented", outcome.Result.ErrorMessage);
+            Assert.NotEqual(ActionResultStatus.ErrSchemaDenied, outcome.Result.Status);
+        }
+    }
+
+    [Theory] // illegal：无视图注册表 → 视图态依赖动词显式拒绝（state-view-missing），仍不是伪报成功
+    [InlineData("InspectTile")]
+    [InlineData("QueryWorld")]
+    [InlineData("SetStockpile")]
+    [InlineData("FocusFire")]
+    [InlineData("SetTowerMode")]
+    [InlineData("RerouteLogistics")]
+    public void State_view_verbs_refuse_without_a_state_projection(string verb)
+    {
+        var sink = new CapturingLogSink();
+        var bare = new BareViewFake();
+        ActionRegistry registry = new(sink, bare, eraOrdinalProvider: () => EraOrdinals.E2);
+
+        ActionOutcome outcome = registry.Invoke(ActionJsonSamples.All()[verb]());
+        Assert.Equal(ActionResultStatus.Err, outcome.Result.Status);
+        Assert.Contains("state-view-missing", outcome.Result.ErrorMessage);
+        Assert.Null(outcome.Payload);
+    }
+
+    [Theory] // illegal：estate 未接线 → 升级/出售保持诚实拒绝档（T-065 口径不变）
+    [InlineData("UpgradeTower")]
+    [InlineData("SellTower")]
+    public void Estate_verbs_still_refuse_without_a_wired_estate(string verb)
+    {
+        var sink = new CapturingLogSink();
+        var (simulation, view) = RegistryFixture.Create();
+        ActionRegistry registry = new(sink, view, eraOrdinalProvider: () => EraOrdinals.E2);
+
+        ActionOutcome outcome = registry.Invoke(ActionJsonSamples.All()[verb]());
         Assert.Equal(ActionResultStatus.Err, outcome.Result.Status);
         Assert.Contains("not-implemented", outcome.Result.ErrorMessage);
-        Assert.Equal(0, outcome.Result.PointsSpent);
-        Assert.Null(outcome.Payload);
-        Assert.Contains(sink.Entries, e => e.Level == LogLevel.Warn && e.Message.Contains(verb));
+        Assert.Contains(sink.Entries, e => e.Level == LogLevel.Warn && e.Message.Contains("verdict=refused"));
     }
 
     [Fact]
@@ -151,16 +191,18 @@ public class ActionRegistryTests
     }
 
     [Fact]
-    public void SpawnScout_in_era2_passes_the_gate_into_the_refusal_tier()
+    public void SpawnScout_in_era2_runs_the_live_handler()
     {
-        // legal 载荷、时代已解锁 → 落入未实现档（Err 而非 Ok——档位状态可区分）
+        // legal：时代已解锁 → T-068 真 handler 执行（巡逻任务落治理态），档位可区分
         var sink = new CapturingLogSink();
         ActionRegistry registry = CreateRegistry(sink, view: null, era: EraOrdinals.E2);
 
         ActionOutcome outcome = registry.Invoke(ActionJsonSamples.SpawnScout());
         Assert.NotEqual(ActionResultStatus.ErrCapabilityLocked, outcome.Result.Status);
-        Assert.Equal(ActionResultStatus.Err, outcome.Result.Status);
-        Assert.Contains("not-implemented", outcome.Result.ErrorMessage);
+        Assert.Equal(ActionResultStatus.Ok, outcome.Result.Status);
+        var ack = Assert.IsType<SpawnScoutAck>(outcome.Payload);
+        Assert.Equal("lane-north", ack.Lane);
+        Assert.Single(registry.State.Tasks);
     }
 
     [Fact]

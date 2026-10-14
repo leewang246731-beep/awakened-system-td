@@ -144,7 +144,7 @@ public class AgentPipelineClosedLoopTests
         Assert.Equal("QueryStockpile", IntentQuery(done));
         Assert.Contains(done.Report!.Findings, f => f.Text.Contains("资源 1 类", StringComparison.Ordinal));
         Assert.Equal(
-            new[] { "input", "plan", "approval", "execution", "report" },
+            new[] { "input", "plan", "approval", "execution", "execution", "report" },
             StageSequence(JsonlJournalWriter.ReadAll(harness.JournalPath), done.Order));
     }
 
@@ -228,21 +228,23 @@ public class AgentPipelineClosedLoopTests
         Assert.Contains(done.Report.Findings, f => f.Text.Contains("1 座已就位 (12,12)", StringComparison.Ordinal));
     }
 
-    // ---- 自纠上限：不可纠失败（动作未实现）→ 不硬试，如实汇报 --------------------
+    // ---- 自纠上限：不可纠失败（T-068 动作真实现后换用例）→ 不硬试，如实汇报 ----
 
-    [Fact] // boundary：SetAlarm 动作 E2 未交付 → 1 次失败即放弃（无可行调整），汇报原文错误
+    [Fact] // boundary：未装备卷轴触发 → 1 次失败即放弃（无可行调整），汇报原文错误，零计费
     public void Non_correctable_failure_reports_honestly_without_burned_retries()
     {
         using var harness = new PipelineHarness();
 
-        OrderOutcome done = harness.Pipeline.Handle("三分钟后叫我");
+        OrderOutcome awaiting = harness.Pipeline.Handle("开火油卷轴");
+        Assert.Equal(PipelineOutcomeKind.AwaitingApproval, awaiting.Kind);
+        OrderOutcome done = harness.Pipeline.Confirm(awaiting.PendingId);
 
         Assert.Equal(PipelineOutcomeKind.Completed, done.Kind);
-        var alarmStep = done.Trace.Steps.First(step => step.Verb == "SetAlarm");
-        Assert.Equal("Err", alarmStep.Status);
-        Assert.Single(alarmStep.Attempts); // 无自纠通道——不烧重试
-        Assert.Contains("not-implemented", alarmStep.Attempts[0].Error, StringComparison.Ordinal);
-        Assert.StartsWith("尽力了但没全办成", done.Report!.Summary, StringComparison.Ordinal);
+        var scrollStep = done.Trace.Steps.First(step => step.Verb == "TriggerScroll");
+        Assert.Equal("Err", scrollStep.Status);
+        Assert.Single(scrollStep.Attempts); // 无自纠通道——不烧重试（统一自纠循环：调整器返回 null）
+        Assert.Contains("scroll-not-equipped", scrollStep.Attempts[0].Error, StringComparison.Ordinal);
+        Assert.StartsWith("尽力了但没全办成", done.Report!.Summary, StringComparison.Ordinal); // 如实汇报
         Assert.Equal(5, harness.Pipeline.Ledger.Points); // 失败动作永不计费
     }
 

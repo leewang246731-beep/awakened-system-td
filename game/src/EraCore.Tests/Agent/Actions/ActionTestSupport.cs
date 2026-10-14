@@ -285,20 +285,43 @@ internal static class ActionJsonSamples
     };
 
     /// <summary>
-    /// The 15 verbs that stay in the deliberate not-implemented tier under an
-    /// UNWIRED registry (HeroOrder went real in T-066). Same tier and same
-    /// 口径 as ActionRegistry's "other 13": the +2 difference is
-    /// UpgradeTower/SellTower — real the moment a TowerEstateOps is wired
-    /// into the constructor (T-065), which this fixture never does
-    /// (13 permanently undelivered until T-070 + the 2 estate verbs = 15).
+    /// The 2 estate verbs that stay in the not-implemented tier under a
+    /// registry built WITHOUT a TowerEstateOps (T-068: every other verb is
+    /// live — the 13 T-068 handlers run over the governed AgentActionState
+    /// and the view/state projection SimulationActionView provides).
     /// </summary>
-    public static readonly IReadOnlyList<string> NotImplementedVerbs = new[]
+    public static readonly IReadOnlyList<string> EstateUnwiredVerbs = new[]
     {
-        "InspectTile", "QueryWorld", "UpgradeTower", "SellTower", "SetRally",
-        "RerouteLogistics", "SetStockpile", "FocusFire", "SetTowerMode",
-        "TriggerScroll", "AskPlayer", "TodoBoard", "SpawnScout",
-        "SetAlarm", "StopTask",
+        "UpgradeTower", "SellTower",
     };
+}
+
+/// <summary>
+/// 只实现基面 <see cref="EraCore.Agent.Actions.IActionWorldView"/> 的视图替身
+/// （不含 IActionWorldState 花名册投影）——T-068 负向矩阵用：状态面动词在
+/// 缺投影的注册表上必须显式拒绝而非猜测。
+/// </summary>
+internal sealed class BareViewFake : EraCore.Agent.Actions.IActionWorldView
+{
+    public long Tick => 0;
+    public int CurrentWave => 0;
+    public System.Collections.Generic.IReadOnlyList<EraCore.Agent.Actions.ResourceStockLine> Resources => Array.Empty<EraCore.Agent.Actions.ResourceStockLine>();
+    public int EnemiesPresent => 0;
+    public int EnemyHpPresent => 0;
+    public ResourceKey CostCurrency => new("era1:res-wood");
+    public double ResourceAmount(ResourceKey resource) => 0;
+    public bool TryGetTowerCost(string towerId, out double cost)
+    {
+        cost = 0;
+        return false;
+    }
+
+    public bool IsInsideGrid(CellCoord cell) => true;
+    public bool IsBuildable(CellCoord cell, out string? rejection)
+    {
+        rejection = null;
+        return true;
+    }
 }
 
 /// <summary>

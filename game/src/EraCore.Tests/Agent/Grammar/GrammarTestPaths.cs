@@ -23,6 +23,18 @@ internal static class GrammarTestPaths
             FindContentDir(Path.Combine("game", "content", "era1"), "game/content/era1"),
             "enemies.json"));
 
+    /// <summary>game/content/era2/towers.json 内容（E2 塔别名词典，T-068 E2E）。</summary>
+    public static string Era2TowersJson()
+        => File.ReadAllText(Path.Combine(
+            FindContentDir(Path.Combine("game", "content", "era2"), "game/content/era2"),
+            "towers.json"));
+
+    /// <summary>game/content/era2/enemies.json 内容（E2 敌别名词典，T-068 E2E）。</summary>
+    public static string Era2EnemiesJson()
+        => File.ReadAllText(Path.Combine(
+            FindContentDir(Path.Combine("game", "content", "era2"), "game/content/era2"),
+            "enemies.json"));
+
     /// <summary>读取 grammar 目录下的一个文件全文。</summary>
     public static string ReadGrammarFile(string fileName)
         => File.ReadAllText(Path.Combine(GrammarDir(), fileName));

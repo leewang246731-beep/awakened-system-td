@@ -112,10 +112,12 @@ public class HeroOrderActionTests
     [Fact] // boundary — 未接 handler 的注册表：显式拒绝（不猜测战局）
     public void HeroOrder_without_a_wired_handler_refuses()
     {
+        // T-068：19 动作分发表收口后，无 handler=未注册档（原 world-view-missing
+        // 措辞不再——分发表单源，未注册动词统一 not-implemented 拒绝）
         ActionOutcome outcome = NewRegistryWithoutHandler().Invoke(ActionJsonSamples.HeroOrder());
 
         Assert.Equal(ActionResultStatus.Err, outcome.Result.Status);
-        Assert.Contains("world-view-missing", outcome.Result.ErrorMessage);
+        Assert.Contains("not-implemented:HeroOrder", outcome.Result.ErrorMessage);
     }
 
     [Fact] // legal — 冷却期 skill 拒绝且给出结构化理由（不消耗）

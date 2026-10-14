@@ -243,7 +243,7 @@ public class PlayerBuildLaneTests
         Assert.True(delivered, "改道后民夫必须完成首趟交付（900t 界内）");
     }
 
-    [Fact] // illegal：SellTower 危险位——confirm_sell=false 本地拒；true 走注册表诚实拒绝（E2 动词薄版 not-implemented）
+    [Fact] // illegal：SellTower 危险位——confirm_sell=false 本地拒；true 走 sim 泳道诚实拒绝（T-068 后 sell-tower 真动词）
     public void SellTower_requires_the_explicit_danger_bit_and_refuses_honestly() // [F-036]
     {
         (PipelineHarness harness, PlayerBuildLane lane) = MakeLane();
@@ -254,7 +254,8 @@ public class PlayerBuildLaneTests
 
         PlayerBuildOutcome confirmed = lane.Sell(targetId: 1, confirmSell: true);
         Assert.Equal(ActionResultStatus.Err, confirmed.Result.Status);
-        Assert.Contains("not-implemented:SellTower", confirmed.Result.ErrorMessage, StringComparison.Ordinal);
+        // T-068：SellTower 真 handler 上线——目标 1=仓库非塔，sim 泳道给出真拒绝码
+        Assert.Contains("sim-rejected:target-not-a-sim-tower:1", confirmed.Result.ErrorMessage, StringComparison.Ordinal);
         Assert.Empty(harness.Simulation.Towers); // 世界零变化
     }
 

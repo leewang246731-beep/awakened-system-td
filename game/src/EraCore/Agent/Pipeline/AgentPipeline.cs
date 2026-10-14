@@ -144,8 +144,11 @@ public sealed class AgentPipeline
     /// <summary>The approval gate (host persists the level whitelist via Export/RestoreSession).</summary>
     public ApprovalGate Gate => _gate;
 
-    /// <summary>Composition root over one live simulation (the spike④ wiring).</summary>
-    /// <param name="simulation">The live C-12 simulation (placements enter via SimCommand).</param>
+    /// <summary>The registry's governed agent state (T-068: directives, tasks, scroll bookkeeping).</summary>
+    public EraCore.Agent.Actions.AgentActionState State => _registry.State;
+
+    /// <summary>Composition root over one live simulation (the spike④ wiring; full 19-verb coverage since T-068).</summary>
+    /// <param name="simulation">The live C-12 simulation (mutations enter via SimCommand).</param>
     /// <param name="config">The config that simulation was built with.</param>
     /// <param name="parser">Intent parse stage (L1 grammar).</param>
     /// <param name="eraIndex">Agent-era ordinal 1..6 (E1 keeps construction verbs locked).</param>
@@ -153,6 +156,7 @@ public sealed class AgentPipeline
     /// <param name="logSink">Registry diagnostics sink.</param>
     /// <param name="regionAnchors">Region id (lexicon) → anchor cell for build placement.</param>
     /// <param name="defaultTowerId">Tower the HoldRegion template builds; null = first weapon tower in the catalog.</param>
+    /// <param name="armedScrolls">Equipped scroll ids (G.2); null = none armed (TriggerScroll refuses honestly).</param>
     public static AgentPipeline OverSimulation(
         Simulation simulation,
         SimulationConfig config,
@@ -161,7 +165,8 @@ public sealed class AgentPipeline
         IJournalWriter journal,
         ILogSink logSink,
         IReadOnlyDictionary<string, CellCoord> regionAnchors,
-        string? defaultTowerId = null)
+        string? defaultTowerId = null,
+        IReadOnlySet<string>? armedScrolls = null)
     {
         ArgumentNullException.ThrowIfNull(simulation);
         ArgumentNullException.ThrowIfNull(config);
@@ -173,14 +178,34 @@ public sealed class AgentPipeline
         var view = new SimulationActionView(simulation, config);
         var sequencer = new SequencingJournalWriter(journal);
         var clock = new SimTickClock(() => view.Tick);
-        var registry = new ActionRegistry(logSink, view, eraOrdinalProvider: () => eraIndex);
+        EraCore.Units.HeroOrderAction? heroOrder = simulation.Hero is null
+            ? null
+            : new EraCore.Units.HeroOrderAction(
+                () => simulation.Hero,
+                () => config.EntryCells is { Count: > 0 } ? config.EntryCells[0] : config.BaseCell,
+                () => simulation.Units,
+                Simulation.CellSizePx)
+            {
+                TickSource = () => simulation.CurrentTick,
+            };
+        var registry = new ActionRegistry(
+            logSink,
+            view,
+            eraOrdinalProvider: () => eraIndex,
+            heroOrder: heroOrder,
+            towerEstate: simulation.Estate,
+            armedScrolls: armedScrolls);
         return new AgentPipeline(
             parser,
             new IntentRouter(),
             new PipelinePlanner(view, regionAnchors, config.BaseCell, defaultTowerId ?? FirstWeaponTowerId(config), () => eraIndex),
             new ApprovalGate(eraIndex),
             new SystemPointLedger(eraIndex, sequencer, clock),
-            new PipelineExecutor(registry, simulation, view),
+            new PipelineExecutor(
+                registry,
+                simulation,
+                view,
+                heroAdvanceCell: () => config.EntryCells is { Count: > 0 } ? config.EntryCells[0] : config.BaseCell),
             registry,
             new AgentReporter(),
             sequencer,
@@ -237,6 +262,33 @@ public sealed class AgentPipeline
         };
     }
 
+    /// <summary>
+    /// Host-driven single-action entry (T-068): runs ONE schema-shaped
+    /// action JSON through the same five stages an order goes through
+    /// (plan card → gate → [await/confirm] → execute → report). The C-22
+    /// panel buttons, the T-081 全托管 lane and the five verbs without an
+    /// SP-2 intent row (SetRally/SetStockpile/AskPlayer/TodoBoard/
+    /// HeroOrder) enter here; the payload faces the SAME registry gates at
+    /// execution — no bypass (RL6).
+    /// </summary>
+    /// <param name="verb">The closed verb of the payload (must match its discriminator).</param>
+    /// <param name="actionJson">Schema-shaped action JSON.</param>
+    public OrderOutcome HandleSystemAction(SystemActionKind verb, string actionJson)
+    {
+        ArgumentNullException.ThrowIfNull(actionJson);
+        int order = ++_orderSeq;
+        var intent = new Contracts.Intents.Intent(
+            IntentActionMap.AttributionIntent(verb), $"system:{verb}", new Dictionary<string, string>());
+        var trace = new DecisionTraceBuilder(order, intent.RawText);
+        Emit(new PipelineInputPayload(PipelineJournalTypes.Input, order, intent.RawText), JournalEventKind.Input, trace);
+        return PlanAndApprove(
+            intent,
+            new IntentRoute(RouteKind.PlanAndApprove, "system-action"),
+            trace,
+            order,
+            prepared: _planner.PrepareSingle(verb, actionJson));
+    }
+
     /// <summary>Player confirmed a pending plan card — executes it and reports.</summary>
     /// <exception cref="ArgumentException">No pending plan with this id.</exception>
     public OrderOutcome Confirm(long pendingId)
@@ -266,9 +318,14 @@ public sealed class AgentPipeline
             pending.Trace.Snapshot());
     }
 
-    private OrderOutcome PlanAndApprove(Intent intent, IntentRoute route, DecisionTraceBuilder trace, int order)
+    private OrderOutcome PlanAndApprove(
+        Intent intent,
+        IntentRoute route,
+        DecisionTraceBuilder trace,
+        int order,
+        PlannedOrder? prepared = null)
     {
-        PlannedOrder planned = _planner.Prepare(intent);
+        PlannedOrder planned = prepared ?? _planner.Prepare(intent);
         PlanCard card = planned.Card with { RouteKind = route.Kind.ToString() };
         Emit(
             new PipelinePlanPayload(
@@ -362,9 +419,13 @@ public sealed class AgentPipeline
     /// <summary>
     /// Executes every step except the trailing report marker, with ≤
     /// <see cref="MaxSelfCorrections"/> self-corrections per step
-    /// (错误重入：BuildPlan payloads are adjusted from the failure cause and
-    /// the live state). Charging order per step: budget pre-check → execute
-    /// → charge on success only (failed actions never bill).
+    /// (错误重入，T-068 全动作统一): every verb shares the same retry loop —
+    /// on failure the error feeds <see cref="PipelineExecutor.TryAdjust"/>
+    /// which rebuilds the payload from live state (BuildPlan cell triage /
+    /// SetTowerMode dead-tower triage / FocusFire retarget; every other
+    /// verb has no useful fix and reports honestly on the first attempt).
+    /// Charging order per step: budget pre-check → execute → charge on
+    /// success only (failed actions never bill).
     /// </summary>
     private IReadOnlyList<StepDigest> ExecuteSteps(Plan plan, DecisionTraceBuilder trace, int order)
     {
@@ -416,17 +477,18 @@ public sealed class AgentPipeline
 
                 // Budget refusals never self-correct (adjusting the payload
                 // cannot refill the wave cap) — report honestly instead.
+                // Every other failure feeds the UNIFIED adjuster; a null
+                // adjustment means no useful retry exists.
                 if (result.Status != ActionResultStatus.ErrBudgetDenied
-                    && attempt <= MaxSelfCorrections
-                    && step.Action == SystemActionKind.BuildPlan)
+                    && attempt <= MaxSelfCorrections)
                 {
-                    string? adjusted = _executor.AdjustBuildPlan(actionJson, result.ErrorMessage ?? string.Empty);
+                    string? adjusted = _executor.TryAdjust(step.Action, actionJson, result.ErrorMessage ?? string.Empty);
                     if (adjusted is null)
                     {
                         break; // no useful retry exists — report honestly
                     }
 
-                    lastAdjustment = DescribeAdjustment(actionJson, adjusted);
+                    lastAdjustment = DescribeAdjustment(step.Action, actionJson, adjusted);
                     actionJson = adjusted;
                     continue;
                 }
@@ -440,11 +502,47 @@ public sealed class AgentPipeline
         return digests;
     }
 
-    private static string DescribeAdjustment(string before, string after)
+    private static string DescribeAdjustment(SystemActionKind verb, string before, string after)
     {
-        int beforeCount = CountCells(before);
-        int afterCount = CountCells(after);
-        return $"adjusted-cells:{beforeCount}->{afterCount}";
+        switch (verb)
+        {
+            case SystemActionKind.BuildPlan:
+                return $"adjusted-cells:{CountCells(before)}->{CountCells(after)}";
+            case SystemActionKind.SetTowerMode:
+                return $"dropped-tower-ids:{CountTowerIds(before)}->{CountTowerIds(after)}";
+            case SystemActionKind.FocusFire:
+                return $"retarget-first-living:{TargetIdOf(after)}";
+            default:
+                return "adjusted-payload";
+        }
+    }
+
+    private static int CountTowerIds(string setTowerModeJson)
+    {
+        try
+        {
+            SetTowerModeActionJson? parsed = JsonSerializer.Deserialize(
+                setTowerModeJson, PipelinePlannerJsonContext.Default.SetTowerModeActionJson);
+            return parsed?.TargetIds.Count ?? 0;
+        }
+        catch (JsonException)
+        {
+            return 0;
+        }
+    }
+
+    private static long TargetIdOf(string focusFireJson)
+    {
+        try
+        {
+            FocusFireActionJson? parsed = JsonSerializer.Deserialize(
+                focusFireJson, PipelinePlannerJsonContext.Default.FocusFireActionJson);
+            return parsed?.TargetId ?? 0;
+        }
+        catch (JsonException)
+        {
+            return 0;
+        }
     }
 
     private static int CountCells(string buildPlanJson)
@@ -490,6 +588,58 @@ public sealed class AgentPipeline
                 }
 
                 goto default;
+            case SystemActionKind.InspectTile:
+                return payload is InspectTileReport tile
+                    ? $"({tile.Cell.X},{tile.Cell.Y}) {tile.Aspect} 已查验"
+                    : "格子已查验";
+            case SystemActionKind.QueryWorld:
+                return payload is QueryWorldReport query
+                    ? $"{query.Key} 查得 {query.Lines.Count} 行"
+                    : "世界已查询";
+            case SystemActionKind.SetRally:
+                return payload is SetRallyAck rally
+                    ? $"{rally.Lane} 集结姿态={rally.Stance}"
+                    : "集结点已设";
+            case SystemActionKind.SetStockpile:
+                return payload is SetStockpileAck stock
+                    ? $"{stock.ItemId} 储备下限={stock.MinAmount:0.#}"
+                    : "储备下限已设";
+            case SystemActionKind.FocusFire:
+                return payload is FocusFireAck fire
+                    ? $"集火目标 {fire.TargetId}（{fire.ContentId}）"
+                    : "集火已下达";
+            case SystemActionKind.SetTowerMode:
+                return payload is SetTowerModeAck mode
+                    ? $"{mode.TargetIds.Count} 座塔模式={mode.Mode}"
+                    : "塔模式已设";
+            case SystemActionKind.TriggerScroll:
+                return payload is TriggerScrollAck scroll
+                    ? $"{scroll.ScrollId} 已触发（冷却至 tick {scroll.ReadyAgainTick}）"
+                    : "卷轴已触发";
+            case SystemActionKind.RerouteLogistics:
+                return payload is RerouteLogisticsPlan reroute
+                    ? $"{reroute.Item} 改道 {reroute.From}→{reroute.To}（份额 {reroute.Rate:0.#}）"
+                    : "物流已改道";
+            case SystemActionKind.AskPlayer:
+                return payload is AskPlayerCard card
+                    ? $"提问已递出（{card.Options.Count} 个选项）"
+                    : "提问已递出";
+            case SystemActionKind.TodoBoard:
+                return payload is TodoBoardSnapshot todos
+                    ? $"任务板已重写（{todos.Todos.Count} 项）"
+                    : "任务板已重写";
+            case SystemActionKind.SetAlarm:
+                return payload is SetAlarmAck alarm
+                    ? $"闹钟 {alarm.TaskId} 定于 tick {alarm.DueTick}"
+                    : "闹钟已设";
+            case SystemActionKind.SpawnScout:
+                return payload is SpawnScoutAck scout
+                    ? $"巡逻 {scout.TaskId} 于 {scout.Lane} 至 tick {scout.UntilTick}"
+                    : "巡逻已派出";
+            case SystemActionKind.StopTask:
+                return payload is StopTaskAck stop
+                    ? $"已停止 {stop.StoppedIds.Count} 项：{string.Join(",", stop.StoppedIds)}"
+                    : "任务已停止";
             default:
                 return verb == SystemActionKind.ReportToPlayer ? "汇报已递出" : $"{verb} 完成";
         }
