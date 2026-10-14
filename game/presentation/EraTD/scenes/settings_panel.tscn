@@ -1,0 +1,312 @@
+[gd_scene load_steps=2 format=3]
+
+; T-077 (C-26) BYOK settings panel (F-081; 方案 §11.6 设置界面字段清单).
+; One form over the ACTIVE provider row of llm.config.json: template
+; dropdown (4 presets), protocol radio, base_url, masked API key entry +
+; one-click clear, model (manual + /models fetch), the numeric/switch
+; fields, test-connection + save, and the persistent data-flow declaration
+; footer (dynamic base_url + Coding Plan notice). All decisions live in
+; EraCore.Presentation.SettingsFormState — this scene only lays out nodes;
+; wiring is scripts/SettingsPanelUi.cs (the script's only mount point).
+
+[ext_resource type="Script" path="res://scripts/SettingsPanelUi.cs" id="1_settings"]
+
+[node name="SettingsPanel" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_settings")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05, 0.08, 0.12, 0.85)
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Form" type="VBoxContainer" parent="Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="Title" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+text = "AI 设置（BYOK — 自带密钥，本游戏不收费）"
+
+[node name="TemplateRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/TemplateRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "模板（四选一）"
+
+[node name="TemplateDropdown" type="OptionButton" parent="Scroll/Form/TemplateRow"]
+layout_mode = 2
+
+[node name="ProtocolRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/ProtocolRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "协议"
+
+[node name="OpenAiRadio" type="CheckBox" parent="Scroll/Form/ProtocolRow"]
+layout_mode = 2
+text = "openai（/chat/completions）"
+
+[node name="AnthropicRadio" type="CheckBox" parent="Scroll/Form/ProtocolRow"]
+layout_mode = 2
+text = "anthropic（/v1/messages）"
+
+[node name="BaseUrlRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/BaseUrlRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "base_url"
+
+[node name="BaseUrlInput" type="LineEdit" parent="Scroll/Form/BaseUrlRow"]
+custom_minimum_size = Vector2(380, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "https://… 或 http://localhost:1234/v1"
+
+[node name="KeyRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/KeyRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "API Key"
+
+[node name="KeyInput" type="LineEdit" parent="Scroll/Form/KeyRow"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+secret = true
+placeholder_text = "仅存本机凭据存储；llm.config.json 永不写入"
+
+[node name="ClearKeyButton" type="Button" parent="Scroll/Form/KeyRow"]
+layout_mode = 2
+text = "一键清除"
+
+[node name="KeyEcho" type="Label" parent="Scroll/Form/KeyRow"]
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+text = ""
+
+[node name="ModelRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/ModelRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "模型"
+
+[node name="ModelInput" type="LineEdit" parent="Scroll/Form/ModelRow"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "手填，或「拉取列表」后选择（MiMo 模型 ID 为小写）"
+
+[node name="FetchModelsButton" type="Button" parent="Scroll/Form/ModelRow"]
+layout_mode = 2
+text = "拉取列表"
+
+[node name="FetchResult" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="NoteText" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="TempRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/TempRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "温度"
+
+[node name="Temperature" type="SpinBox" parent="Scroll/Form/TempRow"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+
+[node name="MaxTokensRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/MaxTokensRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "最大 token"
+
+[node name="MaxTokens" type="SpinBox" parent="Scroll/Form/MaxTokensRow"]
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+
+[node name="StreamRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/StreamRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "流式"
+
+[node name="UseStream" type="CheckBox" parent="Scroll/Form/StreamRow"]
+layout_mode = 2
+text = "SSE 流式（关闭=单次 JSON）"
+
+[node name="TimeoutRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/TimeoutRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "超时（请求/连接 s）"
+
+[node name="RequestTimeout" type="SpinBox" parent="Scroll/Form/TimeoutRow"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="ConnectTimeout" type="SpinBox" parent="Scroll/Form/TimeoutRow"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="RetryRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/RetryRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "重试次数"
+
+[node name="Retries" type="SpinBox" parent="Scroll/Form/RetryRow"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="HistoryRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/HistoryRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "历史轮数"
+
+[node name="HistoryRounds" type="SpinBox" parent="Scroll/Form/HistoryRow"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="ContextRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/ContextRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "上下文预算（token）"
+
+[node name="ContextBudget" type="SpinBox" parent="Scroll/Form/ContextRow"]
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+
+[node name="EnableRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/EnableRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "启用"
+
+[node name="Enable" type="CheckBox" parent="Scroll/Form/EnableRow"]
+layout_mode = 2
+text = "启用该服务（关闭=零网络）"
+
+[node name="LogRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/LogRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "调用日志"
+
+[node name="ShowCallLog" type="CheckBox" parent="Scroll/Form/LogRow"]
+layout_mode = 2
+text = "显示"
+
+[node name="LogConversation" type="CheckBox" parent="Scroll/Form/LogRow"]
+layout_mode = 2
+text = "记录会话"
+
+[node name="LogRetention" type="SpinBox" parent="Scroll/Form/LogRow"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+
+[node name="ActionRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TestConnectionButton" type="Button" parent="Scroll/Form/ActionRow"]
+layout_mode = 2
+text = "测试连接（1 消息+1 工具探针）"
+
+[node name="SaveButton" type="Button" parent="Scroll/Form/ActionRow"]
+layout_mode = 2
+text = "保存"
+
+[node name="StatusText" type="Label" parent="Scroll/Form/ActionRow"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+text = ""
+
+[node name="ProbeResult" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="DeclarationFooter" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="CodingPlanNotice" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""

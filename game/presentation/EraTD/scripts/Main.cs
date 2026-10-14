@@ -130,6 +130,12 @@ public sealed partial class Main : Control
         // 判据。与其它泳道在本文件的接线冲突由后提交者 rebase。）
         BuildInteractionUi.Instantiate(this);
 
+        // ---- 5c) T-077 BYOK settings panel (C-26, F-081) -------------------
+        // 设置页场景挂载（settings_panel.tscn）：headless 下脚本内自带冒烟
+        // 序列并打印 SETTINGS_OK providers=4 mask=on declare=on——smoke 设置
+        // 段判据。（并行纪律：本文件的接线冲突由后提交者 rebase。）
+        SettingsPanelUi.Instantiate(this);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.
