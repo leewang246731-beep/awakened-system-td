@@ -12,10 +12,15 @@ namespace EraCore.Combat;
 /// 90→270→810→2430 ladder);</item>
 /// <item>range +25% per tier inside a ±15% design band, and derived range
 /// values live on the 0.5-cell grid (取整 0.5, v3.2 §6 — values like the
-/// crossbow line's 9.5 are legal);</item>
+/// crossbow line's 9.5 are legal); CLASS-CHANGING steps (e.g. E2 pierce T3
+/// → splash T4 火油 7.5) are specialization transitions whose upper range
+/// is its own F.5 anchor — the band governs same-class steps only, the
+/// half-cell grid always applies;</item>
 /// <item>class DPS bands relative to the same-tier single-target baseline
 /// (SP-1a): splash ×0.8 (AOE −20% applies to DPS only, 07 D-15), slow ×0.2,
-/// support exempt from the band entirely.</item>
+/// support exempt from the band entirely, and F.5 specialization lines
+/// (<c>tier_line:"specialization"</c>) exempt — their niche is armor
+/// interaction, not ladder conformity.</item>
 /// </list>
 /// Every check consumes <see cref="TowerSpec"/> values deserialized from
 /// content JSON — no design number is hardcoded here except the frozen law
@@ -50,6 +55,14 @@ public static class UpgradeLaw
 
     /// <summary>Derived range grid: half a cell (v3.2 §6 取整 0.5).</summary>
     public const double RangeCellGrid = 0.5;
+
+    /// <summary>
+    /// F.5 line vocabulary for rows balanced outside the standard ×3 ladder
+    /// (<c>tier_line:"specialization"</c>, e.g. the E2 onager 700|80|11) —
+    /// such rows are exempt from the same-tier class DPS band; their niche
+    /// is armor interaction (F.5 第 20 波验算), not ladder conformity.
+    /// </summary>
+    public const string SpecializationLine = "specialization";
 
     /// <summary>
     /// Rounds a derived range onto the half-cell grid
@@ -199,6 +212,14 @@ public static class UpgradeLaw
 
         // Range: ±15% design band around the declared multiplier, half-cell grid.
         // A zero-range line (contact-only, e.g. the spike trap) must stay zero.
+        // CLASS-CHANGING STEPS (T-065, e.g. the E2 standard line's pierce T3
+        // 连弩 9.5 → splash T4 火油 7.5) are specialization transitions, not
+        // pure growth steps: SP-1b assigns each row its own class and F.5
+        // freezes the terminal row's range as its own anchor, so the +25%
+        // band governs same-class steps only — the half-cell grid still
+        // applies to every row. DPS and cost laws are class-blind (both stay
+        // enforced on class-changing steps).
+        bool classChanges = lower.Class != upper.Class;
         if (lower.RangeCells <= 0)
         {
             if (upper.RangeCells != 0)
@@ -207,7 +228,7 @@ public static class UpgradeLaw
                     $"range_step:{id} a zero-range line cannot grow range {lower.RangeCells}->{upper.RangeCells}");
             }
         }
-        else
+        else if (!classChanges)
         {
             WithinBand(
                 violations, upper.RangeCells / lower.RangeCells, growth.RangeMultiplierPerTier, RangeBand,
@@ -247,6 +268,15 @@ public static class UpgradeLaw
         if (spec.Class == TowerClass.Support)
         {
             return Array.Empty<string>(); // SP-1a L30: support stays out of the DPS band
+        }
+
+        // F.5 specialization lines (tier_line:"specialization", e.g. the E2
+        // onager) sit off the standard ladder by design — their balance
+        // niche is armor interaction (F.5 第 20 波验算: 单发 160 对甲 12 保
+        // 92.5% 有效 DPS), so the same-tier class band does not judge them.
+        if (string.Equals(spec.TierLine, SpecializationLine, StringComparison.Ordinal))
+        {
+            return Array.Empty<string>();
         }
 
         double factor = spec.Class switch

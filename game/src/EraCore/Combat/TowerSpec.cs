@@ -36,6 +36,18 @@ public sealed record TowerGrowthSpec(
 /// <param name="AuraRadiusCells">Aura radius in cells (campfire 3, SP-1b L39).</param>
 /// <param name="AuraEffects">Aura effect ids (alert_vision/ally_regen, SP-1b L39).</param>
 /// <param name="AuraRegenHpPerS">Ally HP regen inside the aura (points per second).</param>
+/// <param name="SplashRadiusCells">
+/// Splash radius in cells of an AOE tower (T-065): every enemy within this
+/// radius of the impact settles a hit with <see cref="Damage.SplashDecay"/>
+/// (edge floor 40%, v3.2 §6). Required for splash-class weapon settlement.
+/// </param>
+/// <param name="BurnDps">
+/// Burn damage-over-time rate in points per second (T-065): enemies struck
+/// by a burning splash ignite for <paramref name="BurnDps"/> over
+/// <paramref name="BurnTicks"/> ticks — an independent scorch source on top
+/// of the registry DPS, outside the F.5 four-group verification accounting.
+/// </param>
+/// <param name="BurnTicks">Burn duration in 30 Hz ticks.</param>
 public sealed record TowerTraits(
     int? BurstWindupTicks,
     bool? OneShot,
@@ -44,7 +56,10 @@ public sealed record TowerTraits(
     int? SlowTicks,
     int? AuraRadiusCells,
     IReadOnlyList<string>? AuraEffects,
-    double? AuraRegenHpPerS);
+    double? AuraRegenHpPerS,
+    double? SplashRadiusCells = null,
+    double? BurnDps = null,
+    int? BurnTicks = null);
 
 /// <summary>
 /// One tower definition deserialized from the content registry (towers.json
@@ -69,6 +84,19 @@ public sealed record TowerTraits(
 /// <param name="AmmoPerShot">Shots consumed per firing (0 = no consumption).</param>
 /// <param name="TierGrowth">Declared growth law multipliers (may be missing in broken content; validators reject).</param>
 /// <param name="Traits">Optional trait block; null when the item has none.</param>
+/// <param name="UpgradesTo">
+/// Content id of the next-tier row of the SAME upgrade line (T-065): the
+/// in-place upgrade path is data wiring, not code — e.g. the E2 standard
+/// line arrow → crossbow → repeating crossbow → fire oil (F.5 strict ×3
+/// cost ladder 90→270→810→2430). Null = the line has no successor row
+/// (terminal row, or a specialization line capped at its only tier).
+/// </param>
+/// <param name="TierLine">
+/// Line membership per the F.5 vocabulary: "standard" (the ×3 strict cost
+/// ladder) or "specialization" (F.5 <c>tier_line:"specialization"</c> —
+/// e.g. the E2 onager 700|80|11, balanced for armor niches instead of the
+/// ladder). Null is treated as standard.
+/// </param>
 public sealed record TowerSpec(
     string Id,
     TowerClass Class,
@@ -83,7 +111,9 @@ public sealed record TowerSpec(
     string? AmmoItem,
     int AmmoPerShot,
     TowerGrowthSpec? TierGrowth,
-    TowerTraits? Traits)
+    TowerTraits? Traits,
+    string? UpgradesTo = null,
+    string? TierLine = null)
 {
     /// <summary>
     /// Deserializes a tower collection document (the <c>items</c> array of

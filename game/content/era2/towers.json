@@ -1,0 +1,202 @@
+{
+  "$schema": "urn:eratd:content:building:1",
+  "content_type": "Building",
+  "era": "era2:era-classical",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；数值锚点出处见各 item 的 _source 字段（T-065；格式先例=era1/towers.json T-049）",
+  "ammo_convention": {
+    "shots_per_ammo_item": 10,
+    "_source": "v3.2 §5 L78「1 件弹药 = 10 发」（docs/我在游戏觉醒系统-游戏设计方案.md）"
+  },
+  "items": [
+    {
+      "id": "era2:tower-arrow",
+      "content_type": "Building",
+      "class": "pierce",
+      "name_zh": "箭楼",
+      "name_en": "Arrow Tower",
+      "aliases": ["箭楼", "箭塔", "arrow tower"],
+      "tier": 1,
+      "max_tier": 4,
+      "upgrades_to": "era2:tower-crossbow",
+      "tier_line": "standard",
+      "cost_total": 90,
+      "dps": 30.0,
+      "damage_per_shot": 15,
+      "reload_ticks": 15,
+      "range_cells": 6.5,
+      "hp": 150,
+      "ammo_item": "era2:ammo-arrow",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_new": true,
+      "_new_fields": ["hp", "ammo_item"],
+      "_source": "F.5 E2 塔基准行「箭楼 T1 90|30|6.5」+SP-1b L40 定类=穿刺（E2 基础单体线）；单发/攻速拆分 15×2/s=v2.1 §14.1 锚点（Balance BenchCalc E2TowerBench.ArrowT1Damage 同源，15×30/15=30 自洽）；升级链 upgrades_to=同线 T2 弩塔（SP-1b L41「箭楼同线升级」）；hp/弹药件无文档锚点 → _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era2:tower-crossbow",
+      "content_type": "Building",
+      "class": "pierce",
+      "name_zh": "弩塔",
+      "name_en": "Crossbow Tower",
+      "aliases": ["弩塔", "石矢弩", "crossbow tower"],
+      "tier": 2,
+      "max_tier": 4,
+      "upgrades_to": "era2:tower-repeating-crossbow",
+      "tier_line": "standard",
+      "cost_total": 270,
+      "dps": 60.0,
+      "damage_per_shot": 18,
+      "reload_ticks": 9,
+      "range_cells": 8.0,
+      "hp": 220,
+      "ammo_item": "era2:ammo-stone-bolt",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_new": true,
+      "_new_fields": ["damage_per_shot", "reload_ticks", "hp", "ammo_item"],
+      "_source": "F.5 E2 塔基准行「弩塔 T2 270|60|8」+SP-1b L41 定类=穿刺（箭楼同线升级，成本 90×3=270 严格×3/级）；单发/攻速拆分按 30 Hz 整 tick 网格取 d=18@3.33/s（SP-3c L131 原型校准 d≈17@≈3.5/s 仅用于甲交互推导——勇士甲 4 吃 4/18≈22.2%，与 SP-3c 四舍五入 23% 同带；DPS 合计严格=F.5 冻结 60，18×30/9=60 自洽）→ 拆分 _new；换弹系：本档石矢 [NEW]，升级换铁矢（era2:ammo-iron-bolt）；hp _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era2:tower-repeating-crossbow",
+      "content_type": "Building",
+      "class": "pierce",
+      "name_zh": "连弩塔",
+      "name_en": "Repeating Crossbow Tower",
+      "aliases": ["连弩塔", "连弩", "铁矢连弩", "repeating crossbow"],
+      "tier": 3,
+      "max_tier": 4,
+      "upgrades_to": "era2:tower-fire-oil",
+      "tier_line": "standard",
+      "cost_total": 810,
+      "dps": 120.0,
+      "damage_per_shot": 36,
+      "reload_ticks": 9,
+      "range_cells": 9.5,
+      "hp": 320,
+      "ammo_item": "era2:ammo-iron-bolt",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_new": true,
+      "_new_fields": ["damage_per_shot", "reload_ticks", "hp", "ammo_item"],
+      "_source": "F.5 E2 塔基准行「连弩塔 T3 810|120|9.5」+SP-1b L42 定类=穿刺（成本 270×3=810 严格；射程 9.5=07 修正 #2 ±15% 设计带内合法非整值）；单发/攻速拆分 d=36@3.33/s（弩塔 d=18 ×2 的铁矢换弹线，36×30/9=120 自洽，DPS 严格=F.5 冻结 120）→ 拆分 _new；换弹系：铁矢 [NEW]（对 T2 石矢 DPS×2 的载体）；hp _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era2:tower-onager",
+      "content_type": "Building",
+      "class": "physical",
+      "name_zh": "弩炮",
+      "name_en": "Onager Tower",
+      "aliases": ["弩炮", "重弩", "onager"],
+      "tier": 3,
+      "max_tier": 3,
+      "tier_line": "specialization",
+      "cost_total": 700,
+      "dps": 80.0,
+      "damage_per_shot": 160,
+      "reload_ticks": 60,
+      "range_cells": 11.0,
+      "hp": 300,
+      "ammo_item": "era2:ammo-siege-bolt",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_new": true,
+      "_new_fields": ["damage_per_shot", "reload_ticks", "hp", "ammo_item"],
+      "_source": "F.5 E2 塔基准行「弩炮 T3 特化 700|80|11」+SP-1b L43 定类=物理（特化线：对重甲——单发大 d 对甲扣减占比小；F.5 第 20 波验算用，有效 DPS 3×80×(160−12)/160≈222）；tier_line=specialization 为 F.5 原文术语（成本 700 不入 90→270→810→2430 标准 ×3 阶梯——特化线豁免）；单发 160=SP-3c L132 [NEW-原型校准] 锚点（160×30/60=80 自洽）；max_tier=3（F.5 无特化线 T4 行，不发明）；hp/弹药件 _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era2:tower-fire-oil",
+      "content_type": "Building",
+      "class": "splash",
+      "name_zh": "火油塔",
+      "name_en": "Fire-Oil Tower",
+      "aliases": ["火油塔", "火油", "fire oil tower"],
+      "tier": 4,
+      "max_tier": 4,
+      "tier_line": "standard",
+      "cost_total": 2430,
+      "dps": 240.0,
+      "damage_per_shot": 64,
+      "reload_ticks": 8,
+      "range_cells": 7.5,
+      "hp": 450,
+      "ammo_item": "era2:ammo-fire-oil",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "splash_radius_cells": 1.5,
+        "burn_dps": 12.0,
+        "burn_ticks": 90
+      },
+      "_new": true,
+      "_new_fields": ["damage_per_shot", "reload_ticks", "hp", "ammo_item", "traits.splash_radius_cells", "traits.burn_dps", "traits.burn_ticks"],
+      "_source": "F.5 E2 塔基准行「火油塔 T4 2430|240AOE|7.5」（07 决议 D-15 恢复成本 ×3/级严格：810×3=2430；第 30 波经济验算门禁 12.28s≤156s 已过，不回落特化线豁免）+SP-1b L44 定类=溅射；射程 7.5 为 F.5 冻结行值（类变终点档：T3 连弩 9.5 → T4 溅射 7.5 非同类成长步，UpgradeLaw 类变步不套 +25% 带）；单发/攻速拆分按 30 Hz 整 tick 网格取 d=64@3.75/s（v2.1 §14.1 原型 60×4/s 的 7.5 tick 换算落格调整，64×30/8=240 自洽，DPS 严格=F.5 冻结 240）→ 拆分 _new；AOE 半径 1.5 格与燃烧 DOT（12 DPS×3 s=90 ticks，叠加于 240 基准 DPS 之外的独立灼伤源，不参与 F.5 四组验算口径）全 [NEW]；hp/弹药件（火油矢=换弹系终点 [NEW]）_new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points",
+        "splash_radius_cells": "cells",
+        "burn_dps": "points_per_second",
+        "burn_ticks": "ticks_at_30hz"
+      }
+    }
+  ]
+}

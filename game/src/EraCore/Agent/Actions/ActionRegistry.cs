@@ -1,7 +1,9 @@
 using System.Text.Json;
+using EraCore.Combat;
 using EraCore.Contracts.Actions;
 using EraCore.Contracts.Agent;
 using EraCore.Contracts.Foundation;
+using EraCore.Units;
 
 namespace EraCore.Agent.Actions;
 
@@ -19,12 +21,20 @@ public sealed record ActionOutcome(ActionResult Result, object? Payload);
 /// The C-03 action registry (T-051): the single lawful door every system
 /// action passes through (RL6 — closed 19-verb list, closed-schema
 /// validation, unlock-era gate, then the registered handler). What T-051
-/// delivers:
+/// delivered, T-066 and T-065 extended:
 /// <list type="bullet">
-/// <item>3 real handlers — LookAround (battle overview), BuildPlan (draft
+/// <item>4 real handlers — LookAround (battle overview), BuildPlan (draft
 /// plan, never an execution), ReportToPlayer (bounded, link-filtered
-/// report);</item>
-/// <item>the other 16 verbs registered in a deliberate not-implemented
+/// report), and HeroOrder (T-066: the three order values move/skill/
+/// retreat execute against the live hero through
+/// <see cref="HeroOrderAction"/> in the unit system);</item>
+/// <item>T-065 made UpgradeTower/SellTower REAL: both verbs dispatch to
+/// the combat <see cref="TowerEstateOps"/> handlers
+/// (<see cref="UpgradeTowerAction"/>/<see cref="SellTowerAction"/>) the
+/// moment a tower estate is wired into the constructor — without one they
+/// stay in the deliberate not-implemented tier (an honest typed refusal,
+/// never a fake success);</item>
+/// <item>the other 13 verbs registered in a deliberate not-implemented
 /// tier that returns a typed refusal (Err + explicit code) — an
 /// undelivered handler NEVER reports success;</item>
 /// <item>out-of-list refusals with a structured, secret-scrubbed
@@ -43,6 +53,7 @@ public sealed class ActionRegistry : IActionExecutor
         SystemActionKind.LookAround,
         SystemActionKind.BuildPlan,
         SystemActionKind.ReportToPlayer,
+        SystemActionKind.HeroOrder,
     };
 
     private readonly ILogSink _logSink;
@@ -52,22 +63,44 @@ public sealed class ActionRegistry : IActionExecutor
     private readonly LookAroundAction _lookAround = new();
     private readonly BuildPlanAction _buildPlan = new();
     private readonly ReportToPlayerAction _reportToPlayer = new();
+    private readonly HeroOrderAction? _heroOrder;
+    private readonly TowerEstateOps? _towerEstate;
+    private readonly UpgradeTowerAction? _upgradeTower;
+    private readonly SellTowerAction? _sellTower;
 
     /// <param name="logSink">Diagnostic sink for every registry verdict (structured, secret-scrubbed).</param>
     /// <param name="worldView">World view the stateful handlers read; null makes BuildPlan refuse with Err until wired.</param>
     /// <param name="validator">Schema validator; when null a default one is built on <paramref name="eraOrdinalProvider"/>.</param>
     /// <param name="eraOrdinalProvider">Current era ordinal (E1=1 …); defaults to E1.</param>
+    /// <param name="heroOrder">
+    /// HeroOrder handler (T-066, fourth real verb); null keeps the verb in
+    /// the explicit-refusal tier — the hero feature is optional (F-039).
+    /// </param>
+    /// <param name="towerEstate">
+    /// Combat tower estate (T-065): when provided, UpgradeTower/SellTower
+    /// dispatch to their real combat handlers; null keeps both verbs in the
+    /// not-implemented tier — an unwired estate must refuse, never guess.
+    /// </param>
     public ActionRegistry(
         ILogSink logSink,
         IActionWorldView? worldView = null,
         JsonSchemaValidator? validator = null,
-        Func<int>? eraOrdinalProvider = null)
+        Func<int>? eraOrdinalProvider = null,
+        HeroOrderAction? heroOrder = null,
+        TowerEstateOps? towerEstate = null)
     {
         ArgumentNullException.ThrowIfNull(logSink);
         _logSink = logSink;
         _worldView = worldView;
         _eraOrdinal = eraOrdinalProvider ?? (static () => EraOrdinals.E1);
         _validator = validator ?? new JsonSchemaValidator(eraOrdinalProvider);
+        _heroOrder = heroOrder;
+        _towerEstate = towerEstate;
+        if (towerEstate is not null)
+        {
+            _upgradeTower = new UpgradeTowerAction(towerEstate);
+            _sellTower = new SellTowerAction(towerEstate);
+        }
     }
 
     /// <summary>The closed verb list the registry accepts (all 19, K-3).</summary>
@@ -116,10 +149,14 @@ public sealed class ActionRegistry : IActionExecutor
                 + " (answer the player with clarifying copy — N9/A2; the call is not silently dropped)"), null);
         }
 
-        // Dispatch to the registered handler.
-        if (!ImplementedKinds.Contains(descriptor.Kind))
+        // Dispatch to the registered handler. The T-065 combat pair runs only
+        // against a wired estate; unwired, they stay in the honest
+        // not-implemented tier (same tier contract as the undelivered verbs).
+        if (!HasLiveHandler(descriptor.Kind))
         {
-            string reason = $"not-implemented:{descriptor.Verb}:handler lands with T-070 (W3 action groups); refusing rather than reporting success";
+            string reason = IsEstateVerb(descriptor.Kind)
+                ? $"not-implemented:{descriptor.Verb}:combat tower-estate not wired (T-065 handlers run once a TowerEstateOps is provided); refusing rather than reporting success"
+                : $"not-implemented:{descriptor.Verb}:handler lands with T-070 (W3 action groups); refusing rather than reporting success";
             _logSink.Write(LogLevel.Warn, LogTick(), ActionLog.NotImplementedLine(descriptor.Verb, reason));
             return new ActionOutcome(new ActionResult(ActionResultStatus.Err, reason), null);
         }
@@ -168,6 +205,53 @@ public sealed class ActionRegistry : IActionExecutor
                 return new ActionOutcome(new ActionResult(ActionResultStatus.Ok), report);
             }
 
+            case SystemActionKind.HeroOrder:
+            {
+                if (_heroOrder is null)
+                {
+                    return NoViewRefusal(descriptor.Verb);
+                }
+
+                HeroOrderResult heroOutcome = _heroOrder.Invoke(actionJson);
+                if (!heroOutcome.Ok)
+                {
+                    _logSink.Write(
+                        LogLevel.Warn, LogTick(), ActionLog.DenyLine(descriptor.Verb, heroOutcome.Reason ?? "hero-order-refused", actionJson));
+                    return new ActionOutcome(new ActionResult(ActionResultStatus.Err, heroOutcome.Reason), null);
+                }
+
+                LogOk(descriptor.Verb, era);
+                return new ActionOutcome(new ActionResult(ActionResultStatus.Ok), heroOutcome.Ack);
+            }
+
+            case SystemActionKind.UpgradeTower:
+            {
+                (ActionResult result, UpgradeTowerReceipt? receipt) = _upgradeTower!.Invoke(actionJson);
+                if (result.Status != ActionResultStatus.Ok)
+                {
+                    _logSink.Write(
+                        LogLevel.Warn, LogTick(), ActionLog.DenyLine(descriptor.Verb, result.ErrorMessage ?? "upgrade-refused", actionJson));
+                    return new ActionOutcome(result, null);
+                }
+
+                LogOk(descriptor.Verb, era);
+                return new ActionOutcome(result, receipt);
+            }
+
+            case SystemActionKind.SellTower:
+            {
+                (ActionResult result, SellTowerReceipt? receipt) = _sellTower!.Invoke(actionJson);
+                if (result.Status != ActionResultStatus.Ok)
+                {
+                    _logSink.Write(
+                        LogLevel.Warn, LogTick(), ActionLog.DenyLine(descriptor.Verb, result.ErrorMessage ?? "sell-refused", actionJson));
+                    return new ActionOutcome(result, null);
+                }
+
+                LogOk(descriptor.Verb, era);
+                return new ActionOutcome(result, receipt);
+            }
+
             default:
                 throw new InvalidOperationException(
                     $"Verb {descriptor.Kind} is marked implemented but has no dispatch arm; registry table drift.");
@@ -192,6 +276,18 @@ public sealed class ActionRegistry : IActionExecutor
     }
 
     private const int MaxLoggedErrors = 3;
+
+    /// <summary>
+    /// Whether one verb has a live handler under THIS registry instance: the
+    /// always-on kinds plus the T-065 combat pair (live only when a tower
+    /// estate was wired into the constructor).
+    /// </summary>
+    private bool HasLiveHandler(SystemActionKind kind) =>
+        ImplementedKinds.Contains(kind)
+        || (IsEstateVerb(kind) && _towerEstate is not null);
+
+    private static bool IsEstateVerb(SystemActionKind kind) =>
+        kind is SystemActionKind.UpgradeTower or SystemActionKind.SellTower;
 
     private ActionOutcome Deny(string? verb, string reason, string? actionJson)
     {
