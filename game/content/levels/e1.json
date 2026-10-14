@@ -3,7 +3,7 @@
   "content_type": "Level",
   "era": "era1:era-ancient",
   "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）。本文件=T-085 E1 手工关卡集首批 4 关（F-055）：手工关=固定 seed+布局参数（非随机重掷），每关=地图参数+出生点/核心位+初始资源+命令流脚本（教学引导建造序列，波锚定：wave k 步骤在 k 波开场谷内执行，wave 1 步骤在首波宽限内执行）+三重目标实例（campaign/objectives.json SP-8 池引用）+威胁度+胜波（§7 公式 10+⌊t×10⌋）。锚点：单局时长带=v3.2 §3（手工关 15~40 分钟）；首波宽限=§6（教学关 ×3，非教学 ×1.5~2）；波间隔=§6（120s×乘子，F.2 表）；E1 塔防特色=v3.2 §4 L58；觉醒演出钩子=§10.4 ①（E1 第 2~3 波 断弹→闪红→民夫送箭）；E1 命令动词=E1 薄版五动词（SimE1Fixture.MilestoneCommands 先例）；威胁度=手工定值（SP-9 营邻接派生适用于程序战役图节点；手工关按节奏定值，0.3/0.45/0.6=T-085 任务卡递进锚点）",
-  "_duration_calibration": "每关 budget_seconds=设计预算（objectives C1 ClearTimeSeconds 的 threshold 0.8 乘子基值）；实际时长验收口径=理论节奏估算（EraCore.Tests/Levels/LevelPacingEstimator：宽限+Σ波节奏，波节奏=min(波间隔, 清场+波谷 15s)，清场由命令流塔线 DPS 对波 EHP 按 F.5 先例两线式估算）——不含真实玩家操作时间（实测口径归 T-095 ≥3 人中位）",
+  "_duration_calibration": "每关 budget_seconds=设计预算（objectives C1 ClearTimeSeconds 的 threshold 0.8 乘子基值）；实际时长验收口径=理论节奏估算（EraCore.Tests/Levels/LevelPacingEstimator：宽限+Σ波节奏，波节奏=min(波间隔, 清场+波谷 15s)，清场由命令流塔线 DPS 对波 EHP 按 F.5 先例两线式估算）——不含真实玩家操作时间（实测口径归 T-095 ≥3 人中位）。[RED-FLAG: 估算器节奏模型（min(间隔,清场+波谷)）与生产 WaveSpawner 固定节拍结构性偏差 ~3×（T-084 实锚 2800~3900s/关 vs 估算 940~1260s）——15~40 分钟带仅估算模型内成立；T-095 复核+实测口径校准，**必须先于 T-130 E1 硬验收清账**；c1 限时目标同批校准]",
   "items": [
     {
       "id": "campaign:level-e1-01",

@@ -121,10 +121,16 @@ HAS_ASSERT_RE = re.compile(r"\bAssert\.|\bassert\s|\.Should\(")
 CLASS_DECL_RE = re.compile(r"^\s*(?:\w+\s+)*?class\s+\w+")
 
 # T3：F-ID/C-ID 关联注释 `// [F-123]`（或 [C-30]；亦接受 Trait 声明）。
-# 方法级标签优先生效；所在测试类的声明行（含其上方 3 行内）带标签时，
-# 该类全部测试方法视为已关联（06 §3.1 T3 允许测试类级关联）。
+# 方法级标签优先生效；所在测试类的声明行向上连续『注释行+属性行』块内
+# 带标签时，该类全部测试方法视为已关联（06 §3.1 T3 允许测试类级关联）。
+# 属性行（[Collection]/[Trait] 等 attribute 行）不切断窗口——W3 收官
+# F4 假阳修复：标签在 >3 行注释块头部、其下再隔属性行的类头（Legacy
+# EraTransitionTests/RelicMapperTests、OffSystemRegressionTests 形态）
+# 曾被固定 3 行窗漏扫成 33 条假 WARN。
 FID_COMMENT_RE = re.compile(r"\[\s*[FC]-\d{1,3}\s*\]")
 FID_TRAIT_RE = re.compile(r"Trait\s*\(\s*\"[^\"]*\"\s*,\s*\"[FC]-\d{1,3}\"")
+# C# 属性行（attribute，如 [Collection("…")]、[Trait("…")]）——类头窗内跳过
+ATTRIBUTE_LINE_RE = re.compile(r"^\s*\[")
 
 CI_ALLOW_RE = re.compile(r"ci-allow:\s*([A-Za-z0-9*,\s\-]+)")
 
@@ -586,17 +592,39 @@ def check_r13_baseline(ctx: ScanContext):
     return []
 
 
+def _class_header_has_tag(lines, decl_idx: int) -> bool:
+    """类声明行向上的类头窗内是否含 F-ID/C-ID 标签（F4 假阳修复）。
+
+    窗=声明行本行（行内尾注）+ 其上连续『注释行+属性行』块：自声明行起
+    逐行上扫，注释行（////* 等）与属性行（[Collection]/[Trait] 等
+    attribute 行）均在窗内且逐行匹配标签；首个非注释非属性行（代码行/
+    空行）终止——替代原固定 3 行窗（标签在长注释块头部+其下隔属性行的
+    类头曾整块漏扫）。"""
+    j = decl_idx
+    while j >= 0:
+        ln = lines[j]
+        if j == decl_idx:
+            if FID_COMMENT_RE.search(ln):
+                return True
+        elif _is_comment_line(ln, ".cs") or ATTRIBUTE_LINE_RE.match(ln):
+            if FID_COMMENT_RE.search(ln) or FID_TRAIT_RE.search(ln):
+                return True
+        else:
+            break
+        j -= 1
+    return False
+
+
 def _tagged_class_lines(lines):
     """返回带 F-ID/C-ID 标签的类声明行号集合（0 基）。
-    标签可在声明行本行（行内尾注）或其上方 3 行内的注释中。"""
+    标签可在声明行本行（行内尾注）或其类头窗内（见 _class_header_has_tag）。"""
     tagged = set()
     for i, ln in enumerate(lines):
         stripped = ln.lstrip()
         if (not CLASS_DECL_RE.match(ln)
                 or stripped.startswith(("//", "*", "/*", "#")) or ";" in ln):
             continue
-        window = lines[max(0, i - 3): i + 1]
-        if any(FID_COMMENT_RE.search(w) for w in window):
+        if _class_header_has_tag(lines, i):
             tagged.add(i)
     return tagged
 
@@ -613,36 +641,63 @@ def _class_declarations(lines):
     return decls
 
 
-def _owner_class_tagged(class_decls, line_idx: int) -> bool:
-    """line_idx 属于声明于其前的最后一个类；返回该类是否带标签。"""
-    owner_tagged = False
-    found = False
-    for c, is_tagged in class_decls:
-        if c <= line_idx:
-            owner_tagged = is_tagged
-            found = True
-        else:
-            break
-    return found and owner_tagged
+def _code_for_braces(ln: str) -> str:
+    """行内花括号计数用的净化形态：抹字符串字面量、去行注释（`{`/`}`
+    出现在字符串或注释里不改变嵌套深度——与 R7 同一字符串抹除正则）。"""
+    return R7_STRING_RE.sub('""', ln).split("//", 1)[0]
+
+
+def _class_tag_by_enclosure(lines, method_starts, tagged_decls):
+    """对每个方法起始行（0 基，属性行），返回其**全部外围类**是否带标签。
+
+    依据花括号深度维护外围类栈：方法类级关联=任一外围类（不只是最近一个
+    声明——测试类的嵌套 helper 类常在方法前抢走"最近声明"位置，如
+    IHttpPortContractTests 的 FakeHandler）头窗带标签即覆盖；类闭合
+    （开括号计数过后深度回落到其开括号前值）即出栈。未见到自身开括号
+    （`{` 在声明行下一行的形态）的类不参与出栈判定。"""
+    enclosing = {}
+    starts = set(method_starts)
+    stack = []  # [声明行号, 开括号前深度, 是否已见开括号]
+    depth = 0
+    for i, ln in enumerate(lines):
+        if i in starts:
+            enclosing[i] = any(d in tagged_decls for d, _, _ in stack)
+        stripped = ln.lstrip()
+        if (CLASS_DECL_RE.match(ln) and not stripped.startswith(("//", "*", "/*", "#"))
+                and ";" not in ln):
+            stack.append([i, depth, False])
+        code = _code_for_braces(ln)
+        if "{" in code:
+            depth += code.count("{")
+            for entry in stack:
+                if not entry[2] and entry[0] <= i:
+                    entry[2] = True
+        depth -= code.count("}")
+        while stack and stack[-1][2] and depth <= stack[-1][1]:
+            stack.pop()
+    return enclosing
 
 
 def check_t3_fid_coverage(ctx: ScanContext):
     """⑦ 测试方法 F-ID/C-ID 关联覆盖率（WARNING 级报告，不阻塞）。
     认可格式：方法属性区/体内的 `// [F-123]`、`// [C-30]` 注释，
-    [Trait("Feature", "F-123")] 声明，或所在测试类声明处的标签
-    （类级关联，06 §3.1 T3）。"""
+    [Trait("Feature", "F-123")] 声明，或任一外围测试类的类头窗标签
+    （类级关联，06 §3.1 T3；嵌套 helper 类不遮蔽外围测试类的类级标签）。"""
     out = []
     total = tagged = 0
     for rel in ctx.files:
         if not (ctx.under(rel, "game/src/EraCore.Tests") and rel.endswith(".cs")):
             continue
         lines = ctx.read(rel)
-        class_decls = _class_declarations(lines)
-        for name, lo, hi in iter_test_methods(lines):
+        tagged_decls = _tagged_class_lines(lines)
+        methods = list(iter_test_methods(lines))
+        enclosing = _class_tag_by_enclosure(
+            lines, (lo for _, lo, _ in methods), tagged_decls)
+        for name, lo, hi in methods:
             total += 1
             span = "\n".join(lines[lo:hi + 1])
             if (FID_COMMENT_RE.search(span) or FID_TRAIT_RE.search(span)
-                    or _owner_class_tagged(class_decls, lo)):
+                    or enclosing.get(lo, False)):
                 tagged += 1
                 continue
             out.append(Finding(

@@ -15,6 +15,14 @@ test_redline_scan.py — redline_scan.py 自测（任务 T-027；零三方依赖
   6. r7_numeric_anchors       R7 数值锚点：锚点提取（跳元约定键/注解键/白名单）
                               + 产品代码命中抓到 + Balance ≥10 魔数（R1 覆盖）
                               + 字符串内容不误报 + Tests 不扫 + 行级豁免
+  7. t3_class_header_window  T3 类级标签窗口（W3 收官 F4 假阳回归）：标签在
+                              >3 行注释块头部+其下隔 [Collection]/[Trait]
+                              属性行的类头必须判已关联（Legacy
+                              EraTransitionTests/RelicMapperTests、
+                              OffSystemRegressionTests 同形态曾 33 条假 WARN）；
+                              嵌套 helper 类不遮蔽外围测试类类级标签
+                              （IHttpPortContractTests.FakeHandler 形态）；
+                              同形态但无标签的对照类必须仍然 WARN
 
 样例目录均在系统临时目录中创建、用后删除；git 检查用临时仓库的真实
 HEAD 作为基线（--baseline 覆盖），不伪造任何运行结果。
@@ -609,6 +617,96 @@ def test_r7_numeric_anchors() -> None:
         shutil.rmtree(t, ignore_errors=True)
 
 
+# ---------------------------------------------------------------- 用例 7（T3 类头窗）
+
+# 类级标签在 >3 行注释块头部、其下再隔 [Collection]/[Trait] 属性行——
+# 固定 3 行窗曾整块漏扫（W3 收官 F4：Legacy EraTransitionTests /
+# RelicMapperTests / OffSystemRegressionTests 同形态共 33 条假 WARN）。
+# 第二类=无标签对照（必须仍 WARN）；第三类=嵌套 helper 抢"最近声明"
+# （外围测试类类级标签必须覆盖，IHttpPortContractTests.FakeHandler 形态）。
+T3_ATTR_WINDOW_TESTS_CS = """using Xunit;
+
+namespace Clean.Tests;
+
+// [C-20][F-056] 自测样例：类级标签位于超过 3 行的注释块头部（第 1 行），
+// 其下再隔 [Collection]/[Trait] 属性行——固定 3 行窗曾整块漏扫，
+// 类头窗必须跳过属性行延伸至首个非注释非属性行（F4 假阳回归）。
+[Collection("SelftestSerial")]
+[Trait("Feature", "F-056")]
+public class AttrWindowTaggedTests
+{
+    [Fact]
+    public void Tagged_via_class_comment_above_attributes()
+    {
+        Assert.Equal(2, 1 + 1);
+    }
+}
+
+// 无标签对照：同形态（长注释块+属性行）但块内无任何 F-ID/C-ID
+// ——窗口放宽不得放过真缺口，该类方法必须仍然 WARN。
+[Collection("SelftestSerial")]
+public class AttrWindowUntaggedTests
+{
+    [Fact]
+    public void Untagged_counterpart_still_warns()
+    {
+        Assert.Equal(3, 1 + 2);
+    }
+}
+
+// 嵌套 helper 形态：外围测试类带类级标签，方法前声明的嵌套 private
+// class 不带——外围类级标签必须覆盖其后方法（最近声明=helper 不遮蔽）。
+// [C-16][F-162]
+public class NestedHelperOwnerTaggedTests
+{
+    private sealed class FakeHandler
+    {
+        public int Nop(int x) => x;
+    }
+
+    [Fact]
+    public void Tagged_via_outer_class_with_nested_helper()
+    {
+        Assert.Equal(4, 2 + 2);
+    }
+}
+"""
+
+
+def test_t3_class_header_window() -> None:
+    print("[7] T3 类级标签窗口：属性行不切断 + 嵌套 helper 不遮蔽（F4 假阳回归）")
+    t = tempfile.mkdtemp(prefix="redline_t3win_")
+    try:
+        build_clean_root(t)
+        w(t, "game/src/EraCore.Tests/AttrWindowTests.cs", T3_ATTR_WINDOW_TESTS_CS)
+        baseline = init_repo(t)
+        report = rs.run_scan(t, baseline=baseline)
+
+        # ① 仅无标签对照类的方法报 WARN（行号=其 [Fact] 属性行=24）
+        t3 = [f for f in report.findings
+              if f.check == "T3" and f.path.endswith("AttrWindowTests.cs")]
+        check(len(t3) == 1 and t3[0].line == 24,
+              f"仅无标签对照类报 WARN（期望 1 条@24，实际 {[(f.line) for f in t3]}）")
+
+        # ② 全仓 T3 计数：干净基线 4 方法 + 本样例 3 方法 = 7，关联 6
+        by_id = {c["id"]: c for c in report.checks}
+        check(by_id["T3"]["warn"] == 1 and "6/7" in by_id["T3"]["note"],
+              f"T3 计数 6/7、1 WARN（实际 {by_id['T3']['note']}）")
+
+        # ③ 直接断言类头窗谓词：隔属性行的长注释块标签命中；helper 形态
+        #    外围类带标签、helper 类自身不带
+        lines = T3_ATTR_WINDOW_TESTS_CS.splitlines()
+        tagged = rs._tagged_class_lines(lines)
+        check(tagged == {9, 33},
+              f"带标签类声明行集合={{{9}, {33}}}（实际 {sorted(tagged)}）")
+        check(not rs._class_header_has_tag(lines, 21),
+              "无标签对照类头窗判 False（窗口放宽不放过真缺口）")
+
+        check(report.exit_code == 0, "T3 WARN 不影响退出码（WARNING 级）")
+    finally:
+        shutil.rmtree(t, ignore_errors=True)
+
+
 def main() -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -623,6 +721,7 @@ def main() -> int:
     test_t8_predicate_table()
     test_t8_end_to_end()
     test_r7_numeric_anchors()
+    test_t3_class_header_window()
     print("-" * 60)
     print(f"selftest summary: {PASS} passed, {FAIL} failed")
     return 1 if FAIL else 0

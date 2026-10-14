@@ -3,7 +3,7 @@
   "content_type": "Level",
   "era": "era2:era-classical",
   "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）。本文件=T-085 E2 手工关卡集首批 3 关（F-055）：前三关行与 game/content/era2/levels.json（T-079 冻结排期元数据）同 id 逐字段一致（id/slot/focus/schedule_tier/威胁度/胜波/宽限/教学位/觉醒位/unlocks——一致性由 HandcraftedLevelSetTests 排期一致性断言互证）；手工关=固定 seed+布局参数+命令流脚本+三重目标实例（campaign/objectives.json SP-8 池引用）；能力解锁链=v3.2 §4 L67 新时代前三关排期（关 1 新能源/关 2 新物流/关 3 考古+英雄+系统新能力）+§11.8 三级（对话级→建造级→巡逻/托管级）——L2-1 只水力、L2-2 马车+水渠、L2-3 考古+英雄+SpawnScout/HeroOrder；威胁度/胜波=§7 公式（clamp(0.3+0.3×邻接敌营)→10+⌊t×10⌋：0.3/0.6/0.9→13/16/19）；波间隔=§6（120s×乘子，F.2 表）；E2 命令动词=E1 五动词+升级/英雄令（SimE2Fixture 里程碑链裁剪）；任务卡『威胁 0.5~0.75』带与 T-079 冻结排期（0.3/0.6/0.9）冲突时以冻结数据为准（F-092 三源一致纪律）",
-  "_duration_calibration": "每关 budget_seconds=设计预算（objectives C1 ClearTimeSeconds 的 threshold 0.8 乘子基值）；实际时长验收口径=理论节奏估算（EraCore.Tests/Levels/LevelPacingEstimator：宽限+Σ波节奏，波节奏=min(波间隔, 清场+波谷 15s)，清场由命令流塔线 DPS 对波 EHP 按 F.5 先例两线式估算）——不含真实玩家操作时间（实测口径归 T-095 ≥3 人中位）",
+  "_duration_calibration": "每关 budget_seconds=设计预算（objectives C1 ClearTimeSeconds 的 threshold 0.8 乘子基值）；实际时长验收口径=理论节奏估算（EraCore.Tests/Levels/LevelPacingEstimator：宽限+Σ波节奏，波节奏=min(波间隔, 清场+波谷 15s)，清场由命令流塔线 DPS 对波 EHP 按 F.5 先例两线式估算）——不含真实玩家操作时间（实测口径归 T-095 ≥3 人中位）。[RED-FLAG: 估算器节奏模型（min(间隔,清场+波谷)）与生产 WaveSpawner 固定节拍结构性偏差 ~3×（T-084 实锚 2800~3900s/关 vs 估算 940~1260s）——15~40 分钟带仅估算模型内成立；T-095 复核+实测口径校准，**必须先于 T-130 E1 硬验收清账**；c1 限时目标同批校准]",
   "items": [
     {
       "id": "campaign:level-e2-01",

@@ -4,8 +4,10 @@ using Xunit;
 namespace EraCore.Tests.Endless;
 
 // [F-006][T-080] SP-7b 每 10 波词缀表：迅捷 41 / 硬化 51 / 相位 61 / 自爆强化 71，
-// 81 起每 +10 波叠层（强度 ×1.5/层）。量级默认=T-080 任务卡校准档；SP-7b 表体
-// 口径（迅捷+25%/硬化 HP+50%/相位 0.5s）经 SpecTable 档同断言。
+// 81 起每 +10 波叠层（强度 ×1.5/层）。量级生产默认档=SP-7b 表体口径
+// （REV-20261015-wave3-exit F2 裁定：迅捷+25%/硬化 HP+50%/相位 0.5s——
+// Default 档即表值）；T-080 任务卡校准档（迅捷×1.3/硬化甲×1.5/相位 1s）
+// 保留为测试校准档（TaskCard），经本文件同断言锚定。
 public class EndlessAffixesTests
 {
     // ------------------------------------------------ 激活阈值 ---------
@@ -41,18 +43,18 @@ public class EndlessAffixesTests
             EndlessAffixes.ActiveAt(71));
     }
 
-    // ------------------------------------------------ 默认档量级 -------
+    // ------------------------------------------------ 生产默认档量级 ---
 
-    [Fact] // legal：任务卡默认档——迅捷 ×1.3 速 / 硬化 ×1.5 甲（HP 档默认关）/ 相位 6s 周期 1s 无敌帧
+    [Fact] // legal：生产默认档（SP-7b 表体，REV-20261015-wave3-exit F2）——迅捷 ×1.25 速 / 硬化 HP ×1.5（甲口径 1.0）/ 相位 6s 周期 0.5s 无敌帧
     public void Default_tuning_magnitudes()
     {
         EndlessEnemyModifiers m = EndlessAffixes.Modifiers(71, EndlessAffixTuning.Default);
 
-        Assert.Equal(1.3, m.SpeedMultiplier);
-        Assert.Equal(1.5, m.ArmorMultiplier);
-        Assert.Equal(1.0, m.HpMultiplier);
+        Assert.Equal(1.25, m.SpeedMultiplier);
+        Assert.Equal(1.0, m.ArmorMultiplier);
+        Assert.Equal(1.5, m.HpMultiplier);
         Assert.Equal(180, m.PhasePeriodTicks);        // 6 s × 30 Hz
-        Assert.Equal(30, m.PhaseInvulnerableTicks);   // 1 s × 30 Hz
+        Assert.Equal(15, m.PhaseInvulnerableTicks);   // 0.5 s × 30 Hz
         Assert.Equal(1.5, m.SuicideRadiusMultiplier);
         Assert.Equal(2.0, m.SuicideDamageMultiplier);
         Assert.Equal(1.0, m.SuicideBaseRadiusCells);  // 非自爆敌获得基础自爆 1 格
@@ -60,16 +62,20 @@ public class EndlessAffixesTests
         Assert.Equal(0, m.Stacks);
     }
 
-    [Fact] // legal：SP-7b 表体档（SpecTable）——迅捷 +25% / 硬化 HP +50% / 相位 0.5s 无敌帧每 6s
-    public void Spec_table_tuning_magnitudes()
+    [Fact] // legal：T-080 任务卡校准档（TaskCard，测试校准档非生产默认）——迅捷 ×1.3 速 / 硬化 ×1.5 甲（HP 档关）/ 相位 1s 无敌帧
+    public void Task_card_calibration_tier_magnitudes()
     {
-        EndlessEnemyModifiers m = EndlessAffixes.Modifiers(71, EndlessAffixTuning.SpecTable);
+        EndlessEnemyModifiers m = EndlessAffixes.Modifiers(71, EndlessAffixTuning.TaskCard);
 
-        Assert.Equal(1.25, m.SpeedMultiplier);
-        Assert.Equal(1.0, m.ArmorMultiplier);
-        Assert.Equal(1.5, m.HpMultiplier);
+        Assert.Equal(1.3, m.SpeedMultiplier);
+        Assert.Equal(1.5, m.ArmorMultiplier);
+        Assert.Equal(1.0, m.HpMultiplier);
         Assert.Equal(180, m.PhasePeriodTicks);
-        Assert.Equal(15, m.PhaseInvulnerableTicks);   // 0.5 s × 30 Hz
+        Assert.Equal(30, m.PhaseInvulnerableTicks);   // 1 s × 30 Hz
+        Assert.Equal(1.5, m.SuicideRadiusMultiplier);
+        Assert.Equal(2.0, m.SuicideDamageMultiplier);
+        Assert.Equal(1.0, m.SuicideBaseRadiusCells);
+        Assert.Equal(60.0, m.SuicideBaseDamage);
     }
 
     [Theory] // legal：词缀缺席=中性（乘子恰 1/基础 0）——41 前全中性，单档缺席同域
@@ -92,13 +98,13 @@ public class EndlessAffixesTests
         Assert.Equal(0.0, m.SuicideBaseDamage);
     }
 
-    [Fact] // legal：41~50 只有迅捷生效，硬化/相位/自爆域保持中性
+    [Fact] // legal：41~50 只有迅捷生效，硬化/相位/自爆域保持中性（生产默认 SP-7b：迅捷 ×1.25）
     public void Partial_activation_keeps_other_domains_neutral()
     {
         EndlessEnemyModifiers m = EndlessAffixes.Modifiers(45, EndlessAffixTuning.Default);
 
         Assert.Equal(new[] { EndlessAffixKind.Swift }, m.ActiveKinds);
-        Assert.Equal(1.3, m.SpeedMultiplier);
+        Assert.Equal(1.25, m.SpeedMultiplier);
         Assert.Equal(1.0, m.ArmorMultiplier);   // 硬化 51 起才点亮
         Assert.Equal(1.0, m.HpMultiplier);
         Assert.Equal(0, m.PhasePeriodTicks);
@@ -128,10 +134,10 @@ public class EndlessAffixesTests
         Assert.Equal(2.25, EndlessAffixes.Intensity(2, EndlessAffixTuning.Default));
     }
 
-    [Fact] // legal：叠层作用在词缀增量上（1+(表值−1)×强度）——迅捷 1 层=×1.45，不是 ×1.95
+    [Fact] // legal：叠层作用在词缀增量上（1+(表值−1)×强度）——任务卡校准档迅捷 1 层=×1.45，不是 ×1.95
     public void Stacks_scale_the_delta_not_the_whole_multiplier()
     {
-        EndlessEnemyModifiers m = EndlessAffixes.Modifiers(81, EndlessAffixTuning.Default);
+        EndlessEnemyModifiers m = EndlessAffixes.Modifiers(81, EndlessAffixTuning.TaskCard);
 
         Assert.Equal(1, m.Stacks);
         Assert.Equal(1.45, m.SpeedMultiplier, 10);              // 1+(1.3−1)×1.5
@@ -141,6 +147,13 @@ public class EndlessAffixesTests
         Assert.Equal(3.0, m.SuicideDamageMultiplier, 10);
         Assert.Equal(1.0, m.SuicideBaseRadiusCells);            // 基础授予对不随层放大（平价授予）
         Assert.Equal(60.0, m.SuicideBaseDamage);
+
+        // 生产默认档（SP-7b）同律：迅捷 1+(1.25−1)×1.5=×1.375；硬化 HP 1+(1.5−1)×1.5=×1.75（甲口径 1.0 无增量）
+        EndlessEnemyModifiers prod = EndlessAffixes.Modifiers(81, EndlessAffixTuning.Default);
+        Assert.Equal(1.375, prod.SpeedMultiplier, 10);
+        Assert.Equal(1.0, prod.ArmorMultiplier);
+        Assert.Equal(1.75, prod.HpMultiplier, 10);
+        Assert.Equal(23, prod.PhaseInvulnerableTicks);          // 0.5s × 1.5 → 0.75s → 22.5 tick 四舍五入 23（AwayFromZero）
     }
 
     // ------------------------------------------------ 守卫 -------------

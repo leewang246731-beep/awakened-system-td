@@ -10,13 +10,13 @@ public enum EndlessAffixKind
     /// <summary>No affix (waves below 41).</summary>
     None = 0,
 
-    /// <summary>迅捷 — enemy speed multiplier (task-card calibration ×1.3; SP-7b 原型校准 +25% injectable).</summary>
+    /// <summary>迅捷 — enemy speed multiplier (SP-7b 生产默认 +25%；T-080 任务卡校准 ×1.3 经 TaskCard 测试校准档注入).</summary>
     Swift = 1,
 
-    /// <summary>硬化 — enemy armor multiplier (task-card calibration ×1.5; SP-7b 原型校准口径为 HP +50%，经同一表可注入).</summary>
+    /// <summary>硬化 — enemy HP multiplier (SP-7b 生产默认 HP +50%；T-080 任务卡「甲+50%」口径经 TaskCard 测试校准档注入).</summary>
     Harden = 2,
 
-    /// <summary>相位 — periodic invulnerability frames (1 s per cycle, task-card calibration; SP-7b 原型校准 0.5 s/6 s injectable).</summary>
+    /// <summary>相位 — periodic invulnerability frames (0.5 s per 6 s cycle, SP-7b 生产默认；T-080 任务卡校准 1 s 经 TaskCard 档注入).</summary>
     Phase = 3,
 
     /// <summary>自爆强化 — death explosion scaling plus a base suicide granted to non-suicide enemies (SP-7b: 半径 ×1.5/伤害 ×2/基础 1 格 60 伤).</summary>
@@ -24,22 +24,23 @@ public enum EndlessAffixKind
 }
 
 /// <summary>
-/// Affix effect magnitudes (SP-7b + T-080 任务卡校准): supplied by the host
-/// like <c>TrampleProfile</c> (CS-2.3/RL7 — the engine itself carries no
-/// design numbers). <see cref="Default"/> freezes the T-080 task-card
-/// calibration; SP-7b's own prototype-calibration rows (迅捷 +25%、相位
-/// 0.5 s/6 s、硬化 HP +50%) reach the same fields through a caller-built
-/// instance — the four KINDS and the activation/stacking rules are the
-/// frozen part, magnitudes are data.
+/// Affix effect magnitudes (SP-7b + T-080): supplied by the host like
+/// <c>TrampleProfile</c> (CS-2.3/RL7 — the engine itself carries no design
+/// numbers). <see cref="Default"/> is the PRODUCTION tier and carries the
+/// 11-spec-tables SP-7b rows verbatim (W3 exit ruling REV-20261015-wave3-exit
+/// F2: 生产默认档=冻结规格表值); <see cref="TaskCard"/> freezes the T-080
+/// task-card calibration and is kept as the TEST-CALIBRATION tier — the four
+/// KINDS and the activation/stacking rules are the frozen part, magnitudes
+/// are data.
 /// </summary>
-/// <param name="SwiftSpeedMultiplier">迅捷 speed multiplier (×1.3, T-080 任务卡「速×1.3」).</param>
-/// <param name="HardenArmorMultiplier">硬化 armor multiplier (×1.5, T-080 任务卡「甲+50%」).</param>
+/// <param name="SwiftSpeedMultiplier">迅捷 speed multiplier (×1.25, SP-7b「敌移速 +25%」——生产默认档).</param>
+/// <param name="HardenArmorMultiplier">硬化 armor multiplier (×1.0, SP-7b 表体走 HP 口径不走甲口径——生产默认档；T-080 任务卡「甲+50%」经 <see cref="TaskCard"/> 测试校准档注入).</param>
 /// <param name="HardenHpMultiplier">
-/// 硬化 HP multiplier (SP-7b 原型校准「敌 HP +50%」口径的挂点——任务卡默认 1.0
-/// 走甲口径，SP-7b HP 口径经注入 1.5 达成，SP-7a「HP 成长由词缀供给」由此通道).
+/// 硬化 HP multiplier (×1.5, SP-7b「敌 HP +50%」——生产默认档；SP-7a「HP
+/// 成长由词缀供给」由此通道；T-080 任务卡甲口径默认 1.0 经 TaskCard 档注入).
 /// </param>
 /// <param name="PhasePeriodSeconds">相位 cycle length in seconds (6 s, SP-7b「每 6 s」).</param>
-/// <param name="PhaseInvulnerableSeconds">相位 invulnerability duration per cycle in seconds (1 s, T-080 任务卡「周期无敌 1s」).</param>
+/// <param name="PhaseInvulnerableSeconds">相位 invulnerability duration per cycle in seconds (0.5 s, SP-7b「每 6 s 获得 0.5 s 无敌帧」——生产默认档；T-080 任务卡「周期无敌 1s」经 TaskCard 档注入).</param>
 /// <param name="SuicideRadiusMultiplier">自爆强化 explosion-radius multiplier on enemies already carrying a suicide trait (×1.5, SP-7b).</param>
 /// <param name="SuicideDamageMultiplier">自爆强化 explosion-damage multiplier on enemies already carrying a suicide trait (×2, SP-7b).</param>
 /// <param name="SuicideBaseRadiusCells">自爆强化 granted base radius for enemies WITHOUT a suicide trait (1 cell, SP-7b).</param>
@@ -58,15 +59,17 @@ public sealed record EndlessAffixTuning(
     double StackIntensityMultiplier)
 {
     /// <summary>
-    /// T-080 task-card calibration (magnitudes annotated per field; the
-    /// SP-7b rows stay reachable through caller-built instances).
+    /// PRODUCTION default (W3 exit ruling REV-20261015-wave3-exit F2):
+    /// the 11-spec-tables SP-7b magnitudes verbatim — 迅捷 +25% 速 / 硬化
+    /// HP +50%（甲口径 1.0）/ 相位 0.5 s 无敌帧每 6 s / 自爆强化 半径 ×1.5
+    /// 伤害 ×2 基础 1 格 60 点 / 叠层 ×1.5. 生产默认档必须跟随冻结规格表。
     /// </summary>
     public static EndlessAffixTuning Default { get; } = new(
-        SwiftSpeedMultiplier: 1.3,
-        HardenArmorMultiplier: 1.5,
-        HardenHpMultiplier: 1.0,
+        SwiftSpeedMultiplier: 1.25,
+        HardenArmorMultiplier: 1.0,
+        HardenHpMultiplier: 1.5,
         PhasePeriodSeconds: 6.0,
-        PhaseInvulnerableSeconds: 1.0,
+        PhaseInvulnerableSeconds: 0.5,
         SuicideRadiusMultiplier: 1.5,
         SuicideDamageMultiplier: 2.0,
         SuicideBaseRadiusCells: 1.0,
@@ -74,17 +77,17 @@ public sealed record EndlessAffixTuning(
         StackIntensityMultiplier: 1.5);
 
     /// <summary>
-    /// SP-7b 原型校准档（表体口径）: 迅捷 +25% 速 / 硬化 HP +50% / 相位
-    /// 0.5 s 无敌帧每 6 s / 自爆强化 半径 ×1.5 伤害 ×2 基础 1 格 60 点 — the
-    /// 11-spec-tables SP-7b magnitudes verbatim, for hosts that follow the
-    /// spec table instead of the task-card calibration.
+    /// T-080 任务卡校准档 — **测试校准档，非生产默认**（生产档裁定=SP-7b
+    /// 表值，见 <see cref="Default"/>；REV-20261015-wave3-exit F2 / 11-spec-tables
+    /// 变更记录）：迅捷 ×1.3 速 / 硬化 ×1.5 甲（HP 档关）/ 相位 6 s 周期
+    /// 1 s 无敌帧。保留供既有测试锚定与任务卡口径对照。
     /// </summary>
-    public static EndlessAffixTuning SpecTable { get; } = new(
-        SwiftSpeedMultiplier: 1.25,
-        HardenArmorMultiplier: 1.0,
-        HardenHpMultiplier: 1.5,
+    public static EndlessAffixTuning TaskCard { get; } = new(
+        SwiftSpeedMultiplier: 1.3,
+        HardenArmorMultiplier: 1.5,
+        HardenHpMultiplier: 1.0,
         PhasePeriodSeconds: 6.0,
-        PhaseInvulnerableSeconds: 0.5,
+        PhaseInvulnerableSeconds: 1.0,
         SuicideRadiusMultiplier: 1.5,
         SuicideDamageMultiplier: 2.0,
         SuicideBaseRadiusCells: 1.0,
@@ -105,7 +108,7 @@ public sealed record EndlessAffixTuning(
 /// <param name="Stacks">Stack count at the wave (0 below wave 81; +1 per +10 waves from 81 on).</param>
 /// <param name="SpeedMultiplier">Enemy speed multiplier (迅捷 absent → exactly 1).</param>
 /// <param name="ArmorMultiplier">Enemy armor multiplier (硬化 absent → exactly 1).</param>
-/// <param name="HpMultiplier">Enemy HP multiplier (硬化 HP 口径 absent → exactly 1; task-card default runs 1.0, SP-7b 档注入 1.5).</param>
+/// <param name="HpMultiplier">Enemy HP multiplier (硬化 HP 口径 absent → exactly 1; SP-7b 生产默认 1.5, T-080 任务卡甲口径经 TaskCard 档注入 1.0).</param>
 /// <param name="PhasePeriodTicks">相位 cycle length in ticks (0 when absent).</param>
 /// <param name="PhaseInvulnerableTicks">相位 invulnerability frames per cycle in ticks (0 when absent).</param>
 /// <param name="SuicideRadiusMultiplier">Death-explosion radius multiplier (自爆强化 absent → exactly 1).</param>
