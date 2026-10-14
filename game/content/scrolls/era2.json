@@ -1,0 +1,235 @@
+{
+  "$schema": "urn:eratd:content:scroll:1",
+  "content_type": "Scroll",
+  "era": "era2:era-classical",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；规则锚点=附录 F.1+SP-5 表头（docs/engineering/11-spec-tables.md L154~L171）；数值锚点出处见各 item 的 _source 字段（T-071）",
+  "rules_anchor": {
+    "resident_cap": "6+2×时代序号（附录 F.1；E2=10 张）",
+    "tick_budget": "每卷轴每 tick（1 s=30 ticks）至多 1 次条件判定+1 次动作",
+    "per_tower_arbitration": "同一塔同时只受优先级最高的 1 张卷轴控制；同优先级后到者不生效",
+    "system_arbitration": "系统显式指令>卷轴至本波结束；TriggerScroll=系统 1 点+3 s 冷却（handler 侧 T-068/070），不占常驻上限",
+    "_source": "v3.2 附录 F.1（docs/我在游戏觉醒系统-游戏设计方案.md L334）+11-spec-tables.md SP-5 表头 L156"
+  },
+  "items": [
+    {
+      "id": "era2:scroll-alarm-string",
+      "sp_id": "SC-001",
+      "content_type": "Scroll",
+      "kind": "condition_card",
+      "name_zh": "警弦",
+      "name_en": "Alarm String",
+      "aliases": ["警弦", "alarm string"],
+      "priority": 50,
+      "unlock_era": 2,
+      "cooldown_ticks": 1350,
+      "condition": {
+        "kind": "zone_enemy_count_at_least",
+        "zone": "*",
+        "count": 5,
+        "_units": { "count": "enemies" }
+      },
+      "action": {
+        "verb": "FocusFire",
+        "verb_target": "strongest_in_trigger_zone",
+        "scope": "trigger_zone"
+      },
+      "acquisition": { "kind": "research", "ref": "era2:tech-codex-i" },
+      "_new": true,
+      "_new_fields": ["priority", "cooldown_ticks"],
+      "_source": "SP-5 L161 SC-001「警弦｜条件卡｜当某分区敌数 ≥5→该区全体塔集火最强敌（复用 FocusFire 语义），触发后冷却 45 s」；冷却 45 s×30 Hz=1350 ticks；优先级无文档锚点→_new 待原型校准；条件阈值 count=5 为表内锚点",
+      "_units": {
+        "priority": "arbitration_points_higher_wins",
+        "cooldown_ticks": "ticks_at_30hz",
+        "unlock_era": "era_ordinal"
+      }
+    },
+    {
+      "id": "era2:scroll-barbican-retort",
+      "sp_id": "SC-002",
+      "content_type": "Scroll",
+      "kind": "condition_card",
+      "name_zh": "瓮城反击",
+      "name_en": "Barbican Retort",
+      "aliases": ["瓮城反击", "瓮城", "barbican retort"],
+      "priority": 60,
+      "unlock_era": 2,
+      "cooldown_ticks": 1350,
+      "condition": {
+        "kind": "enemy_in_zone",
+        "zone": "barbican"
+      },
+      "action": {
+        "effect": "zone_damage_bonus",
+        "scope": "trigger_zone",
+        "magnitude": 0.5,
+        "duration_ticks": 300
+      },
+      "acquisition": { "kind": "boss_drop", "ref": "era2:enemy-boss" },
+      "_new": true,
+      "_new_fields": ["priority", "cooldown_ticks"],
+      "_source": "SP-5 L162 SC-002「瓮城反击｜条件卡｜当敌进入瓮城分区→瓮城反击伤害 +50%，持续 10 s，冷却 45 s」——+50% 与 SP-1b 瓮城基础 +20% 同源（一张卷轴一处数值）；10 s×30=300 ticks、45 s×30=1350 ticks；获取=铁蹄 Boss（era2:enemy-boss）首杀掉落（不可研究）；优先级 _new",
+      "_units": {
+        "priority": "arbitration_points_higher_wins",
+        "cooldown_ticks": "ticks_at_30hz",
+        "magnitude": "damage_fraction",
+        "duration_ticks": "ticks_at_30hz",
+        "unlock_era": "era_ordinal"
+      }
+    },
+    {
+      "id": "era2:scroll-spare-blades",
+      "sp_id": "SC-003",
+      "content_type": "Scroll",
+      "kind": "action_card",
+      "name_zh": "备刃",
+      "name_en": "Spare Blades",
+      "aliases": ["备刃", "spare blades"],
+      "priority": 45,
+      "unlock_era": 2,
+      "cooldown_ticks": 1800,
+      "action": {
+        "effect": "tower_class_attack_speed",
+        "scope": "tower_class",
+        "tower_class": "pierce",
+        "magnitude": 0.25,
+        "duration_ticks": 450
+      },
+      "acquisition": { "kind": "research", "ref": "era2:tech-codex-ii" },
+      "_new": true,
+      "_new_fields": ["priority", "cooldown_ticks"],
+      "_source": "SP-5 L163 SC-003「备刃｜动作卡｜全体穿刺塔攻速 +25%，持续 15 s，冷却 60 s」——动作卡经 TriggerScroll 触发（系统 1 点+3 s 冷却，不占常驻上限）；15 s×30=450 ticks、60 s×30=1800 ticks；优先级 _new",
+      "_units": {
+        "priority": "arbitration_points_higher_wins",
+        "cooldown_ticks": "ticks_at_30hz",
+        "magnitude": "attack_speed_fraction",
+        "duration_ticks": "ticks_at_30hz",
+        "unlock_era": "era_ordinal"
+      }
+    },
+    {
+      "id": "era2:scroll-rearguard",
+      "sp_id": "SC-004",
+      "content_type": "Scroll",
+      "kind": "condition_card",
+      "name_zh": "断后",
+      "name_en": "Rearguard",
+      "aliases": ["断后", "rearguard"],
+      "priority": 70,
+      "unlock_era": 2,
+      "cooldown_ticks": 0,
+      "per_tower_per_wave_limit": 1,
+      "condition": {
+        "kind": "tower_hp_below_percent",
+        "percent": 0.5
+      },
+      "action": {
+        "effect": "tower_heal_percent",
+        "scope": "trigger_tower",
+        "magnitude": 0.2
+      },
+      "acquisition": { "kind": "research", "ref": "era2:tech-codex-iii" },
+      "_new": true,
+      "_new_fields": ["priority"],
+      "_source": "SP-5 L164 SC-004「断后｜条件卡｜当任一塔 HP ≤50%→回复该塔 20% 最大 HP（每塔每波 1 次）」——表内锚点：阈值 50%（≤口径）、回复 20%、每塔每波 1 次；无自身冷却（限频=每塔每波上限）；优先级 _new",
+      "_units": {
+        "priority": "arbitration_points_higher_wins",
+        "cooldown_ticks": "ticks_at_30hz",
+        "percent": "hp_fraction",
+        "magnitude": "hp_fraction",
+        "unlock_era": "era_ordinal"
+      }
+    },
+    {
+      "id": "era2:scroll-beacon",
+      "sp_id": "SC-005",
+      "content_type": "Scroll",
+      "kind": "action_card",
+      "name_zh": "烽火",
+      "name_en": "Beacon",
+      "aliases": ["烽火", "beacon"],
+      "priority": 40,
+      "unlock_era": 2,
+      "cooldown_ticks": 2700,
+      "action": {
+        "effect": "support_aura_range_bonus",
+        "scope": "tower_class",
+        "tower_class": "support",
+        "magnitude": 2.0,
+        "duration_ticks": 600
+      },
+      "acquisition": { "kind": "era_gift", "ref": "era2:transition-e1-e2" },
+      "_new": true,
+      "_new_fields": ["priority", "cooldown_ticks"],
+      "_source": "SP-5 L165 SC-005「烽火｜动作卡｜支援类光环范围 +2 格，持续 20 s，冷却 90 s」——20 s×30=600 ticks、90 s×30=2700 ticks；获取=E1→E2 跃迁赠送（教学）；优先级 _new",
+      "_units": {
+        "priority": "arbitration_points_higher_wins",
+        "cooldown_ticks": "ticks_at_30hz",
+        "magnitude": "cells",
+        "duration_ticks": "ticks_at_30hz",
+        "unlock_era": "era_ordinal"
+      }
+    },
+    {
+      "id": "era2:scroll-press-gang",
+      "sp_id": "SC-006",
+      "content_type": "Scroll",
+      "kind": "action_card",
+      "name_zh": "民夫征调",
+      "name_en": "Press Gang",
+      "aliases": ["民夫征调", "征调", "press gang"],
+      "priority": 30,
+      "unlock_era": 2,
+      "cooldown_ticks": 3600,
+      "action": {
+        "effect": "logistics_throughput_multiplier",
+        "scope": "none",
+        "magnitude": 1.5,
+        "duration_ticks": 900
+      },
+      "acquisition": { "kind": "research", "ref": "era2:tech-codex-iv" },
+      "_new": true,
+      "_new_fields": ["priority", "cooldown_ticks"],
+      "_source": "SP-5 L166 SC-006「民夫征调｜动作卡｜物流运力 ×1.5 持续 30 s（不改物流档位上限），冷却 120 s」——30 s×30=900 ticks、120 s×30=3600 ticks；优先级 _new",
+      "_units": {
+        "priority": "arbitration_points_higher_wins",
+        "cooldown_ticks": "ticks_at_30hz",
+        "magnitude": "multiplier",
+        "duration_ticks": "ticks_at_30hz",
+        "unlock_era": "era_ordinal"
+      }
+    },
+    {
+      "id": "era2:scroll-silence",
+      "sp_id": "SC-007",
+      "content_type": "Scroll",
+      "kind": "condition_card",
+      "name_zh": "静默",
+      "name_en": "Silence",
+      "aliases": ["静默", "silence"],
+      "priority": 80,
+      "unlock_era": 2,
+      "cooldown_ticks": 0,
+      "condition": {
+        "kind": "enemies_remaining_at_most",
+        "count": 3
+      },
+      "action": {
+        "effect": "tower_energy_cost_multiplier",
+        "scope": "none",
+        "magnitude": 0.5,
+        "until_wave_end": true
+      },
+      "acquisition": { "kind": "boss_drop", "ref": "era1:enemy-boss" },
+      "_new": true,
+      "_new_fields": ["priority"],
+      "_source": "SP-5 L167 SC-007「静默｜条件卡｜当波内剩敌 ≤3→全塔能耗 −50% 至波结束」——表内锚点：剩敌 ≤3、能耗 ×0.5、至波结束；获取=踏群者 Boss（era1:enemy-boss，E1 Boss E2 期可用）掉落；无冷却（效果至波结束，引擎在效果存续期抑制重复触发）；优先级 _new",
+      "_units": {
+        "priority": "arbitration_points_higher_wins",
+        "cooldown_ticks": "ticks_at_30hz",
+        "count": "enemies",
+        "magnitude": "multiplier",
+        "unlock_era": "era_ordinal"
+      }
+    }
+  ]
+}
