@@ -77,6 +77,26 @@ public class FlowFieldManagerTests
         Assert.Throws<ArgumentException>(() => new FlowFieldManager(new FixedGrid(0, 3)));
     }
 
+    // --------------------------------------------- W4 门禁 F1: advance-mode stamp
+
+    [Fact] // [C-11] W4 门禁 F1 观察位：两条预算入口各自盖章（防误回接墙钟的守卫地基）
+    public void LastAdvanceModeStampsTheBudgetEntryThatRan()
+    {
+        var manager = new FlowFieldManager(new MapGrid(4, 4));
+        manager.Acquire(new FlowFieldKey(0, 0), new CellCoord(0, 0));
+
+        // 新建管理器只 Acquire 不推进——观察位保持 None。
+        Assert.Equal(FlowFieldAdvanceMode.None, manager.LastAdvanceMode);
+
+        // 墙钟入口（合法零预算边界）盖 WallClock 章。
+        manager.Update(0);
+        Assert.Equal(FlowFieldAdvanceMode.WallClock, manager.LastAdvanceMode);
+
+        // 确定性入口（合法零配额边界）盖 Deterministic 章——最后调用者胜。
+        manager.UpdateDeterministic(0);
+        Assert.Equal(FlowFieldAdvanceMode.Deterministic, manager.LastAdvanceMode);
+    }
+
     // ------------------------------------------------------------ buckets + LRU
 
     [Fact]

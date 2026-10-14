@@ -48,6 +48,29 @@ public sealed record CellRegion(int X, int Y, int Width, int Height)
 }
 
 /// <summary>
+/// Which budget entry drove the most recent manager advance — the W4 门禁
+/// F1 observation bit (REV-20261015-wave4-gate):
+/// <see cref="FlowFieldManager.Update(double?)"/> stamps
+/// <see cref="WallClock"/>, <see cref="FlowFieldManager.UpdateDeterministic(int?)"/>
+/// stamps <see cref="Deterministic"/>. Observation only (never a behavior
+/// input): the binding guard SimulationFlowFieldBindingTests asserts
+/// Deterministic after Simulation ticks, so re-wiring the simulation slice
+/// back to the load-dependent wall-clock entry goes test-red instead of
+/// silently diverging same-seed hashes (T-086 finding, T-067 DEBT 清账).
+/// </summary>
+public enum FlowFieldAdvanceMode
+{
+    /// <summary>No advance call yet (fresh manager).</summary>
+    None = 0,
+
+    /// <summary>Legacy wall-clock entry (tooling and non-simulation callers only).</summary>
+    WallClock = 1,
+
+    /// <summary>Deterministic cell-quota entry (THE simulation entry).</summary>
+    Deterministic = 2,
+}
+
+/// <summary>
 /// Owns the active flow fields (C-11, F-043; design v3.2 §6 "流场寻路
 /// （8ms/帧、分桶 ≤6、建筑血量×5 计代价）"). One bucket per
 /// <see cref="FlowFieldKey"/> (lane × cost type); at most
@@ -233,6 +256,14 @@ public sealed class FlowFieldManager
     /// pending. Spike/perf records read this for per-frame cell throughput.
     /// </summary>
     public int LastTickCellsProcessed { get; private set; }
+
+    /// <summary>
+    /// Budget entry that drove the LAST advance call (W4 门禁 F1 观察位 —
+    /// observation only, never a behavior input): the binding guard
+    /// SimulationFlowFieldBindingTests reads this after Simulation ticks;
+    /// see <see cref="FlowFieldAdvanceMode"/>.
+    /// </summary>
+    public FlowFieldAdvanceMode LastAdvanceMode { get; private set; }
 
     /// <summary>
     /// Number of <see cref="UpdateDeterministic"/> ticks whose wall time
@@ -454,6 +485,8 @@ public sealed class FlowFieldManager
                 nameof(frameBudgetMs), "Frame budget must not be negative; zero performs no flood work this call.");
         }
 
+        // W4 门禁 F1 观察位：墙钟入口盖章（仅观察，见 LastAdvanceMode）。
+        LastAdvanceMode = FlowFieldAdvanceMode.WallClock;
         StartDirtyRebuilds();
 
         if (_pending.Count == 0)
@@ -518,6 +551,8 @@ public sealed class FlowFieldManager
                 nameof(maxCellsPerTick), quota, "Cell quota must not be negative; zero performs no flood work this call.");
         }
 
+        // W4 门禁 F1 观察位：确定性入口盖章（仅观察，见 LastAdvanceMode）。
+        LastAdvanceMode = FlowFieldAdvanceMode.Deterministic;
         long guardStart = Stopwatch.GetTimestamp();
         StartDirtyRebuilds();
         LastTickCellsProcessed = 0;

@@ -455,6 +455,15 @@ public sealed class Simulation
     /// <summary>The grid world (C-05) — read-only reuse for callers.</summary>
     public GridWorld World => _world;
 
+    /// <summary>
+    /// The flow-field manager this sim drives (C-11; read-only reuse seam).
+    /// W4 门禁 F1: the binding guard SimulationFlowFieldBindingTests asserts
+    /// its <see cref="FlowFieldManager.LastAdvanceMode"/> stays Deterministic
+    /// across ticks — Step's slice must never re-bind to the wall-clock entry
+    /// (T-086 same-seed divergence finding; T-067 DEBT 清账).
+    /// </summary>
+    public FlowFieldManager Flows => _flows;
+
     /// <summary>Command intake (replay key #2: the command stream).</summary>
     public SimCommandQueue Commands => _queue;
 

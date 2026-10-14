@@ -2,8 +2,8 @@
 
 | 项 | 内容 |
 |---|---|
-| 版本 | v1.10（头部补正：v1.8/v1.9 时点漏更头部，本次随 v1.10 一并追平） |
-| 日期 | 2026-10-14 |
+| 版本 | v1.11（W4 门禁双轴审查处置：F3 判断项登记挂 T-099 行尾，出处 REV-20261015-wave4-gate） |
+| 日期 | 2026-10-15 |
 | 状态 | **已冻结**（任务编排基线；T-027 带有 DEBT-W0 挂账标记，见 2026-10-13 round 1 审查；变更走 code-review 双轴流程；2026-10-13 二开批次 T-144~T-147 经 21 号文档决策追加，既有 T-001~T-143 行零改动） |
 | 依据 | 《07-decided-plan.md》D-01~D-32 最终裁决；05-schedule 波次骨架（采纳+修改）；03 组件图；06 质量门禁；《21-secondary-dev-base.md》§5（二开批次追加依据） |
 | 任务总数 | **147**（T-001~T-143 原批 + T-144~T-147 二开批次（2026-10-13 追加，落位 W4~W5 插入执行，不占 F-001~F-177 特性序）；L 级任务按 05 §5.1 规则拆 2~4 个 PR 执行，全项目 ≈370 PR） |
@@ -154,7 +154,7 @@
 | T-096 | v0.1 发包（Releases/Pages/许可证/科普） | 4 | F | T-027,T-094 | F-141,F-142,F-146,F-148 | C-31 | 导出冒烟 | M | push tag→zip→Release 免登录可下载+三处科普可查 |
 | T-097 | 2 小时体验验收 | 4 | F | T-086~T-095 | F-176 | C-30 | E | M | 新玩家 2h 完成 E1 主线+觉醒演出无阻断记录 |
 | T-098 | 波次验算回归 CI 固化 | 4 | F | T-035 | F-171 | C-30 | R(CI) | S | 四组验算入 PR 必跑，数值漂移即红 |
-| T-099 | 金样框架完善+1000 波 nightly | 4 | F | T-083 | F-172 | C-30 | R | M | nightly 长回归+统计容差带报告+T8 独立 commit 检查 |
+| T-099 | 金样框架完善+1000 波 nightly | 4 | F | T-083 | F-172 | C-30 | R | M | nightly 长回归+统计容差带报告+T8 独立 commit 检查 [REFACTOR（2026-10-15，W4 门禁双轴审查判断项登记，REV-20261015-wave4-gate F3——W4 审查提示，v0.2 前）: CinematicScript JSON helper 五处收敛为共享 JsonGuard；NarrativeContent.TextFields 与 schema 同源生成] |
 
 ### Wave 5 — v0.5 Web Demo 与模组管线（12 项）
 
@@ -497,6 +497,7 @@
 
 ## 变更记录
 
+- v1.11（2026-10-15，W4 门禁双轴审查处置，REV-20261015-wave4-gate F3）：**判断项登记（T-099 行尾 REFACTOR，v0.2 前）**——①CinematicScript JSON helper 五处（Cinematics/Narrative 各解析器私有的 Require/String/Int/Object/Array 族）收敛为共享 JsonGuard；②NarrativeContent.TextFields 手维护文本字段清单与内容 schema 同源生成（新增文本字段靠手抄清单会漏计字数）。同批处置（F1/F2/F4）落点：流场确定性绑定守卫测试（FlowFieldManager.LastAdvanceMode 观察位+SimulationFlowFieldBindingTests）、CinematicTimeline.cs:461 break/case 同行排版、W4 门禁 REV 本体。
 - v1.10（2026-10-15，Wave 3 收官双轴审查处置，REV-20261015-wave3-exit F1/F6；头部版本号一并补正——v1.8/v1.9 时点漏更头部，仍停在 v1.7）：①**F1 红字挂账（T-085）**：估算器节奏模型（min(波间隔, 清场+波谷)）与生产 WaveSpawner 固定节拍结构性偏差 ~3×（T-084 实锚 2800~3900s/关 vs 估算 940~1260s）——T-085 行尾挂 RED-FLAG：15~40 分钟带仅估算模型内成立，T-095 复核+实测口径校准必须先于 T-130 E1 硬验收清账，c1 限时目标同批校准；同文红字同步落 game/content/levels/e1.json+e2.json 的 `_duration_calibration` 注解键；②**F6 判断项登记（T-090）**：ScriptStep 具名参数化+Atlas 表驱动合并（E3 前做）挂 T-090 行尾 REFACTOR（参=ScriptStep 13 参 Data Clump+Era2/Era1 TerrainAtlas 两文件重复）。同批处置（F2/F3/F4/F5/F7）落点：EndlessAffixes 生产默认档改 SP-7b 表值（11-spec-tables 变更记录登记）、T-085 威胁带裁定入 07 D-33、redline_scan T3 类级标签窗口假阳修复（Legacy/OffSystem 33 WARN 归零）、24/15 号报告头表补状态行、W3 出口核验 REV。
 - v1.9（2026-10-14，Wave 3 批 2/3 审查处置，REV-20261014-wave3-round2）：①**#1 命名勘误（诚信）**：T-073 交付时曾把 Progression 域命名表述为"CS0234 编译冲突避让"，审查探针证伪——Balance.Campaign 是静态类而非命名空间，同名命名空间与其可共存无编译冲突，原表述系事后合理化；CampaignProgression.cs 文档注释已改为诚实表述（语义清晰/与平衡公式静态类防混淆的预防性选择），命名本身维持不变；②**#2 卷轴获取悬空引用**：T-071 era2.json 四条 research acquisition.ref 前指 era2:tech-codex-i..iv 而 T-073 科技树从未落同名节点——裁定补齐 campaign:tech-sys-e2-codex-i..iv 四个系统旁支卷轴解锁节点（零前置、Σ成本=声明权重、aliases 守城智典壹~肆），ref 同批改指实存节点；TechTreeDataTests 新增 research ref↔节点 id 双向锚定断言+节点 unlocks↔实存卷轴 id 对齐（任一侧改名/漏节点即红）；③**#4 性能门禁负载容差**：Spike1PerformanceTests/SimGroupingPerfGuardrailTests 首败不直接红——再补两批完整测量、三批各指标取中位数重判，仍超才红；依据=本机三泳道 worktree 并行共享、同代码跨 worktree 对照实测首败由邻居泳道分钟级负载尖峰主导（注释留档于两类测试）；场景完整性断言确定性、不参与重跑；本批 gate run 中 FlowFieldManagerTests.FullFlood300x300SparseStaysWithinBudgetEnvelope 同形态首败（三泳道满载下同套件 1m41s→41m、均帧 7→11ms 越过 10ms 线）——同发现类第三处，同机制同口径落该测试；④**#6 SplitCost 超载守卫**：TechTree.SplitCost 公开静态缝隙直调侧补 shareSum>1+1e-6 拒载（超载使末行吸收项变负=负扣费漏洞；欠载侧由 TechTreeData.Parse 装载校验把守），红绿测试随附；⑤**T-082 三项发现登记**：别名词典封闭面扩容（AliasDictionary 现仅自 towers/enemies 装载，卷轴/分区/资源面未入封闭词典）挂 T-090 行尾 DEBT；SetRally.lane 无闭枚举（String 无 EnumValues、任意非空串照收）入 §6 **Q15**；TextNormalizer 注意项——全标点剥除口径下句内侧标点剥除后相邻词直接拼接（跨标点子串存在假命中理论面，如"东门，西门"→"东门西门"），句尾标点无语义影响；现无已知误命中用例，本条仅登记不改行为，若 T-090 盲测出现跨标点误命中再行收口；⑥#3 Simulation.cs 英雄哈希段一处黏行格式修正（纯格式零行为）。
 - v1.8（2026-10-14，T-075 DEBT 清账）：T-075 行尾 DEBT（v1.5 F8：HUD 第三指标恢复全口径"波次构成分析"）标记 RESOLVED——交付物=EraCore/Presentation/WaveComposition（快照敌单位聚合 类型×数量×护甲概览 + WaveSpawner 计划只读投影的下一波预告）+ SystemPanel HUD 构成/下波两栏常驻 + smoke PANEL_V2 comp/badge/next_wave 判据；仅该行与本条变更记录改动。

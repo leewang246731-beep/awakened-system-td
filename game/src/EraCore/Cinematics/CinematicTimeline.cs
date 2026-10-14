@@ -458,7 +458,8 @@ public sealed class CinematicTimeline
             case CinematicStep.Sound sound:
                 effects.Add(new CinematicEffect.SoundCue(sound.Cue));
                 _remaining = 0; // instantaneous cue — completes on activation tick
-                break;            case CinematicStep.Screen screen:
+                break;
+            case CinematicStep.Screen screen:
                 effects.Add(new CinematicEffect.Screen(screen.Flavor, screen.DurationTicks));
                 _remaining = screen.DurationTicks;
                 break;
