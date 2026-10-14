@@ -5,6 +5,9 @@ era2_placeholders.py — E2 占位美术程序合成器（任务 T-078，Wave 3�
 用途：为 E2（古典时代）确定性合成占位像素图——五塔×两级（F-014）、运输马车
 （F-042）、E2 面板色板（F-132）与水域 tile（补 Kenney Tiny Town 无水体的空缺；
 Medieval RTS 自带水 tile 41~48 实测 78~87 色超 64 上限被校验器拒收）。
+T-094（2026-10-15）增补：八敌+铁蹄 Boss（era2:enemies.json）与执戈者英雄头像
+（era2:heroes.json）——冻结盘点发现 E2 敌种/英雄全部缺失，与塔同走程序占位
+（28 号冻结清单 §3）。
 背景：CC0 素材源配不齐 E2 五塔×两级的成套规格（14 号台账 A3 Foozle Spire
 Tower Pack 为 itch 页面交互下载，脚本管线不可达；Medieval RTS 仅 1 座瞭望塔），
 按 08-task-plan T-078 卡片预批准的回退路线走「代码合成像素图」。
@@ -17,11 +20,14 @@ Tower Pack 为 itch 页面交互下载，脚本管线不可达；Medieval RTS �
   towers/tower-crossbow-l1.png / -l2.png        32×32 石台+弩机
   towers/tower-repeating-crossbow-l1/l2.png     48×48 双层塔+双联弩+弹匣
   towers/tower-onager-l1.png / -l2.png          48×64 低重台+绞盘弩炮
-  towers/tower-fire-oil-l1.png / -l2.png        32×48 石柱+火油釜
+  towers/tower-fire-oil-l1.png / -l2.png        32×48 石柱+火油釜+火焰
   units/carriage-right.png                      32×32 运输马车（F-042）
   ui/panel-era2.png                             32×32 面板色板（古典金/石蓝）
   tiles/water.png                               16×16 水域
   anim/water-anim.png                           32×16 两帧横条（--expect-frames 2 自测）
+  enemies/enemy-skirmisher.png … 8 种           32×32 常规敌（T-094）
+  enemies/boss-ironhoof.png                     64×64 Boss 铁蹄（T-094）
+  heroes/hero-spearwarden.png                   32×32 执戈者头像（T-094）
 
 全部输出须过 tools/ci/asset_validator.py（尺寸 16/32/48/64 白名单、≤64 色、
 kebab 命名）；water-anim.png 以 --expect-frames 2 验帧。
@@ -324,6 +330,268 @@ def carriage_right():
     return c
 
 
+# ---------------------------------------------------------------- 八敌+Boss（T-094）
+
+def _shadow(c, x, y, w):
+    """脚下接地阴影（1px 暗石横带）。"""
+    c.hline(x, y, w, PALETTE["stone_shadow"])
+
+
+def _legs(c, xs, y, h=5, key="stone_dark"):
+    """行进双腿（前后错位，木色=皮甲兵/石色=铁甲兵由 key 定）。"""
+    for lx in xs:
+        c.fill(lx, y, 2, h, PALETTE[key])
+
+
+def enemy_skirmisher():
+    """散兵（era2:enemy-skirmisher）32×32：皮甲轻兵，标枪+小圆盾（swarm 辨识：
+    无盔露发+轻装）。"""
+    c = Canvas(32, 32)
+    _shadow(c, 11, 29, 12)
+    c.fill(13, 6, 5, 4, PALETTE["wood_light"])  # 面
+    c.set(17, 8, PALETTE["blue_dark"])  # 眼
+    c.fill(12, 4, 6, 2, PALETTE["wood_dark"])  # 发
+    c.fill(12, 10, 7, 8, PALETTE["wood_mid"])  # 皮甲躯干
+    c.hline(12, 10, 7, PALETTE["wood_light"])
+    c.vline(15, 11, 6, PALETTE["wood_dark"])  # 皮带
+    c.fill(12, 15, 7, 3, PALETTE["wood_dark"])  # 短裙
+    _legs(c, (13, 17), 18, key="wood_dark")
+    c.vline(8, 5, 14, PALETTE["wood_dark"])  # 标枪
+    c.fill(7, 3, 3, 2, PALETTE["iron_mid"])
+    c.fill(20, 11, 5, 5, PALETTE["wood_mid"])  # 小圆盾
+    c.hline(20, 11, 5, PALETTE["wood_light"])
+    c.set(22, 13, PALETTE["iron_light"])
+    return c
+
+
+def enemy_warrior():
+    """勇士（era2:enemy-warrior）32×32：铁盔剑盾中坚（armor=4 辨识：铁盔+大盾）。"""
+    c = Canvas(32, 32)
+    _shadow(c, 9, 29, 16)
+    c.fill(13, 5, 5, 4, PALETTE["wood_light"])  # 面
+    c.set(17, 7, PALETTE["blue_dark"])
+    c.fill(12, 3, 7, 3, PALETTE["iron_mid"])  # 铁盔
+    c.hline(12, 3, 7, PALETTE["iron_light"])
+    c.fill(12, 9, 7, 9, PALETTE["iron_dark"])  # 链甲躯干
+    c.hline(12, 9, 7, PALETTE["iron_mid"])
+    c.fill(12, 15, 7, 3, PALETTE["wood_mid"])  # 皮裙
+    _legs(c, (13, 17), 18, key="stone_dark")
+    c.fill(21, 8, 2, 10, PALETTE["iron_light"])  # 剑
+    c.fill(20, 7, 4, 2, PALETTE["gold_mid"])  # 十字格
+    c.fill(6, 10, 6, 9, PALETTE["iron_mid"])  # 大圆盾
+    c.hline(6, 10, 6, PALETTE["iron_light"])
+    c.set(8, 14, PALETTE["gold_light"])  # 盾徽
+    c.set(9, 13, PALETTE["gold_light"])
+    return c
+
+
+def enemy_ram():
+    """攻城锤（era2:enemy-ram）32×32：铁头轮式攻城槌（对建筑 ×3/armor=12 辨识：
+    铁撞头+双轮）。"""
+    c = Canvas(32, 32)
+    _shadow(c, 4, 29, 24)
+    c.fill(3, 12, 26, 4, PALETTE["wood_mid"])  # 横梁
+    c.hline(3, 12, 26, PALETTE["wood_light"])
+    c.hline(3, 15, 26, PALETTE["wood_dark"])
+    c.fill(27, 10, 5, 8, PALETTE["iron_mid"])  # 铁撞头
+    c.hline(27, 10, 5, PALETTE["iron_light"])
+    c.set(31, 14, PALETTE["iron_dark"])
+    for wx in (8, 22):  # 双轮+辐条
+        c.fill(wx - 2, 16, 5, 5, PALETTE["wood_dark"])
+        c.set(wx, 18, PALETTE["stone_dark"])
+        c.set(wx - 2, 18, PALETTE["stone_dark"])
+        c.set(wx + 2, 18, PALETTE["stone_dark"])
+    c.fill(5, 8, 3, 4, PALETTE["wood_light"])  # 押锤兵（露头）
+    c.set(6, 9, PALETTE["blue_dark"])
+    return c
+
+
+def enemy_raider():
+    """轻骑（era2:enemy-raider）32×32：马+骑手标枪（opening_charge 辨识：
+    前倾疾驰姿态）。"""
+    c = Canvas(32, 32)
+    _shadow(c, 3, 29, 26)
+    c.fill(4, 15, 15, 6, PALETTE["wood_mid"])  # 马体（前倾）
+    c.hline(4, 15, 15, PALETTE["wood_light"])
+    c.fill(18, 12, 4, 5, PALETTE["wood_mid"])  # 颈
+    c.fill(21, 10, 4, 3, PALETTE["wood_mid"])  # 头
+    c.set(24, 11, PALETTE["blue_dark"])  # 眼
+    c.fill(20, 8, 3, 2, PALETTE["wood_dark"])  # 鬃
+    c.fill(2, 17, 3, 2, PALETTE["wood_dark"])  # 后掠尾
+    for lx in (6, 9, 13, 16):  # 四蹄（疾驰伸展）
+        c.fill(lx, 21, 2, 5, PALETTE["wood_dark"])
+    c.fill(3, 24, 3, 2, PALETTE["stone_shadow"])  # 蹄铁
+    c.fill(17, 24, 3, 2, PALETTE["stone_shadow"])
+    c.fill(9, 8, 5, 4, PALETTE["wood_light"])  # 骑手头
+    c.set(13, 10, PALETTE["blue_dark"])
+    c.fill(8, 6, 6, 2, PALETTE["iron_mid"])  # 铁盔
+    c.fill(9, 12, 5, 5, PALETTE["iron_dark"])  # 骑手链甲
+    c.hline(9, 12, 5, PALETTE["iron_mid"])
+    c.vline(6, 4, 12, PALETTE["wood_dark"])  # 标枪（前指）
+    c.fill(4, 3, 3, 2, PALETTE["iron_mid"])
+    return c
+
+
+def enemy_crossbowman():
+    """弩手（era2:enemy-crossbowman）32×32：持弩步射（stationary_ranged_attack
+    辨识：横端弩身+箭槽）。"""
+    c = Canvas(32, 32)
+    _shadow(c, 10, 29, 14)
+    c.fill(13, 5, 5, 4, PALETTE["wood_light"])  # 面
+    c.set(17, 7, PALETTE["blue_dark"])
+    c.fill(12, 3, 7, 3, PALETTE["iron_dark"])  # 皮盔
+    c.hline(12, 3, 7, PALETTE["iron_mid"])
+    c.fill(12, 9, 7, 9, PALETTE["wood_mid"])  # 皮甲
+    c.hline(12, 9, 7, PALETTE["wood_light"])
+    c.fill(12, 15, 7, 3, PALETTE["wood_dark"])
+    _legs(c, (13, 17), 18, key="wood_dark")
+    c.fill(7, 12, 18, 2, PALETTE["iron_mid"])  # 横端弩身
+    c.hline(7, 12, 18, PALETTE["iron_light"])
+    c.set(5, 10, PALETTE["wood_light"])  # 弓片（左梢）
+    c.set(6, 11, PALETTE["wood_light"])
+    c.set(25, 10, PALETTE["wood_light"])  # 弓片（右梢）
+    c.set(24, 11, PALETTE["wood_light"])
+    c.fill(15, 9, 3, 1, PALETTE["wood_dark"])  # 箭槽箭
+    c.set(19, 9, PALETTE["iron_light"])  # 镞
+    return c
+
+
+def enemy_guard():
+    """重装卫士（era2:enemy-guard）32×32：塔盾覆身重甲（shield_wall 辨识：
+    通高塔盾+全盔）。"""
+    c = Canvas(32, 32)
+    _shadow(c, 8, 29, 18)
+    c.fill(20, 4, 5, 4, PALETTE["iron_light"])  # 全盔（露面缝）
+    c.set(24, 6, PALETTE["blue_dark"])
+    c.fill(19, 2, 7, 3, PALETTE["iron_mid"])  # 盔顶
+    c.hline(19, 2, 7, PALETTE["iron_light"])
+    c.fill(20, 8, 6, 9, PALETTE["iron_dark"])  # 重甲躯干
+    c.hline(20, 8, 6, PALETTE["iron_mid"])
+    c.fill(20, 15, 6, 3, PALETTE["wood_mid"])
+    _legs(c, (20, 24), 18, key="stone_dark")
+    c.fill(6, 3, 12, 22, PALETTE["iron_mid"])  # 通高塔盾
+    c.hline(6, 3, 12, PALETTE["iron_light"])
+    c.hline(6, 24, 12, PALETTE["iron_dark"])
+    c.vline(6, 3, 22, PALETTE["iron_light"])
+    c.vline(17, 3, 22, PALETTE["iron_dark"])
+    c.fill(9, 10, 6, 6, PALETTE["gold_mid"])  # 盾面金徽
+    c.set(11, 12, PALETTE["gold_light"])
+    c.set(12, 13, PALETTE["gold_dark"])
+    return c
+
+
+def enemy_firearrow():
+    """火矢手（era2:enemy-firearrow）32×32：引弓搭火矢（death_ignite 辨识：
+    燃矢+背箭筒）。"""
+    c = Canvas(32, 32)
+    _shadow(c, 10, 29, 13)
+    c.fill(13, 5, 5, 4, PALETTE["wood_light"])  # 面
+    c.set(17, 7, PALETTE["blue_dark"])
+    c.fill(12, 3, 7, 3, PALETTE["iron_dark"])  # 皮盔
+    c.fill(12, 9, 7, 9, PALETTE["wood_mid"])  # 皮甲
+    c.hline(12, 9, 7, PALETTE["wood_light"])
+    c.fill(12, 15, 7, 3, PALETTE["wood_dark"])
+    _legs(c, (13, 17), 18, key="wood_dark")
+    for (ax, ay) in ((4, 8), (3, 12), (4, 16)):  # 弓弧（左向满弦）
+        c.set(ax, ay, PALETTE["wood_light"])
+        c.set(ax + 1, ay - 2, PALETTE["wood_light"])
+        c.set(ax + 1, ay + 2, PALETTE["wood_light"])
+    c.hline(6, 13, 14, PALETTE["stone_shadow"])  # 弦
+    c.hline(6, 11, 16, PALETTE["wood_dark"])  # 箭杆
+    c.set(21, 11, PALETTE["iron_light"])  # 镞
+    c.set(22, 11, PALETTE["fire_light"])  # 火矢焰
+    c.set(21, 10, PALETTE["fire_mid"])
+    c.fill(21, 4, 3, 5, PALETTE["wood_dark"])  # 背箭筒
+    c.set(21, 3, PALETTE["fire_mid"])  # 筒内火矢
+    c.set(23, 3, PALETTE["fire_mid"])
+    return c
+
+
+def enemy_centurion():
+    """蛮族百夫长（era2:enemy-centurion）32×32：冠缨盔+金色军标（war_drums
+    辨识：持标官+红缨）。"""
+    c = Canvas(32, 32)
+    _shadow(c, 8, 29, 17)
+    c.fill(13, 5, 5, 4, PALETTE["wood_light"])  # 面
+    c.set(17, 7, PALETTE["blue_dark"])
+    c.fill(12, 2, 7, 4, PALETTE["iron_mid"])  # 铁盔
+    c.hline(12, 2, 7, PALETTE["iron_light"])
+    c.fill(12, 0, 7, 2, PALETTE["fire_mid"])  # 冠缨（火色）
+    c.set(13, 0, PALETTE["fire_light"])
+    c.fill(12, 9, 7, 9, PALETTE["iron_dark"])  # 链甲
+    c.hline(12, 9, 7, PALETTE["iron_mid"])
+    c.fill(12, 15, 7, 3, PALETTE["wood_mid"])
+    _legs(c, (12, 17), 18, key="stone_dark")
+    c.vline(7, 0, 18, PALETTE["gold_dark"])  # 军标杆
+    c.fill(5, 0, 5, 4, PALETTE["gold_mid"])  # 金色军旗
+    c.hline(5, 0, 5, PALETTE["gold_light"])
+    c.set(7, 5, PALETTE["gold_light"])  # 杆饰
+    c.fill(21, 10, 5, 5, PALETTE["iron_mid"])  # 圆盾
+    c.set(23, 12, PALETTE["gold_light"])
+    return c
+
+
+def boss_ironhoof():
+    """铁蹄（era2:enemy-boss）64×64：披甲战马巨兽（charge/trample 辨识：
+    铁面甲+践踏扬尘+战鼓缨饰）。画布 64（14 §3 常规 Boss 64~96 下限；
+    96 需扩校验器清单=REV，见 28 号 §5）。"""
+    c = Canvas(64, 64)
+    _shadow(c, 6, 60, 52)
+    c.fill(8, 26, 38, 16, PALETTE["iron_mid"])  # 披甲马体
+    c.hline(8, 26, 38, PALETTE["iron_light"])
+    c.hline(8, 41, 38, PALETTE["iron_dark"])
+    c.fill(44, 18, 8, 12, PALETTE["iron_mid"])  # 铁面颈甲
+    c.hline(44, 18, 8, PALETTE["iron_light"])
+    c.fill(50, 14, 8, 8, PALETTE["iron_dark"])  # 铁首
+    c.set(55, 17, PALETTE["fire_light"])  # 目（燃）
+    c.fill(52, 10, 2, 5, PALETTE["gold_mid"])  # 冠缨角
+    c.fill(57, 10, 2, 5, PALETTE["gold_mid"])
+    c.set(58, 22, PALETTE["iron_light"])  # 鼻息白汽
+    c.set(60, 21, PALETTE["iron_light"])
+    for lx in (11, 17, 31, 37):  # 铁甲四蹄
+        c.fill(lx, 42, 4, 14, PALETTE["iron_dark"])
+        c.fill(lx, 54, 4, 3, PALETTE["stone_dark"])  # 蹄铁
+    for (bx, by) in ((14, 29), (24, 31), (34, 29)):  # 甲片铆钉排（贴甲面）
+        c.set(bx, by, PALETTE["gold_mid"])
+        c.set(bx + 4, by + 2, PALETTE["gold_mid"])
+        c.set(bx + 8, by, PALETTE["gold_mid"])
+    c.fill(4, 22, 5, 4, PALETTE["wood_dark"])  # 后掠尾甲
+    c.fill(20, 12, 1, 14, PALETTE["gold_dark"])  # 背战旗杆
+    c.fill(21, 12, 7, 5, PALETTE["blue_mid"])  # 石蓝战旗
+    c.hline(21, 12, 7, PALETTE["blue_light"])
+    c.fill(21, 17, 7, 2, PALETTE["gold_mid"])  # 旗缘金
+    for dx in range(8, 58, 6):  # 践踏扬尘
+        c.set(dx, 58, PALETTE["stone_mid"])
+        c.set(dx + 3, 57, PALETTE["stone_mid"])
+    return c
+
+
+# ---------------------------------------------------------------- 英雄头像（T-094）
+
+def hero_spearwarden():
+    """执戈者（era2:hero-spearwarden）32×32 半身头像：金冠缨盔+石蓝披风+斜持矛。"""
+    c = Canvas(32, 32)
+    c.fill(0, 0, 32, 32, PALETTE["blue_dark"])  # 底
+    c.fill(10, 13, 12, 19, PALETTE["blue_mid"])  # 石蓝披风肩
+    c.hline(10, 13, 12, PALETTE["blue_light"])
+    c.fill(11, 6, 10, 8, PALETTE["wood_light"])  # 面
+    c.set(14, 9, PALETTE["blue_dark"])  # 双目
+    c.set(17, 9, PALETTE["blue_dark"])
+    c.fill(13, 12, 6, 1, PALETTE["wood_dark"])  # 口
+    c.fill(10, 3, 12, 4, PALETTE["gold_mid"])  # 金盔
+    c.hline(10, 3, 12, PALETTE["gold_light"])
+    c.fill(13, 0, 6, 3, PALETTE["fire_mid"])  # 冠缨
+    c.set(14, 0, PALETTE["fire_light"])
+    c.vline(10, 7, 3, PALETTE["gold_dark"])  # 护颊
+    c.vline(21, 7, 3, PALETTE["gold_dark"])
+    c.hline(9, 15, 14, PALETTE["gold_dark"])  # 金领
+    c.set(15, 16, PALETTE["gold_light"])
+    c.fill(24, 8, 2, 20, PALETTE["wood_dark"])  # 斜持矛
+    c.fill(23, 6, 4, 2, PALETTE["iron_light"])  # 矛头
+    c.set(26, 27, PALETTE["gold_mid"])  # 尾镦
+    return c
+
+
 # ---------------------------------------------------------------- UI 色板（F-132）
 
 def panel_palette():
@@ -379,6 +647,17 @@ TOWERS = {
     "tower-fire-oil": tower_fire_oil,
 }
 
+ENEMIES = {
+    "enemy-skirmisher": enemy_skirmisher,
+    "enemy-warrior": enemy_warrior,
+    "enemy-ram": enemy_ram,
+    "enemy-raider": enemy_raider,
+    "enemy-crossbowman": enemy_crossbowman,
+    "enemy-guard": enemy_guard,
+    "enemy-firearrow": enemy_firearrow,
+    "enemy-centurion": enemy_centurion,
+}
+
 
 def build_all(out_root):
     wrote = []
@@ -387,6 +666,16 @@ def build_all(out_root):
             path = os.path.join(out_root, "towers", f"{name}-l{level}.png")
             fn(level).write(path)
             wrote.append(path)
+    for name, fn in sorted(ENEMIES.items()):
+        path = os.path.join(out_root, "enemies", f"{name}.png")
+        fn().write(path)
+        wrote.append(path)
+    boss = os.path.join(out_root, "enemies", "boss-ironhoof.png")
+    boss_ironhoof().write(boss)
+    wrote.append(boss)
+    hero = os.path.join(out_root, "heroes", "hero-spearwarden.png")
+    hero_spearwarden().write(hero)
+    wrote.append(hero)
     units = os.path.join(out_root, "units", "carriage-right.png")
     carriage_right().write(units)
     wrote.append(units)
@@ -403,7 +692,7 @@ def build_all(out_root):
 
 
 def run_self_test(out_root):
-    """调 asset_validator 校验输出：towers/units/ui/tiles 常规门禁；
+    """调 asset_validator 校验输出：towers/enemies/units/ui/tiles/heroes 常规门禁；
     anim/ 目录以 expect_frames=2 过帧数门禁（帧数门禁为目录级，横条独立成目录）。
     返回 (static_fails, frames_ok, 静态报告, 帧报告)。"""
     here = os.path.dirname(os.path.abspath(__file__))
@@ -411,7 +700,9 @@ def run_self_test(out_root):
     sys.path.insert(0, ci_dir)
     import asset_validator  # noqa: E402（同仓库零依赖校验器）
 
-    static_dirs = [os.path.join(out_root, d) for d in ("towers", "units", "ui", "tiles")]
+    static_dirs = [os.path.join(out_root, d)
+                   for d in ("towers", "enemies", "units", "ui", "tiles")]
+    static_dirs.append(os.path.join(out_root, "heroes"))
     static_report = asset_validator.run(
         static_dirs, asset_validator.DEFAULT_ALLOWED_SIZES,
         asset_validator.DEFAULT_MAX_PALETTE, False)
