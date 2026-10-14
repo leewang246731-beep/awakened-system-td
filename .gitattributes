@@ -1,0 +1,68 @@
+# .gitattributes — EOL 规范化（T-096 打包阻塞项修复）
+#
+# 背景：开发机 Git for Windows 系统级 core.autocrlf=true（C:/Program Files/Git/etc/gitconfig），
+# 仓库此前无 .gitattributes——全新 clone/worktree 检出时全部文本文件 LF→CRLF，字节级
+# 哈希钉死测试与 LF 针串断言转红（T-094 隔离树复现：HoldoutV1BlindTests 哈希钉 +
+# NarrationBookTests.Illegal_schema_rejected("rows") LF 针失配；见
+# docs/engineering/reviews/REV-20261015-T098-ci-regression.md）。
+# 仓库级属性随 clone 走，优先级高于任何机器的 autocrlf 配置——检出即规范。
+#
+# 法则：
+#   1) * text=auto             —— 兜底：文本检测入库规范化为 LF，二进制不动；
+#   2) 关键内容/源码显式 eol=lf —— 检出与入库双向钉死 LF（哈希钉测试的字节稳定性）；
+#   3) 二进制显式 binary        —— 绝不转换（`binary` = -diff -merge -text）。
+
+* text=auto
+
+# 自身钉死（无扩展名，不落入下方任何 *. 规则）
+.gitattributes eol=lf
+
+# ---- 源码/配置：LF 钉死 ------------------------------------------------------
+*.cs         eol=lf
+*.csproj     eol=lf
+*.sln        eol=lf
+*.props      eol=lf
+*.config     eol=lf
+*.godot      eol=lf
+*.gdignore   eol=lf
+*.gitignore  eol=lf
+*.gitkeep    eol=lf
+*.editorconfig eol=lf
+
+# ---- 内容文件：LF 钉死（哈希钉/金样字节稳定的直接保障）------------------------
+*.json       eol=lf
+*.jsonl      eol=lf
+*.md         eol=lf
+*.txt        eol=lf
+*.svg        eol=lf
+
+# ---- 脚本与流水线：LF 钉死 ----------------------------------------------------
+*.py         eol=lf
+*.sh         eol=lf
+*.mjs        eol=lf
+*.js         eol=lf
+*.ts         eol=lf
+*.yml        eol=lf
+*.yaml       eol=lf
+
+# ---- Godot 资产文本：LF 钉死 --------------------------------------------------
+*.tscn       eol=lf
+*.tres       eol=lf
+*.gd         eol=lf
+*.gdshader   eol=lf
+*.uid        eol=lf
+*.import     eol=lf
+*.url        eol=lf
+
+# ---- 二进制：绝不转换 --------------------------------------------------------
+*.png        binary
+*.ogg        binary
+*.wav        binary
+*.zip        binary
+*.jar        binary
+*.dll        binary
+*.exe        binary
+*.pdb        binary
+*.so         binary
+*.dylib      binary
+*.meta       binary

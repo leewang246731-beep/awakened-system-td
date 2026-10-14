@@ -159,8 +159,10 @@ public class NarrationBookTests : IDisposable
             "content_type" => LegalJson.Replace("\"NarrationTable\"", $"\"{value}\""),
             "kind" => LegalJson.Replace("\"kind\": \"opening\"", $"\"kind\": \"{value}\""),
             "stinger" => LegalJson.Replace("kenney-jingles-pizzicato-07.ogg", value),
+            // 针串不含换行符：EOL 无关（T-096 检出时 CRLF 源使 raw string 字面量
+            // 带 \r\n，含 \n 的针失配→删行无效→4 行仍在→无异常→红；见 REV-20261015-T098）。
             "rows" => LegalJson.Replace(
-                "    { \"id\": \"e1.open.narrator\", \"kind\": \"opening\", \"stinger\": \"kenney-jingles-pizzicato-07.ogg\" },\n",
+                "    { \"id\": \"e1.open.narrator\", \"kind\": \"opening\", \"stinger\": \"kenney-jingles-pizzicato-07.ogg\" },",
                 ""),
             _ => throw new InvalidOperationException(key),
         };
