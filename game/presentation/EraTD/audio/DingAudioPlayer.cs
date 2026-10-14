@@ -83,6 +83,10 @@ public sealed partial class DingAudioPlayer : Node
         DingOutcome repeat = _bus.Request(DingTrigger.WavePreview, tick: 1);      // throttled
 
         int tierCount = DingBus.TierMap.Values.Distinct().Count();
+        // T-096 release fix: the ding WAV audition dump is dev-only (read-only
+        // res:// in exported packs — the "template" feature marks exported
+        // runs), so the filesWritten criterion applies to editor runs only.
+        bool editorRun = !OS.HasFeature("template");
         bool ok = info == DingOutcome.Played
                && reward == DingOutcome.Played
                && crisis == DingOutcome.Played
@@ -91,7 +95,7 @@ public sealed partial class DingAudioPlayer : Node
                && _bus.Cues.Count == 3
                && _bus.ThrottledCount == 1
                && tierCount == 3
-               && filesWritten == 3;
+               && (!editorRun || filesWritten == 3);
 
         if (ok)
         {
@@ -128,6 +132,11 @@ public sealed partial class DingAudioPlayer : Node
     /// <summary>Writes one rendered cue next to the project so it can be auditioned by hand.</summary>
     private static bool Persist(DingTier tier, byte[] wav)
     {
+        if (OS.HasFeature("template"))
+        {
+            return false; // read-only res:// (exported pack, T-096): streams still play from memory
+        }
+
         DirAccess? root = DirAccess.Open("res://");
         if (root is null)
         {

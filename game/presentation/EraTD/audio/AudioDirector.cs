@@ -382,11 +382,17 @@ public sealed partial class AudioDirector : Node
 
         int loops = _bgmStreams.Count;
         int stingers = _stingers.Count;
+        // T-096 release fix: the WAV audition dump under res://audio/generated
+        // is a dev-only convenience — exported packs have a read-only res://,
+        // so the filesWritten criterion (and the dump itself) applies to
+        // editor runs only. The "template" feature is present exactly in
+        // exported builds (Godot docs: feature tags), never under the editor.
+        bool editorRun = !OS.HasFeature("template");
         bool ok = transitions == 3 && equalPower && midIsSqrtHalf && combatDone && bossDone && calmDone && sameTargetNoOp
             && personasDistinct && personaAudible && downgrade && narratorDistinct
             && openFirst && victoryFirst && replaySilent && persisted
             && busIndependent && dingRegression
-            && loops == 6 && stingers == 2 && filesWritten >= 6;
+            && loops == 6 && stingers == 2 && (!editorRun || filesWritten >= 6);
 
         if (ok)
         {
@@ -442,6 +448,11 @@ public sealed partial class AudioDirector : Node
     /// <summary>Writes one rendered artifact next to the project so it can be auditioned by hand (可听测).</summary>
     private static int PersistWav(string fileName, byte[] wav)
     {
+        if (OS.HasFeature("template"))
+        {
+            return 0; // read-only res:// (exported pack, T-096): streams still play from memory
+        }
+
         DirAccess? root = DirAccess.Open("res://");
         if (root is null)
         {
