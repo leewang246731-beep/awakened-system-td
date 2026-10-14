@@ -284,7 +284,14 @@ internal static class ActionJsonSamples
         ["StopTask"] = StopTask,
     };
 
-    /// <summary>The 15 verbs that stay in the deliberate not-implemented tier (HeroOrder went real in T-066).</summary>
+    /// <summary>
+    /// The 15 verbs that stay in the deliberate not-implemented tier under an
+    /// UNWIRED registry (HeroOrder went real in T-066). Same tier and same
+    /// 口径 as ActionRegistry's "other 13": the +2 difference is
+    /// UpgradeTower/SellTower — real the moment a TowerEstateOps is wired
+    /// into the constructor (T-065), which this fixture never does
+    /// (13 permanently undelivered until T-070 + the 2 estate verbs = 15).
+    /// </summary>
     public static readonly IReadOnlyList<string> NotImplementedVerbs = new[]
     {
         "InspectTile", "QueryWorld", "UpgradeTower", "SellTower", "SetRally",

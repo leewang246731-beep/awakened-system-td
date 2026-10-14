@@ -12,7 +12,8 @@ namespace EraCore.Combat;
 /// handler: the closed-schema gate refuses it with
 /// <see cref="ActionResultStatus.ErrSchemaDenied"/> (F-014 acceptance:
 /// confirm_sell 缺省拒绝). With the bit set, the sale removes the tower,
-/// deposits the 30% refund (v3.2 §11.4 拆除返还 30%) and leaves a
+/// deposits the 30% refund (出售返还 30%，[NEW-T-065] 无文档锚点，登记于
+/// REV-wave3-round1) and leaves a
 /// <see cref="TowerRuin"/> carrying the Checkpoint FailureTiers repair-bill
 /// semantics.
 /// <para>

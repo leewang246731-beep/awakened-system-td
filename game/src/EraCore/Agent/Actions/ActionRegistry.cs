@@ -36,7 +36,12 @@ public sealed record ActionOutcome(ActionResult Result, object? Payload);
 /// never a fake success);</item>
 /// <item>the other 13 verbs registered in a deliberate not-implemented
 /// tier that returns a typed refusal (Err + explicit code) — an
-/// undelivered handler NEVER reports success;</item>
+/// undelivered handler NEVER reports success. Count basis: 19 verbs −
+/// 4 always-on handlers − 2 estate-conditional handlers (the T-065
+/// UpgradeTower/SellTower pair). In an UNWIRED registry (no tower
+/// estate) the refusal tier holds 15, not 13 — the same口径 as
+/// ActionTestSupport.NotImplementedVerbs; the +2 difference is exactly
+/// the estate pair going live at wiring time (T-065);</item>
 /// <item>out-of-list refusals with a structured, secret-scrubbed
 /// ILogSink record (F-062/F-070 acceptance: 清单外动作拒绝并记日志);</item>
 /// <item>the unlock-era gate as data (SpawnScout in E1 →

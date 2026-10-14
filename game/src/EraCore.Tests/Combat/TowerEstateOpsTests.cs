@@ -150,7 +150,7 @@ public class TowerEstateOpsTests
 
     // ------------------------------------------------------------ sell
 
-    [Fact] // legal — 出售返还 30%（v3.2 §11.4）+ 残骸账目接 FailureTiers 语义
+    [Fact] // legal — 出售返还 30%（[NEW-T-065] 无文档锚点，登记于 REV-wave3-round1）+ 残骸账目接 FailureTiers 语义
     public void Sell_refunds_30_percent_and_leaves_a_ruin_with_the_repair_bill()
     {
         var fixture = Create();
@@ -161,7 +161,7 @@ public class TowerEstateOpsTests
 
         Assert.NotNull(receipt);
         Assert.Null(refusal);
-        Assert.Equal(81.0, receipt!.Refunded, 9); // 弩塔 270×30%=81（§11.4 拆除返还 30%）
+        Assert.Equal(81.0, receipt!.Refunded, 9); // 弩塔 270×30%=81（出售返还 30%，[NEW-T-065] 无文档锚点）
         Assert.Equal(before + 81.0, fixture.Stock.AmountOf(Currency), 9);
 
         // 塔移除、格释放（占用与登记双清）

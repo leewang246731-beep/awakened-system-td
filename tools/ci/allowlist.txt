@@ -18,6 +18,14 @@ R9: docs/engineering/07-decided-plan.md :: 三（附）、环境事实登记 | �
 R9: docs/engineering/09-env-locked.md       | 环境快照登记文档（round 1 处置 #12 新增）：全文档即环境事实登记处，与 07 §三（附）同源展开；代码侧 RL9 不变
 R9: docs/engineering/reviews/               | 审查记录目录（round 1 起设立）：REV 记录须原文引用真实命令与输出，含路径属于记录事实本身，非代码侧违约
 
+# —— 二开研究报告/决议基座（W3 批 1 增补，REV-20261014-wave3-round1 处置 #6）：
+#    E:\game-assets、E:\game-videos 等盘符路径=甲方 U 盘素材库指令的合法引用
+#    （对齐 09-env-locked 环境事实先例：登记事实非硬编码缺陷；代码侧 RL9 不变）——
+R9: docs/engineering/18-r1-asset-tech.md    | 二开研究 R1 素材技术报告：E:/game-assets 等甲方 U 盘素材库路径为素材清点/管线事实（引用非硬编码）
+R9: docs/engineering/19-r2-easter-eggs.md   | 二开研究 R2 彩蛋报告（同 R1 口径；现无盘符路径，预防性登记）
+R9: docs/engineering/20-r3-essence-economy.md | 二开研究 R3 精髓经济报告（同 R1 口径；现无盘符路径，预防性登记）
+R9: docs/engineering/21-secondary-dev-base.md | 二开决议基座（R1/R2/R3 综合）：E: 盘素材库引用为设计事实，环境事实以 07 §三（附）为准
+
 # —— 已冻结的讨论/审计/设计归档（RL9 管代码与测试；其中的环境路径引用
 #    均已被 07 §三（附）环境事实表收编登记，此处豁免防止归档文档误报）——
 docs/engineering/01-feature-inventory.md    | 已冻结特性清单归档

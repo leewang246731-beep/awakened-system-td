@@ -42,7 +42,7 @@ public sealed record UpgradeTowerReceipt(UpgradeQuote Quote, double Charged, dou
 /// <param name="TowerId">Stable entity id of the tower being sold.</param>
 /// <param name="Cell">Cell the tower stood on (freed by the sale).</param>
 /// <param name="Current">Registry row placed at sale time.</param>
-/// <param name="Refund">Sale refund: <c>SellRefundFraction × current.CostTotal</c> (v3.2 §11.4 拆除返还 30%).</param>
+/// <param name="Refund">Sale refund: <c>SellRefundFraction × current.CostTotal</c> (出售返还 30%，[NEW-T-065] 无文档锚点，登记于 REV-wave3-round1).</param>
 public sealed record SellQuote(EntityId TowerId, CellCoord Cell, TowerSpec Current, double Refund);
 
 /// <summary>
@@ -111,7 +111,8 @@ public sealed class TowerEstateOps
     public const double UpgradeRefundFraction = 0.50;
 
     /// <summary>
-    /// Sale refund fraction (v3.2 §11.4 拆除返还 30% — sell refunds less
+    /// Sale refund fraction (出售返还 30%，[NEW-T-065] 无文档锚点，登记于
+    /// REV-wave3-round1 — sell refunds less
     /// than upgrading trades in; selling is the full teardown).
     /// </summary>
     public const double SellRefundFraction = 0.30;
