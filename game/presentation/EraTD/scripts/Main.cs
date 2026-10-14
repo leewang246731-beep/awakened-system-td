@@ -150,6 +150,18 @@ public sealed partial class Main : Control
             $"ART atlas_tiles={TerrainAtlas.TileCount} tile_px={TerrainAtlas.TilePx} " +
             $"atlas={TerrainAtlas.TileCount * TerrainAtlas.TilePx}x{TerrainAtlas.TilePx} " +
             "scale=2x-nearest source=kenney-tiny-dungeon-cc0");
+
+        // T-078 (C-28): E2 classical art pack load proof. The era2 atlas is
+        // composed in-engine (missing tiles throw above) but NOT wired into
+        // the ground layer yet — era routing lands with the E2 level work;
+        // this marker only proves the validator-gated pack loads.
+        _ = Era2TerrainAtlas.Build();
+        GD.Print(
+            $"ART2 era=classical atlas_tiles={Era2TerrainAtlas.TileCount} " +
+            $"tile_px={Era2TerrainAtlas.TilePx} " +
+            $"atlas={Era2TerrainAtlas.TileCount * Era2TerrainAtlas.TilePx}x{Era2TerrainAtlas.TilePx} " +
+            $"pack_files={Era2TerrainAtlas.ProbePackFiles().Count}/15 " +
+            "source=kenney-tiny-town+medieval-rts-cc0+procedural-standin");
         GD.Print(
             $"BRIDGE frames={SmokeFrames} ticks={_bridge.Current.Tick} " +
             $"units={_bridge.Current.Units.Count} buildings={_bridge.Current.Buildings.Count} " +

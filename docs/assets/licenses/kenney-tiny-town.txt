@@ -1,0 +1,38 @@
+Kenney Tiny Town — 许可证快照（T-078 入库批次归档，2026-10-13）
+================================================================
+
+- 资产页：https://kenney.nl/assets/tiny-town
+- 直链 zip（2026-10-13 实取）：
+  https://kenney.nl/media/pages/assets/tiny-town/a415fbeb49-1735736916/kenney_tiny-town.zip
+- zip 实测：182,243 字节
+- sha256(zip)：9768692dccff1d706408a5aedd6ca4f6cd1409506cbc84cb2f862919764be977
+- 入库复验：2026-10-13 WebFetch 实访资产页：License 字段 = Creative Commons CC0，
+  免费下载；tile=16×16，页面口径 130+ tiles（包内实测 132，与 Tiny Dungeon 同构）。
+- 本地文件完整性：包内 132 tile 逐文件过 asset_validator（PNG CRC+IDAT 全解码）；
+  入库树文件为 zip 解包后纯重命名拷贝（tile_0000.png → tile-0000.png）。
+- 包内 License.txt 原文如下（逐字节快照）：
+
+------------------------------------------------------------
+	
+
+	Tiny Town (1.1)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Creation date: 11-01-2023
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+
+	Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Patreon:  http://patreon.com/kenney/
+
+	Follow on Twitter for updates:
+	http://twitter.com/KenneyNL

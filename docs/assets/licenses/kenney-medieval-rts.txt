@@ -1,0 +1,38 @@
+Kenney Medieval RTS — 许可证快照（T-078 入库批次归档，2026-10-13）
+====================================================================
+
+- 资产页：https://kenney.nl/assets/medieval-rts
+- 直链 zip（2026-10-13 实取）：
+  https://kenney.nl/media/pages/assets/medieval-rts/0863f2c62a-1677693589/kenney_medieval-rts.zip
+- zip 实测：1,831,847 字节
+- sha256(zip)：f8217b5e8688dbb248736284678b8d4f31cfe43b399df4a7d0cf5f7c534764e8
+- 入库复验：2026-10-13 WebFetch 实访资产页：License 字段 = Creative Commons CC0，
+  免费下载；默认尺寸精灵 64×64。
+- 入库口径：仅默认尺寸 64×64 精灵进树（@2 目录 128×128 因 SIZE-ALLOWLIST 不入树，
+  见 24 号报告 §2.1 REJECT 处置）；另 19 个 78~87 色精灵（environment 渐变树
+  7/structure 4/tile 41~48 水域 8）超 64 色 master 上限被 PALETTE-COUNT 拒收，
+  同样仅存 zip。本地完整性：入库树逐文件过 asset_validator。
+- 包内 License.txt 原文如下（逐字节快照）：
+
+------------------------------------------------------------
+	
+
+	RTS Pack: Medieval
+
+	by  Kenney Vleugels (Kenney.nl)
+
+			------------------------------
+
+	License (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	You may use these assets in personal and commercial projects.
+	Credit (Kenney or www.kenney.nl) would be nice but is not mandatory.
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Request:  http://request.kenney.nl
+
+	Follow on Twitter for updates:
+	@KenneyNL

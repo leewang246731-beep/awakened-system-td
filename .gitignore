@@ -22,6 +22,10 @@ game/data/
 # --- T-030: pinned local toolchain payloads (editor, templates, nuget mirror) ---
 /tools/*
 !/tools/ci/
+!/tools/art/
+
+# --- T-078: era2 CC0 raw download zips (untracked archive; intake subset in game/assets/era2/) ---
+game/assets/*/downloads/
 
 # --- T-027: python bytecode from self-test imports ---
 __pycache__/
