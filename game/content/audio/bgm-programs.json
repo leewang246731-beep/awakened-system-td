@@ -1,0 +1,30 @@
+{
+  "$schema": "urn:eratd:content:audio:bgm-programs:1",
+  "content_type": "BgmProgramTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-092 三态 BGM 合成参数表（F-135 E1/E2 薄版）：每时代一行；三态=同和弦垫底的累积分层（calm=环境垫/combat=+鼓点/boss=+低音，§14 三态分层），交叠期由 CrossFadeBus 等功率淡入淡出。全部频率在合成时按整数周期/循环量化，保证循环无缝与跨机确定可听测。",
+  "sample_rate_hz": 22050,
+  "loop_bars": 4,
+  "beats_per_bar": 4,
+  "programs": [
+    {
+      "era": "era1",
+      "tempo_bpm": 84,
+      "root_hz": 110.0,
+      "chord_intervals": [1.0, 1.1892, 1.4983, 2.0],
+      "pad_gain": 0.34,
+      "percussion_gain": 0.20,
+      "bass_gain": 0.24,
+      "hat_subdivisions": 2
+    },
+    {
+      "era": "era2",
+      "tempo_bpm": 100,
+      "root_hz": 146.83,
+      "chord_intervals": [1.0, 1.2599, 1.4983, 2.0],
+      "pad_gain": 0.32,
+      "percussion_gain": 0.22,
+      "bass_gain": 0.26,
+      "hat_subdivisions": 4
+    }
+  ]
+}

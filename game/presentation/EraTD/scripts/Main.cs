@@ -150,6 +150,14 @@ public sealed partial class Main : Control
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         Narrative.NarrativeHud.Instantiate(this, _host);
 
+        // ---- 5f) T-092 audio full (C-25, F-112/F-135~F-139) -----------------
+        // 音频导演挂载（audio/AudioDirector.cs）：三态 BGM 循环（代码合成+
+        // 等功率淡入淡出）+四人格音色+一次性旁白（CC0 短乐）+三通道混音总线
+        // （BGM/音效/军师语音，叮通道回归）；headless 下自带冒烟序列并打印
+        // AUDIO_OK bgm=3states persona=4 narrated=2 bus=3vol——smoke 音频段判据。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        Audio.AudioDirector.Instantiate(this, _host);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.

@@ -178,6 +178,25 @@ public sealed partial class DingAudioPlayer : Node
     public DingOutcome? OnDefenseIntegrity(long tick, double integrity) =>
         integrity < DefenseWarnBelow ? _bus.Request(DingTrigger.DefenseLineLow, tick) : null;
 
+    // ---- T-092 dialogue-line cue slot (音效位 → 叮通道) -----------------------
+
+    /// <summary>
+    /// Plays one <see cref="EraCore.Narrative.DialogueLine"/> sound-cue slot
+    /// (T-089 音效位, closed <c>ding_*</c> set) through the ding bus: the
+    /// slot maps to one event class per §10.3 tier (info → 系统汇报, reward →
+    /// 宝箱, crisis → 断供) — classes the _Ready self-check does not occupy,
+    /// so a slot play right after startup is never swallowed by the throttle.
+    /// Null/unknown slots stay silent (null), the DialogueLine contract.
+    /// </summary>
+    /// <returns>The dispatch outcome, or null when the slot is absent/unknown.</returns>
+    public DingOutcome? PlayCueSlot(string? slot, long tick) => slot switch
+    {
+        "ding_info" => _bus.Request(DingTrigger.SystemReport, tick),
+        "ding_reward" => _bus.Request(DingTrigger.ChestOpened, tick),
+        "ding_crisis" => _bus.Request(DingTrigger.SupplyBottleneck, tick),
+        _ => null,
+    };
+
     // ---- T-055 settings-panel interface (独立音量开关) ------------------------
 
     /// <summary>Sets the ding channel's linear volume in [0, 1] (BGM unaffected).</summary>

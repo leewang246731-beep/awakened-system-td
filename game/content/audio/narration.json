@@ -1,0 +1,27 @@
+{
+  "$schema": "urn:eratd:content:audio:narration:1",
+  "content_type": "NarrationTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-092 一次性旁白登记表（F-138，§14）：id=叙事章的台词 key（开场白/胜利交底，T-089 内容面）；stinger=入的一次性短乐（Kenney Music Jingles CC0，台账见 docs/engineering/26-t092-audio.md）；同 id 只播一次，播放标记经 IFileStore 入 settings/narration.json。",
+  "rows": [
+    {
+      "id": "e1.open.narrator",
+      "kind": "opening",
+      "stinger": "kenney-jingles-pizzicato-07.ogg"
+    },
+    {
+      "id": "e1.end.handover",
+      "kind": "victory",
+      "stinger": "kenney-jingles-steel-02.ogg"
+    },
+    {
+      "id": "e2.open.narrator",
+      "kind": "opening",
+      "stinger": "kenney-jingles-pizzicato-07.ogg"
+    },
+    {
+      "id": "e2.end.zero",
+      "kind": "victory",
+      "stinger": "kenney-jingles-steel-02.ogg"
+    }
+  ]
+}

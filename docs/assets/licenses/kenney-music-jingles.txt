@@ -1,0 +1,53 @@
+Kenney Music Jingles — 许可证快照（T-092 入库批次归档，2026-10-15）
+================================================================
+
+- 资产页：https://kenney.nl/assets/music-jingles
+- 直链 zip（2026-10-15 实取）：
+  https://kenney.nl/media/pages/assets/music-jingles/f37e530b9e-1677590399/kenney_music-jingles.zip
+- zip 实测：1,239,525 字节
+- sha256(zip)：b729ba57959bd58793d2c5cafa348aaf2655d354f3da35ec4729e03ec77197b8
+- 入库复验：2026-10-15 WebFetch 实访资产页：License 字段 = Creative Commons CC0
+  （链至 CC public domain dedication），免费下载；85 文件（5 风格×17 短乐+预览，
+  OGG 格式，包内实测 86 个 .ogg 含 Preview.ogg）。
+- 双重核验：包外页面 CC0 + 包内 License.txt 原文（下方逐字节快照）一致。
+- 入库子集（2 文件，zip 解包纯拷贝+kebab 重命名，字节零改动）：
+  - Audio/Pizzicato jingles/jingles_PIZZI07.ogg
+    → presentation/EraTD/audio/cc0/kenney-jingles-pizzicato-07.ogg
+    19,137 字节，sha256 91870588924e0e498c6eb8d4f4ccf8595c9e7dc51fb553797b551062e642ce7c
+    用途：一次性旁白·章节开场白 stinger（F-138，narration.json e1/e2.open.*）
+  - Audio/Steel jingles/jingles_STEEL02.ogg
+    → presentation/EraTD/audio/cc0/kenney-jingles-steel-02.ogg
+    21,919 字节，sha256 891c2b48d3586744b38be18b8c5a35f46ac30fe06efb48f70f3f5528a0cec0c3
+    用途：一次性旁白·胜利交底 stinger（F-138，narration.json e1/e2.end.*）
+- 素材挑选口径：按风格语义（Pizzicato=轻拨弦开场 / Steel=金属收束告捷）+时长
+  （1.32 s / 1.39 s，短乐一次性收音）脚本化挑选；可听测后如需换曲，同包内
+  改 narration.json 的 stinger 字段即可（CC0 全包可用）。
+- 下载件留档：game/assets/audio/downloads/kenney_music-jingles.zip（gitignore
+  排除，路径模式 game/assets/*/downloads/ 同 T-078 先例）。
+
+包内 License.txt 原文如下（逐字节快照）：
+
+------------------------------------------------------------
+	
+
+	Music Jingles
+
+	by  Kenney Vleugels (Kenney.nl)
+
+			------------------------------
+
+	License (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	You may use these assets in personal and commercial projects.
+	Credit (Kenney or www.kenney.nl) would be nice but is not mandatory.
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Request:  http://request.kenney.nl
+
+	Follow on Twitter for updates:
+	@KenneyNL
+
+------------------------------------------------------------

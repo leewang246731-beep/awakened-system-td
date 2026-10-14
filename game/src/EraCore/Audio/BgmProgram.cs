@@ -1,0 +1,299 @@
+using System.Text.Json;
+
+namespace EraCore.Audio;
+
+/// <summary>
+/// Thrown when an audio content table violates its schema (T-092). Mirrors
+/// <c>NarrativeSchemaException</c>: one exception type per content domain,
+/// carrying the source label for the loader log.
+/// </summary>
+public sealed class AudioSchemaException : Exception
+{
+    /// <summary>Creates the exception with a fully-formed message.</summary>
+    public AudioSchemaException(string message)
+        : base(message)
+    {
+    }
+}
+
+/// <summary>
+/// One era's three-state BGM program (T-092, F-135 E1/E2 薄版, v3.2 §14
+/// 三态分层): the harmonic facts the deterministic synthesizer renders the
+/// three cumulative layers from — calm = 环境垫底 (detuned sine pad over the
+/// chord), combat = +鼓点 (kick/snare/hat on the beat grid), boss = +低音
+/// (soft-clipped low note per bar). Pure data parsed strictly from
+/// <c>game/content/audio/bgm-programs.json</c>; every timing fact is derived,
+/// never stored twice.
+/// </summary>
+/// <param name="Era">Era id (<c>era1</c>/<c>era2</c>).</param>
+/// <param name="TempoBpm">Tempo in beats per minute (40~200).</param>
+/// <param name="RootHz">Chord root fundamental in Hz (55~440).</param>
+/// <param name="ChordIntervals">Chord ratios over the root, ascending, first = 1.0.</param>
+/// <param name="PadGain">Linear gain of the calm pad layer.</param>
+/// <param name="PercussionGain">Linear gain of the combat percussion layer.</param>
+/// <param name="BassGain">Linear gain of the boss bass layer.</param>
+/// <param name="HatSubdivisions">Hi-hat subdivisions per beat (1~8; denser = later eras).</param>
+/// <param name="SampleRateHz">Render sample rate (table-wide).</param>
+/// <param name="LoopBars">Loop length in bars (table-wide).</param>
+/// <param name="BeatsPerBar">Beats per bar (table-wide).</param>
+public sealed record BgmProgram(
+    string Era,
+    double TempoBpm,
+    double RootHz,
+    IReadOnlyList<double> ChordIntervals,
+    double PadGain,
+    double PercussionGain,
+    double BassGain,
+    int HatSubdivisions,
+    int SampleRateHz,
+    int LoopBars,
+    int BeatsPerBar)
+{
+    /// <summary>One beat in seconds.</summary>
+    public double BeatSec => 60.0 / TempoBpm;
+
+    /// <summary>Loop length in seconds (bars × beats × beat seconds).</summary>
+    public double LoopSec => LoopBars * BeatsPerBar * BeatSec;
+
+    /// <summary>Loop length in samples (duration × rate, rounded once — the synthesis period).</summary>
+    public int LoopSamples => (int)Math.Round(LoopSec * SampleRateHz);
+
+    /// <summary>Whether the state's cumulative layering includes percussion (combat and boss).</summary>
+    public bool HasPercussion(BgmLayerState state) => state >= BgmLayerState.Combat;
+
+    /// <summary>Whether the state's cumulative layering includes the bass line (boss only).</summary>
+    public bool HasBass(BgmLayerState state) => state >= BgmLayerState.Boss;
+}
+
+/// <summary>
+/// Strict parser of the BGM program table (schema
+/// <c>urn:eratd:content:audio:bgm-programs:1</c>): closed marker, bounded
+/// globals, unique era ids, ascending chords rooted at 1.0, gains in (0, 1].
+/// E1/E2 thin slice = exactly the two eras of the card (frozen count —
+/// E3+ lands with T-121 by appending rows here, never in code).
+/// </summary>
+public sealed class BgmProgramTable
+{
+    /// <summary>Content schema URN of the BGM program table.</summary>
+    public const string SchemaUrn = "urn:eratd:content:audio:bgm-programs:1";
+
+    /// <summary>Content type marker the loader requires.</summary>
+    public const string ContentTypeMarker = "BgmProgramTable";
+
+    /// <summary>Frozen program count of the T-092 card (era1+era2; E3+ = T-121).</summary>
+    public const int ProgramCount = 2; // ci-allow: R7 T-092 冻结口径=E1/E2 两时代（08 任务卡），E3 起由 T-121 扩表
+
+    private readonly Dictionary<string, BgmProgram> _byEra;
+
+    private BgmProgramTable(int sampleRateHz, int loopBars, int beatsPerBar, IReadOnlyList<BgmProgram> programs)
+    {
+        SampleRateHz = sampleRateHz;
+        LoopBars = loopBars;
+        BeatsPerBar = beatsPerBar;
+        Programs = programs;
+        _byEra = programs.ToDictionary(program => program.Era, StringComparer.Ordinal);
+    }
+
+    /// <summary>Render sample rate (Hz), table-wide.</summary>
+    public int SampleRateHz { get; }
+
+    /// <summary>Loop length in bars, table-wide.</summary>
+    public int LoopBars { get; }
+
+    /// <summary>Beats per bar, table-wide.</summary>
+    public int BeatsPerBar { get; }
+
+    /// <summary>All programs in file order.</summary>
+    public IReadOnlyList<BgmProgram> Programs { get; }
+
+    /// <summary>Program of one era; null when absent.</summary>
+    public BgmProgram? Find(string era) =>
+        _byEra.TryGetValue(era, out BgmProgram? program) ? program : null;
+
+    /// <summary>
+    /// Strict parse: closed schema/marker, exactly <see cref="ProgramCount"/>
+    /// rows, unique bounded eras, ascending chord rooted at 1.0, bounded
+    /// gains and subdivisions.
+    /// </summary>
+    /// <param name="json">Raw table JSON text.</param>
+    /// <param name="sourceName">Source label for error messages.</param>
+    /// <exception cref="AudioSchemaException">Any schema violation.</exception>
+    public static BgmProgramTable Parse(string json, string sourceName = "bgm programs")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(json);
+
+        using JsonDocument document = JsonDocument.Parse(json);
+        JsonElement root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            throw new AudioSchemaException($"{sourceName}: 根必须是对象");
+        }
+
+        RequireMarker(root, "content_type", ContentTypeMarker, sourceName);
+
+        int sampleRate = RequireInt(root, "sample_rate_hz", sourceName);
+        if (sampleRate is < 8000 or > 48000)
+        {
+            throw new AudioSchemaException($"{sourceName}: sample_rate_hz={sampleRate} 越界（8000~48000）");
+        }
+
+        int loopBars = RequireInt(root, "loop_bars", sourceName);
+        int beatsPerBar = RequireInt(root, "beats_per_bar", sourceName);
+        if (loopBars is < 1 or > 16)
+        {
+            throw new AudioSchemaException($"{sourceName}: loop_bars={loopBars} 越界（1~16）");
+        }
+
+        if (beatsPerBar is < 2 or > 8)
+        {
+            throw new AudioSchemaException($"{sourceName}: beats_per_bar={beatsPerBar} 越界（2~8）");
+        }
+
+        if (!root.TryGetProperty("programs", out JsonElement programsEl) || programsEl.ValueKind != JsonValueKind.Array)
+        {
+            throw new AudioSchemaException($"{sourceName}: 缺少 programs 数组");
+        }
+
+        if (programsEl.GetArrayLength() != ProgramCount)
+        {
+            throw new AudioSchemaException(
+                $"{sourceName}: programs 必须 {ProgramCount} 行（T-092 冻结=E1/E2；扩时代走 T-121 改表）");
+        }
+
+        var programs = new List<BgmProgram>(ProgramCount);
+        var seenEras = new HashSet<string>(StringComparer.Ordinal);
+        foreach (JsonElement row in programsEl.EnumerateArray())
+        {
+            if (row.ValueKind != JsonValueKind.Object)
+            {
+                throw new AudioSchemaException($"{sourceName}: program 行必须是对象");
+            }
+
+            string era = RequireString(row, "era", sourceName);
+            if (!seenEras.Add(era))
+            {
+                throw new AudioSchemaException($"{sourceName}: 时代重复 {era}");
+            }
+
+            double tempo = RequireNumber(row, "tempo_bpm", sourceName);
+            if (tempo is < 40.0 or > 200.0)
+            {
+                throw new AudioSchemaException($"{sourceName}: {era} tempo_bpm={tempo} 越界（40~200）");
+            }
+
+            double rootHz = RequireNumber(row, "root_hz", sourceName);
+            if (rootHz is < 55.0 or > 440.0)
+            {
+                throw new AudioSchemaException($"{sourceName}: {era} root_hz={rootHz} 越界（55~440）");
+            }
+
+            if (!row.TryGetProperty("chord_intervals", out JsonElement chordEl) || chordEl.ValueKind != JsonValueKind.Array)
+            {
+                throw new AudioSchemaException($"{sourceName}: {era} 缺少 chord_intervals 数组");
+            }
+
+            var intervals = new List<double>();
+            foreach (JsonElement intervalEl in chordEl.EnumerateArray())
+            {
+                if (intervalEl.ValueKind != JsonValueKind.Number)
+                {
+                    throw new AudioSchemaException($"{sourceName}: {era} chord_intervals 项必须是数字");
+                }
+
+                double interval = intervalEl.GetDouble();
+                if (interval is < 1.0 or > 2.5)
+                {
+                    throw new AudioSchemaException($"{sourceName}: {era} 和弦音程 {interval} 越界（1.0~2.5）");
+                }
+
+                intervals.Add(interval);
+            }
+
+            if (intervals.Count is < 2 or > 6)
+            {
+                throw new AudioSchemaException($"{sourceName}: {era} 和弦须 2~6 音，实为 {intervals.Count}");
+            }
+
+            if (Math.Abs(intervals[0] - 1.0) > 1e-9)
+            {
+                throw new AudioSchemaException($"{sourceName}: {era} 和弦第一音必须=1.0（根音）");
+            }
+
+            for (int i = 1; i < intervals.Count; i++)
+            {
+                if (intervals[i] <= intervals[i - 1])
+                {
+                    throw new AudioSchemaException($"{sourceName}: {era} 和弦音程必须严格递增");
+                }
+            }
+
+            double padGain = RequireGain(row, "pad_gain", era, sourceName);
+            double percussionGain = RequireGain(row, "percussion_gain", era, sourceName);
+            double bassGain = RequireGain(row, "bass_gain", era, sourceName);
+            int hatSubdivisions = RequireInt(row, "hat_subdivisions", sourceName);
+            if (hatSubdivisions is < 1 or > 8)
+            {
+                throw new AudioSchemaException($"{sourceName}: {era} hat_subdivisions={hatSubdivisions} 越界（1~8）");
+            }
+
+            programs.Add(new BgmProgram(
+                era, tempo, rootHz, intervals, padGain, percussionGain, bassGain,
+                hatSubdivisions, sampleRate, loopBars, beatsPerBar));
+        }
+
+        return new BgmProgramTable(sampleRate, loopBars, beatsPerBar, programs);
+    }
+
+    private static void RequireMarker(JsonElement root, string key, string expected, string sourceName)
+    {
+        if (!root.TryGetProperty(key, out JsonElement marker) ||
+            marker.ValueKind != JsonValueKind.String ||
+            marker.GetString() != expected)
+        {
+            throw new AudioSchemaException($"{sourceName}: {key} 必须为 {expected}");
+        }
+    }
+
+    private static string RequireString(JsonElement row, string key, string sourceName)
+    {
+        if (!row.TryGetProperty(key, out JsonElement el) || el.ValueKind != JsonValueKind.String)
+        {
+            throw new AudioSchemaException($"{sourceName}: 缺少字符串字段 {key}");
+        }
+
+        string value = el.GetString()!;
+        return string.IsNullOrWhiteSpace(value)
+            ? throw new AudioSchemaException($"{sourceName}: {key} 不能为空白")
+            : value;
+    }
+
+    private static int RequireInt(JsonElement row, string key, string sourceName)
+    {
+        if (!row.TryGetProperty(key, out JsonElement el) || el.ValueKind != JsonValueKind.Number)
+        {
+            throw new AudioSchemaException($"{sourceName}: 缺少数值字段 {key}");
+        }
+
+        return el.TryGetInt32(out int value)
+            ? value
+            : throw new AudioSchemaException($"{sourceName}: {key} 必须是整数");
+    }
+
+    private static double RequireNumber(JsonElement row, string key, string sourceName)
+    {
+        if (!row.TryGetProperty(key, out JsonElement el) || el.ValueKind != JsonValueKind.Number)
+        {
+            throw new AudioSchemaException($"{sourceName}: 缺少数值字段 {key}");
+        }
+
+        return el.GetDouble();
+    }
+
+    private static double RequireGain(JsonElement row, string key, string era, string sourceName)
+    {
+        double gain = RequireNumber(row, key, sourceName);
+        return gain is <= 0.0 or > 1.0
+            ? throw new AudioSchemaException($"{sourceName}: {era} {key}={gain} 越界（(0,1]）")
+            : gain;
+    }
+}

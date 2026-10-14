@@ -1,0 +1,74 @@
+{
+  "$schema": "urn:eratd:content:audio:persona-timbres:1",
+  "content_type": "PersonaTimbreTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-092 军师人格语音音色参数表（F-137 薄版，§14）：四人格+中性旁白各一行；人格只改音色表达不改能力（§10.7）。narrator 行=关闭系统时的中性旁白降级音色（OffModeDowngrade 联动）。音色=基频/音高轮廓(steady|sharp|bounce|wobble)/波形(sine|triangle|square)/音节节拍；台词→音节序列由台词 key 的 FNV 哈希确定性驱动（同 key 同声，禁随机）。",
+  "sample_rate_hz": 16000,
+  "peak_amplitude": 0.6,
+  "timbres": [
+    {
+      "id": "advisor",
+      "zh": "参谋",
+      "base_freq_hz": 440.0,
+      "contour": "steady",
+      "wave": "sine",
+      "syllable_ms": 90,
+      "gap_ms": 45,
+      "vibrato_hz": 0.0,
+      "vibrato_depth": 0.0,
+      "step_ratio": 1.0,
+      "gain": 0.5
+    },
+    {
+      "id": "snarky",
+      "zh": "毒舌",
+      "base_freq_hz": 660.0,
+      "contour": "sharp",
+      "wave": "square",
+      "syllable_ms": 60,
+      "gap_ms": 25,
+      "vibrato_hz": 0.0,
+      "vibrato_depth": 0.0,
+      "step_ratio": 1.06,
+      "gain": 0.28
+    },
+    {
+      "id": "goofy",
+      "zh": "沙雕",
+      "base_freq_hz": 392.0,
+      "contour": "bounce",
+      "wave": "triangle",
+      "syllable_ms": 70,
+      "gap_ms": 35,
+      "vibrato_hz": 0.0,
+      "vibrato_depth": 0.0,
+      "step_ratio": 1.335,
+      "gain": 0.5
+    },
+    {
+      "id": "tsundere",
+      "zh": "傲娇",
+      "base_freq_hz": 494.0,
+      "contour": "wobble",
+      "wave": "sine",
+      "syllable_ms": 100,
+      "gap_ms": 40,
+      "vibrato_hz": 6.0,
+      "vibrato_depth": 0.04,
+      "step_ratio": 1.0,
+      "gain": 0.5
+    },
+    {
+      "id": "narrator",
+      "zh": "旁白",
+      "base_freq_hz": 262.0,
+      "contour": "steady",
+      "wave": "sine",
+      "syllable_ms": 140,
+      "gap_ms": 60,
+      "vibrato_hz": 0.0,
+      "vibrato_depth": 0.0,
+      "step_ratio": 1.0,
+      "gain": 0.45
+    }
+  ]
+}
