@@ -46,10 +46,14 @@ env:
   GODOT_VERSION: "4.7.2"
   # 官方 release URL（已核验可达，asset=Godot_v4.7.2-stable_mono_win64.zip）
   GODOT_URL: "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_win64.zip"
-  NUGET_PACKAGES: ${{ runner.temp }}\nuget-packages
   DOTNET_CLI_UI_LANGUAGE: "en"
   # dispatch 输入映射：skip_smoke=true -> 1，其余事件 -> 0
   SKIP_SMOKE: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_smoke && '1' || '0' }}
+  # T-096 修复：`runner` 上下文在 workflow 级 env 不可用（"Unrecognized
+  # named-value: 'runner'"，此前每次 push 都在起 job 前失败——该 workflow
+  # 从未在 GitHub 上跑起过 job，全绿证据一直来自本地 run_all）。NUGET_PACKAGES
+  # 改在各 dotnet 步骤内用运行期 $RUNNER_TEMP 导出（与本地 D 盘纪律同构
+  # 的"runner 临时盘缓存"口径）。
 
 jobs:
   pipeline:
@@ -79,6 +83,7 @@ jobs:
       - name: "Stage 2 unit-logic: dotnet test EraCore.Tests (G1, nuget.org-only restore)"
         shell: bash
         run: |
+          export NUGET_PACKAGES="$RUNNER_TEMP/nuget-packages"
           # 只测 EraCore.Tests（连带构建 EraCore）：证明其不依赖 Godot 包，
           # 纯 nuget.org 还原即可全绿（本地已用全新 NUGET_PACKAGES 缓存复验 37/37）。
           # EraTD(Godot.NET.Sdk 4.7.2) 此时尚不可还原——Stage 3 镜像 nupkg 后
@@ -111,6 +116,7 @@ jobs:
       - name: "Stage 4 build: full solution, Release, warnings-as-errors (G3)"
         shell: bash
         run: |
+          export NUGET_PACKAGES="$RUNNER_TEMP/nuget-packages"
           # 全解决方案（EraTD 含 Godot.NET.Sdk，经 Stage 3b 的本地 feed 还原）
           dotnet build game/EraTD.sln -c Release --nologo -p:TreatWarningsAsErrors=true
 
@@ -128,6 +134,7 @@ jobs:
         continue-on-error: false
         shell: bash
         run: |
+          export NUGET_PACKAGES="$RUNNER_TEMP/nuget-packages"
           # smoke_godot.sh 按 07 §三（附）/09-env-locked 的钉死路径找 Godot console
           # exe（tools/godot_extract/...，Stage 3a 已就位）。Godot(mono) 需要
           # DOTNET_ROOT 定位 .NET 运行时（Windows 形式路径，原生 exe 直接可用）：
