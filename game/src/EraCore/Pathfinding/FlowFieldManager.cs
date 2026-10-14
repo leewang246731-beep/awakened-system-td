@@ -60,6 +60,14 @@ public sealed record CellRegion(int X, int Y, int Width, int Height)
 /// simulation frame's slice: frontier advancement runs under a wall-clock
 /// budget measured with <see cref="Stopwatch"/> (8 ms/frame by default,
 /// parameterizable), so a large flood simply continues on later frames.
+/// <para>
+/// Per-bucket grid views (T-064, spike2-report §5 pit#3): a bucket key may
+/// carry its OWN <see cref="IFlowGrid"/> view via <see cref="RegisterGridView"/>
+/// — the dual-cost seam of the corridor traffic rule (one repriced enemy
+/// view per lane×costType bucket) — while view-less keys flood the manager
+/// default grid. Registrations are capped at the bucket cap (≤6), so cost
+/// profiles multiply buckets, never raw view objects.
+/// </para>
 /// </summary>
 public sealed class FlowFieldManager
 {
@@ -74,6 +82,12 @@ public sealed class FlowFieldManager
         public FlowFieldKey Key { get; } = key;
 
         public CellCoord Target = new(0, 0);
+
+        // T-064 pit#3 (spike2-report §5 坑3): per-bucket grid view — the
+        // bucket's build ground. Assigned by Acquire on bucket creation
+        // (registered view of this key, else the manager default grid), so
+        // the null-forgiving default never survives to a build.
+        public IFlowGrid Grid = null!;
 
         // Always assigned by Acquire on bucket creation; empty default keeps
         // MarkDirty inert if that ever changed.
@@ -98,6 +112,13 @@ public sealed class FlowFieldManager
     private readonly int _bloodMultiplier;
     private readonly Dictionary<FlowFieldKey, Bucket> _buckets = new();
     private readonly List<Bucket> _pending = new();
+
+    // T-064 pit#3 (spike2-report §5 坑3): registered per-key grid views
+    // (lane × costType → one IFlowGrid each). Views outlive bucket eviction
+    // on purpose — an evicted lane rebuilt later must flood the SAME view.
+    // The count is capped at the bucket cap, so views can never multiply
+    // past the active-field budget (防视图数膨胀).
+    private readonly Dictionary<FlowFieldKey, IFlowGrid> _gridViews = new();
     private long _lruSeq;
     private long _buildSeq;
 
@@ -153,6 +174,79 @@ public sealed class FlowFieldManager
     public int PendingFieldCount => _pending.Count;
 
     /// <summary>
+    /// T-064 pit#3 (spike2-report §5 坑3): number of registered per-key grid
+    /// views — never above the bucket cap (see <see cref="RegisterGridView"/>).
+    /// </summary>
+    public int RegisteredViewCount => _gridViews.Count;
+
+    /// <summary>
+    /// T-064 pit#3 (spike2-report §5 坑3 清偿: 双代价视图走 lane×costType
+    /// 分桶): registers ONE grid view for one bucket key. A bucket with a
+    /// registered view floods THAT view (e.g. the enemy corridor repricing
+    /// of <c>EraCore.Logistics.CorridorRule</c>) while every other bucket
+    /// keeps flooding the manager's default grid — the formal product
+    /// interface replacing the spike's hand-built second manager instance.
+    /// Re-registering an existing key replaces its view in place; the
+    /// registration survives bucket eviction (a rebuilt lane re-attaches to
+    /// its view) and a view change flags the bucket dirty on the next
+    /// <see cref="Acquire"/> so the field converges onto the new view.
+    /// <para>
+    /// Anti-inflation guard (防视图数膨胀): distinct registrations are capped
+    /// at the bucket cap (<see cref="DefaultMaxActiveFields"/> = 6) — one
+    /// view per bucket, never one per query; exceeding the cap throws.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException">key or view is null.</exception>
+    /// <exception cref="ArgumentException">view dimensions differ from the manager grid.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// a NEW registration would exceed the bucket cap.
+    /// </exception>
+    public void RegisterGridView(FlowFieldKey key, IFlowGrid view)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(view);
+        if (view.Width != _grid.Width || view.Height != _grid.Height)
+        {
+            throw new ArgumentException(
+                $"Grid view dimensions ({view.Width}×{view.Height}) must match the manager grid ({_grid.Width}×{_grid.Height}).",
+                nameof(view));
+        }
+
+        if (!_gridViews.ContainsKey(key) && _gridViews.Count >= _maxActiveFields)
+        {
+            throw new InvalidOperationException(
+                $"At most {_maxActiveFields} grid views may be registered (one per active bucket, lane×costType keyed); key {key} would exceed the cap.");
+        }
+
+        bool changed = !_gridViews.TryGetValue(key, out IFlowGrid? existing) || existing != view;
+        _gridViews[key] = view;
+        if (changed && _buckets.TryGetValue(key, out Bucket? bucket))
+        {
+            // T-064 pit#3: live field was built on another view — flag and
+            // restart exactly like MarkDirty so the bucket converges onto
+            // the new view.
+            bucket.Grid = view;
+            bucket.Dirty = true;
+            if (bucket.Pending is not null)
+            {
+                DropPending(bucket);
+                StartPending(bucket);
+            }
+        }
+    }
+
+    /// <summary>
+    /// T-064 pit#3: looks up the registered view of a key (null when the
+    /// bucket floods the manager default grid).
+    /// </summary>
+    /// <exception cref="ArgumentNullException">key is null.</exception>
+    public IFlowGrid? GetGridView(FlowFieldKey key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return _gridViews.TryGetValue(key, out IFlowGrid? view) ? view : null;
+    }
+
+    /// <summary>
     /// Returns the field for <paramref name="key"/>, touching its LRU stamp.
     /// Creates the bucket on first use (evicting the least recently used one
     /// when the cap is exceeded) and queues a build when no live field exists
@@ -178,6 +272,9 @@ public sealed class FlowFieldManager
             bucket = new Bucket(key)
             {
                 Target = target,
+                // T-064 pit#3: attach the registered view of this key at
+                // creation; unregistered keys flood the manager default grid.
+                Grid = _gridViews.TryGetValue(key, out IFlowGrid? view) ? view : _grid,
                 Coverage = coverage ?? CellRegion.EntireGrid(_grid),
                 LastUsed = ++_lruSeq,
             };
@@ -329,7 +426,9 @@ public sealed class FlowFieldManager
 
     private void StartPending(Bucket bucket)
     {
-        bucket.Pending = FlowField.StartBuild(_grid, bucket.Target, _bloodMultiplier);
+        // T-064 pit#3: build on the bucket's own grid view (registered per
+        // lane×costType), not the manager default.
+        bucket.Pending = FlowField.StartBuild(bucket.Grid, bucket.Target, _bloodMultiplier);
         bucket.BuildSeq = ++_buildSeq;
         _pending.Add(bucket);
     }

@@ -61,6 +61,14 @@ internal static class LogisticsWorlds
     public static GridWorld PlainWorld(int width, int height, long seed) =>
         new(width, height, new EraCore.Tests.World.LcgRng(seed), 0, 0, 0);
 
+    /// <summary>
+    /// All-forest world (cost 2 everywhere) — the spike② background choice:
+    /// a paved corridor (Road, cost 1) is then genuinely cheaper for
+    /// porters, which the corridor traffic-rule tests (T-064) rely on.
+    /// </summary>
+    public static GridWorld ForestWorld(int width, int height, long seed) =>
+        new(width, height, new EraCore.Tests.World.LcgRng(seed), 1.0, 0, 0);
+
     /// <summary>Seeded sparse world (same shape the C-05×C-11 joint tests verified pocket-free).</summary>
     public static GridWorld SeededWorld(int width, int height, long seed) =>
         new(width, height, new EraCore.Tests.World.LcgRng(seed), 0.20, 0.02, 0.02);

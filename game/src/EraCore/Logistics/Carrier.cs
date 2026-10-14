@@ -45,6 +45,23 @@ public interface ICargoReceiver
 }
 
 /// <summary>
+/// Per-tick speed resolver of a moving carrier (secondary type of
+/// Carrier.cs; C-07 T-064 [NEW 细节标注]): the one seam where a tier's speed
+/// is DYNAMIC — queried once per movement tick, so the effective speed is a
+/// pure function of (carrier state, world state) and determinism is
+/// untouched (CS-1.4). Sole product implementation today: <see
+/// cref="RailLine"/> (轨道格连续通行时矿轨全速、断轨降为马车速).
+/// </summary>
+public interface ITierSpeedPolicy
+{
+    /// <summary>
+    /// Effective speed in px/tick for <paramref name="carrier"/> THIS tick;
+    /// must be positive and must not mutate the carrier.
+    /// </summary>
+    double EffectiveSpeedPxPerTick(Carrier carrier);
+}
+
+/// <summary>
 /// Formal "cached route may be stale" notification of one carrier departure
 /// (T-059 DEBT ②, spike2-report §5 pit#5): fired exactly at the two phase
 /// transitions INTO a movement phase — Loading→Outbound and
@@ -68,25 +85,44 @@ public sealed record RouteInvalidatedEvent(
     CellCoord TargetCell);
 
 /// <summary>
-/// E1 porter-tier carrier (民夫档, C-07 precursor, T-047, F-040~F-042): walks
-/// an <see cref="AStarPathfinder"/> route at a fixed per-tick speed, loads at
-/// most <see cref="CapacityItems"/> per trip and unloads only when the
-/// destination accepts (待卸队列). Fully deterministic: movement is pure
-/// arithmetic on the route polyline — no clock, no RNG (CS-1.4); one
-/// <see cref="Tick"/> = one 1/30 s simulation step.
+/// Trip-based carrier of the logistics ladder (C-07 全量, T-064, F-040~F-042;
+/// tiers 民夫/马车/矿轨/无人机): walks a route at the tier speed, loads at
+/// most the tier capacity per trip and unloads only when the destination
+/// accepts (待卸队列). Fully deterministic: movement is pure arithmetic on
+/// the route polyline — no clock, no RNG (CS-1.4); one <see cref="Tick"/> =
+/// one 1/30 s simulation step.
 /// <para>
-/// Tier anchor — v3.2 §5 logistics ladder tier 1 民夫 0.3 件/s. With the
-/// reference route (one-way straight 5 cells = 5 × 32 px = 160 px) the round
-/// trip is 2 × 160 ÷ 2.0 px/tick travel + 20 load + 20 unload = 200 ticks
-/// (see <see cref="RoundTripTicks"/>) = 6.67 s for <see cref="CapacityItems"/>
-/// = 2 items ⇒ exactly 0.3 items/s. The throughput test replays this by
-/// simulation; six-tier content (马车 0.6 … 传送阵 ∞) lands with T-064.
-/// Caliper freeze (batch2 review F5): the 0.3 items/s anchor holds ONLY at
-/// the reference distance of 160 px one-way — throughput = capacity ÷
-/// round-trip period, and the period is distance-sensitive (travel legs
-/// scale with route length, service windows do not). The six-tier logistics
-/// acceptance (T-064) must therefore compare all tiers at the SAME 160 px
-/// reference distance (统一口径).
+/// Tier parameterization (T-064 档位参数化): capacity / speed / load window /
+/// unload window / movement form all come from the <see cref="TransportTier"/>
+/// row (<see cref="TransportTiers"/>). The T-047 constructor defaults to
+/// <see cref="TransportTiers.Porter"/> so every existing porter use is
+/// byte-identical to before; the tier table's porter row itself reads the
+/// frozen <see cref="Carrier"/> constants, so the two can never drift.
+/// </para>
+/// <para>
+/// Tier anchor — v3.2 §5 logistics ladder. With the reference route
+/// (one-way straight 5 cells = 5 × 32 px = 160 px) the porter round trip is
+/// 2 × 160 ÷ 2.0 px/tick travel + 20 load + 20 unload = 200 ticks
+/// (see <see cref="RoundTripTicks(double)"/>) = 6.67 s for
+/// <see cref="CapacityItems"/> = 2 items ⇒ exactly 0.3 items/s; 马车
+/// 0.6 / 矿轨 10 / 无人机 20 land the same way through
+/// <see cref="RoundTripTicks(TransportTier, double)"/>. Caliper freeze
+/// (batch2 review F5): the anchors hold ONLY at the reference distance of
+/// 160 px one-way — throughput = capacity ÷ round-trip period, and the
+/// period is distance-sensitive (travel legs scale with route length,
+/// service windows do not). The six-tier logistics acceptance (T-064)
+/// therefore compares all tiers at the SAME 160 px reference distance
+/// (统一口径, <see cref="TransportTiers.ReferenceOneWayPx"/>).
+/// </para>
+/// <para>
+/// Movement forms — <see cref="TransportForm.TripGrid"/> walks an 8-neighbour
+/// A* route (adjacency-validated); <see cref="TransportForm.TripFlight"/>
+/// ([NEW] 无人机) flies the direct segment between the route's two endpoints:
+/// the route is exactly two cells (home, destination), adjacency validation
+/// is skipped and terrain never gates the flight. <see
+/// cref="TransportForm.TripRail"/> moves like a grid trip but resolves its
+/// per-tick speed through the optional <see cref="ITierSpeedPolicy"/>
+/// (矿轨断轨降级).
 /// </para>
 /// </summary>
 public sealed class Carrier
@@ -140,6 +176,8 @@ public sealed class Carrier
     private readonly ICargoReceiver _destination;
     private readonly CellCoord _home;
     private readonly CellCoord _destinationCell;
+    private readonly TransportTier _tier;
+    private readonly ITierSpeedPolicy? _speedPolicy;
 
     private IReadOnlyList<CellCoord> _route;
     private IReadOnlyList<CellCoord> _lastHomeRoute;
@@ -153,9 +191,10 @@ public sealed class Carrier
     private long _ticksAlive;
 
     /// <summary>
-    /// Creates a porter standing at home (route[0]) about to load for its
-    /// first trip along <paramref name="homeToDestinationRoute"/> (an A*
-    /// route; consecutive cells must be 8-neighbours).
+    /// Creates a porter (<see cref="TransportTiers.Porter"/>) standing at
+    /// home (route[0]) about to load for its first trip along
+    /// <paramref name="homeToDestinationRoute"/> (an A* route; consecutive
+    /// cells must be 8-neighbours). The T-047 constructor, kept verbatim.
     /// </summary>
     /// <exception cref="ArgumentNullException">any argument is null.</exception>
     /// <exception cref="ArgumentException">route has fewer than two cells or a non-adjacent step.</exception>
@@ -165,33 +204,98 @@ public sealed class Carrier
         ICargoSupplier source,
         ICargoReceiver destination,
         IReadOnlyList<CellCoord> homeToDestinationRoute)
+        : this(id, resource, source, destination, homeToDestinationRoute, TransportTiers.Porter)
+    {
+    }
+
+    /// <summary>
+    /// Creates a carrier of ANY ladder tier (T-064 档位参数化). Grid and rail
+    /// tiers take an 8-neighbour A* route; flight tiers
+    /// (<see cref="TransportForm.TripFlight"/>) take exactly the two
+    /// endpoints (home, destination) and skip adjacency validation — the
+    /// drone flies the direct segment regardless of terrain. Belt and
+    /// teleport forms are not trip carriers and are rejected here (they live
+    /// in <see cref="ConveyorBelt"/>/<see cref="TeleporterLink"/>).
+    /// <paramref name="speedPolicy"/> optionally resolves the per-tick speed
+    /// (rail degradation seam); null = fixed tier speed.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">any argument is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// route has fewer than two cells, a non-adjacent step on a ground tier,
+    /// a flight route with more than two cells, a non-trip tier, or a tier
+    /// with non-positive speed/capacity.
+    /// </exception>
+    public Carrier(
+        EntityId id,
+        ResourceKey resource,
+        ICargoSupplier source,
+        ICargoReceiver destination,
+        IReadOnlyList<CellCoord> homeToDestinationRoute,
+        TransportTier tier,
+        ITierSpeedPolicy? speedPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(homeToDestinationRoute);
+        ArgumentNullException.ThrowIfNull(tier);
         if (homeToDestinationRoute.Count < 2)
         {
             throw new ArgumentException("A carrier route needs at least two cells (home and destination).", nameof(homeToDestinationRoute));
         }
 
-        ValidateAdjacency(homeToDestinationRoute);
+        if (tier.Form is not (TransportForm.TripGrid or TransportForm.TripRail or TransportForm.TripFlight))
+        {
+            throw new ArgumentException(
+                $"Tier '{tier.Id}' (form {tier.Form}) is not a trip carrier; belt/teleport tiers use ConveyorBelt/TeleporterLink.",
+                nameof(tier));
+        }
+
+        if (tier.CapacityItems < 1)
+        {
+            throw new ArgumentException($"Tier '{tier.Id}' capacity must be positive.", nameof(tier));
+        }
+
+        if (tier.SpeedPxPerTick <= 0)
+        {
+            throw new ArgumentException($"Tier '{tier.Id}' speed must be positive.", nameof(tier));
+        }
+
+        if (tier.Form == TransportForm.TripFlight)
+        {
+            if (homeToDestinationRoute.Count != 2)
+            {
+                throw new ArgumentException(
+                    "A flight route is exactly two cells (home, destination) — the drone crosses the direct segment.",
+                    nameof(homeToDestinationRoute));
+            }
+        }
+        else
+        {
+            ValidateAdjacency(homeToDestinationRoute);
+        }
+
         _id = id;
         _resource = resource;
         _source = source;
         _destination = destination;
+        _tier = tier;
+        _speedPolicy = speedPolicy;
         _home = homeToDestinationRoute[0];
         _destinationCell = homeToDestinationRoute[^1];
         _route = homeToDestinationRoute.ToArray();
         _lastHomeRoute = _route;
         _walkedOutbound = new List<CellCoord> { _home };
         _phase = CarrierPhase.Loading;
-        _serviceTicksLeft = LoadTicks;
+        _serviceTicksLeft = tier.LoadTicks;
     }
 
     /// <summary>Carrier identity (K-1).</summary>
     public EntityId Id => _id;
+
+    /// <summary>The ladder tier this carrier runs (T-064).</summary>
+    public TransportTier Tier => _tier;
 
     /// <summary>Resource carried (K-1 typed key).</summary>
     public ResourceKey Resource => _resource;
@@ -217,7 +321,7 @@ public sealed class Carrier
         _ => _route[_segmentIndex],
     };
 
-    /// <summary>Items aboard (0…<see cref="CapacityItems"/>).</summary>
+    /// <summary>Items aboard (0…<see cref="TransportTier.CapacityItems"/> of <see cref="Tier"/>).</summary>
     public int CargoItems => _cargoItems;
 
     /// <summary>Items cumulatively accepted by the destination.</summary>
@@ -241,17 +345,32 @@ public sealed class Carrier
     public event Action<RouteInvalidatedEvent>? RouteInvalidated;
 
     /// <summary>
-    /// Round-trip period in ticks for a one-way route of
+    /// Round-trip period in ticks of the PORTER tier over a one-way route of
     /// <paramref name="oneWayDistancePx"/> pixels: both travel legs plus one
     /// load and one unload window — the hand-calc the throughput test checks
-    /// the simulation against (往返周期手算对照模拟).
+    /// the simulation against (往返周期手算对照模拟). Kept from T-047;
+    /// tier-generic form: <see cref="RoundTripTicks(TransportTier, double)"/>.
     /// </summary>
     public static double RoundTripTicks(double oneWayDistancePx) =>
-        (2.0 * oneWayDistancePx / SpeedPixelsPerTick) + LoadTicks + UnloadTicks;
+        RoundTripTicks(TransportTiers.Porter, oneWayDistancePx);
+
+    /// <summary>
+    /// Tier-generic round-trip period in ticks: both travel legs at the tier
+    /// speed plus the tier's load and unload windows (T-064 六档手算公式).
+    /// </summary>
+    /// <exception cref="ArgumentNullException">tier is null.</exception>
+    public static double RoundTripTicks(TransportTier tier, double oneWayDistancePx)
+    {
+        ArgumentNullException.ThrowIfNull(tier);
+        return tier.RoundTripTicks(oneWayDistancePx);
+    }
 
     /// <summary>
     /// Length of a cell route in pixels: cell-centre polyline, straight
-    /// steps <see cref="CellSizePx"/>, diagonal steps 32×√2.
+    /// steps <see cref="CellSizePx"/>, diagonal steps 32×√2. A two-cell
+    /// route is the direct segment between the endpoints (the
+    /// <see cref="TransportForm.TripFlight"/> form) — adjacency is only
+    /// required for routes of three or more cells.
     /// </summary>
     /// <exception cref="ArgumentNullException">route is null.</exception>
     /// <exception cref="ArgumentException">route has fewer than two cells or a non-adjacent step.</exception>
@@ -263,7 +382,10 @@ public sealed class Carrier
             throw new ArgumentException("A route needs at least two cells.", nameof(route));
         }
 
-        ValidateAdjacency(route);
+        if (route.Count > 2)
+        {
+            ValidateAdjacency(route);
+        }
         double total = 0;
         for (int i = 1; i < route.Count; i++)
         {
@@ -276,8 +398,9 @@ public sealed class Carrier
     /// <summary>
     /// Advances exactly one simulation tick: one phase action — a service
     /// countdown step, one load/unload transfer attempt at the end of a
-    /// window, or one <see cref="SpeedPixelsPerTick"/> movement slice. Phase
-    /// transitions happen at the end of their tick, so a porter that finishes
+    /// window, or one tier-speed movement slice (a tier with an <see
+    /// cref="ITierSpeedPolicy"/> resolves its speed per tick). Phase
+    /// transitions happen at the end of their tick, so a carrier that finishes
     /// loading on tick t first moves on tick t+1.
     /// </summary>
     public void Tick()
@@ -291,7 +414,8 @@ public sealed class Carrier
                     break;
                 }
 
-                int taken = Math.Min(_source.TryTake(_resource, CapacityItems - _cargoItems), CapacityItems - _cargoItems);
+                int room = _tier.CapacityItems - _cargoItems;
+                int taken = Math.Min(_source.TryTake(_resource, room), room);
                 if (taken > 0)
                 {
                     _cargoItems += taken;
@@ -301,7 +425,7 @@ public sealed class Carrier
                 {
                     // Starved source: wait one more full window and retry
                     // (断供 hooks in here, T-048).
-                    _serviceTicksLeft = LoadTicks;
+                    _serviceTicksLeft = _tier.LoadTicks;
                 }
 
                 break;
@@ -331,7 +455,7 @@ public sealed class Carrier
                     // 待卸队列 semantics, cargo only ever leaves on accept.
                     _deliveredItems += accepted;
                     _cargoItems -= accepted;
-                    _serviceTicksLeft = UnloadTicks;
+                    _serviceTicksLeft = _tier.UnloadTicks;
                 }
 
                 break;
@@ -347,10 +471,11 @@ public sealed class Carrier
     /// <paramref name="newRoute"/>[0] must equal <see cref="CurrentCell"/>
     /// and its last cell the current phase target (destination outbound, home
     /// inbound). Progress inside the current segment carries over, so no
-    /// distance is gained or lost by the swap.
+    /// distance is gained or lost by the swap. Ground tiers validate 8-neighbour
+    /// adjacency; flight tiers reroute onto a fresh two-cell segment.
     /// </summary>
     /// <exception cref="ArgumentNullException">newRoute is null.</exception>
-    /// <exception cref="ArgumentException">newRoute has fewer than two cells or a non-adjacent step.</exception>
+    /// <exception cref="ArgumentException">newRoute has fewer than two cells or a non-adjacent step (ground tier).</exception>
     /// <exception cref="InvalidOperationException">
     /// carrier not in a movement phase, newRoute does not start at
     /// <see cref="CurrentCell"/>, or does not end at the phase target.
@@ -368,7 +493,10 @@ public sealed class Carrier
             throw new ArgumentException("A reroute needs at least two cells.", nameof(newRoute));
         }
 
-        ValidateAdjacency(newRoute);
+        if (_tier.Form != TransportForm.TripFlight)
+        {
+            ValidateAdjacency(newRoute);
+        }
         CellCoord current = CurrentCell;
         if (!newRoute[0].Equals(current))
         {
@@ -424,7 +552,10 @@ public sealed class Carrier
 
     private void Move()
     {
-        double remaining = SpeedPixelsPerTick;
+        // Tier speed — fixed, unless the tier carries a speed policy (rail
+        // degradation seam): resolved once per tick as a pure function of
+        // carrier + world state (CS-1.4 determinism untouched).
+        double remaining = _speedPolicy?.EffectiveSpeedPxPerTick(this) ?? _tier.SpeedPxPerTick;
         while (remaining > 0 && _segmentIndex < _route.Count - 1)
         {
             double room = SegmentLengthPx(_route[_segmentIndex], _route[_segmentIndex + 1]) - _progressPx;
@@ -458,12 +589,12 @@ public sealed class Carrier
             // canonical route for the next departure and the return trip.
             _lastHomeRoute = _walkedOutbound.ToArray();
             _phase = CarrierPhase.Unloading;
-            _serviceTicksLeft = UnloadTicks;
+            _serviceTicksLeft = _tier.UnloadTicks;
         }
         else
         {
             _phase = CarrierPhase.Loading;
-            _serviceTicksLeft = LoadTicks;
+            _serviceTicksLeft = _tier.LoadTicks;
         }
     }
 
