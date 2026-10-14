@@ -184,8 +184,13 @@ public class AgentPipelineClosedLoopTests
 
         Assert.Equal(PipelineOutcomeKind.Clarification, clarified.Kind);
         Assert.Equal(EraCore.Agent.Grammar.L1IntentParser.DefaultClarifyingKey, clarified.ClarifyingKey);
+        // T-069：快捷轮盘随 SupportedIntents 扩为 SP-2 全量 12 意图（原 T-052 五意图子集）
         Assert.Equal(
-            new[] { "HoldRegion", "Build", "QueryThreat", "QueryStockpile", "SetAlarm" },
+            new[]
+            {
+                "HoldRegion", "Build", "Upgrade", "Sell", "FocusFire", "ChangeFocusMode",
+                "RerouteLogistics", "QueryStockpile", "QueryThreat", "SetAlarm", "Patrol", "ScrollControl",
+            },
             clarified.QuickWheel);
         Assert.Null(clarified.Report);
         Assert.Empty(harness.Simulation.Towers);

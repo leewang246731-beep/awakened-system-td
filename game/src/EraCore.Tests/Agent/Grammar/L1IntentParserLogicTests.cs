@@ -215,21 +215,67 @@ public class L1IntentParserLogicTests
         Assert.False(string.IsNullOrEmpty(result.Failure?.ClarifyingKey), $"{text}: 澄清话术键为空");
     }
 
-    // ---- 反例的澄清话术键细分：子集外意图 → subset_gap；其余 → default -------
+    // ---- T-061 语料 miss 修复回归（28 条清单的正例逐条钉死，16-t061 报告 §4） ----
 
-    [Theory] // illegal：12 意图清单内、T-052 子集外（SP-2 配套口径：意图层失败=澄清卡）
-    [InlineData("把箭塔升到三级")]
-    [InlineData("卖掉北墙的旧塔")]
-    [InlineData("集火那个攻城锤")]
-    [InlineData("upgrade the arrow tower to tier 3")]
-    [InlineData("focus the ram")]
-    [InlineData("开火油卷轴")]
-    public void Deferred_intent_orders_get_subset_gap_key(string text)
+    [Theory] // legal：句式补全 21 条（zh 11 + en 10）——T-061 句式缺修复
+    [InlineData("东门顶住", "target=east_gate")]
+    [InlineData("别放敌人进北门", "target=north_gate")]
+    [InlineData("南门给我守住", "target=south_gate")]
+    [InlineData("全力防守东门", "target=east_gate")]
+    [InlineData("东边造个火堆", "where=east_side|qty=1|tower=era1:tower-campfire")]
+    [InlineData("南门再来两座箭塔", "where=south_gate|qty=2|tower=era1:tower-wood-arrow")]
+    [InlineData("本波威胁是什么", "scope=current")]
+    [InlineData("下一波是什么敌人", "scope=next_wave")]
+    [InlineData("现在的敌情如何", "scope=current")]
+    [InlineData("敌情如何", "scope=current")]
+    [InlineData("木材多吗", "item=era1:res-wood")]
+    [InlineData("hold the north gate at all costs", "target=north_gate")]
+    [InlineData("hold the west wall at all costs", "target=west_wall")]
+    [InlineData("keep them off the north side", "target=north_side")]
+    [InlineData("east gate, hold it", "target=east_gate")]
+    [InlineData("I want arrow towers at the east gate", "where=east_gate|tower=era1:tower-wood-arrow")]
+    [InlineData("incoming wave threats", "scope=next_wave")]
+    [InlineData("what's coming in the next wave", "scope=next_wave")]
+    [InlineData("how's the situation", "scope=current")]
+    [InlineData("wood?", "item=era1:res-wood")]
+    [InlineData("are we running low on wood", "item=era1:res-wood")]
+    public void T061_pattern_gap_misses_now_parse(string text, string expectedSlots)
+    {
+        var intent = Parser().Parse(text).Intent;
+
+        Assert.NotNull(intent);
+        AssertSlots(text, intent!, expectedSlots);
+    }
+
+    [Theory] // legal：词典补词 4 处 + 容错修正 3 处（FuzzyRepair 越权 2 + 非等长错字 1）
+    [InlineData("粮草还剩多少", "item=era1:res-food")]
+    [InlineData("hold the western gate", "target=west_gate")]
+    [InlineData("半分钟后叫我", "after=30")]
+    [InlineData("remind me in half a minute", "after=30")]
+    [InlineData("在南面建两座火堆", "where=south_side|qty=2|tower=era1:tower-campfire")] // T-061 §5 越权案例一
+    [InlineData("查一下石头", "item=era1:res-stone")] // T-061 §5 越权案例二
+    [InlineData("build two camfire at the south gate", "where=south_gate|qty=2|tower=era1:tower-campfire")] // miss #205 非等长错字
+    public void T061_lexicon_and_tolerance_misses_now_parse(string text, string expectedSlots)
+    {
+        var intent = Parser().Parse(text).Intent;
+
+        Assert.NotNull(intent);
+        AssertSlots(text, intent!, expectedSlots);
+    }
+
+    [Theory] // illegal：T-061 反例仍拒绝（修复不得让反例漏过）
+    [InlineData("多造几个箭塔")]
+    [InlineData("建塔")]
+    [InlineData("下一波几点来")]
+    [InlineData("明早八点叫我")]
+    [InlineData("build towers at the east gate")]
+    [InlineData("how much hp does the boss have")]
+    public void T061_negatives_still_fail(string text)
     {
         var result = Parser().Parse(text);
 
         Assert.Null(result.Intent);
-        Assert.Equal(L1IntentParser.SubsetGapClarifyingKey, result.Failure!.ClarifyingKey);
+        Assert.False(string.IsNullOrEmpty(result.Failure?.ClarifyingKey), $"{text}: 澄清话术键为空");
     }
 
     // ---- 断言辅助 -----------------------------------------------------------

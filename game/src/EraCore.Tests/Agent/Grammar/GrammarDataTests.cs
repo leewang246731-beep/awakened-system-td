@@ -24,13 +24,14 @@ public class GrammarDataTests
         Assert.All(book.Patterns, p => Assert.False(string.IsNullOrEmpty(p.Id)));
     }
 
-    [Fact] // legal：两本书合计 120 条、每个 T-052 子集意图每语言 ≥10 变体（任务卡起步线 4×10）
-    public void Repo_books_meet_subset_variant_floor()
+    [Fact] // legal：两本书合计 285 条（≥240 出货线，T-069）、12 意图每语言 ≥10 变体（08 T-069 验收）
+    public void Repo_books_meet_variant_floor()
     {
         var zh = GrammarData.FromPatterns(GrammarTestPaths.ReadGrammarFile("patterns-zh.json"), "zh");
         var en = GrammarData.FromPatterns(GrammarTestPaths.ReadGrammarFile("patterns-en.json"), "en");
 
-        Assert.Equal(120, zh.Patterns.Count + en.Patterns.Count);
+        Assert.True(zh.Patterns.Count + en.Patterns.Count >= 240,
+            $"total patterns {zh.Patterns.Count + en.Patterns.Count} < 240 (v3.2 §11.5 变体出货线)");
         foreach (var kind in L1IntentParser.SupportedIntents)
         {
             Assert.True(zh.Patterns.Count(p => p.Intent == kind) >= 10, $"{kind} zh variants < 10");
@@ -38,7 +39,7 @@ public class GrammarDataTests
         }
     }
 
-    [Fact] // legal：词典装出分区/物资/敌情范围/未收录关键词（资源 id 与 era.json 同源）
+    [Fact] // legal：词典装出分区/物资/敌情范围/敌/模式/通道/卷轴/指认（资源 id 与 era.json 同源）
     public void FromLexicon_loads_repo_lexicon()
     {
         var lexicon = GrammarData.FromLexicon(GrammarTestPaths.ReadGrammarFile("lexicon.json"));
@@ -50,7 +51,12 @@ public class GrammarDataTests
             lexicon.Resources.Select(r => r.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray());
         Assert.Contains(lexicon.ThreatScopes, s => s.Id == "next_wave");
         Assert.Contains(lexicon.ThreatScopes, s => s.Id == "current");
-        Assert.Contains(lexicon.DeferredIntents, d => d.Intent == IntentKind.Upgrade);
+        Assert.Contains(lexicon.Enemies, e => e.Id == "era2:enemy-ram");
+        Assert.Contains(lexicon.FocusModes, m => m.Id == "strong");
+        Assert.Contains(lexicon.FocusModes, m => m.Id == "closest");
+        Assert.Contains(lexicon.Lanes, l => l.Id == "lane_rear");
+        Assert.Contains(lexicon.Scrolls, s => s.Id == "era2:scroll-fire-oil");
+        Assert.Contains(lexicon.Pointing, p => p.Id == "pointing:here");
         Assert.NotEmpty(lexicon.AllItemsSurfaces);
     }
 

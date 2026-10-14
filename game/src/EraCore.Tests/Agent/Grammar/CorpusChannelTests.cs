@@ -152,8 +152,22 @@ public class CorpusChannelTests
     }
 
     // ---- 种子语料回归（60 条，首解率数字落断言） -----------------------------
+    // 注：corpus-seed.jsonl 是 T-052 时代的历史样本（语料 v1 已并入去重，v1 为
+    // 基线权威）。其中 6 条 expected_parse:failure 行是当时 7 缺口意图的自然
+    // 军令——T-069 全量 12 意图后它们解析成功，按 Evaluate 口径计 miss 是历史
+    // 注解与新解析器的预期错位，此处如实钉死（不改种子文件——历史数据钉死纪律）。
 
-    [Fact] // [F-170] 种子语料 60 条入库：中英各 30，5 意图 × 每语言 5 正例 + 5 反例
+    private static readonly string[] SeedGapRowsNowParsing =
+    {
+        "把箭楼升到三级",
+        "卖掉北墙的旧塔",
+        "集火那个攻城锤",
+        "upgrade the arrow tower to tier 3",
+        "sell the old tower on the north wall",
+        "focus the ram",
+    };
+
+    [Fact] // legal：种子语料 60 条入库：中英各 30，T-052 5 意图 × 每语言 5 正例 + 5 反例
     public void Seed_corpus_has_expected_shape()
     {
         var entries = LoadSeed();
@@ -161,7 +175,15 @@ public class CorpusChannelTests
         Assert.Equal(60, entries.Count);
         Assert.Equal(30, entries.Count(e => e.Lang == "zh"));
         Assert.Equal(30, entries.Count(e => e.Lang == "en"));
-        foreach (var kind in L1IntentParser.SupportedIntents)
+        var t052Subset = new[]
+        {
+            IntentKind.HoldRegion,
+            IntentKind.Build,
+            IntentKind.QueryThreat,
+            IntentKind.QueryStockpile,
+            IntentKind.SetAlarm,
+        };
+        foreach (var kind in t052Subset)
         {
             Assert.Equal(5, entries.Count(e => e.Lang == "zh" && e.Intent == kind));
             Assert.Equal(5, entries.Count(e => e.Lang == "en" && e.Intent == kind));
@@ -170,7 +192,7 @@ public class CorpusChannelTests
         Assert.Equal(10, entries.Count(e => !e.ExpectSuccess));
     }
 
-    [Fact] // [F-170] 首解率报告：首版如实——≥80%/语言（自造语料应达；不达标修 parser 不放水）
+    [Fact] // [F-170] 首解率报告：≥80%/语言兜底不变；6 条缺口时代失败行如今解析成功（T-069）
     public void Seed_corpus_first_parse_rate_meets_floor()
     {
         var entries = LoadSeed();
@@ -186,6 +208,11 @@ public class CorpusChannelTests
         Assert.True(report.Rate >= 0.80, $"overall first-parse rate {report.Rate:F3} < 0.80");
         Assert.True(report.RateForLang("zh") >= 0.80, $"zh rate {report.RateForLang("zh"):F3} < 0.80");
         Assert.True(report.RateForLang("en") >= 0.80, $"en rate {report.RateForLang("en"):F3} < 0.80");
+
+        // T-069 过渡期如实钉死：仅有的 miss = 6 条历史缺口行解析成功（54/60）
+        var misses = report.Rows.Where(r => !r.Hit).Select(r => r.Entry.Text).OrderBy(t => t, StringComparer.Ordinal).ToList();
+        Assert.Equal(SeedGapRowsNowParsing.OrderBy(t => t, StringComparer.Ordinal), misses);
+        Assert.Equal(54, report.Hits);
     }
 
     private static IReadOnlyList<CorpusEntry> LoadSeed()

@@ -1,14 +1,16 @@
 namespace EraCore.Agent.Grammar;
 
 /// <summary>
-/// Number and duration parsing for the L1 grammar's <c>qty</c> / <c>after</c>
-/// slots (C-15, T-052): Chinese numerals with measure words (两座→2, 俩→2,
-/// 十二→12), Arabic digits, English number words (two→2, ten→10, a/an→1) and
-/// duration units (三分钟→180 s, 10s→10 s, threeminutes→180 s). Surfaces are
-/// already TextNormalizer-normalized (no spaces). Pure table logic, no I/O.
-/// Range: quantities 0..999 (CJK path composes 0..99 via 十), durations are
-/// unclamped seconds — the 30~600 s clamp belongs to the SetAlarm action
-/// layer (SP-2 #10), not the parser.
+/// Number and duration parsing for the L1 grammar's <c>qty</c> / <c>after</c> /
+/// <c>duration</c> slots (C-15, T-052; T-069 extends for the 12-intent set):
+/// Chinese numerals with measure words (两座→2, 俩→2, 十二→12), Arabic digits,
+/// English number words (two→2, ten→10, a/an→1, both→2) and duration units
+/// (三分钟→180 s, 10s→10 s, threeminutes→180 s). Fractional half-minute
+/// surfaces (半分钟 / half a minute → 30 s, T-061 miss #122/#284) are carried
+/// as absolute duration words. Surfaces are already TextNormalizer-normalized
+/// (no spaces). Pure table logic, no I/O. Range: quantities 0..999 (CJK path
+/// composes 0..99 via 十), durations are unclamped seconds — the 30~600 s
+/// clamp belongs to the SetAlarm action layer (SP-2 #10), not the parser.
 /// </summary>
 public static class ChineseNumber
 {
@@ -45,12 +47,25 @@ public static class ChineseNumber
         ["eight"] = 8,
         ["nine"] = 9,
         ["ten"] = 10,
+        ["both"] = 2,
         ["an"] = 1,
         ["a"] = 1,
     };
 
     /// <summary>Measure words absorbed into a captured quantity (SP-2 #2 qty: 中文数字/量词).</summary>
     private static readonly string[] MeasureWords = { "座", "个", "根", "处", "批" };
+
+    /// <summary>
+    /// Absolute duration words (surface → seconds) checked before the
+    /// number+unit split —「半分钟」/「half a minute」carry the fraction inside
+    /// the word, so they cannot decompose into number × unit (T-061 §6.2-3).
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, int> AbsoluteDurations = new Dictionary<string, int>(StringComparer.Ordinal)
+    {
+        ["halfaminute"] = 30,
+        ["半分钟"] = 30,
+        ["半分"] = 30,
+    };
 
     /// <summary>
     /// Duration units paired as (normalized suffix, seconds factor). Longer
@@ -75,6 +90,13 @@ public static class ChineseNumber
         if (string.IsNullOrEmpty(surface))
         {
             return null;
+        }
+
+        // Bare measure word = indefinite article reading: 「造个火堆」/「建座塔」
+        // count as one (T-061 miss #46), same as English "a campfire" → 1.
+        if (MeasureWords.Contains(surface))
+        {
+            return 1;
         }
 
         var body = StripMeasureWord(surface);
@@ -113,6 +135,11 @@ public static class ChineseNumber
             return null;
         }
 
+        if (AbsoluteDurations.TryGetValue(surface, out var absolute))
+        {
+            return absolute;
+        }
+
         foreach (var (suffix, secondsPerUnit) in DurationUnits)
         {
             if (!surface.EndsWith(suffix, StringComparison.Ordinal))
@@ -137,19 +164,21 @@ public static class ChineseNumber
     /// Regex alternation (source text, to be embedded in a group) matching
     /// every quantity surface: 1-3 digits, 1-3 CJK numeral chars (covers
     /// 零~十, 两/俩 and compounds like 二十三), English words ordered longest
-    /// first so "an" wins over "a", plus an optional trailing measure word.
+    /// first so "an" wins over "a", an optional trailing measure word, or a
+    /// bare measure word (the indefinite-article reading, 造个火堆 → 1).
     /// </summary>
     public static string QuantityAlternation()
-        => "(?:\\d{1,3}|[零一二两三四五六七八九十俩]{1,3}|ten|nine|eight|seven|six|five|four|three|two|one|zero|an|a)(?:座|个|根|处|批)?";
+        => "(?:\\d{1,3}|[零一二两三四五六七八九十俩]{1,3}|ten|nine|eight|seven|both|six|five|four|three|two|one|zero|an|a)(?:座|个|根|处|批)?|(?:座|个|根|处|批)";
 
     /// <summary>
-    /// Regex alternation matching every duration surface: number part (same
-    /// vocabulary as quantities minus a/an, which reads as an article next to
-    /// units) followed by a mandatory unit, longer units before shorter ones
-    /// and CJK units before their single-char prefixes.
+    /// Regex alternation matching every duration surface: fractional
+    /// half-minute words first (absolute surfaces), then the number part
+    /// (same vocabulary as quantities minus a/an and both, which read as
+    /// articles next to units) followed by a mandatory unit, longer units
+    /// before shorter ones and CJK units before their single-char prefixes.
     /// </summary>
     public static string DurationAlternation()
-        => "(?:\\d{1,3}|[零一二两三四五六七八九十俩]{1,3}|ten|nine|eight|seven|six|five|four|three|two|one|zero)(?:minutes?|mins?|min|seconds?|secs?|sec|s|分钟|秒钟|分|秒)";
+        => "(?:halfaminute|半分钟|半分|(?:\\d{1,3}|[零一二两三四五六七八九十俩]{1,3}|ten|nine|eight|seven|six|five|four|three|two|one|zero)(?:minutes?|mins?|min|seconds?|secs?|sec|s|分钟|秒钟|分|秒))";
 
     private static string StripMeasureWord(string body)
     {

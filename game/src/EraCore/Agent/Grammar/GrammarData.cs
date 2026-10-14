@@ -75,23 +75,63 @@ public sealed record GrammarBook(string Lang, IReadOnlyList<GrammarPattern> Patt
 /// <param name="Surfaces">Surface strings (zh and en mixed); normalized at compile.</param>
 public sealed record LexiconEntry(string Id, IReadOnlyList<string> Surfaces);
 
-/// <summary>A 12-intent keyword that routes to the subset-gap clarification when nothing matched.</summary>
-/// <param name="Intent">The deferred intent kind (outside the T-052 subset).</param>
-/// <param name="Keywords">Normalized keyword surfaces triggering the gap key.</param>
-public sealed record DeferredIntentRef(IntentKind Intent, IReadOnlyList<string> Keywords);
-
 /// <summary>
-/// The L1 grammar dictionary (<c>game/content/grammar/lexicon.json</c>):
-/// region names (SP-2 #1/#2 分区+方位词), resource names (same ids as the era
-/// content registry), threat scopes (SP-2 #9), the "all items" surfaces and
-/// deferred-intent keywords.
+/// The L1 grammar dictionary (<c>game/content/grammar/lexicon.json</c>).
+/// T-069 grows the vocabulary from the T-052 five-intent subset to the full
+/// 12-intent table (SP-2): regions (守住X/建造 where), resources (储备查询,
+/// 物流改道 item), threat scopes (敌情查询), enemy designations (集火 —
+/// registry ids come from <c>game/content/era1/enemies.json</c>, this section
+/// carries the extras it does not cover yet), focus modes (改集火模式), lanes
+/// (巡逻), scrolls (卷轴触发+停止) and the multimodal pointing placeholders
+/// (这里/这个 → resolved against <see cref="PointingContext"/>, v3.2 §11.2).
 /// </summary>
+/// <param name="Regions">Region/gate/wall surfaces → region id (SP-2 #1/#2).</param>
+/// <param name="Resources">Resource surfaces → era resource id (SP-2 #8/#7).</param>
+/// <param name="ThreatScopes">Threat scope surfaces → scope id (SP-2 #9).</param>
+/// <param name="AllItemsSurfaces">Surfaces meaning "every resource" → the <c>all</c> item id.</param>
+/// <param name="Enemies">Extra enemy surfaces → enemy id; merged over the era registry (SP-2 #5).</param>
+/// <param name="FocusModes">Focus-mode surfaces → first/last/strong/closest (SP-2 #6).</param>
+/// <param name="Lanes">Lane surfaces → lane id (SP-2 #11).</param>
+/// <param name="Scrolls">Scroll surfaces → scroll id, plus the generic「卷轴/any」entry (SP-2 #12).</param>
+/// <param name="Pointing">Multimodal pointing placeholders → pointing:selected / pointing:here.</param>
 public sealed record GrammarLexicon(
     IReadOnlyList<LexiconEntry> Regions,
     IReadOnlyList<LexiconEntry> Resources,
     IReadOnlyList<LexiconEntry> ThreatScopes,
     IReadOnlyList<string> AllItemsSurfaces,
-    IReadOnlyList<DeferredIntentRef> DeferredIntents);
+    IReadOnlyList<LexiconEntry> Enemies,
+    IReadOnlyList<LexiconEntry> FocusModes,
+    IReadOnlyList<LexiconEntry> Lanes,
+    IReadOnlyList<LexiconEntry> Scrolls,
+    IReadOnlyList<LexiconEntry> Pointing)
+{
+    /// <summary>Every lexicon surface (all sections), normalized — the FuzzyRepair protected-word list.</summary>
+    public IEnumerable<string> AllProtectedSurfaces()
+    {
+        IEnumerable<string> Of(IEnumerable<LexiconEntry> entries)
+        {
+            foreach (var entry in entries)
+            {
+                foreach (var surface in entry.Surfaces)
+                {
+                    yield return TextNormalizer.Normalize(surface);
+                }
+            }
+        }
+
+        foreach (var surface in Of(Regions).Concat(Of(Resources)).Concat(Of(ThreatScopes))
+                     .Concat(Of(Enemies)).Concat(Of(FocusModes)).Concat(Of(Lanes))
+                     .Concat(Of(Scrolls)).Concat(Of(Pointing)))
+        {
+            yield return surface;
+        }
+
+        foreach (var surface in AllItemsSurfaces)
+        {
+            yield return TextNormalizer.Normalize(surface);
+        }
+    }
+}
 
 /// <summary>
 /// Loader and validator for the grammar content files (T-052). Damaged data
@@ -156,9 +196,10 @@ public static class GrammarData
 
     /// <summary>
     /// Loads the grammar lexicon. Validates: at least one region (HoldRegion/
-    /// Build need it), resources and threat scopes non-empty, deferred intent
-    /// kinds inside the frozen enum, every entry carrying an id and at least
-    /// one non-empty surface.
+    /// Build need it), resources, threat scopes, enemy extras, focus modes,
+    /// lanes, scrolls and pointing placeholders all non-empty (every section
+    /// feeds at least one 12-intent alternation, T-069), every entry carrying
+    /// an id and at least one non-empty surface.
     /// </summary>
     public static GrammarLexicon FromLexicon(string json)
     {
@@ -169,24 +210,22 @@ public static class GrammarData
         var regions = ValidateEntries(document.Regions, "regions", requireNonEmpty: true);
         var resources = ValidateEntries(document.Resources, "resources", requireNonEmpty: true);
         var scopes = ValidateEntries(document.ThreatScopes, "threat_scopes", requireNonEmpty: true);
+        var enemies = ValidateEntries(document.Enemies, "enemies", requireNonEmpty: true);
+        var modes = ValidateEntries(document.FocusModes, "focus_modes", requireNonEmpty: true);
+        var lanes = ValidateEntries(document.Lanes, "lanes", requireNonEmpty: true);
+        var scrolls = ValidateEntries(document.Scrolls, "scrolls", requireNonEmpty: true);
+        var pointing = ValidateEntries(document.Pointing, "pointing", requireNonEmpty: true);
 
-        var deferred = new List<DeferredIntentRef>();
-        foreach (var def in document.DeferredIntents ?? Array.Empty<DeferredIntentDef>())
-        {
-            if (!Enum.TryParse<IntentKind>(def.Intent, out var kind))
-            {
-                throw new JsonException($"Deferred intent '{def.Intent}' is not a frozen IntentKind.");
-            }
-
-            var keywords = (def.Keywords ?? Array.Empty<string>())
-                .Where(k => !string.IsNullOrWhiteSpace(k))
-                .Select(TextNormalizer.Normalize)
-                .Where(k => k.Length > 0)
-                .ToList();
-            deferred.Add(new DeferredIntentRef(kind, keywords));
-        }
-
-        return new GrammarLexicon(regions, resources, scopes, document.AllItemsSurfaces ?? Array.Empty<string>(), deferred);
+        return new GrammarLexicon(
+            regions,
+            resources,
+            scopes,
+            document.AllItemsSurfaces ?? Array.Empty<string>(),
+            enemies,
+            modes,
+            lanes,
+            scrolls,
+            pointing);
     }
 
     private static IReadOnlyList<LexiconEntry> ValidateEntries(
@@ -360,13 +399,14 @@ public sealed record GrammarLexiconDocument(
     IReadOnlyList<LexiconEntryDef>? Resources,
     IReadOnlyList<LexiconEntryDef>? ThreatScopes,
     IReadOnlyList<string>? AllItemsSurfaces,
-    IReadOnlyList<DeferredIntentDef>? DeferredIntents);
+    IReadOnlyList<LexiconEntryDef>? Enemies,
+    IReadOnlyList<LexiconEntryDef>? FocusModes,
+    IReadOnlyList<LexiconEntryDef>? Lanes,
+    IReadOnlyList<LexiconEntryDef>? Scrolls,
+    IReadOnlyList<LexiconEntryDef>? Pointing);
 
 /// <summary>Raw lexicon entry before validation.</summary>
 public sealed record LexiconEntryDef(string? Id, IReadOnlyList<string>? Surfaces);
-
-/// <summary>Raw deferred-intent row before validation.</summary>
-public sealed record DeferredIntentDef(string? Intent, IReadOnlyList<string>? Keywords);
 
 /// <summary>
 /// System.Text.Json source-generation context for the grammar content (AOT

@@ -8,27 +8,50 @@ namespace EraCore.Tests.Agent.Grammar;
 // 确定性指纹。逐意图正反例矩阵在 L1IntentParserLogicTests。
 public class L1IntentParserTests
 {
-    /// <summary>从仓库内容构造的完整解析器（两语言书+词典+era1 塔别名）。</summary>
+    /// <summary>从仓库内容构造的完整解析器（两语言书+词典+era1 塔/敌别名，T-069）。</summary>
     internal static L1IntentParser CreateParser()
         => L1IntentParser.FromJson(
             GrammarTestPaths.ReadGrammarFile("patterns-zh.json"),
             GrammarTestPaths.ReadGrammarFile("patterns-en.json"),
             GrammarTestPaths.ReadGrammarFile("lexicon.json"),
-            GrammarTestPaths.Era1TowersJson());
+            GrammarTestPaths.Era1TowersJson(),
+            GrammarTestPaths.Era1EnemiesJson());
 
-    [Fact] // legal：T-052 子集=并集 5 意图（任务卡 4 意图 + SP-2 [NEW-原型校准] 行的设闹）
-    public void SupportedIntents_is_the_t052_union_subset()
+    [Fact] // legal：T-069 全量=SP-2 12 意图冻结表（T-052 起步 5 意图子集扩容收口）
+    public void SupportedIntents_is_the_full_sp2_table()
     {
         Assert.Equal(
             new[]
             {
                 IntentKind.HoldRegion,
                 IntentKind.Build,
-                IntentKind.QueryThreat,
+                IntentKind.Upgrade,
+                IntentKind.Sell,
+                IntentKind.FocusFire,
+                IntentKind.ChangeFocusMode,
+                IntentKind.RerouteLogistics,
                 IntentKind.QueryStockpile,
+                IntentKind.QueryThreat,
                 IntentKind.SetAlarm,
+                IntentKind.Patrol,
+                IntentKind.ScrollControl,
             },
             L1IntentParser.SupportedIntents);
+    }
+
+    [Theory] // legal：T-069 后 7 个缺口意图真正可解析（T-052 时代落 subset_gap，见语料 v1 注解）
+    [InlineData("把箭塔升到三级", IntentKind.Upgrade)]
+    [InlineData("卖掉北墙的旧塔", IntentKind.Sell)]
+    [InlineData("集火那个攻城锤", IntentKind.FocusFire)]
+    [InlineData("upgrade the arrow tower to tier 3", IntentKind.Upgrade)]
+    [InlineData("focus the ram", IntentKind.FocusFire)]
+    [InlineData("开火油卷轴", IntentKind.ScrollControl)]
+    public void Former_gap_intents_now_parse(string text, IntentKind kind)
+    {
+        var intent = CreateParser().Parse(text).Intent;
+
+        Assert.NotNull(intent);
+        Assert.Equal(kind, intent!.Kind);
     }
 
     [Theory] // illegal：空/纯标点输入走澄清兜底（契约：失败不抛异常）
@@ -45,16 +68,17 @@ public class L1IntentParserTests
         Assert.Equal(L1IntentParser.DefaultClarifyingKey, result.Failure!.ClarifyingKey);
     }
 
-    [Fact] // boundary：subset-gap 与 default 两个澄清话术键并存
-    public void Parse_distinguishes_subset_gap_from_unparsed()
+    [Fact] // boundary：全部 12 意图可解析后，澄清兜底只剩 default 键（subset_gap 键随 T-069 退役）
+    public void Parse_distinguishes_unparsed_from_resolved_intents()
     {
         var parser = CreateParser();
 
-        var deferred = parser.Parse("把箭塔升到三级");
-        Assert.Equal(L1IntentParser.SubsetGapClarifyingKey, deferred.Failure!.ClarifyingKey);
-
         var unknown = parser.Parse("呃呃呃呃");
+        Assert.Null(unknown.Intent);
         Assert.Equal(L1IntentParser.DefaultClarifyingKey, unknown.Failure!.ClarifyingKey);
+
+        var resolved = parser.Parse("把箭塔升到三级");
+        Assert.NotNull(resolved.Intent);
     }
 
     [Fact] // [F-077] 确定性：两个独立构造的实例对同一批输入（含失败）指纹一致

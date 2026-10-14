@@ -1,13 +1,15 @@
 {
   "$schema": "urn:eratd:content:grammar:1",
   "content_type": "Grammar",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）；本文件=T-052 L1 文法词典（分区/物资/敌情范围/未收录意图关键词），C-15 只读",
-  "_source": "regions 分区/城门名=SP-2 #1 守住X target 槽位（语言无关 id+别名词典）与 #2 where 槽位（分区+东南西北方位词）的 E1 词典；resources id 与 game/content/era1/era.json resources 同源（era1:res-wood/stone/food），口语别名为语法层扩展；threat_scopes=SP-2 #9 scope 槽位（下一波/当前波/分区威胁）；deferred_intents=SP-2 配套口径「意图可解析≠动作可执行」——T-052 子集外的 12 意图关键词命中时走澄清卡 subset_gap 话术键（全量 12 意图文法=T-069）",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）；本文件=L1 文法词典，C-15 只读",
+  "_source": "T-052 首建（regions/resources/threat_scopes），T-069 扩至 SP-2 全量 12 意图词汇（enemies 敌指认/focus_modes 改集火模式/lanes 巡逻通道/scrolls 卷轴/pointing 多模态指认）。regions=SP-2 #1/#2（分区+东南西北方位词）；resources id 与 game/content/era1/era.json resources 同源（era1:res-wood/stone/food），口语别名为语法层扩展（T-061 §6.2-3 增补：粮草）；threat_scopes=SP-2 #9（下一波/当前波，含 incoming wave）；enemies=SP-2 #5 敌指认补充面——注册表（game/content/era1/enemies.json）优先，本节只填注册表未覆盖的自然说法（boar/ram 裸词、boss 俗称、E2 攻城锤预登记 era2:enemy-ram 按 SP-3b）；focus_modes=SP-2 #6 mode:first/last/strong/closest；lanes=SP-2 #11 lane 通道 id（巡逻词面：方位/城门/敌后/双墙/道路）；scrolls=SP-2 #12——通用卷轴面 any + 三张口语卷轴名（era2: 前缀按 SP-5 E2 解锁口径预登记，T-071 卷轴数据落地后与内容注册表对齐 K-2 同源）；pointing=v3.2 §11.2 多模态指认占位（selected=实体指认 这个/这个塔，here=位置指认 这里/这个位置），解析期由 PointingContext 或 @x,y 后缀解析，缺上下文走澄清卡",
+  "_t061_fixes": "T-061 §4 词典缺词 4 处修复：粮草→era1:res-food（miss #97）；western/southern/northern gate 对齐既有 eastern gate（miss #182，非对称缺口）；半分钟/半分/half a minute 由 ChineseNumber 绝对时长词表承载（miss #122/#284）",
+  "_canonical_scheme": "塔指认（Upgrade/Sell target、ChangeFocusMode target_towers）规范值：{tower_id}｜{tower_id}x{qty}｜{region_id}+any｜{region_id}+{tower_id}[x{qty}]｜all｜ord:{n}｜pointing 标记；敌指认（FocusFire target）：敌注册表 id｜any（敌人/enemies）｜side:{left/right/front/back}｜ord:{n}｜region id（方位）；修饰词（旧/新/old/new）解析层丢弃、动作层细化",
   "regions": [
     { "id": "east_gate", "surfaces": ["东门", "东城门", "east gate", "eastgate", "eastern gate"] },
-    { "id": "south_gate", "surfaces": ["南门", "南城门", "south gate", "southgate"] },
-    { "id": "west_gate", "surfaces": ["西门", "西城门", "west gate", "westgate"] },
-    { "id": "north_gate", "surfaces": ["北门", "北城门", "north gate", "northgate"] },
+    { "id": "south_gate", "surfaces": ["南门", "南城门", "south gate", "southgate", "southern gate"] },
+    { "id": "west_gate", "surfaces": ["西门", "西城门", "west gate", "westgate", "western gate"] },
+    { "id": "north_gate", "surfaces": ["北门", "北城门", "north gate", "northgate", "northern gate"] },
     { "id": "north_wall", "surfaces": ["北墙", "北面城墙", "north wall", "northwall"] },
     { "id": "south_wall", "surfaces": ["南墙", "south wall"] },
     { "id": "east_wall", "surfaces": ["东墙", "east wall"] },
@@ -21,20 +23,40 @@
   "resources": [
     { "id": "era1:res-wood", "surfaces": ["木材", "木头", "木料", "wood", "timber", "lumber", "logs"] },
     { "id": "era1:res-stone", "surfaces": ["石料", "石头", "stone", "rocks"] },
-    { "id": "era1:res-food", "surfaces": ["食物", "粮食", "粮", "吃的", "food", "grain", "provisions"] }
+    { "id": "era1:res-food", "surfaces": ["食物", "粮食", "粮", "粮草", "吃的", "food", "grain", "provisions"] }
   ],
   "all_items_surfaces": ["全部", "所有", "资源", "储备", "all", "everything", "resources", "supplies"],
   "threat_scopes": [
     { "id": "next_wave", "surfaces": ["下一波", "下波", "接下来的波", "next wave", "nextwave", "incoming wave"] },
     { "id": "current", "surfaces": ["当前波", "本波", "现在", "当前", "敌情", "current wave", "current threat", "current situation", "now"] }
   ],
-  "deferred_intents": [
-    { "intent": "Upgrade", "keywords": ["升级", "升到", "upgrade"] },
-    { "intent": "Sell", "keywords": ["卖掉", "出售", "卖", "sell"] },
-    { "intent": "FocusFire", "keywords": ["集火", "focus"] },
-    { "intent": "ChangeFocusMode", "keywords": ["改模式", "切换目标", "target mode"] },
-    { "intent": "RerouteLogistics", "keywords": ["改道", "先送", "route"] },
-    { "intent": "Patrol", "keywords": ["巡逻", "转一圈", "patrol"] },
-    { "intent": "ScrollControl", "keywords": ["卷轴", "scroll"] }
+  "enemies": [
+    { "id": "era1:enemy-boar", "surfaces": ["boar"] },
+    { "id": "era1:enemy-boss", "surfaces": ["boss", "大王"] },
+    { "id": "era2:enemy-ram", "surfaces": ["攻城锤", "siege ram", "ram"] }
+  ],
+  "focus_modes": [
+    { "id": "strong", "surfaces": ["优先打强的", "优先打最强", "优先最强", "打强的", "打最强", "最强的", "强的", "最强", "strongest", "strong"] },
+    { "id": "closest", "surfaces": ["优先最近", "最近的", "最近", "closest"] },
+    { "id": "first", "surfaces": ["优先先打", "先打的", "先打", "最先的", "最先", "打前面的", "first"] },
+    { "id": "last", "surfaces": ["优先打最后", "打最后的", "最后的", "后打的", "打后头", "last"] }
+  ],
+  "lanes": [
+    { "id": "lane_west", "surfaces": ["西线", "西边", "西面", "西侧", "西", "west lane", "western lane", "west side", "westside", "west"] },
+    { "id": "lane_east", "surfaces": ["东线", "东边", "东面", "东侧", "东", "east lane", "eastern lane", "east side", "eastside", "east"] },
+    { "id": "lane_north", "surfaces": ["北线", "北边", "北面", "北侧", "北", "北门", "北城门", "north lane", "north gate", "northgate", "north side", "northside", "north"] },
+    { "id": "lane_south", "surfaces": ["南线", "南边", "南面", "南侧", "南", "南门", "南城门", "south lane", "south gate", "southgate", "south side", "southside", "south road", "south", "南路"] },
+    { "id": "lane_rear", "surfaces": ["敌后", "后方", "enemy rear", "behind enemy lines"] },
+    { "id": "lane_walls", "surfaces": ["两道墙", "双墙", "both walls", "the walls", "walls"] }
+  ],
+  "scrolls": [
+    { "id": "any", "surfaces": ["卷轴", "a scroll", "any scroll"] },
+    { "id": "era2:scroll-fire-oil", "surfaces": ["火油卷轴", "火油卷", "fire oil scroll", "fire-oil scroll", "fireoil scroll", "fire scroll"] },
+    { "id": "era2:scroll-frost", "surfaces": ["冰霜卷轴", "冰霜卷", "frost scroll", "ice scroll"] },
+    { "id": "era2:scroll-strength", "surfaces": ["力量卷轴", "力量卷", "scroll of strength", "strength scroll", "strength"] }
+  ],
+  "pointing": [
+    { "id": "pointing:selected", "surfaces": ["这个塔", "那个塔", "这个", "那个", "这塔", "那塔", "this tower", "that tower", "this one", "that one", "thisone", "thatone", "thistower", "thattower", "this", "that"] },
+    { "id": "pointing:here", "surfaces": ["这个位置", "这个地方", "这个点", "这里", "这儿", "this position", "this spot", "this location", "this place", "thisposition", "thisspot", "thislocation", "thisplace", "here"] }
   ]
 }

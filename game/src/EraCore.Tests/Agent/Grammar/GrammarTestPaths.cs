@@ -17,6 +17,12 @@ internal static class GrammarTestPaths
             FindContentDir(Path.Combine("game", "content", "era1"), "game/content/era1"),
             "towers.json"));
 
+    /// <summary>game/content/era1/enemies.json 内容（敌别名词典来源，T-069）。</summary>
+    public static string Era1EnemiesJson()
+        => File.ReadAllText(Path.Combine(
+            FindContentDir(Path.Combine("game", "content", "era1"), "game/content/era1"),
+            "enemies.json"));
+
     /// <summary>读取 grammar 目录下的一个文件全文。</summary>
     public static string ReadGrammarFile(string fileName)
         => File.ReadAllText(Path.Combine(GrammarDir(), fileName));

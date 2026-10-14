@@ -79,15 +79,39 @@ public sealed class AliasDictionary
 
         rows.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
 
+        return FromRows(rows.Select(r => (r.Id, (IEnumerable<string>)r.Surfaces)));
+    }
+
+    /// <summary>
+    /// Builds the dictionary from raw (id, surfaces) rows: normalized at load,
+    /// processed in id order (deterministic, mirroring the K-2 registry
+    /// discipline); a surface claimed by two ids throws
+    /// <see cref="InvalidOperationException"/> — conflicts surface, never
+    /// silently overwrite. Rows with an empty surface list are legal (they
+    /// simply contribute nothing).
+    /// </summary>
+    public static AliasDictionary FromRows(IEnumerable<(string Id, IEnumerable<string> Surfaces)> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        var ordered = rows
+            .Select(r => (r.Id, Surfaces: r.Surfaces.ToList()))
+            .OrderBy(r => r.Id, StringComparer.Ordinal);
         var dictionary = new AliasDictionary();
-        foreach (var (id, surfaces) in rows)
+        foreach (var (id, surfaces) in ordered)
         {
-            foreach (var surface in surfaces)
+            foreach (var raw in surfaces)
             {
+                var surface = TextNormalizer.Normalize(raw);
+                if (surface.Length == 0)
+                {
+                    continue;
+                }
+
                 if (dictionary._surfaceToId.TryGetValue(surface, out var owner) && owner != id)
                 {
                     throw new InvalidOperationException(
-                        $"Tower alias conflict: '{surface}' claimed by both '{owner}' and '{id}' (K-2: conflicts surface).");
+                        $"Alias conflict: '{surface}' claimed by both '{owner}' and '{id}' (K-2: conflicts surface).");
                 }
 
                 dictionary._surfaceToId[surface] = id;
@@ -98,6 +122,10 @@ public sealed class AliasDictionary
         dictionary._surfaceOrder.Sort((a, b) => b.Length != a.Length ? b.Length - a.Length : string.CompareOrdinal(a, b));
         return dictionary;
     }
+
+    /// <summary>Normalized surface → id pairs, in surface order (deterministic).</summary>
+    public IEnumerable<(string Surface, string Id)> Entries
+        => _surfaceOrder.Select(surface => (surface, _surfaceToId[surface]));
 
     /// <summary>
     /// Resolves a captured (already normalized, possibly plural) tower
@@ -135,48 +163,256 @@ public sealed class AliasDictionary
         => string.Join("|", _surfaceOrder.Select(s => Regex.Escape(s) + "(?:es|s)?"));
 
     /// <summary>
-    /// Homophone tolerance pass (v3.2 §11.5「同音容错」): scans the normalized
-    /// text for a window that sits within one substitution of a known tower
-    /// surface (equal length — the classic same-length homophone/typo case)
-    /// and contains no exact tower surface of its own, then rewrites that
-    /// window to the canonical surface. The substring guard keeps valid
-    /// adjacency intact: 「建十座箭塔」 contains 座+箭塔 (measure word +
-    /// exact tower) and must NOT be "repaired" into 座箭塔→木箭塔, which
-    /// would eat the measure word. First candidate in surface-then-position
-    /// order wins (deterministic). Returns the repaired text, or null when
-    /// no repair applies (including when the text already matches exactly).
+    /// Homophone tolerance pass (v3.2 §11.5「同音容错」), T-069 hardened:
+    /// scans the normalized text for a window within edit distance 1 of a
+    /// known tower surface and rewrites that window to the canonical surface.
+    /// Two window families: equal length (one substituted char, 箭楼→箭塔)
+    /// for every surface, and ±1 length (one inserted/deleted char,
+    /// camfire→campfire, T-061 miss #205) only for surfaces of ≥6 chars where
+    /// the indel risk is low.
+    ///
+    /// A candidate is REJECTED when (T-061 §5 defect fix — the guard used to
+    /// check only the window itself): the window itself contains an exact
+    /// tower surface, OR the window OVERLAPS an occurrence of any protected
+    /// surface (tower surfaces plus the caller-supplied lexicon words —
+    /// regions/resources/scopes) in the original text. The overlap guard is
+    /// what stops「在南面建两座火堆」from rewriting the 座火 window into 篝火 —
+    /// that window shares its 火 with the adjacent exact tower surface 火堆 —
+    /// and「查一下石头」from rewriting 下石 into 落石 over the resource word
+    /// 石头. Candidate order: surface (longest first), then start position,
+    /// then equal-length before indel windows — first accepted candidate wins
+    /// (deterministic). Returns the repaired text, or null when no repair
+    /// applies (including when the text already matches exactly).
     /// </summary>
-    public string? FuzzyRepair(string normalizedText)
+    public string? FuzzyRepair(string normalizedText, IEnumerable<string>? protectedSurfaces = null)
     {
         ArgumentNullException.ThrowIfNull(normalizedText);
 
+        var intervals = CollectProtectedIntervals(normalizedText, protectedSurfaces);
         foreach (var surface in _surfaceOrder)
         {
-            if (normalizedText.Length < surface.Length)
+            if (normalizedText.Length < surface.Length - 1)
             {
                 continue;
             }
 
-            for (var start = 0; start + surface.Length <= normalizedText.Length; start++)
+            // Equal-length windows (single substitution) — all surfaces.
+            if (surface.Length >= 1)
             {
-                var window = normalizedText.Substring(start, surface.Length);
-                if (ContainsExactSurface(window))
+                for (var start = 0; start + surface.Length <= normalizedText.Length; start++)
                 {
-                    continue;
-                }
+                    var window = normalizedText.Substring(start, surface.Length);
+                    if (ContainsExactSurface(window) || CrossesPhraseBoundary(window)
+                        || Overlaps(intervals, start, window.Length))
+                    {
+                        continue;
+                    }
 
-                if (!WithinEditDistance1(window, surface))
+                    if (WithinEditDistance1(window, surface))
+                    {
+                        return Splice(normalizedText, start, window.Length, surface);
+                    }
+                }
+            }
+
+            // Indel windows (one inserted or deleted char) — long surfaces only.
+            if (surface.Length < IndelMinSurfaceLength)
+            {
+                continue;
+            }
+
+            for (var start = 0; start + surface.Length - 1 <= normalizedText.Length; start++)
+            {
+                var window = normalizedText.Substring(start, surface.Length - 1);
+                if (window.Length > 0 && !ContainsExactSurface(window) && !CrossesPhraseBoundary(window)
+                    && !Overlaps(intervals, start, window.Length)
+                    && IsOneDeletion(surface, window))
                 {
-                    continue;
+                    return Splice(normalizedText, start, window.Length, surface);
                 }
+            }
 
-                var chars = normalizedText.ToCharArray();
-                surface.CopyTo(chars.AsSpan(start));
-                return new string(chars);
+            for (var start = 0; start + surface.Length + 1 <= normalizedText.Length; start++)
+            {
+                var window = normalizedText.Substring(start, surface.Length + 1);
+                // Insertion windows: only DOUBLED-char typos (rockfalll,
+                // rrockfall) are repaired — deleting the doubled char restores
+                // the surface. A one-char-anywhere insertion would happily eat
+                // the last letter of a preceding word ("use the rockfalll" →
+                // window erockfall), which is a window mis-cut, not a typo.
+                if (!CrossesPhraseBoundary(window)
+                    && !OverlapsForeignInterval(intervals, start, window.Length, surface)
+                    && IsDoubledCharInsertion(window, surface))
+                {
+                    return Splice(normalizedText, start, window.Length, surface);
+                }
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// CJK function characters that never appear inside a tower surface but DO
+    /// appear in ordinal designations (3号塔) and possessive/attribute phrases
+    /// (东门的塔). A repair window containing one crosses a phrase boundary —
+    /// rewriting it can only corrupt an ordinal or a region's-tower phrase
+    /// (「出售3号塔」的 号塔→箭塔、「升级东门的塔」的 的塔→箭塔 both class
+    /// T-069). Such windows are rejected outright.
+    /// </summary>
+    private static bool CrossesPhraseBoundary(string window)
+        => window.Contains('的') || window.Contains('号');
+
+    /// <summary>Surfaces shorter than this never get indel repair (false-positive guard, T-061 §6.2-4).</summary>
+    private const int IndelMinSurfaceLength = 6;
+
+    /// <summary>Replaces [start, start+length) with the canonical surface (length may differ by one).</summary>
+    private static string Splice(string text, int start, int length, string surface)
+        => string.Concat(text.AsSpan(0, start), surface, text.AsSpan(start + length));
+
+    /// <summary>
+    /// All [start, length] spans of protected-surface occurrences in the text,
+    /// carrying the surface itself (exact tower surfaces are always protected;
+    /// the caller adds lexicon words). A repair window overlapping any of them
+    /// would corrupt an already-correct word, so it is rejected — except an
+    /// occurrence of the candidate surface inside an insertion window (that is
+    /// the doubled-char typo signal).
+    /// </summary>
+    private List<(int Start, int Length, string Surface)> CollectProtectedIntervals(
+        string text, IEnumerable<string>? protectedSurfaces)
+    {
+        var intervals = new List<(int Start, int Length, string Surface)>();
+        foreach (var surface in ProtectedSurfaceStream(protectedSurfaces))
+        {
+            for (var start = 0; start + surface.Length <= text.Length; start++)
+            {
+                if (text.IndexOf(surface, start, StringComparison.Ordinal) == start)
+                {
+                    intervals.Add((start, surface.Length, surface));
+                }
+            }
+        }
+
+        return intervals;
+    }
+
+    private IEnumerable<string> ProtectedSurfaceStream(IEnumerable<string>? protectedSurfaces)
+    {
+        foreach (var surface in _surfaceOrder)
+        {
+            yield return surface;
+        }
+
+        if (protectedSurfaces is null)
+        {
+            yield break;
+        }
+
+        foreach (var raw in protectedSurfaces)
+        {
+            if (raw.Length >= 2)
+            {
+                yield return raw;
+            }
+        }
+    }
+
+    private static bool Overlaps(List<(int Start, int Length, string Surface)> intervals, int start, int length)
+    {
+        foreach (var (intervalStart, intervalLength, _) in intervals)
+        {
+            if (start < intervalStart + intervalLength && intervalStart < start + length)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Overlap check that ignores occurrences of the candidate surface itself (insertion-window carve-out).</summary>
+    private static bool OverlapsForeignInterval(
+        List<(int Start, int Length, string Surface)> intervals, int start, int length, string surface)
+    {
+        foreach (var (intervalStart, intervalLength, intervalSurface) in intervals)
+        {
+            if (intervalSurface == surface)
+            {
+                continue;
+            }
+
+            if (start < intervalStart + intervalLength && intervalStart < start + length)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>True when deleting exactly one char of <paramref name="longer"/> yields <paramref name="shorter"/>.</summary>
+    private static bool IsOneDeletion(string longer, string shorter)
+    {
+        if (longer.Length != shorter.Length + 1)
+        {
+            return false;
+        }
+
+        var skipped = false;
+        var longerIndex = 0;
+        for (var shorterIndex = 0; shorterIndex < shorter.Length; shorterIndex++, longerIndex++)
+        {
+            if (shorter[shorterIndex] == longer[longerIndex])
+            {
+                continue;
+            }
+
+            if (skipped)
+            {
+                return false;
+            }
+
+            skipped = true;
+            longerIndex++; // step over the deleted char in longer
+            if (shorter[shorterIndex] != longer[longerIndex])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// True when <paramref name="window"/> is <paramref name="surface"/> with one
+    /// DOUBLED char inserted (the char sits next to its twin: rockfalll,
+    /// rrockfall). Free-standing insertions (erockfall) are window mis-cuts,
+    /// not typos, and are rejected.
+    /// </summary>
+    private static bool IsDoubledCharInsertion(string window, string surface)
+    {
+        if (window.Length != surface.Length + 1)
+        {
+            return false;
+        }
+
+        for (var doubled = 0; doubled < window.Length; doubled++)
+        {
+            var doubledTwice = doubled > 0 && window[doubled] == window[doubled - 1]
+                || doubled < window.Length - 1 && window[doubled] == window[doubled + 1];
+            if (!doubledTwice)
+            {
+                continue;
+            }
+
+            var rest = string.Concat(window.AsSpan(0, doubled), window.AsSpan(doubled + 1));
+            if (rest == surface)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
