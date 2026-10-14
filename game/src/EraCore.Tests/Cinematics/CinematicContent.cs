@@ -44,6 +44,10 @@ internal static class CinematicContent
     public static CinematicScript E2Awaken() =>
         CinematicScript.Parse(Read("cinematics", "e2-awaken.json"), "cinematics/e2-awaken.json");
 
+    /// <summary>The T-087 victory settlement script straight out of content (F-002/F-104).</summary>
+    public static CinematicScript Victory() =>
+        CinematicScript.Parse(Read("cinematics", "victory.json"), "cinematics/victory.json");
+
     /// <summary>Raw level file text (hook rows live in items[*].cinematic_hooks).</summary>
     public static string LevelJson(string era) => Read("levels", era + ".json");
 }

@@ -1,5 +1,7 @@
 namespace EraCore.Cinematics;
 
+using EraCore.Progression;
+
 /// <summary>Lifecycle phase of one timeline run (T-086, C-24).</summary>
 public enum CinematicPhase
 {
@@ -54,6 +56,27 @@ public abstract record CinematicEffect
     /// <summary>The run was skipped at the given step index; <see cref="Completed"/> follows.</summary>
     public sealed record Skipped(int AtStep) : CinematicEffect;
 
+    /// <summary>判分结果展示 began — the three-objective checklist rows of the DECIDED settlement (T-087, RL12).</summary>
+    public sealed record SettlementVerdict(IReadOnlyList<VictoryVerdictRow> Rows) : CinematicEffect;
+
+    /// <summary>档位揭示 began — decided tier + its chest id + completed count.</summary>
+    public sealed record SettlementTierRevealed(ObjectiveTier Tier, string ChestTierId, int CompletedCount)
+        : CinematicEffect;
+
+    /// <summary>幸运转盘 spin began — decided stop index + scripted deceleration profile (减速停顿帧数).</summary>
+    public sealed record WheelSpinStarted(int Segments, int StopIndex, IReadOnlyList<int> DecelTicks, int DurationTicks)
+        : CinematicEffect;
+
+    /// <summary>The wheel expired ON its decided segment — the landing equals the pre-decided result (演出倒推).</summary>
+    public sealed record WheelLanded(int StopIndex, string ItemId, RewardRarity Rarity) : CinematicEffect;
+
+    /// <summary>宝箱开箱 began — decided items + light layers of the tier (光效分层：黄金多一层).</summary>
+    public sealed record SettlementChestOpened(IReadOnlyList<GrantedChestItem> Items, int LightLayers, string ChestTierId)
+        : CinematicEffect;
+
+    /// <summary>系统一句话点评 — the decided persona×trust-badge line (with the T-075 cross-tier echo when any).</summary>
+    public sealed record SettlementCommentarySpoken(DecidedCommentary Commentary) : CinematicEffect;
+
     /// <summary>Terminal state reached (natural end or skip) — world commands are due in the host.</summary>
     public sealed record Completed() : CinematicEffect;
 }
@@ -76,21 +99,37 @@ public abstract record CinematicEffect
 /// effect is independent of how much of the performance was watched.
 /// </para>
 /// <para>
+/// 结算步与保护演出 (T-087, RL12 先定后演): settlement steps
+/// (verdict_reveal/tier_reveal/wheel_spin/chest_open/persona_comment) read
+/// the bound <see cref="DecidedVictoryPerformance"/> and nothing else — the
+/// timeline draws NO randomness, so full play, acceleration
+/// (<see cref="SetBoost"/>) and mid-performance abandonment all read the
+/// same decided bytes. A script declaring <see cref="CinematicScript.MinimumPlayTicks"/>
+/// is protected: no full skip exists (长按加速不可全跳，§12 映射#10) and
+/// completion holds to the floor.
+/// </para>
+/// <para>
 /// Step rhythm (frozen): activating a step consumes one tick (its enter
 /// effects fire on that tick); a timed step then runs
 /// <c>DurationTicks</c> further countdown ticks; the successor activates on
 /// the tick a step expires. Instantaneous steps (sound/highlight without
-/// duration/checkpoint) complete on their activation tick.
+/// duration/checkpoint) complete on their activation tick. Boost multiplies
+/// the countdown consumption only — the rhythm contract is the boost-1 view.
 /// </para>
 /// </summary>
 public sealed class CinematicTimeline
 {
+    /// <summary>Boost ceiling (§12 映射#10：长按加速 ≤4×——保护期待感).</summary>
+    public const int MaxBoost = 4; // ci-allow: R7 T-087 长按加速倍速上限 4× 为 v3.2 §12 映射#10 冻结交互域常量（非内容平衡数值）
+
     private readonly CinematicScript _script;
+    private readonly DecidedVictoryPerformance? _settlement;
     private readonly HashSet<string> _eventBuffer = new();
     private readonly List<CinematicWorldCommand> _pending = new();
     private CinematicStep? _active;
     private int _cursor;
     private int _remaining;
+    private int _boost = 1;
     private int? _selectedChoice;
 
     /// <exception cref="ArgumentNullException">script is null.</exception>
@@ -100,8 +139,24 @@ public sealed class CinematicTimeline
         _script = script;
     }
 
+    /// <summary>
+    /// Settlement binding (RL12): the timeline that performs settlement
+    /// steps reads the decided performance — decided BEFORE the performance
+    /// exists — and never rolls anything itself.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public CinematicTimeline(CinematicScript script, DecidedVictoryPerformance settlement)
+        : this(script)
+    {
+        ArgumentNullException.ThrowIfNull(settlement);
+        _settlement = settlement;
+    }
+
     /// <summary>The script this run performs.</summary>
     public CinematicScript Script => _script;
+
+    /// <summary>The bound decided settlement (null on non-settlement runs).</summary>
+    public DecidedVictoryPerformance? Settlement => _settlement;
 
     /// <summary>Current lifecycle phase.</summary>
     public CinematicPhase Phase { get; private set; } = CinematicPhase.NotStarted;
@@ -117,6 +172,12 @@ public sealed class CinematicTimeline
 
     /// <summary>True when this run ended via <see cref="Skip"/> rather than playing out.</summary>
     public bool Skipped { get; private set; }
+
+    /// <summary>Current long-press acceleration factor (1 = natural speed, ≤ <see cref="MaxBoost"/>).</summary>
+    public int BoostFactor => _boost;
+
+    /// <summary>Whether a full skip exists for this script (false = protected settlement performance, 不可全跳).</summary>
+    public bool CanSkip => _script.MinimumPlayTicks is null;
 
     /// <summary>The resolved choice option index, once selected (null before the choice resolves).</summary>
     public int? SelectedChoice => _selectedChoice;
@@ -199,10 +260,22 @@ public sealed class CinematicTimeline
         if (_active is not null)
         {
             // Timed countdown (activation tick itself does not count down).
-            _remaining--;
+            // Boost multiplies the consumption only (长按加速)：the boost-1
+            // view of the rhythm is unchanged.
+            _remaining -= _boost;
             if (_remaining > 0)
             {
                 return effects;
+            }
+
+            if (_active is CinematicStep.WheelSpin)
+            {
+                // 转盘到停：落点=既定结果（演出倒推）——到停效果在到期拍发出。
+                DecidedVictoryPerformance decided = RequiredSettlement();
+                effects.Add(new CinematicEffect.WheelLanded(
+                    decided.Wheel.StopIndex,
+                    decided.Wheel.Granted.ItemId,
+                    decided.Wheel.Granted.Rarity));
             }
 
             _active = null;
@@ -228,6 +301,26 @@ public sealed class CinematicTimeline
         }
 
         _eventBuffer.Add(key);
+    }
+
+    /// <summary>
+    /// 长按加速 (T-087, §12 映射#10): multiplies the timed-step countdown
+    /// consumption. Factor domain [1, <see cref="MaxBoost"/>] — 1 is natural
+    /// speed (release). Acceleration changes pacing ONLY: decided bytes,
+    /// effect ORDER and the landing invariant are boost-invariant
+    /// (RL12 先定后演). Part of the determinism contract: same script +
+    /// same NotifyEvent/SelectChoice/SetBoost schedule ⇒ identical trace.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">factor outside [1, MaxBoost].</exception>
+    public void SetBoost(int factor)
+    {
+        if (factor < 1 || factor > MaxBoost)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(factor), factor, $"boost factor must be within [1,{MaxBoost}].");
+        }
+
+        _boost = factor;
     }
 
     /// <summary>
@@ -264,8 +357,17 @@ public sealed class CinematicTimeline
     /// would), a choice-less script queues its terminal commands, and the run
     /// lands completed. The world effect of the run is the declared terminal
     /// command set — identical to playing the same choice out.
+    /// <para>
+    /// PROTECTED performances refuse the skip outright (T-087 加速不可全跳):
+    /// a script declaring <see cref="CinematicScript.MinimumPlayTicks"/> has
+    /// no full-skip path — 长按加速 is the only fast-forward. The refusal is
+    /// an explicit contract, not a silent no-op, so mis-wired hosts fail fast.
+    /// </para>
     /// </summary>
-    /// <exception cref="InvalidOperationException">Not started, or already completed.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Not started; already completed (inert empty return); or the script is
+    /// a protected settlement performance (no full skip exists).
+    /// </exception>
     public IReadOnlyList<CinematicEffect> Skip()
     {
         if (Phase == CinematicPhase.NotStarted)
@@ -273,11 +375,18 @@ public sealed class CinematicTimeline
             throw new InvalidOperationException("Skip before Start — nothing to skip.");
         }
 
-        var effects = new List<CinematicEffect>();
         if (Phase == CinematicPhase.Completed)
         {
-            return effects;
+            return Array.Empty<CinematicEffect>();
         }
+
+        if (_script.MinimumPlayTicks is not null)
+        {
+            throw new InvalidOperationException(
+                $"结算演出受保护（{Script.Id}）：长按可加速至 {MaxBoost}×，无全跳（§12 映射#10/F-002）");
+        }
+
+        var effects = new List<CinematicEffect>();
 
         // An un-resolved choice (parked OR jumped past) resolves to the
         // declared default — the skip-before-choice path must land on the
@@ -316,6 +425,13 @@ public sealed class CinematicTimeline
     {
         if (_cursor >= _script.Steps.Count)
         {
+            if (_script.MinimumPlayTicks is int floor && ElapsedTicks < floor)
+            {
+                // 保护期待感（§12 映射#10）：加速不可把演出压到保护线下——
+                // 尾步已尽则静默持有到保护线拍，再入终态（纯拍数规则，确定性）。
+                return;
+            }
+
             CompleteRun(effects);
             return;
         }
@@ -360,6 +476,48 @@ public sealed class CinematicTimeline
                 effects.Add(new CinematicEffect.SkipPointReached(skipPoint.Id));
                 _remaining = 0; // marker — completes on activation tick
                 break;
+            case CinematicStep.VerdictReveal verdict:
+                effects.Add(new CinematicEffect.SettlementVerdict(RequiredSettlement().VerdictRows));
+                _remaining = verdict.DurationTicks;
+                break;
+            case CinematicStep.TierReveal tier:
+            {
+                DecidedVictoryPerformance decided = RequiredSettlement();
+                effects.Add(new CinematicEffect.SettlementTierRevealed(
+                    decided.Tier, decided.ChestTierId, decided.VerdictRows.Count(row => row.Passed)));
+                _remaining = tier.DurationTicks;
+                break;
+            }
+
+            case CinematicStep.WheelSpin wheel:
+            {
+                DecidedVictoryPerformance decided = RequiredSettlement();
+                if (decided.Wheel.Segments.Count != wheel.Segments)
+                {
+                    throw new InvalidOperationException(
+                        $"转盘段数不一致：脚本 {wheel.Segments} 段 vs 既定 {decided.Wheel.Segments.Count} 段"
+                        + "（演出倒推要求两者同源——先定布局，再演转盘）");
+                }
+
+                effects.Add(new CinematicEffect.WheelSpinStarted(
+                    wheel.Segments, decided.Wheel.StopIndex, wheel.DecelTicks, wheel.DurationTicks));
+                _remaining = wheel.DurationTicks;
+                break;
+            }
+
+            case CinematicStep.ChestOpen chest:
+            {
+                DecidedVictoryPerformance decided = RequiredSettlement();
+                effects.Add(new CinematicEffect.SettlementChestOpened(
+                    decided.ChestItems, decided.ChestLightLayers, decided.ChestTierId));
+                _remaining = chest.DurationTicks;
+                break;
+            }
+
+            case CinematicStep.PersonaComment comment:
+                effects.Add(new CinematicEffect.SettlementCommentarySpoken(RequiredSettlement().Commentary));
+                _remaining = comment.DurationTicks;
+                break;
         }
 
         // Instantaneous steps (sound / zero-duration highlight / checkpoint)
@@ -387,6 +545,16 @@ public sealed class CinematicTimeline
 
         return null;
     }
+
+    /// <summary>
+    /// The bound decided settlement — settlement steps read it and nothing
+    /// else (RL12 先定后演)：未绑定即结算步激活失败（演出不得自行随机、
+    /// 也不得凭空编造判分结果）。
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The run carries no settlement binding.</exception>
+    private DecidedVictoryPerformance RequiredSettlement() => _settlement
+        ?? throw new InvalidOperationException(
+            "结算演出步需要既定结算数据（RL12 先定后演）：请用 CinematicTimeline(script, decided) 构造——演出只回放，不自定结果");
 
     private void CompleteRun(List<CinematicEffect> effects)
     {

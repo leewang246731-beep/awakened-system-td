@@ -1,3 +1,4 @@
+using EraCore.Agent.Governance;
 using EraCore.Agent.Pipeline;
 using EraCore.Audio;
 using EraCore.Cinematics;
@@ -5,6 +6,7 @@ using EraCore.Contracts.Foundation;
 using EraCore.Contracts.Sim;
 using EraCore.IO;
 using EraCore.Presentation;
+using EraCore.Progression;
 using EraCore.Sim;
 using EraCore.Supply;
 using Godot;
@@ -42,11 +44,48 @@ public sealed partial class CinematicDirector : Control
     /// <summary>Event key the host signals when an issued order reached a terminal pipeline outcome (E2).</summary>
     internal const string OrderSettledEvent = "order_settled";
 
+    /// <summary>T-087 结算演出脚本 id（victory.json；结算缝显式发射，无叙事钩子）。</summary>
+    internal const string VictoryScriptId = "cinematic:victory-settlement";
+
+    /// <summary>Smoke 固定 run seed（T-087 结算冒烟：判分+宝箱+转盘同流）。</summary>
+    private const long VictorySmokeSeed = 20261014;
+
+    /// <summary>
+    /// 冒烟用确定性 IRng（内容驱动的结算冒烟需要一个可复现流——演出产品
+    /// 代码自身永不抽随机，RL12；决策处各自 Reseed，同流可复现）。
+    /// </summary>
+    private sealed class SmokeRng : IRng
+    {
+        private ulong _state = (ulong)VictorySmokeSeed;
+
+        public void Reseed(long seed) => _state = (ulong)seed;
+
+        public int Next(int minValue, int maxValue)
+        {
+            Step();
+            int span = maxValue - minValue;
+            return span <= 0
+                ? minValue
+                : minValue + (int)(UpperBound(_state) % (ulong)span);
+        }
+
+        public double NextDouble()
+        {
+            Step();
+            return UpperBound(_state) / (double)ulong.MaxValue;
+        }
+
+        private void Step() => _state = _state * 6364136223846793005UL + 1442695040888963407UL;
+
+        private static ulong UpperBound(ulong state) => state >> 11;
+    }
+
     private SimHost _host = null!;
     private IFileStore _files = null!;
     private IReadOnlyList<CinematicScript> _scripts = Array.Empty<CinematicScript>();
     private CinematicHookRouter _router = null!;
     private CinematicProgress _progress = CinematicProgress.Default;
+    private VictorySettlementArchive _victoryArchive = VictorySettlementArchive.Default;
 
     private readonly DingBus _ding = new();
     private readonly Dictionary<string, long> _ammoWatch = new(); // tower cell key → magazine ItemsAccepted at registration
@@ -71,6 +110,15 @@ public sealed partial class CinematicDirector : Control
     private string _lastSpeak = string.Empty;
     private string _lastOrderOutcome = "none";
     private readonly List<CinematicWorldCommand> _drainedCommands = new();
+
+    // T-087 结算演出渲染/冒烟累计器
+    private int _verdictRows;
+    private int _chestRows = -1;
+    private int _chestLightLayers = -1;
+    private int _wheelLandedStop = -1;
+    private string _settlementCommentary = string.Empty;
+    private CinematicStep.WheelSpin? _spinning;
+    private DecidedVictoryPerformance? _spinningDecided;
 
     /// <summary>
     /// Scene entry (mirrors the T-076/T-077 Instantiate lanes): binds the
@@ -128,7 +176,8 @@ public sealed partial class CinematicDirector : Control
     /// <summary>
     /// Loads both repo cinematic scripts and the level hook rows (dev host
     /// wiring: the hook rows of levels/e1.json + e2.json together — the
-    /// per-level binding narrows when the C-29 level loader lands).
+    /// per-level binding narrows when the C-29 level loader lands). The
+    /// T-087 victory settlement script loads hookless (结算缝显式发射).
     /// </summary>
     private void LoadContent()
     {
@@ -141,6 +190,7 @@ public sealed partial class CinematicDirector : Control
         {
             CinematicScript.Parse(ReadFile(cinematicsDir, "e1-aha.json"), "cinematics/e1-aha.json"),
             CinematicScript.Parse(ReadFile(cinematicsDir, "e2-awaken.json"), "cinematics/e2-awaken.json"),
+            CinematicScript.Parse(ReadFile(cinematicsDir, "victory.json"), "cinematics/victory.json"),
         };
         _scripts = scripts;
 
@@ -151,6 +201,7 @@ public sealed partial class CinematicDirector : Control
             ReadFile(levelsDir, "e2.json"), "levels/e2.json"));
         _router = new CinematicHookRouter(hookRows, scripts);
         _progress = CinematicProgressStore.Load(_files);
+        _victoryArchive = VictorySettlementStore.Load(_files); // 结算状态入存档（重进不重播、可回看）
     }
 
     /// <summary>
@@ -197,9 +248,53 @@ public sealed partial class CinematicDirector : Control
     /// <summary>Whether a performance is currently on the timeline.</summary>
     internal bool Playing => _timeline is { Phase: CinematicPhase.Playing or CinematicPhase.AwaitingChoice };
 
+    /// <summary>
+    /// 结算缝发射 (T-087)：胜利结算时刻由宿主（战役循环的 Victory 状态 +
+    /// CampaignProgression.SettleVictory 之后）显式调用——既定演出先入存档
+    /// （中途关游戏不丢），再开演。不占用关卡叙事钩子位（victory 拍叙事
+    /// 属 T-089）；重进不重播：本通道只在活胜利时刻走，存档记录只供回看。
+    /// </summary>
+    /// <returns>The launched script id.</returns>
+    internal string LaunchVictorySettlement(DecidedVictoryPerformance decided)
+    {
+        ArgumentNullException.ThrowIfNull(decided);
+        CinematicScript script = ScriptById(VictoryScriptId);
+        _router.MarkFired(script.Id); // 会话面记账一致（钩子位不重复认领）
+        _victoryArchive = VictorySettlementStore.Upsert(
+            _victoryArchive,
+            new VictorySettlementRecord { LevelId = decided.LevelId, Decided = decided, Viewed = false });
+        VictorySettlementStore.Save(_files, _victoryArchive); // 先存后演（RL12 持久面）
+        return BeginPlayback(script, decided);
+    }
+
+    /// <summary>
+    /// 结算回看：以存档里的既定演出重放（同字节）。宿主在结算回顾界面调用；
+    /// 不改写既有记录（Viewed 保持），重放结束再标记。
+    /// </summary>
+    /// <returns>The launched script id, or null when nothing is settled yet.</returns>
+    internal string? ReplayLatestSettlement(string levelId)
+    {
+        VictorySettlementRecord? record = VictorySettlementStore.LatestFor(_victoryArchive, levelId);
+        return record is null ? null : BeginPlayback(ScriptById(VictoryScriptId), record.Decided);
+    }
+
+    /// <summary>长按加速（结算演出唯一快进通道，≤4×；松开回 1×）——不可全跳（F-002）。</summary>
+    internal void HoldAccelerate(bool pressed)
+    {
+        if (_timeline is not null)
+        {
+            _timeline.SetBoost(pressed ? CinematicTimeline.MaxBoost : 1);
+        }
+    }
+
     private string BeginPlayback(CinematicScript script)
     {
-        _timeline = new CinematicTimeline(script);
+        return BeginPlayback(script, settlement: null);
+    }
+
+    private string BeginPlayback(CinematicScript script, DecidedVictoryPerformance? settlement)
+    {
+        _timeline = settlement is null ? new CinematicTimeline(script) : new CinematicTimeline(script, settlement);
         _playing = script;
         _ammoWatch.Clear();
         HideSurfaces();
@@ -235,12 +330,17 @@ public sealed partial class CinematicDirector : Control
         DrainWorldCommands(timeline);
     }
 
-    /// <summary>Skips the running performance to its terminal state (演出可跳过).</summary>
+    /// <summary>
+    /// Skips the running performance to its terminal state (演出可跳过)——
+    /// 结算演出受保护（不可全跳）：RequestSkip 对其无效，长按加速是唯一
+    /// 快进通道（§12 映射#10）。
+    /// </summary>
     internal void RequestSkip()
     {
-        if (_timeline is not { Phase: CinematicPhase.Playing or CinematicPhase.AwaitingChoice } timeline)
+        if (_timeline is not { Phase: CinematicPhase.Playing or CinematicPhase.AwaitingChoice } timeline
+            || !timeline.CanSkip)
         {
-            return;
+            return; // 保护演出：无全跳路径（演出继续，静默拒绝 UI 请求）
         }
 
         RenderEffects(timeline.Skip());
@@ -402,6 +502,24 @@ public sealed partial class CinematicDirector : Control
                 case CinematicEffect.SkipPointReached skipPoint:
                     _checkpoints++;
                     break;
+                case CinematicEffect.SettlementVerdict verdict:
+                    ShowVerdictRows(verdict);
+                    break;
+                case CinematicEffect.SettlementTierRevealed tier:
+                    ShowTierReveal(tier);
+                    break;
+                case CinematicEffect.WheelSpinStarted spin:
+                    ShowWheelStart(spin);
+                    break;
+                case CinematicEffect.WheelLanded landed:
+                    MarkWheelLanded(landed);
+                    break;
+                case CinematicEffect.SettlementChestOpened chest:
+                    ShowChestOpen(chest);
+                    break;
+                case CinematicEffect.SettlementCommentarySpoken comment:
+                    ShowSettlementCommentary(comment);
+                    break;
                 case CinematicEffect.Completed:
                     OnPerformanceCompleted();
                     break;
@@ -426,6 +544,192 @@ public sealed partial class CinematicDirector : Control
         {
             _progress = CinematicProgressStore.MarkCompleted(_progress, _playing.Id);
             CinematicProgressStore.Save(_files, _progress);
+        }
+
+        if (_playing is not null && _playing.Id == VictoryScriptId)
+        {
+            VictorySettlementRecord? record = _victoryArchive.Records.Count > 0
+                ? _victoryArchive.Records[^1]
+                : null;
+            if (record is not null)
+            {
+                _victoryArchive = VictorySettlementStore.Upsert(
+                    _victoryArchive, VictorySettlementStore.MarkViewed(record));
+                VictorySettlementStore.Save(_files, _victoryArchive); // 回看完成态入存档
+            }
+        }
+    }
+
+    // ---- T-087 结算演出渲染（判分行/档位/转盘/宝箱/点评） ---------------------
+
+    private static string TierZh(EraCore.Progression.ObjectiveTier tier) => tier switch
+    {
+        EraCore.Progression.ObjectiveTier.Bronze => "青铜",
+        EraCore.Progression.ObjectiveTier.Silver => "白银",
+        EraCore.Progression.ObjectiveTier.Gold => "黄金",
+        EraCore.Progression.ObjectiveTier.GoldExtra => "黄金+额外",
+        _ => tier.ToString(),
+    };
+
+    private static string RarityZh(EraCore.Progression.RewardRarity rarity) => rarity switch
+    {
+        EraCore.Progression.RewardRarity.Common => "普通",
+        EraCore.Progression.RewardRarity.Rare => "稀有",
+        EraCore.Progression.RewardRarity.Legendary => "传说",
+        _ => rarity.ToString(),
+    };
+
+    private void ShowVerdictRows(CinematicEffect.SettlementVerdict verdict)
+    {
+        _verdictRows = verdict.Rows.Count;
+        _surfaceRows.RemoveAllTypeChildren();
+        _surfaceTitle.Text = "◆ 三重目标判定";
+        foreach (VictoryVerdictRow row in verdict.Rows)
+        {
+            var line = new Label
+            {
+                Text = (row.Passed ? "✓ " : "✗ ") + row.LabelZh,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            line.AddThemeFontSizeOverride("font_size", 12);
+            line.AddThemeColorOverride(
+                "font_color", row.Passed ? new Color(0.29f, 0.86f, 0.45f) : HoloSkin.RiskRed);
+            _surfaceRows.AddChild(line);
+        }
+
+        _surfaceBox.Show();
+    }
+
+    private void ShowTierReveal(CinematicEffect.SettlementTierRevealed tier)
+    {
+        _surfaceRows.RemoveAllTypeChildren();
+        _surfaceTitle.Text = "◆ 档位揭示";
+        var line = new Label
+        {
+            Text = $"{TierZh(tier.Tier)}（完成 {tier.CompletedCount}/3）· 宝箱 {tier.ChestTierId}",
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        line.AddThemeFontSizeOverride("font_size", 14);
+        line.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
+        _surfaceRows.AddChild(line);
+        _surfaceBox.Show();
+    }
+
+    private void ShowWheelStart(CinematicEffect.WheelSpinStarted spin)
+    {
+        _wheelLandedStop = -1;
+        _surfaceRows.RemoveAllTypeChildren();
+        _surfaceTitle.Text = "◆ 幸运转盘（结算 · 无空档）";
+        DecidedVictoryPerformance? decided = _timeline?.Settlement;
+        if (decided is not null)
+        {
+            for (int i = 0; i < decided.Wheel.Segments.Count; i++)
+            {
+                VictoryWheelSegment segment = decided.Wheel.Segments[i];
+                var line = new Label
+                {
+                    Text = $"{(i + 1).ToString().PadLeft(2)} 段 {segment.LabelZh}（{RarityZh(segment.Rarity)}）",
+                    MouseFilter = MouseFilterEnum.Ignore,
+                };
+                line.AddThemeFontSizeOverride("font_size", 11);
+                line.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
+                _surfaceRows.AddChild(line);
+            }
+        }
+
+        _spinning = new CinematicStep.WheelSpin(spin.DurationTicks, spin.Segments, spin.DecelTicks.ToArray());
+        _spinningDecided = decided;
+        _surfaceBox.Show();
+    }
+
+    private void MarkWheelLanded(CinematicEffect.WheelLanded landed)
+    {
+        _wheelLandedStop = landed.StopIndex;
+        _spinning = null; // 到停：停帧（落点=既定结果，演出倒推）
+        int row = 0;
+        foreach (Node child in _surfaceRows.GetChildren())
+        {
+            if (child is Label label)
+            {
+                label.Text = row == landed.StopIndex
+                    ? "▶ " + label.Text.Substring(2) + $"  ← 落点·{landed.ItemId}"
+                    : label.Text;
+                if (row == landed.StopIndex)
+                {
+                    label.AddThemeColorOverride("font_color", new Color(0.98f, 0.84f, 0.32f));
+                }
+
+                row++;
+            }
+        }
+    }
+
+    private void ShowChestOpen(CinematicEffect.SettlementChestOpened chest)
+    {
+        _chestRows = chest.Items.Count;
+        _chestLightLayers = chest.LightLayers;
+        _surfaceRows.RemoveAllTypeChildren();
+        _surfaceTitle.Text = $"◆ 宝箱开箱 · {chest.ChestTierId}（光效 {chest.LightLayers} 层）";
+        for (int layer = 0; layer < chest.LightLayers; layer++)
+        {
+            // 光效分层：每层一道渐弱的辉光条（黄金档恰比白银多一层——视觉可辨）
+            var glow = new ColorRect
+            {
+                Color = new Color(0.98f, 0.84f, 0.32f, 0.16f * (chest.LightLayers - layer)),
+                CustomMinimumSize = new Vector2(240f, 3f),
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            _surfaceRows.AddChild(glow);
+        }
+
+        foreach (GrantedChestItem item in chest.Items)
+        {
+            var line = new Label
+            {
+                Text = $"· {item.ItemId}（{RarityZh(item.Rarity)}）",
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            line.AddThemeFontSizeOverride("font_size", 11);
+            line.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
+            _surfaceRows.AddChild(line);
+        }
+
+        _surfaceBox.Show();
+    }
+
+    private void ShowSettlementCommentary(CinematicEffect.SettlementCommentarySpoken comment)
+    {
+        string speaker = $"系统（{SystemPersonas.LabelZh(comment.Commentary.Persona)}·{TrustBadgeLabels.Label(comment.Commentary.Badge)}）";
+        string text = comment.Commentary.TrustShiftEcho is { } echo
+            ? comment.Commentary.MainLine + " " + echo
+            : comment.Commentary.MainLine;
+        _settlementCommentary = text;
+        _lastSpeak = text;
+        _subtitle.Text = $"{speaker}：{text}";
+        _subtitle.Visible = true;
+    }
+
+    /// <summary>
+    /// 帧循环：转盘指针按 WheelDynamics 纯函数游走（演出倒推——渲染只算
+    /// 角度，不算结果）；Ctrl 长按=加速 4×、松开回 1×（结算演出无全跳）。
+    /// </summary>
+    public override void _Process(double delta)
+    {
+        if (_spinning is { } spin && _spinningDecided is { } decided && _timeline is { } timeline)
+        {
+            double angle = WheelDynamics.PointerAngle(
+                spin.Segments, decided.Wheel.StopIndex, spin.DurationTicks, spin.DecelTicks,
+                timeline.ElapsedTicks);
+            _surfaceTitle.Text = $"◆ 幸运转盘（结算）· 指针 {angle:0.0}°（长按 Ctrl 加速）";
+        }
+
+        if (_timeline is { CanSkip: false })
+        {
+            HoldAccelerate(Input.IsKeyPressed(Key.Ctrl)); // 长按加速（不可全跳）
+        }
+        else if (_timeline is not null && _timeline.BoostFactor != 1 && !Input.IsKeyPressed(Key.Ctrl))
+        {
+            HoldAccelerate(false);
         }
     }
 
@@ -687,6 +991,81 @@ public sealed partial class CinematicDirector : Control
 
         int ahaSteps = ScriptById("cinematic:e1-aha").Steps.Count;
 
+        // ---- D) T-087 结算演出：真实判分+真宝箱→先定后演→4× 加速过转盘→ ----
+        //         落点=既定→回看同字节→无全跳（RequestSkip 静默拒绝）。
+        string campaignDir = FindContentDir(
+            System.IO.Path.Combine("game", "content", "campaign"), "game/content/campaign");
+        var judge = new TripleObjectiveJudge(
+            ObjectivesData.Parse(ReadFile(campaignDir, "objectives.json")),
+            new SmokeRng());
+        var chests = new ChestRewards(
+            ChestRewardsData.Parse(ReadFile(campaignDir, "chests.json")),
+            new SmokeRng());
+        ObjectiveOutcome outcome = judge.Judge(
+            "campaign:level-e1-01", 0.5, new LevelRunFacts(Survived: true));
+        string tierId = CampaignProgression.TierToChestId(outcome.Tier);
+        var smokeSettlement = new CampaignSettlement(
+            "campaign:level-e1-01", outcome, tierId, chests.Open(tierId, VictorySmokeSeed),
+            new List<EraCore.CampaignLoop.ResourceGrant>());
+        CinematicStep.WheelSpin? smokeWheelFound = null;
+        foreach (CinematicStep step in ScriptById(VictoryScriptId).Steps)
+        {
+            if (step is CinematicStep.WheelSpin found)
+            {
+                smokeWheelFound = found;
+                break;
+            }
+        }
+
+        DecidedVictoryPerformance smokeDecided = VictorySettlement.Decide(
+            smokeSettlement, chests.Table, new SmokeRng(), smokeWheelFound!.Segments,
+            VictorySmokeSeed, SystemPersona.Advisor, TrustBadge.Trustworthy, TrustBadge.Trustworthy);
+        byte[] smokeDecidedBytes = VictorySettlementStore.Encode(smokeDecided);
+
+        string victoryLaunched = LaunchVictorySettlement(smokeDecided);
+        bool victorySkipRefused;
+        {
+            RequestSkip(); // 不可全跳：结算演出受保护，静默拒绝（无"全跳"按钮路径）
+            victorySkipRefused = _timeline is { Phase: CinematicPhase.Playing };
+        }
+
+        HoldAccelerate(true); // 长按加速 4×：唯一快进通道
+        guard = 0;
+        while (Playing && guard++ < 3600)
+        {
+            PumpOneTick();
+        }
+
+        HoldAccelerate(false);
+        bool victoryCompleted = _timeline is { Phase: CinematicPhase.Completed, Skipped: false };
+        bool victoryFloored = _timeline is { } done && done.ElapsedTicks >= 45; // 至少播放 1.5s@30Hz
+        bool victoryLandedOnDecision = _wheelLandedStop == smokeDecided.Wheel.StopIndex;
+        bool victoryChestRendered = _chestRows == smokeDecided.ChestItems.Count
+            && _chestLightLayers == smokeDecided.ChestLightLayers;
+        bool victoryVerdictRendered = _verdictRows == 3;
+        bool victoryCommentaryRendered = _settlementCommentary == smokeDecided.Commentary.MainLine;
+        VictorySettlementRecord? viewedRecord = VictorySettlementStore.LatestFor(
+            _victoryArchive, "campaign:level-e1-01");
+        bool victoryMarkedViewed = viewedRecord is { Viewed: true }
+            && VictorySettlementStore.Encode(viewedRecord.Decided).SequenceEqual(smokeDecidedBytes);
+
+        // 回看：以存档里的既定演出重放（同字节同落点）
+        _wheelLandedStop = -1;
+        string? replayed2 = ReplayLatestSettlement("campaign:level-e1-01");
+        HoldAccelerate(true);
+        guard = 0;
+        while (Playing && guard++ < 3600)
+        {
+            PumpOneTick();
+        }
+
+        HoldAccelerate(false);
+        bool victoryReplaySame = _wheelLandedStop == smokeDecided.Wheel.StopIndex
+            && VictorySettlementStore.Encode(
+                VictorySettlementStore.LatestFor(_victoryArchive, "campaign:level-e1-01")!.Decided)
+                .SequenceEqual(smokeDecidedBytes);
+        bool victoryNoAutoReplay = LaunchByHook(CinematicBeat.Victory) is null; // 重进不重播：victory 拍无自动结算重放
+
         GD.Print(
             $"CINE_OK aha=skip-safe awaken=3choice steps_aha={ahaSteps} steps_awaken={awakenSteps} " +
             $"aha_world_writes=0 declared_world_writes={_host.Simulation.AppliedCommandCount - commandsBefore} " +
@@ -695,19 +1074,32 @@ public sealed partial class CinematicDirector : Control
             $"cues={_cueCount} ledger={_lastLedgerRows} checkpoints={_checkpoints} " +
             $"hook_fire_twice_silent={replayBlocked is null} replay_channel={replayed} " +
             $"marked={ahaMarked && awakenMarked} skip_equivalent={awakenSkipEquivalent} " +
+            $"victory=decided-before-shown tier={tierId} stop={smokeDecided.Wheel.StopIndex} " +
+            $"chest_items={smokeDecided.ChestItems.Count} light_layers={smokeDecided.ChestLightLayers} " +
+            $"boost_floor_held={victoryFloored} no_full_skip={victorySkipRefused} " +
+            $"landed_on_decision={victoryLandedOnDecision} replay_same_bytes={victoryReplaySame} " +
+            $"no_auto_replay={victoryNoAutoReplay} viewed_marked={victoryMarkedViewed} " +
+            $"replay2={replayed2} " +
             $"hash={_host.Simulation.ComputeStateHash()}");
 
         bool ok = ahaId == "cinematic:e1-aha" && awakenId == "cinematic:e2-awaken"
             && ahaCompleted && ahaZeroCommands && ahaSounded && ahaCheckpointed
             && ahaMarked && replayBlocked is null && ahaSkipSafe
             && awakenCompleted && awakenThreeChoice && awakenBuilt && awakenLedger
-            && awakenHook && awakenMarked && awakenSkipEquivalent;
+            && awakenHook && awakenMarked && awakenSkipEquivalent
+            && victoryLaunched == VictoryScriptId && victoryCompleted && victoryFloored
+            && victorySkipRefused && victoryLandedOnDecision && victoryChestRendered
+            && victoryVerdictRendered && victoryCommentaryRendered && victoryMarkedViewed
+            && victoryReplaySame && victoryNoAutoReplay && replayed2 == VictoryScriptId;
         if (!ok)
         {
             GD.PushError(
                 "cinematic wiring broken: " +
                 $"aha={ahaId}/{ahaCompleted}/{ahaZeroCommands}/{ahaSounded}/{ahaCheckpointed}/{ahaMarked}/{ahaSkipSafe} " +
                 $"awaken={awakenId}/{awakenCompleted}/{awakenThreeChoice}/{awakenBuilt}/{awakenLedger}/{awakenHook}/{awakenMarked}/{awakenSkipEquivalent} " +
+                $"victory={victoryLaunched}/{victoryCompleted}/{victoryFloored}/{victorySkipRefused}/" +
+                $"{victoryLandedOnDecision}/{victoryChestRendered}/{victoryVerdictRendered}/" +
+                $"{victoryCommentaryRendered}/{victoryMarkedViewed}/{victoryReplaySame}/{victoryNoAutoReplay} " +
                 $"replayBlocked={replayBlocked}");
             GD.Print(
                 $"CINE_FAIL aha={ahaCompleted}/{ahaZeroCommands}/{ahaSkipSafe} " +

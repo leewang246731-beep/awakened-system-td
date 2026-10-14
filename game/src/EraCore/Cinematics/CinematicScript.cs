@@ -118,6 +118,34 @@ public abstract record CinematicStep
 
     /// <summary>跳过检查点 — a skip-safety marker the host observes (可跳过位).</summary>
     public sealed record SkipPoint(string Id) : CinematicStep;
+
+    /// <summary>
+    /// 判分结果展示 (T-087 结算演出): the triple-objective checklist plays
+    /// out row by row — the rows ride the BOUND decided settlement
+    /// (<see cref="CinematicTimeline"/> ctor), never the script (RL12).
+    /// </summary>
+    public sealed record VerdictReveal(int DurationTicks) : CinematicStep;
+
+    /// <summary>档位揭示 — the tier card (青铜/白银/黄金/黄金+额外) of the decided settlement.</summary>
+    public sealed record TierReveal(int DurationTicks) : CinematicStep;
+
+    /// <summary>
+    /// 幸运转盘（结算）— the wheel performance. Deceleration is SCRIPTED
+    /// (减速停顿帧数脚本化, RL7): the tail dwell frame counts live in
+    /// content; the landing segment comes from the bound decided settlement
+    /// (演出倒推，见 <see cref="WheelDynamics"/>).
+    /// </summary>
+    /// <param name="DurationTicks">Total spin duration.</param>
+    /// <param name="Segments">Wheel layout size (must equal the decided layout's size).</param>
+    /// <param name="DecelTicks">Tail dwell frame counts, each ≥1, non-decreasing (减速=停顿不减).</param>
+    public sealed record WheelSpin(int DurationTicks, int Segments, IReadOnlyList<int> DecelTicks)
+        : CinematicStep;
+
+    /// <summary>宝箱开箱 — the tiered chest opening; light layers come from the decided tier (光效分层).</summary>
+    public sealed record ChestOpen(int DurationTicks) : CinematicStep;
+
+    /// <summary>系统一句话点评 — the persona×trust-badge line of the decided settlement.</summary>
+    public sealed record PersonaComment(int DurationTicks) : CinematicStep;
 }
 
 /// <summary>
@@ -132,6 +160,13 @@ public abstract record CinematicStep
 /// completion (natural or skipped). Declaring both is a schema error — the
 /// terminal state must be one declared command set, never two competing ones.
 /// </para>
+/// <para>
+/// Protected performances (T-087 加速不可全跳): a script declaring
+/// <see cref="MinimumPlayTicks"/> is a settlement-style protected
+/// performance — no full skip exists for it (长按只加速，见
+/// <see cref="CinematicTimeline.SetBoost"/>) and its completion is held to
+/// at least that many playback ticks (§12 映射#10 保护期待感).
+/// </para>
 /// </summary>
 public sealed record CinematicScript(
     string Id,
@@ -145,6 +180,12 @@ public sealed record CinematicScript(
 
     /// <summary>Content type marker the loader requires (<c>content_type</c> field).</summary>
     public const string ContentType = "Cinematic";
+
+    /// <summary>
+    /// 保护线下限（演出拍数，RL7：入内容数据；省略=未受保护的普通演出）：
+    /// 声明它的脚本不可全跳，且完成不得早于该拍数（§12 映射#10 保护期待感）。
+    /// </summary>
+    public int? MinimumPlayTicks { get; init; }
 
     /// <summary>Closed sound-cue set (host maps each to a <c>DingBus</c> tier).</summary>
     public static readonly IReadOnlySet<string> SoundCues =
@@ -205,6 +246,18 @@ public sealed record CinematicScript(
             string title = String(root, "title_zh", sourceName);
             Require(!string.IsNullOrWhiteSpace(title), $"{sourceName}: title_zh 为空白");
 
+            int? minimumPlay = null; // 保护线下限（T-087 加速不可全跳；RL7：入内容数据）
+            if (root.TryGetProperty("minimum_play_ticks", out JsonElement minimumEl)
+                && minimumEl.ValueKind != JsonValueKind.Null)
+            {
+                Require(
+                    minimumEl.ValueKind == JsonValueKind.Number && minimumEl.TryGetInt32(out _),
+                    $"{sourceName}: minimum_play_ticks 须为整数");
+                int minimum = minimumEl.GetInt32();
+                Require(minimum >= 1, $"{sourceName}: minimum_play_ticks 须 ≥1（得到 {minimum}）");
+                minimumPlay = minimum;
+            }
+
             var steps = new List<CinematicStep>();
             JsonElement stepsEl = Array(root, "steps", sourceName);
             Require(stepsEl.GetArrayLength() >= 1, $"{sourceName}: steps 至少 1 步");
@@ -238,7 +291,7 @@ public sealed record CinematicScript(
                 choiceSteps == 0 || terminal.Count == 0,
                 $"{sourceName}: 携带 choice 步骤的脚本不得再声明 terminal_commands（终态命令集唯一：选项自带 on_confirm）");
 
-            return new CinematicScript(id, hook, title, steps, terminal);
+            return new CinematicScript(id, hook, title, steps, terminal) { MinimumPlayTicks = minimumPlay };
         }
     }
 
@@ -381,9 +434,71 @@ public sealed record CinematicScript(
                 return new CinematicStep.SkipPoint(id);
             }
 
+            case "verdict_reveal":
+            {
+                int duration = Int(el, "duration_ticks", source); // RL7：判分展示节拍入脚本数据
+                RequireDuration(duration, min: 1, source, "verdict_reveal");
+                return new CinematicStep.VerdictReveal(duration);
+            }
+
+            case "tier_reveal":
+            {
+                int duration = Int(el, "duration_ticks", source); // RL7：档位揭示节拍入脚本数据
+                RequireDuration(duration, min: 1, source, "tier_reveal");
+                return new CinematicStep.TierReveal(duration);
+            }
+
+            case "wheel_spin":
+            {
+                int duration = Int(el, "duration_ticks", source); // RL7：转盘总时长入脚本数据
+                RequireDuration(duration, min: 1, source, "wheel_spin");
+                int segments = Int(el, "segments", source); // RL7：转盘段数入脚本数据
+                Require(
+                    segments >= VictorySettlement.MinWheelSegments,
+                    $"{source}: wheel_spin.segments 须 ≥{VictorySettlement.MinWheelSegments}（得到 {segments}）");
+                JsonElement decelEl = Array(el, "decel_ticks", source);
+                Require(decelEl.GetArrayLength() >= 1, $"{source}: wheel_spin.decel_ticks 至少 1 组（减速停顿帧数脚本化）");
+                var decel = new List<int>();
+                foreach (JsonElement pauseEl in decelEl.EnumerateArray())
+                {
+                    Require(
+                        pauseEl.ValueKind == JsonValueKind.Number && pauseEl.TryGetInt32(out _),
+                        $"{source}: wheel_spin.decel_ticks 每组须为整数（得到 {pauseEl}）");
+                    int pause = pauseEl.GetInt32();
+                    Require(pause >= 1, $"{source}: wheel_spin.decel_ticks 每组须 ≥1（得到 {pause}）");
+                    decel.Add(pause);
+                }
+
+                for (int i = 1; i < decel.Count; i++)
+                {
+                    Require(
+                        decel[i] >= decel[i - 1],
+                        $"{source}: wheel_spin.decel_ticks 须非递减（减速=停顿不减，得到 {decel[i - 1]}→{decel[i]}）");
+                }
+
+                Require(
+                    decel.Sum() <= duration,
+                    $"{source}: wheel_spin.decel_ticks 总和（{decel.Sum()}）不得超过 duration_ticks（{duration}）");
+                return new CinematicStep.WheelSpin(duration, segments, decel);
+            }
+
+            case "chest_open":
+            {
+                int duration = Int(el, "duration_ticks", source); // RL7：开箱节拍入脚本数据
+                RequireDuration(duration, min: 1, source, "chest_open");
+                return new CinematicStep.ChestOpen(duration);
+            }
+
+            case "persona_comment":
+            {
+                int duration = Int(el, "duration_ticks", source); // RL7：点评节拍入脚本数据
+                RequireDuration(duration, min: 1, source, "persona_comment");
+                return new CinematicStep.PersonaComment(duration);
+            }
+
             default:
                 throw new CinematicSchemaException(
-                    $"{source}: 未登记步骤 kind（{kind}，封闭动词表 camera_move/highlight/wait_event/speak/sound/screen/ui/choice/checkpoint）");
+                    $"{source}: 未登记步骤 kind（{kind}，封闭动词表 camera_move/highlight/wait_event/speak/sound/screen/ui/choice/checkpoint/verdict_reveal/tier_reveal/wheel_spin/chest_open/persona_comment）");
         }
     }
 

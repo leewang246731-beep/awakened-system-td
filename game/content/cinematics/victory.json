@@ -1,0 +1,28 @@
+{
+  "$schema": "urn:eratd:content:cinematics:1",
+  "content_type": "Cinematic",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）。本文件=T-087 C-24 结算演出（F-002/F-104，v3.2 §3/§12.1）：判分结果展示（三目标逐项打勾）→档位揭示→幸运转盘（结算；无空档，减速停顿帧数脚本化）→宝箱开箱（光效分层：黄金比白银多一层，层数随既定档位运行时定）→系统一句话点评（按信任档位+人格，12 句成品由 EraCore/Cinematics/SettlementCommentary 4 模板×3 档填出）。无 hook 键=非关卡叙事钩子位（victory 拍叙事钩子 campaign:hook-e1-awakening-handover 属 T-089）；本脚本由结算缝（CinematicDirector.LaunchVictorySettlement）在胜利结算时刻显式发射。",
+  "id": "cinematic:victory-settlement",
+  "title_zh": "结算·幸运转盘与宝箱",
+  "minimum_play_ticks": 45,
+  "steps": [
+    { "kind": "screen", "flavor": "black_fade_in", "duration_ticks": 15 },
+    { "kind": "sound", "cue": "ding_reward" },
+    { "kind": "verdict_reveal", "duration_ticks": 60 },
+    { "kind": "tier_reveal", "duration_ticks": 30 },
+    { "kind": "wheel_spin", "duration_ticks": 150, "segments": 6, "decel_ticks": [2, 3, 4, 6, 9] },
+    { "kind": "sound", "cue": "ding_reward" },
+    { "kind": "chest_open", "duration_ticks": 75 },
+    { "kind": "sound", "cue": "ding_reward" },
+    { "kind": "persona_comment", "duration_ticks": 60 },
+    { "kind": "checkpoint", "id": "settlement-banked" },
+    { "kind": "screen", "flavor": "fade_out", "duration_ticks": 15 }
+  ],
+  "terminal_commands": [],
+  "_source": "T-087 结算演出脚本（RL12 先定后演）：胜利结算时刻 VictorySettlement.Decide 以 (run seed+关卡 id+判分完成数) 一次定死转盘布局/落点/宝箱内容（宝箱流=CampaignProgression.SettleVictory 同 run seed 先开）→DecidedVictoryPerformance 入存档（VictorySettlementStore，中途关游戏不丢且逐字节稳定）→本时间轴只读既定结果回放。跳过=无（minimum_play_ticks=45 声明保护演出：长按加速 ≤4×、至少播 1.5s，§12 映射#10 保护期待感）。转盘指针落点=既定结果（演出倒推，EraCore/Cinematics/WheelDynamics 纯函数）；decel_ticks=[2,3,4,6,9]=尾部 5 组停顿帧数（减速=停顿不减），sum=24<150 留足快转段。宝箱光效层数=既定档位（青铜 1/白银 2/黄金 3/黄金+额外 3，VictorySettlement.LightLayers）。点评=SettlementCommentary.Compose(persona×trustBadge)+跨档回声（T-075 TrustBadgeLines 复用）。terminal_commands 空=零世界命令（入库已由 SettleVictory 完成，演出零污染）",
+  "_units": {
+    "minimum_play_ticks": "ticks_30hz",
+    "steps[].duration_ticks": "ticks_30hz",
+    "steps[].decel_ticks": "ticks_30hz"
+  }
+}
