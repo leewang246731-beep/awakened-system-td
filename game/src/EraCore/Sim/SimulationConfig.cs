@@ -61,6 +61,32 @@ public sealed record BuildCostPolicy(
 /// in snapshots. [NEW-原型校准] structural value until T-049 content rows
 /// land — economy buildings are not damageable in the E1 thin version.
 /// </param>
+/// <param name="Hero">
+/// Hero definition of this level (T-067; SP-6: one player-avatar hero per
+/// level, unlocked at wave-3 maps). Null (default) = the level fields no
+/// hero — nothing hero-related ticks or hashes.
+/// </param>
+/// <param name="HeroCell">Home cell of the hero (respawn/retreat anchor); required when <paramref name="Hero"/> is set.</param>
+/// <param name="RuinRepairCostFraction">
+/// Repair-bill fraction of the original build cost carried by every tower
+/// ruin of a sale (T-067). Default mirrors
+/// <c>EraCore.Checkpoint.FailureTiers.RepairCostFraction</c> (the 30%
+/// authority, v3.2 §3) — Sim cannot reference Checkpoint directly
+/// (dependency direction Checkpoint → Sim); tests pin the equality so the
+/// mirror cannot drift.
+/// </param>
+/// <param name="ProjectileTwinsEnabled">
+/// Whether tower fire events also arm the ballistic shadow layer (弹影层,
+/// T-067): deterministic flight twins in the Projectiles group with zero
+/// combat authority (hitscan already settled the damage). Default false —
+/// the E1 milestone cadence (and its golden) predates the layer.
+/// </param>
+/// <param name="WarehouseLevel">
+/// Warehouse level of the era (v3.2 附录 F.3 cap base 2000×level; E1 = 1).
+/// T-067: era-2 levels field level-2 pools so the E2 tower chain sticker
+/// prices (fire-oil 2430, F.5) clear the cap; default 1 keeps every E1
+/// caller identical.
+/// </param>
 public sealed record SimulationConfig(
     int Width,
     int Height,
@@ -77,4 +103,9 @@ public sealed record SimulationConfig(
     BuildCostPolicy? Costs = null,
     double FlowFrameBudgetMs = FlowFieldManager.DefaultFrameBudgetMs,
     int Lane = 0,
-    int EconomyBuildingHp = 1);
+    int EconomyBuildingHp = 1,
+    HeroSpec? Hero = null,
+    CellCoord? HeroCell = null,
+    double RuinRepairCostFraction = 0.30,
+    bool ProjectileTwinsEnabled = false,
+    int WarehouseLevel = 1);

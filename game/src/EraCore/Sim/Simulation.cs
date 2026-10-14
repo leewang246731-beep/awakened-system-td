@@ -6,6 +6,7 @@ using EraCore.Economy;
 using EraCore.Energy;
 using EraCore.Logistics;
 using EraCore.Pathfinding;
+using EraCore.Sim.EntityGroups;
 using EraCore.Supply;
 using EraCore.Units;
 using EraCore.World;
@@ -56,29 +57,49 @@ public sealed record SimBuilding(
 public sealed record SimTower(EntityId Id, TowerSpec Spec, WeaponFire Weapon, CellCoord Cell);
 
 /// <summary>
-/// C-12 minimal simulation orchestrator (T-040; F-001/F-154): wires the
-/// Wave-1 subsystems — C-05 world, C-08 energy ledger, C-06 economy, C-07
-/// porters, C-11 flow fields, C-10 waves/units, C-09 towers — into one
-/// fixed-order 30 Hz tick loop and publishes a double-buffered
-/// <see cref="SimSnapshot"/> at frame end. All randomness flows through the
-/// injected <see cref="IRng"/> (reseeded with the level seed at
-/// construction — the IRng replay contract) and all time through the
-/// internal <see cref="SimClock"/> (CS-1.4), so: same seed + same command
-/// stream ⇒ same <see cref="ComputeStateHash"/> at every tick
-/// (03-decomposition §1.2 — the replay invariant T-040 proves first).
+/// C-12 full simulation orchestrator (T-040 minimal, T-067 全量; F-001/F-154/
+/// F-155): wires the subsystems — C-05 world, C-08 energy ledger, C-06
+/// economy, C-07 six-tier logistics, C-11 flow fields, C-10 waves/units
+/// (shields, war-drum auras, heroes), C-09 towers (upgrade/sell estate,
+/// splash+burn) — into one fixed-order 30 Hz tick loop and publishes a
+/// double-buffered <see cref="SimSnapshot"/> at frame end. All randomness
+/// flows through the injected <see cref="IRng"/> (reseeded with the level
+/// seed at construction — the IRng replay contract) and all time through
+/// the internal <see cref="SimClock"/> (CS-1.4), so: same seed + same
+/// command stream ⇒ same <see cref="ComputeStateHash"/> at every tick
+/// (03-decomposition §1.2 — the replay invariant, re-proven by T-067 on the
+/// era-2 full-subsystem golden).
 /// <para>
 /// Commands enter only through <see cref="Enqueue"/> and are applied at
 /// tick boundaries strictly via the subsystem public APIs (BuildingRegistry
-/// / GridWorld / EnergyLedger / Producer / AmmoConverter / Carrier / A*) —
-/// the orchestrator owns no direct state mutation of foreign internals.
+/// / GridWorld / EnergyLedger / Producer / AmmoConverter / Carrier /
+/// TowerEstateOps / Hero / A*) — the orchestrator owns no direct state
+/// mutation of foreign internals. Every entity collection lives in a typed
+/// <see cref="SimEntityGroups"/> group (G.1 条 2, F-155) instead of a bare
+/// list.
 /// </para>
 /// <para>
-/// Per-tick order (task card): commands → terrain/energy settle → economy
-/// (harvest + craft, backpressure inside the subsystems) → logistics
-/// (porter ticks along their A* routes) → flow-field manager Update
-/// (budgeted slice) → units (wave spawn + flow movement) → combat (weapon
-/// tick, deterministic first-nearest targeting, Damage.DirectInt settlement
-/// inside Unit.ApplyDamage) → whole-state FNV hash → snapshot publish.
+/// Fixed per-tick order (T-067 成文, aligned with design v3.2 §6 system
+/// timing — the hash depends on this exact order):
+/// (1) commands due this tick → (2) energy settle (satisfaction, granary)
+/// → (3) economy (harvest + craft, backpressure inside the subsystems)
+/// → (4) logistics six tiers: trip carriers (民夫/马车/矿轨/无人机 tick
+/// along their routes), belt lines (advance), teleporter lanes (settle the
+/// energy bank from the ledger satisfaction, then the instant transfer)
+/// → (5) flow-field manager Update (budgeted slice) → (6) unit layer:
+/// wave batches materialize into the Units group, shield regeneration
+/// ticks, the war-drum aura pass recomputes the aura channel, every unit
+/// folds its three speed channels (slow + charge + aura,
+/// <see cref="Unit.ResolveSpeedEffects"/>), enemies walk the live field
+/// gradient, the hero (when fielded) respawns on its timer and strides
+/// toward its ordered point → (7) combat: tower delivery shadow counters
+/// fold into the monotonic supply stream, the supply monitor ticks, every
+/// tower's loop advances through its SuppliedWeaponFire pacer and fires —
+/// single-target shots settle through <see cref="Unit.ApplyDamage"/>
+/// (shield → armor → hp), splash towers settle per-target decay through
+/// <see cref="SplashAttack"/> and ignite burns, the burn tracker banks its
+/// DOT ticks onto living units, flight twins (when enabled) advance and
+/// expire → (8) whole-state FNV hash → snapshot publish.
 /// </para>
 /// </summary>
 public sealed class Simulation
@@ -103,6 +124,34 @@ public sealed class Simulation
 
     /// <summary>Entity id of the warehouse stand (the resource pool building), when placed.</summary>
     public const long WarehouseEntityValue = 1;
+
+    // T-067: entity id bases of the new orchestration members (opaque
+    // numbering, unique per run — all far above every content-era counter).
+    /// <summary>Entity id of the fielded hero (SP-6: at most one per level).</summary>
+    public const long HeroEntityValue = 500_000;
+
+    /// <summary>Entity id base of teleporter lanes (tier-6 logistics members).</summary>
+    public const long TeleporterEntityBase = 600_000;
+
+    /// <summary>Entity id base of tower ruins (estate sale ledger entries).</summary>
+    public const long TowerRuinEntityBase = 900_000;
+
+    /// <summary>Entity id base of projectile twins (弹影层, K-6 载体).</summary>
+    public const long ProjectileEntityBase = 5_000_000;
+
+    /// <summary>
+    /// Flight twin speed in px per tick ([NEW-原型校准] T-067: spike① flight
+    /// envelope — 9 px/tick crosses the 128..256 px tower-to-target band in
+    /// 14..28 ticks, the measured mean time-in-flight of the ballistic load).
+    /// </summary>
+    public const float ProjectileTwinSpeedPxPerTick = 9f;
+
+    /// <summary>
+    /// Flight twin lifetime cap in ticks ([NEW-原型校准] T-067: spike① culling
+    /// bound — 32 ticks covers the whole tower-to-target flight band with
+    /// margin; Presentation-era pacing re-derives from content).
+    /// </summary>
+    public const int ProjectileTwinLifetimeTicks = 32;
 
     private const ulong FnvOffset = 14695981039346656037UL;
     private const ulong FnvPrime = 1099511628211UL;
@@ -132,12 +181,13 @@ public sealed class Simulation
     private readonly PathCache _routeCache;
     private readonly Dictionary<EntityId, IReadOnlyList<CellCoord>> _carrierRoutes = new();
 
-    private readonly List<Unit> _units = new();
-    private readonly List<SimBuilding> _buildings = new();
-    private readonly List<SimTower> _towers = new();
-    private readonly List<Producer> _producers = new();
-    private readonly List<AmmoConverter> _converters = new();
-    private readonly List<Carrier> _carriers = new();
+    // T-067 (F-155, G.1 条 2): every orchestrator entity collection is a
+    // typed EntityGroup (dense array + swap-remove) — the former bare
+    // List<Unit>/List<SimBuilding>/… fields migrated 1:1; public properties
+    // below return the groups (they implement IReadOnlyList<T>), so the
+    // public surface is unchanged.
+    private readonly SimEntityGroups _groups = new();
+
     private readonly Dictionary<EntityId, Producer> _producerById = new();
     private readonly Dictionary<EntityId, AmmoConverter> _converterById = new();
 
@@ -155,12 +205,29 @@ public sealed class Simulation
     private readonly SimCommandQueue _queue = new();
     private readonly List<SimCommandResult> _results = new();
 
+    // T-067: upgrade/sell estate (T-065 TowerEstateOps composed on this
+    // sim's registry/stock/catalog) and its sale-ruin ledger.
+    private readonly TowerEstateOps _estate;
+
+    // T-067: burn DOT bank of splash towers with burn traits (T-065).
+    private readonly BurnTracker _burn = new();
+
+    // T-067: monotonic per-tower delivery shadow. TowerSupplyMonitor requires
+    // the polled counter to never regress, but an in-place upgrade swaps the
+    // magazine (its ItemsAccepted restarts at 0) — the shadow folds the
+    // magazine deltas so the monitor's stream stays monotonic across swaps.
+    private readonly Dictionary<EntityId, long> _towerDeliveredShadow = new();
+    private readonly Dictionary<EntityId, long> _towerDeliveredLastSeen = new();
+
     private readonly ResourceKey _costCurrency;
     private long _nextBuildingId = WarehouseEntityValue + 1;
     private long _nextCarrierId = CarrierEntityBase;
     private long _laborCampNodes;
     private long _harvesterNodes;
     private long _converterNodes;
+    private long _teleporterNodes; // T-067: ledger consumer ids of teleporter lanes
+    private long _nextTeleporterId = TeleporterEntityBase; // T-067
+    private long _nextProjectileId = ProjectileEntityBase; // T-067: 弹影层 twin ids
     private long _appliedCommands;
     private long _kills;
     private long _shotsLanded;
@@ -228,6 +295,20 @@ public sealed class Simulation
                 $"EconomyBuildingHp must be at least 1 (got {config.EconomyBuildingHp}).", nameof(config));
         }
 
+        // T-067: hero wiring is a pair — a definition without a home cell (or
+        // a home cell without a definition) is a config defect.
+        if (config.Hero is null != (config.HeroCell is null))
+        {
+            throw new ArgumentException(
+                "Hero and HeroCell must be set together (a fielded hero needs its home cell).",
+                nameof(config));
+        }
+
+        if (config.HeroCell is not null)
+        {
+            EnsureInsideGrid(config.HeroCell, config, "HeroCell");
+        }
+
         EnsureInsideGrid(config.BaseCell, config, "BaseCell");
         foreach (CellCoord entry in config.EntryCells)
         {
@@ -260,7 +341,7 @@ public sealed class Simulation
         // Rng consumption order #1: terrain (one NextDouble per cell,
         // row-major — GridWorld contract).
         _world = new GridWorld(config.Width, config.Height, rng, config.ForestRatio, config.RockRatio, config.WaterRatio);
-        _stock = new ResourceStock(_clock, ResourceStock.E1WarehouseLevel);
+        _stock = new ResourceStock(_clock, config.WarehouseLevel); // T-067: 仓库等级经配置（E1 缺省=1 不变；era2 关卡挂 2 级池）
         _ledger = new EnergyLedger(_clock);
         _registry = new BuildingRegistry(_world);
         _registry.AttachToWorld();
@@ -292,9 +373,27 @@ public sealed class Simulation
         {
             var warehouseId = new EntityId(WarehouseEntityValue);
             _world.RegisterOccupancy(warehouseId, new[] { config.WarehouseCell });
-            _buildings.Add(new SimBuilding(
+            _groups.Buildings.Add(new SimBuilding(
                 warehouseId, "era1:building-warehouse", config.WarehouseCell, config.EconomyBuildingHp, 1,
                 SimBuildingKind.Warehouse));
+        }
+
+        // T-067: the upgrade/sell estate over this sim's own registry, stock
+        // and catalog. Ruin ids issue above every content-era counter; the
+        // repair fraction arrives from config (the FailureTiers authority is
+        // Checkpoint-side — Sim cannot reference it, direction is reversed).
+        _estate = new TowerEstateOps(
+            _registry, config.TowerCatalog, _stock, _costCurrency,
+            config.RuinRepairCostFraction, firstFreeId: TowerRuinEntityBase);
+
+        // T-067 (SP-6): the optional player-avatar hero, fielded at its home
+        // cell centre — levels without one never receive hero orders.
+        if (config.Hero is not null && config.HeroCell is not null)
+        {
+            _groups.Heroes.Add(new Hero(
+                config.Hero, new EntityId(HeroEntityValue),
+                (config.HeroCell.X * CellSizePx) + (CellSizePx / 2f),
+                (config.HeroCell.Y * CellSizePx) + (CellSizePx / 2f)));
         }
     }
 
@@ -308,22 +407,40 @@ public sealed class Simulation
     public int CurrentWave => _spawner.CurrentWave;
 
     /// <summary>Units ever spawned, dead ones included, in spawn order.</summary>
-    public IReadOnlyList<Unit> Units => _units;
+    public IReadOnlyList<Unit> Units => _groups.Units; // T-067: 直接列表 → 类型化分组（公共 API 不变）
 
     /// <summary>Buildings in placement order (warehouse first, then command-built).</summary>
-    public IReadOnlyList<SimBuilding> Buildings => _buildings;
+    public IReadOnlyList<SimBuilding> Buildings => _groups.Buildings; // T-067: 同上
 
     /// <summary>Weapon towers in placement order.</summary>
-    public IReadOnlyList<SimTower> Towers => _towers;
+    public IReadOnlyList<SimTower> Towers => _groups.Towers; // T-067: 同上
 
     /// <summary>Harvest buildings in placement order.</summary>
-    public IReadOnlyList<Producer> Producers => _producers;
+    public IReadOnlyList<Producer> Producers => _groups.Producers; // T-067: 同上
 
     /// <summary>Ammo converters in placement order.</summary>
-    public IReadOnlyList<AmmoConverter> Converters => _converters;
+    public IReadOnlyList<AmmoConverter> Converters => _groups.Converters; // T-067: 同上
 
     /// <summary>Porters in assignment order.</summary>
-    public IReadOnlyList<Carrier> Carriers => _carriers;
+    public IReadOnlyList<Carrier> Carriers => _groups.Carriers; // T-067: 同上
+
+    /// <summary>Belt lines (tier 4) in build order (T-067).</summary>
+    public IReadOnlyList<ConveyorBelt> Belts => _groups.Belts;
+
+    /// <summary>Teleporter lanes (tier 6, energy-priced) in build order (T-067).</summary>
+    public IReadOnlyList<SimTeleporterLane> Teleporters => _groups.Teleporters;
+
+    /// <summary>Projectile twins in flight (弹影层, K-6 载体; empty unless enabled, T-067).</summary>
+    public IReadOnlyList<SimProjectile> Projectiles => _groups.Projectiles;
+
+    /// <summary>The fielded hero, when the level carries one (SP-6: at most one).</summary>
+    public Hero? Hero => _groups.Heroes.Count > 0 ? _groups.Heroes[0] : null;
+
+    /// <summary>The upgrade/sell estate of this level (T-067; T-065 engine composed here).</summary>
+    public TowerEstateOps Estate => _estate;
+
+    /// <summary>The burn DOT bank fed by splash towers with burn traits (T-067).</summary>
+    public BurnTracker Burn => _burn;
 
     /// <summary>Shared era resource pool (C-06).</summary>
     public ResourceStock Stock => _stock;
@@ -396,63 +513,132 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Advances exactly one tick through the fixed pipeline and publishes
-    /// the frame-end snapshot. Repeated calls replay the invariant: same
-    /// seed + same commands ⇒ same hash after every tick.
+    /// Advances exactly one tick through the fixed pipeline (class remarks:
+    /// the eight numbered phases) and publishes the frame-end snapshot.
+    /// Repeated calls replay the invariant: same seed + same commands ⇒
+    /// same hash after every tick.
     /// </summary>
     public void Step()
     {
         _clock.Advance();
         long tick = _clock.Tick;
 
+        // (1) Commands due this tick.
         ApplyDueCommands(tick);
 
-        // 1) Terrain/energy settle: pool satisfaction for this tick (granary
-        //    stays unattached in the E1 thin level).
+        // (2) Terrain/energy settle: pool satisfaction for this tick (granary
+        //     stays unattached in the E1 thin level). Teleporter lanes read
+        //     the settled satisfaction in phase (4).
         _ledger.Settle();
 
-        // 2) Economy: harvest into yard piles, craft ammo in converters —
-        //    backpressure lives inside the subsystems.
-        foreach (Producer producer in _producers)
+        // (3) Economy: harvest into yard piles, craft ammo in converters —
+        //     backpressure lives inside the subsystems.
+        for (int i = 0; i < _groups.Producers.Count; i++)
         {
-            producer.Tick();
+            _groups.Producers[i].Tick();
         }
 
-        foreach (AmmoConverter converter in _converters)
+        for (int i = 0; i < _groups.Converters.Count; i++)
         {
-            converter.Tick();
+            _groups.Converters[i].Tick();
         }
 
-        // 3) Logistics: porters advance one tick along their routes.
-        foreach (Carrier carrier in _carriers)
+        // (4) Logistics, six ladder tiers (v3.2 §5): trip carriers of tiers
+        //     1/2/3/5 advance along their routes, tier-4 belt lines flow,
+        //     tier-6 teleporter lanes settle their energy bank from the
+        //     ledger satisfaction then move the affordable amount
+        //     (传送阵能量钩子——能量是 ∞ 档的唯一限流器).
+        for (int i = 0; i < _groups.Carriers.Count; i++)
         {
-            carrier.Tick();
+            _groups.Carriers[i].Tick();
         }
 
-        // 4) Flow-field slice under the frame budget (design v3.2 §6 8 ms).
+        for (int i = 0; i < _groups.Belts.Count; i++)
+        {
+            _groups.Belts[i].Tick();
+        }
+
+        for (int i = 0; i < _groups.Teleporters.Count; i++)
+        {
+            SimTeleporterLane lane = _groups.Teleporters[i];
+            lane.SettleEnergy(_ledger, TicksPerSecond);
+            _ = lane.Transfer();
+        }
+
+        // (5) Flow-field slice under the frame budget (design v3.2 §6 8 ms).
         _flows.Update(_config.FlowFrameBudgetMs);
 
-        // 5) Units: wave batches materialize, then everyone walks the live
-        //    field gradient (units hold position until the first field is
-        //    ready — E1 maps complete inside one slice).
-        _units.AddRange(_spawner.Advance());
+        // (6) Unit layer. Wave batches materialize into the Units group;
+        //     shield regeneration ticks (T-066 framework); the war-drum aura
+        //     pass recomputes the aura channel (reset-then-apply, max wins);
+        //     every unit folds its three speed channels (slow + charge +
+        //     aura) into the resolved stride; everyone walks the live field
+        //     gradient (units hold position until the first field is ready —
+        //     E1 maps complete inside one slice). The hero (T-066) then
+        //     respawns on its timer and strides toward its ordered point.
+        _groups.Units.AddRange(_spawner.Advance());
         if (GetLiveField() is { IsReady: true })
         {
-            _movement.StepAll(_units);
+            for (int i = 0; i < _groups.Units.Count; i++)
+            {
+                _groups.Units[i].TickShield(tick);
+            }
+
+            _ = UnitAuras.ApplyWarDrums(_groups.Units);
+            for (int i = 0; i < _groups.Units.Count; i++)
+            {
+                _groups.Units[i].ResolveSpeedEffects(tick);
+            }
+
+            _movement.StepAll(_groups.Units);
+        }
+        else
+        {
+            // No live field yet: the framework channels still advance (the
+            // shield clock and the aura folds are position-independent).
+            for (int i = 0; i < _groups.Units.Count; i++)
+            {
+                Unit unit = _groups.Units[i];
+                unit.TickShield(tick);
+                unit.ResolveSpeedEffects(tick);
+            }
         }
 
-        // 6) Combat. T-053 DEBT ②: the supply monitor ticks first (after
-        //    logistics, before weapons — TowerSupplyMonitor contract), then
-        //    every tower's loop advances through its SuppliedWeaponFire
-        //    pacer — the wrapper is the ONLY WeaponFire.Tick caller, so the
-        //    cooldown advances at most one tick per Step (双计冷却不可能) and
-        //    the firing cadence at efficiency 1 equals the bare loop's.
-        //    Targeting is unchanged: nearest living target inside range
-        //    (strictly closer wins, list order breaks ties — deterministic),
-        //    settling through Unit.ApplyDamage → Damage.DirectInt.
-        _supplyMonitor.Tick();
-        foreach (SimTower tower in _towers)
+        foreach (Hero hero in _groups.Heroes)
         {
+            hero.Tick(tick);
+            if (hero.Alive && hero.HasOrder && !hero.ArrivedAtTarget)
+            {
+                _movement.StepOrdered(hero, hero.OrderedX!.Value, hero.OrderedY!.Value);
+            }
+        }
+
+        // (7) Combat. Delivery shadow fold first (T-067): the per-tower
+        //     monotonic stream the monitor polls absorbs magazine swaps
+        //     (in-place upgrades restart the magazine counter). T-053 DEBT ②:
+        //     the supply monitor ticks next (after logistics, before
+        //     weapons — TowerSupplyMonitor contract), then every tower's
+        //     loop advances through its SuppliedWeaponFire pacer — the
+        //     wrapper is the ONLY WeaponFire.Tick caller, so the cooldown
+        //     advances at most one tick per Step (双计冷却不可能) and the
+        //     firing cadence at efficiency 1 equals the bare loop's.
+        //     Targeting is unchanged: nearest living target inside range
+        //     (strictly closer wins, list order breaks ties — deterministic),
+        //     settling through Unit.ApplyDamage → shield → Damage.DirectInt.
+        //     Splash towers (T-065) settle per-target decay through
+        //     SplashAttack and ignite the burn bank; burn ticks land on
+        //     living units after the firing sweep. Flight twins (弹影层,
+        //     when enabled) advance and expire through the group's
+        //     index-corrected sweep.
+        for (int i = 0; i < _groups.Towers.Count; i++)
+        {
+            FoldDeliveryShadow(_groups.Towers[i].Id);
+        }
+
+        _supplyMonitor.Tick();
+        for (int ti = 0; ti < _groups.Towers.Count; ti++)
+        {
+            SimTower tower = _groups.Towers[ti];
             _pacersById[tower.Id].Tick();
             if (!tower.Weapon.ReadyToFire)
             {
@@ -471,16 +657,22 @@ public sealed class Simulation
                 continue;
             }
 
-            int damage = (int)Math.Round(shot.DamagePerShot, MidpointRounding.AwayFromZero);
-            _ = target.ApplyDamage(damage, tick);
-            _shotsLanded++;
-            if (!target.Alive)
-            {
-                _kills++;
-            }
+            SettleShot(tower, target, shot, tick);
         }
 
-        // 7) Whole-state hash + double-buffered publish.
+        SettleBurns(tick);
+
+        if (_config.ProjectileTwinsEnabled)
+        {
+            foreach (SimProjectile twin in _groups.Projectiles)
+            {
+                twin.Advance();
+            }
+
+            _ = _groups.Projectiles.RemoveWhere(static p => p.IsExpired);
+        }
+
+        // (8) Whole-state hash + double-buffered publish.
         long hash = ComputeStateHash();
         PublishSnapshot(tick, hash);
     }
@@ -505,9 +697,18 @@ public sealed class Simulation
     /// SimSnapshot's StateHash is exactly this value): world map hash,
     /// energy ledger hash, resource pool hash, per-producer/converter
     /// hashes, per-porter observable state, every unit (position bits, hp,
-    /// life flags, ticks), every building in placement order, tower weapon
-    /// state, applied-command counter and wave number. Dictionary iteration
-    /// is never hashed — every list is in a deterministic order.
+    /// shield, life flags, ticks), every building in placement order, tower
+    /// weapon state, applied-command counter and wave number. Dictionary
+    /// iteration is never hashed — every group is in a deterministic order.
+    /// <para>
+    /// T-067 golden-stability domain: components introduced with the full
+    /// orchestration (hero, projectile twins, teleporter lanes, belt lines,
+    /// sale ruins, per-unit shields) fold into the hash ONLY when they are
+    /// actually present — an E1 scenario (none of them fielded) hashes
+    /// bit-identically to the T-040 first-creation golden, while an E2
+    /// scenario's shields/lanes/twins are fully covered. Absent entities
+    /// contribute no state, so the guard is not a hash of zero counts.
+    /// </para>
     /// </summary>
     public long ComputeStateHash()
     {
@@ -517,21 +718,22 @@ public sealed class Simulation
         hash = Mix(hash, (ulong)_ledger.ComputeStateHash());
         hash = Mix(hash, (ulong)_stock.ComputeStateHash());
 
-        hash = Mix(hash, (ulong)_producers.Count);
-        foreach (Producer producer in _producers)
+        hash = Mix(hash, (ulong)_groups.Producers.Count);
+        for (int i = 0; i < _groups.Producers.Count; i++)
         {
-            hash = Mix(hash, (ulong)producer.ComputeStateHash());
+            hash = Mix(hash, (ulong)_groups.Producers[i].ComputeStateHash());
         }
 
-        hash = Mix(hash, (ulong)_converters.Count);
-        foreach (AmmoConverter converter in _converters)
+        hash = Mix(hash, (ulong)_groups.Converters.Count);
+        for (int i = 0; i < _groups.Converters.Count; i++)
         {
-            hash = Mix(hash, (ulong)converter.ComputeStateHash());
+            hash = Mix(hash, (ulong)_groups.Converters[i].ComputeStateHash());
         }
 
-        hash = Mix(hash, (ulong)_carriers.Count);
-        foreach (Carrier carrier in _carriers)
+        hash = Mix(hash, (ulong)_groups.Carriers.Count);
+        for (int i = 0; i < _groups.Carriers.Count; i++)
         {
+            Carrier carrier = _groups.Carriers[i];
             hash = Mix(hash, (ulong)carrier.Id.Value);
             hash = Mix(hash, (ulong)carrier.Phase);
             hash = Mix(hash, (uint)carrier.CargoItems);
@@ -545,9 +747,42 @@ public sealed class Simulation
             }
         }
 
-        hash = Mix(hash, (ulong)_units.Count);
-        foreach (Unit unit in _units)
+        // T-067: tier-4 belt lines (present ⇒ hashed).
+        if (_groups.Belts.Count > 0)
         {
+            hash = Mix(hash, (ulong)_groups.Belts.Count);
+            foreach (ConveyorBelt belt in _groups.Belts)
+            {
+                hash = Mix(hash, (ulong)belt.TicksAlive);
+                hash = Mix(hash, (ulong)belt.DeliveredItems);
+                hash = Mix(hash, (ulong)belt.StalledTicks);
+                hash = Mix(hash, (uint)belt.ItemsOnBelt);
+                foreach (int slot in belt.SlotSnapshot)
+                {
+                    hash = Mix(hash, (uint)slot);
+                }
+            }
+        }
+
+        // T-067: tier-6 teleporter lanes (present ⇒ hashed).
+        if (_groups.Teleporters.Count > 0)
+        {
+            hash = Mix(hash, (ulong)_groups.Teleporters.Count);
+            foreach (SimTeleporterLane lane in _groups.Teleporters)
+            {
+                hash = Mix(hash, (ulong)lane.Id.Value);
+                hash = Mix(hash, (uint)lane.Port.Available);
+                hash = Mix(hash, (ulong)lane.Link.DeliveredItems);
+                hash = Mix(hash, (uint)lane.Link.BufferedItems);
+                hash = Mix(hash, (ulong)lane.Link.EnergySpent);
+                hash = Mix(hash, (ulong)lane.Link.TransferCalls);
+            }
+        }
+
+        hash = Mix(hash, (ulong)_groups.Units.Count);
+        for (int i = 0; i < _groups.Units.Count; i++)
+        {
+            Unit unit = _groups.Units[i];
             hash = Mix(hash, (ulong)unit.Id.Value);
             foreach (char c in unit.ContentId)
             {
@@ -560,15 +795,46 @@ public sealed class Simulation
             hash = Mix(hash, (uint)unit.MaxHp);
             hash = Mix(hash, (uint)unit.Armor);
             hash = Mix(hash, BitConverter.SingleToUInt32Bits(unit.SpeedPxPerTick));
+            if (unit.Shield > 0)
+            {
+                // T-067: shield framework state (present ⇒ hashed; E1/E2
+                // content rows carry none by default, so E1 goldens are
+                // untouched).
+                hash = Mix(hash, (uint)unit.Shield);
+            }
+
             hash = Mix(hash, unit.Alive ? 1UL : 0UL);
             hash = Mix(hash, unit.ArrivedAtTarget ? 1UL : 0UL);
             hash = Mix(hash, (ulong)unit.SpawnTick);
             hash = Mix(hash, (ulong)unit.DeathTick);
         }
 
-        hash = Mix(hash, (ulong)_buildings.Count);
-        foreach (SimBuilding building in _buildings)
+        // T-067: the fielded hero (present ⇒ hashed).
+        foreach (Hero hero in _groups.Heroes)
         {
+            hash = Mix(hash, (ulong)hero.Id.Value);
+            foreach (char c in hero.ContentId)
+            {
+                hash = Mix(hash, c);
+            }
+
+            hash = Mix(hash, BitConverter.SingleToUInt32Bits(hero.X));
+            hash = Mix(hash, BitConverter.SingleToUInt32Bits(hero.Y));
+            hash = Mix(hash, (uint)hero.Hp);
+            hash = Mix(hash, (uint)hero.MaxHp);
+            hash = Mix(hash, hero.Alive ? 1UL : 0UL);
+            hash = Mix(hash, hero.ArrivedAtTarget ? 1UL : 0UL);
+            hash = Mix(hash, (ulong)hero.DeathTick);
+            hash = Mix(hash, (ulong)hero.RespawnTick);
+            hash = Mix(hash, (ulong)hero.Stance);
+            hash = Mix(hash, hero.HasOrder ? 1UL : 0UL);
+            hash = Mix(hash, (ulong)Math.Max(0L, hero.NextSkillReadyTick));
+            hash = Mix(hash, (uint)hero.WavesHeld);        }
+
+        hash = Mix(hash, (ulong)_groups.Buildings.Count);
+        for (int i = 0; i < _groups.Buildings.Count; i++)
+        {
+            SimBuilding building = _groups.Buildings[i];
             hash = Mix(hash, (ulong)building.Id.Value);
             foreach (char c in building.ContentId)
             {
@@ -582,13 +848,60 @@ public sealed class Simulation
             hash = Mix(hash, (ulong)building.Kind);
         }
 
-        hash = Mix(hash, (ulong)_towers.Count);
-        foreach (SimTower tower in _towers)
+        hash = Mix(hash, (ulong)_groups.Towers.Count);
+        for (int i = 0; i < _groups.Towers.Count; i++)
         {
+            SimTower tower = _groups.Towers[i];
             hash = Mix(hash, (ulong)tower.Id.Value);
             hash = Mix(hash, (uint)tower.Weapon.AmmoShotsRemaining);
             hash = Mix(hash, (uint)tower.Weapon.CooldownTicksRemaining);
             hash = Mix(hash, (uint)tower.Weapon.FiredCount);
+        }
+
+        // T-067: sale ruins (present ⇒ hashed) — the 残骸账 of the estate.
+        if (_estate.Ruins.Count > 0)
+        {
+            hash = Mix(hash, (ulong)_estate.Ruins.Count);
+            foreach (TowerRuin ruin in _estate.Ruins)
+            {
+                hash = Mix(hash, (ulong)ruin.RuinId.Value);
+                hash = Mix(hash, (ulong)ruin.Cell.X);
+                hash = Mix(hash, (ulong)ruin.Cell.Y);
+                foreach (char c in ruin.ContentId)
+                {
+                    hash = Mix(hash, c);
+                }
+
+                hash = Mix(hash, (ulong)ruin.Tier);
+                hash = Mix(hash, (ulong)BitConverter.DoubleToInt64Bits(ruin.OriginalCostPoints));
+                hash = Mix(hash, (ulong)BitConverter.DoubleToInt64Bits(ruin.RepairCostPoints));
+                hash = Mix(hash, (ulong)BitConverter.DoubleToInt64Bits(ruin.SellRefundPoints));
+            }
+        }
+
+        // T-067: burn DOT bank (active burns ⇒ hashed).
+        if (_burn.ActiveCount > 0)
+        {
+            hash = Mix(hash, (ulong)_burn.ActiveCount);
+            foreach (BurnState state in _burn.Active)
+            {
+                hash = Mix(hash, (ulong)state.UnitId.Value);
+                hash = Mix(hash, (ulong)BitConverter.DoubleToInt64Bits(state.DamagePerTick));
+                hash = Mix(hash, (uint)state.TicksRemaining);
+            }
+        }
+
+        // T-067: flight twins (弹影层; present ⇒ hashed).
+        if (_groups.Projectiles.Count > 0)
+        {
+            hash = Mix(hash, (ulong)_groups.Projectiles.Count);
+            foreach (SimProjectile twin in _groups.Projectiles)
+            {
+                hash = Mix(hash, (ulong)twin.Id.Value);
+                hash = Mix(hash, BitConverter.SingleToUInt32Bits(twin.X));
+                hash = Mix(hash, BitConverter.SingleToUInt32Bits(twin.Y));
+                hash = Mix(hash, (ulong)twin.AgeTicks);
+            }
         }
 
         hash = Mix(hash, (ulong)_appliedCommands);
@@ -606,7 +919,7 @@ public sealed class Simulation
     /// <summary>Looks up a bookkeeping building by id.</summary>
     public bool TryGetBuilding(EntityId id, out SimBuilding building)
     {
-        foreach (SimBuilding entry in _buildings)
+        foreach (SimBuilding entry in _groups.Buildings) // T-067: 直接列表 → 分组
         {
             if (entry.Id.Equals(id))
             {
@@ -634,7 +947,7 @@ public sealed class Simulation
     {
         foreach (SimCommandQueue.Entry entry in _queue.DequeueDue(tick))
         {
-            string? rejection = ApplyOne(entry.Command);
+            string? rejection = ApplyOne(entry.Command, tick); // T-067: tick 传入（hero-order 技能结算时点）
             if (rejection is null)
             {
                 _appliedCommands++;
@@ -653,7 +966,7 @@ public sealed class Simulation
     /// mutates nothing (full pre-validation before any subsystem call —
     /// the T-040 boundary acceptance pins this with hash equality).
     /// </summary>
-    private string? ApplyOne(SimCommand command)
+    private string? ApplyOne(SimCommand command, long tick) // T-067: +tick（hero-order 技能结算时点）
     {
         if (command.Kind != SimCommandKind.PlayerBuild)
         {
@@ -694,6 +1007,14 @@ public sealed class Simulation
                 "build-harvester" => ApplyBuildHarvester(root),
                 "build-converter" => ApplyBuildConverter(root),
                 "assign-carrier" => ApplyAssignCarrier(root),
+                // T-067 (C-12 全量编排): era-2 verbs — six-tier logistics
+                // (tiered trips / belt / teleporter), the estate lane
+                // (upgrade/sell, 残骸账) and hero orders.
+                "build-belt" => ApplyBuildBelt(root),
+                "build-teleporter" => ApplyBuildTeleporter(root),
+                "upgrade-tower" => ApplyUpgradeTower(root),
+                "sell-tower" => ApplySellTower(root),
+                "hero-order" => ApplyHeroOrder(root, tick),
                 _ => $"verb-unknown:{verb}",
             };
         }
@@ -774,10 +1095,14 @@ public sealed class Simulation
                 var weapon = new WeaponFire(id, spec, initialAmmoShots: 0);
                 // T-053 DEBT ②: demand registration (all argument validation
                 // happens here, before any sim-side list gains the tower).
+                // T-067: the polled counter is the per-tower delivery SHADOW
+                // (monotonic across magazine swaps — in-place upgrades restart
+                // the magazine's own counter; FoldDeliveryShadow keeps this
+                // stream strictly non-decreasing for the monitor contract).
                 _supplyMonitor.RegisterTower(new TowerSupplyRegistration(
                     id, placed.Cell, spec.ReloadTicks!.Value, spec.AmmoPerShot, spec.DamagePerShot,
-                    () => _magazineById.TryGetValue(id, out TowerMagazine? magazine)
-                        ? magazine.CumulativeShotsDelivered
+                    () => _towerDeliveredShadow.TryGetValue(id, out long shadow)
+                        ? shadow
                         : 0L));
                 var pacer = new SuppliedWeaponFire(weapon, _supplyMonitor, id);
                 // T-053 DEBT ①: the authoritative Supply-side magazine.
@@ -787,13 +1112,13 @@ public sealed class Simulation
 
                 // 提交段（不再抛：List.Add、新鲜自增 id 的 Dictionary.Add、
                 // 定宽 3×3 的脏区标记——CellRegion 只校验非负 extent）。
-                _towers.Add(new SimTower(id, spec, weapon, placed.Cell));
+                _groups.Towers.Add(new SimTower(id, spec, weapon, placed.Cell)); // T-067: 分组注册
                 if (magazine is not null)
                 {
                     _magazineById.Add(id, magazine);
                 }
 
-                _buildings.Add(new SimBuilding(id, spec.Id, placed.Cell, spec.Hp, 1, SimBuildingKind.Tower));
+                _groups.Buildings.Add(new SimBuilding(id, spec.Id, placed.Cell, spec.Hp, 1, SimBuildingKind.Tower)); // T-067: 分组注册
                 _pacersById.Add(id, pacer);
                 _flows.MarkDirty(new CellRegion(cell.X - 1, cell.Y - 1, 3, 3));
             }
@@ -833,8 +1158,8 @@ public sealed class Simulation
                 _world.RegisterOccupancy(id, new[] { cell });
                 _ledger.RegisterProducer(
                     new EnergyNodeId(LaborCampNodeBase + _laborCampNodes++), EnergyNodeKind.LaborCamp);
-                _buildings.Add(new SimBuilding(
-                    id, "era1:building-labor-camp", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.LaborCamp));
+                _groups.Buildings.Add(new SimBuilding(
+                    id, "era1:building-labor-camp", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.LaborCamp)); // T-067: 分组注册
             });
         if (campResult is null)
         {
@@ -883,10 +1208,10 @@ public sealed class Simulation
                 _world.RegisterOccupancy(id, new[] { cell });
                 var producer = new Producer(
                     id, resource, seats, tier: 1, _ledger, new EnergyNodeId(HarvesterNodeBase + _harvesterNodes++));
-                _producers.Add(producer);
+                _groups.Producers.Add(producer); // T-067: 分组注册
                 _producerById.Add(id, producer);
-                _buildings.Add(new SimBuilding(
-                    id, "era1:building-harvester", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.Harvester));
+                _groups.Buildings.Add(new SimBuilding(
+                    id, "era1:building-harvester", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.Harvester)); // T-067: 分组注册
             });
         if (harvesterResult is null)
         {
@@ -903,26 +1228,75 @@ public sealed class Simulation
             return "cell-missing";
         }
 
+        // T-067: optional recipe override (content-table shape, F-023) —
+        // absent payload keeps the frozen E1 arrow anchor; era-2 levels wire
+        // their ammo chains through the same verb with their own recipe
+        // rows (data via the command stream, RL7 — the engine invents no
+        // baskets).
+        AmmoConverter.AmmoRecipe recipe = AmmoConverter.E1ArrowRecipe;
+        if (root.TryGetProperty("recipe", out JsonElement recipeElement))
+        {
+            if (recipeElement.ValueKind != JsonValueKind.Object
+                || !recipeElement.TryGetProperty("inputs", out JsonElement inputsElement)
+                || inputsElement.ValueKind != JsonValueKind.Array
+                || !recipeElement.TryGetProperty("output", out JsonElement outputElement)
+                || outputElement.ValueKind != JsonValueKind.String
+                || !recipeElement.TryGetProperty("craft_ticks", out JsonElement craftElement)
+                || craftElement.ValueKind != JsonValueKind.Number
+                || !craftElement.TryGetInt32(out int craftTicks))
+            {
+                return "recipe-malformed";
+            }
+
+            var inputs = new List<AmmoConverter.AmmoRecipe.Input>(inputsElement.GetArrayLength());
+            foreach (JsonElement inputElement in inputsElement.EnumerateArray())
+            {
+                if (!inputElement.TryGetProperty("resource", out JsonElement resourceElement)
+                    || resourceElement.ValueKind != JsonValueKind.String
+                    || !inputElement.TryGetProperty("items", out JsonElement itemsElement)
+                    || itemsElement.ValueKind != JsonValueKind.Number
+                    || !itemsElement.TryGetInt32(out int items))
+                {
+                    return "recipe-input-malformed";
+                }
+
+                inputs.Add(new AmmoConverter.AmmoRecipe.Input(new ResourceKey(resourceElement.GetString()!), items));
+            }
+
+            try
+            {
+                recipe = new AmmoConverter.AmmoRecipe(
+                    inputs, new ResourceKey(outputElement.GetString()!), craftTicks);
+            }
+            catch (ArgumentException ex)
+            {
+                return $"recipe-invalid:{ex.Message}";
+            }
+        }
+
         string? violation = ValidateBuildableCell(cell);
         if (violation is not null)
         {
             return violation;
         }
 
-        // T-053 DEBT ③: compensated pay-then-place (see ApplyBuildTower).
+        // T-053 DEBT ③: compensated pay-then-place (see ApplyBuildTower). The
+        // converter (whose recipe validation is the only throwing step) is
+        // constructed BEFORE the world occupancy so a refused recipe leaves
+        // no cell leak — the consumed id skip is deterministic.
         string? converterResult = BuildCostCompensation.TryPayThenPlace(
             _stock, _costCurrency, _config.Costs?.ConverterCostPoints ?? 0.0, () =>
             {
                 var id = new EntityId(_nextBuildingId++);
-                _world.RegisterOccupancy(id, new[] { cell });
                 var converter = new AmmoConverter(
                     _clock, _ledger, new EnergyNodeId(ConverterNodeBase + _converterNodes++),
-                    AmmoConverter.E1ArrowRecipe);
-                _converters.Add(converter);
+                    recipe);
+                _world.RegisterOccupancy(id, new[] { cell });
+                _groups.Converters.Add(converter); // T-067: 分组注册
                 _converterById.Add(id, converter);
-                _buildings.Add(new SimBuilding(
+                _groups.Buildings.Add(new SimBuilding(
                     id, "era1:building-arrow-converter", cell, _config.EconomyBuildingHp, 1,
-                    SimBuildingKind.Converter));
+                    SimBuildingKind.Converter)); // T-067: 分组注册
             });
         if (converterResult is null)
         {
@@ -948,12 +1322,105 @@ public sealed class Simulation
             return "to-missing";
         }
 
+        // T-067: shared endpoint resolution with the belt/teleporter verbs.
+        if (!TryResolveCargoLane(fromValue, toValue, out ResourceKey resource, out ICargoSupplier supplier, out ICargoReceiver receiver, out string? laneRejection))
+        {
+            return laneRejection;
+        }
+
+        if (!TryGetBuilding(new EntityId(fromValue), out SimBuilding fromBuilding)
+            || !TryGetBuilding(new EntityId(toValue), out SimBuilding toBuilding))
+        {
+            return "endpoint-unknown";
+        }
+
+        // T-067: optional ladder tier of the trip (default 民夫 tier 1; cart /
+        // mine-rail / drone are the trip forms of tiers 2/3/5 — belt and
+        // teleport are separate verbs because they are not trips).
+        TransportTier tier = TransportTiers.Porter;
+        RailLine? rail = null;
+        if (root.TryGetProperty("tier", out JsonElement tierElement))
+        {
+            if (tierElement.ValueKind != JsonValueKind.String)
+            {
+                return "tier-invalid";
+            }
+
+            string tierId = tierElement.GetString()!;
+            TransportTier? resolved = TransportTiers.ById(tierId);
+            if (resolved is null)
+            {
+                return $"tier-unknown:{tierId}";
+            }
+
+            if (resolved.Form is not (TransportForm.TripGrid or TransportForm.TripRail or TransportForm.TripFlight))
+            {
+                return $"tier-not-a-trip:{tierId}";
+            }
+
+            tier = resolved;
+        }
+
+        IReadOnlyList<CellCoord> route;
+        if (tier.Form == TransportForm.TripFlight)
+        {
+            // Drone (tier 5): the direct home→destination segment (two
+            // cells, no adjacency, terrain ignored) — derived from the same
+            // endpoint pair the A* route serves.
+            route = new[] { fromBuilding.Cell, toBuilding.Cell };
+        }
+        else if (!TryRoute(fromBuilding.Cell, toBuilding.Cell, out route))
+        {
+            return "no-route";
+        }
+
+        if (tier.Form == TransportForm.TripRail)
+        {
+            // T-067: the rail line IS the walked route (its integrity rule
+            // reads the composed passability view live, so breaks degrade the
+            // speed on the spot — 断轨降级).
+            try
+            {
+                rail = new RailLine(route, _flowGrid);
+            }
+            catch (ArgumentException ex)
+            {
+                return $"rail-invalid:{ex.Message}";
+            }
+        }
+
+        var carrierId = new EntityId(_nextCarrierId++);
+        _groups.Carriers.Add(new Carrier(carrierId, resource, supplier, receiver, route, tier, rail)); // T-067: 分组注册+档位参数化
+        // T-056 (spike2-pit#6): the canonical outbound polyline — the push
+        // rule walks this when a later placement lands on a cell the porter
+        // has not passed yet (A* routes never revisit a cell, so the
+        // CurrentCell index inside the polyline is unambiguous).
+        _carrierRoutes[carrierId] = route;
+        return null;
+    }
+
+    // ------------------------------------------------ T-067: era-2 verbs --
+
+    /// <summary>
+    /// Shared endpoint resolution of the three lane verbs (assign-carrier /
+    /// build-belt / build-teleporter): the supplier side is a harvester or a
+    /// converter, the receiver side a converter hopper, a tower magazine or
+    /// the warehouse pool stand.
+    /// </summary>
+    private bool TryResolveCargoLane(
+        long fromValue,
+        long toValue,
+        out ResourceKey resource,
+        out ICargoSupplier supplier,
+        out ICargoReceiver receiver,
+        out string? rejection)
+    {
         var fromId = new EntityId(fromValue);
         var toId = new EntityId(toValue);
+        resource = null!;
+        supplier = null!;
+        receiver = null!;
 
-        // Supplier side: harvesters (raw resources) and converters (ammo).
-        ResourceKey resource;
-        ICargoSupplier supplier;
         if (_producerById.TryGetValue(fromId, out Producer? producer))
         {
             supplier = producer;
@@ -962,21 +1429,23 @@ public sealed class Simulation
         else if (_converterById.TryGetValue(fromId, out AmmoConverter? converter))
         {
             supplier = converter;
-            resource = AmmoConverter.E1ArrowRecipe.AmmoResource;
+            // T-067: the converter's OWN recipe output — build-converter may
+            // wire any era's recipe, so the lane resource follows the
+            // machine, not the frozen E1 anchor.
+            resource = converter.Recipe.AmmoResource;
         }
         else
         {
-            return $"from-not-a-supplier:{fromValue}";
+            rejection = $"from-not-a-supplier:{fromValue}";
+            return false;
         }
 
-        // Receiver side: converter hopper, tower magazine or the warehouse
-        // pool stand.
-        ICargoReceiver receiver;
         if (toValue == WarehouseEntityValue)
         {
             if (_config.WarehouseCell is null)
             {
-                return "to-warehouse-absent";
+                rejection = "to-warehouse-absent";
+                return false;
             }
 
             receiver = new StockDepositPort(_stock);
@@ -987,17 +1456,42 @@ public sealed class Simulation
         }
         else if (_magazineById.TryGetValue(toId, out TowerMagazine? magazine))
         {
-            // T-053 DEBT ①: the authoritative Supply.TowerMagazine IS the
-            // receiver — no Sim-side second adapter anymore (双适配器合并).
             receiver = magazine;
         }
         else
         {
-            return $"to-not-a-receiver:{toValue}";
+            rejection = $"to-not-a-receiver:{toValue}";
+            return false;
         }
 
-        if (!TryGetBuilding(fromId, out SimBuilding fromBuilding)
-            || !TryGetBuilding(toId, out SimBuilding toBuilding))
+        rejection = null;
+        return true;
+    }
+
+    /// <summary>build-belt (T-067, ladder tier 4): a conveyor line over the A* route between the two endpoints.</summary>
+    private string? ApplyBuildBelt(JsonElement root)
+    {
+        if (!root.TryGetProperty("from", out JsonElement fromElement)
+            || fromElement.ValueKind != JsonValueKind.Number
+            || !fromElement.TryGetInt64(out long fromValue))
+        {
+            return "from-missing";
+        }
+
+        if (!root.TryGetProperty("to", out JsonElement toElement)
+            || toElement.ValueKind != JsonValueKind.Number
+            || !toElement.TryGetInt64(out long toValue))
+        {
+            return "to-missing";
+        }
+
+        if (!TryResolveCargoLane(fromValue, toValue, out ResourceKey resource, out ICargoSupplier supplier, out ICargoReceiver receiver, out string? laneRejection))
+        {
+            return laneRejection;
+        }
+
+        if (!TryGetBuilding(new EntityId(fromValue), out SimBuilding fromBuilding)
+            || !TryGetBuilding(new EntityId(toValue), out SimBuilding toBuilding))
         {
             return "endpoint-unknown";
         }
@@ -1007,14 +1501,424 @@ public sealed class Simulation
             return "no-route";
         }
 
-        var carrierId = new EntityId(_nextCarrierId++);
-        _carriers.Add(new Carrier(carrierId, resource, supplier, receiver, route));
-        // T-056 (spike2-pit#6): the canonical outbound polyline — the push
-        // rule walks this when a later placement lands on a cell the porter
-        // has not passed yet (A* routes never revisit a cell, so the
-        // CurrentCell index inside the polyline is unambiguous).
-        _carrierRoutes[carrierId] = route;
+        try
+        {
+            _groups.Belts.Add(new ConveyorBelt(route, resource, supplier, receiver)); // T-067: 分组注册
+        }
+        catch (ArgumentException ex)
+        {
+            return $"belt-invalid:{ex.Message}";
+        }
+
         return null;
+    }
+
+    /// <summary>
+    /// build-teleporter (T-067, ladder tier 6): one instant-transfer lane
+    /// with its C-08 energy presence — the demand in points/s arrives as
+    /// level wiring data in the payload (RL7), the lane settles its bank
+    /// from the ledger satisfaction every tick.
+    /// </summary>
+    private string? ApplyBuildTeleporter(JsonElement root)
+    {
+        if (!root.TryGetProperty("from", out JsonElement fromElement)
+            || fromElement.ValueKind != JsonValueKind.Number
+            || !fromElement.TryGetInt64(out long fromValue))
+        {
+            return "from-missing";
+        }
+
+        if (!root.TryGetProperty("to", out JsonElement toElement)
+            || toElement.ValueKind != JsonValueKind.Number
+            || !toElement.TryGetInt64(out long toValue))
+        {
+            return "to-missing";
+        }
+
+        if (!root.TryGetProperty("demand_per_second", out JsonElement demandElement)
+            || demandElement.ValueKind != JsonValueKind.Number
+            || !demandElement.TryGetDouble(out double demandPerSecond))
+        {
+            return "demand-missing";
+        }
+
+        if (!double.IsFinite(demandPerSecond) || demandPerSecond < 0)
+        {
+            return "demand-invalid";
+        }
+
+        if (!TryResolveCargoLane(fromValue, toValue, out ResourceKey resource, out ICargoSupplier supplier, out ICargoReceiver receiver, out string? laneRejection))
+        {
+            return laneRejection;
+        }
+
+        var laneId = new EntityId(_nextTeleporterId++);
+        var lane = new SimTeleporterLane(
+            laneId,
+            new EnergyNodeId(SimTeleporterLane.NodeIdBase + _teleporterNodes++),
+            resource, supplier, receiver, demandPerSecond, _ledger);
+        _groups.Teleporters.Add(lane); // T-067: 分组注册
+        return null;
+    }
+
+    /// <summary>
+    /// upgrade-tower (T-067): one in-place tier step through the estate
+    /// (T-065 economics — differential charged, 50% trade-in refunded, same
+    /// id and cell). Sim-side bookkeeping rebuilds the tower's weapon loop,
+    /// pacer and magazine (升级换弹系：新弹药行从满弹匣起步，余弹随旧行退役)
+    /// and the building row (tier/hp of the successor).
+    /// </summary>
+    private string? ApplyUpgradeTower(JsonElement root)
+    {
+        if (!root.TryGetProperty("target", out JsonElement targetElement)
+            || targetElement.ValueKind != JsonValueKind.Number
+            || !targetElement.TryGetInt64(out long targetValue))
+        {
+            return "target-missing";
+        }
+
+        if (!root.TryGetProperty("to_tier", out JsonElement tierElement)
+            || tierElement.ValueKind != JsonValueKind.Number
+            || !tierElement.TryGetInt32(out int toTier))
+        {
+            return "to-tier-missing";
+        }
+
+        var towerId = new EntityId(targetValue);
+        int towerIndex = FindTowerIndex(towerId);
+        if (towerIndex < 0)
+        {
+            return $"target-not-a-sim-tower:{targetValue}";
+        }
+
+        UpgradeTowerReceipt? receipt = _estate.ApplyUpgrade(towerId, toTier, out string? refusal);
+        if (receipt is null)
+        {
+            return refusal;
+        }
+
+        TowerSpec successor = receipt.Quote.Target;
+        if (successor.ReloadTicks is not > 0)
+        {
+            // Defensive: the successor row carries no weapon cycle — the
+            // estate already mutated, so this is logged as a refusal of the
+            // sim-side rebuild. UpgradeLaw pins weapon chains, making this
+            // unreachable for lawful content.
+            return $"successor-no-weapon-cycle:{successor.Id}";
+        }
+
+        CellCoord cell = receipt.Quote.Cell;
+        var weapon = new WeaponFire(towerId, successor, initialAmmoShots: 0);
+        var pacer = new SuppliedWeaponFire(weapon, _supplyMonitor, towerId);
+        TowerMagazine? magazine = successor.AmmoItem is null
+            ? null
+            : new TowerMagazine(new ResourceKey(successor.AmmoItem), weapon);
+
+        _groups.Towers.ReplaceAt(towerIndex, new SimTower(towerId, successor, weapon, cell));
+        if (magazine is null)
+        {
+            _magazineById.Remove(towerId);
+        }
+        else
+        {
+            _magazineById[towerId] = magazine;
+        }
+
+        _pacersById[towerId] = pacer;
+        int buildingIndex = FindBuildingIndex(towerId);
+        if (buildingIndex >= 0)
+        {
+            _groups.Buildings.ReplaceAt(buildingIndex, new SimBuilding(
+                towerId, successor.Id, cell, successor.Hp, successor.Tier, SimBuildingKind.Tower));
+        }
+
+        // The tear price of the cell changed with the row's hp — the flow
+        // field must see the new registry row.
+        _flows.MarkDirty(new CellRegion(cell.X - 1, cell.Y - 1, 3, 3));
+        return null;
+    }
+
+    /// <summary>
+    /// sell-tower (T-067): full teardown through the estate (30% refund,
+    /// v3.2 §11.4) leaving the 残骸账 — the ruin row (repair bill per the
+    /// wired FailureTiers fraction) AND its grid attach: the ruin occupies
+    /// the freed cell, so the rubble blocks rebuilding until the repair
+    /// entry point of the C-13 action matrix clears it.
+    /// </summary>
+    private string? ApplySellTower(JsonElement root)
+    {
+        if (!root.TryGetProperty("target", out JsonElement targetElement)
+            || targetElement.ValueKind != JsonValueKind.Number
+            || !targetElement.TryGetInt64(out long targetValue))
+        {
+            return "target-missing";
+        }
+
+        if (!root.TryGetProperty("confirm_sell", out JsonElement confirmElement)
+            || confirmElement.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+            || !confirmElement.GetBoolean())
+        {
+            // F-014: the explicit danger bit is required and default-denied.
+            return "confirm-required";
+        }
+
+        var towerId = new EntityId(targetValue);
+        int towerIndex = FindTowerIndex(towerId);
+        if (towerIndex < 0)
+        {
+            return $"target-not-a-sim-tower:{targetValue}";
+        }
+
+        SellTowerReceipt? receipt = _estate.ApplySell(towerId, out string? refusal);
+        if (receipt is null)
+        {
+            return refusal;
+        }
+
+        // Sim-side retire (swap-remove: the swapped-in tower is visited next
+        // sweep — the group's index-corrected protocol).
+        _ = _groups.Towers.RemoveAtSwap(towerIndex);
+        _ = _pacersById.Remove(towerId);
+        _ = _magazineById.Remove(towerId);
+        int buildingIndex = FindBuildingIndex(towerId);
+        if (buildingIndex >= 0)
+        {
+            _ = _groups.Buildings.RemoveAtSwap(buildingIndex);
+        }
+
+        // 残骸账 grid attach: the ruin holds the cell.
+        _world.RegisterOccupancy(receipt.Ruin.RuinId, new[] { receipt.Ruin.Cell });
+        _flows.MarkDirty(new CellRegion(receipt.Ruin.Cell.X - 1, receipt.Ruin.Cell.Y - 1, 3, 3));
+        return null;
+    }
+
+    /// <summary>
+    /// hero-order (T-067): the three G.2 verbs onto the fielded hero —
+    /// move (ordered stride to a cell), retreat (stride home) and skill
+    /// (settle the active now; cooldown fires only on a successful cast).
+    /// </summary>
+    private string? ApplyHeroOrder(JsonElement root, long tick)
+    {
+        Hero? hero = Hero;
+        if (hero is null)
+        {
+            return "hero-absent";
+        }
+
+        if (!root.TryGetProperty("order", out JsonElement orderElement)
+            || orderElement.ValueKind != JsonValueKind.String)
+        {
+            return "order-missing";
+        }
+
+        switch (orderElement.GetString())
+        {
+            case "move":
+                if (!TryReadCell(root, out CellCoord cell))
+                {
+                    return "cell-missing";
+                }
+
+                if (!_world.Contains(cell))
+                {
+                    return "cell-out-of-bounds";
+                }
+
+                hero.OrderMove(cell, CellSizePx);
+                return null;
+
+            case "retreat":
+                hero.OrderRetreat();
+                return null;
+
+            case "skill":
+                if (!hero.Alive)
+                {
+                    return "hero-down";
+                }
+
+                // Runtime outcomes (cooldown / no targets) are legitimate
+                // applied results — the order was accepted and evaluated;
+                // only an impossible order is refused.
+                _ = hero.TryUseSkill(tick, _groups.Units, CellSizePx);
+                return null;
+
+            default:
+                return $"order-unknown:{orderElement.GetString()}";
+        }
+    }
+
+    // ------------------------------------------------ T-067: combat helpers --
+
+    /// <summary>
+    /// Folds one tower's magazine counter delta into the monotonic delivery
+    /// shadow the supply monitor polls (see the registration site in
+    /// <see cref="ApplyBuildTower"/>). A magazine swap (in-place upgrade
+    /// restarts the counter at 0) adopts the fresh counter instead of
+    /// regressing the stream.
+    /// </summary>
+    private void FoldDeliveryShadow(EntityId towerId)
+    {
+        long current = _magazineById.TryGetValue(towerId, out TowerMagazine? magazine)
+            ? magazine.CumulativeShotsDelivered
+            : 0L;
+        long last = _towerDeliveredLastSeen.TryGetValue(towerId, out long seen) ? seen : 0L;
+        if (current < last)
+        {
+            // Magazine swap: adopt the fresh counter (stream stays monotonic).
+            _towerDeliveredLastSeen[towerId] = current;
+            return;
+        }
+
+        if (current > last)
+        {
+            _towerDeliveredShadow[towerId] =
+                (_towerDeliveredShadow.TryGetValue(towerId, out long shadow) ? shadow : 0L) + (current - last);
+        }
+
+        _towerDeliveredLastSeen[towerId] = current;
+    }
+
+    /// <summary>
+    /// Settles one fired shot: single-target towers settle the rounded
+    /// per-shot damage through <see cref="Unit.ApplyDamage"/> (shield →
+    /// armor → hp, exactly once); splash towers (T-065) feed every living
+    /// candidate through <see cref="SplashAttack"/> — per-target decay
+    /// settles through ApplyDamage on the reconstructed raw damage
+    /// (<c>d × decay</c>), burn ignition happened inside the settle, and
+    /// Settle's own DamageDealt stays its no-shield accounting view.
+    /// Flight twins (弹影层) arm on every landed shot when enabled.
+    /// </summary>
+    private void SettleShot(SimTower tower, Unit target, WeaponFireEvent shot, long tick)
+    {
+        _shotsLanded++;
+        bool splash = tower.Spec.Class == TowerClass.Splash
+            || (tower.Spec.Traits?.SplashRadiusCells ?? 0) > 0;
+        if (splash)
+        {
+            float impactX = target.X;
+            float impactY = target.Y;
+            var candidates = new List<SplashCandidate>(_groups.Units.Count);
+            var byId = new Dictionary<EntityId, Unit>(_groups.Units.Count);
+            foreach (Unit unit in _groups.Units)
+            {
+                if (!unit.Alive)
+                {
+                    continue;
+                }
+
+                float dx = unit.X - impactX;
+                float dy = unit.Y - impactY;
+                candidates.Add(new SplashCandidate(unit, Math.Sqrt((dx * dx) + (dy * dy)) / CellSizePx));
+                byId[unit.Id] = unit;
+            }
+
+            foreach (SplashHit hit in SplashAttack.Settle(tower.Spec, candidates, _burn))
+            {
+                if (!byId.TryGetValue(hit.TargetId, out Unit? struck) || !struck.Alive)
+                {
+                    continue;
+                }
+
+                int raw = (int)Math.Round(tower.Spec.DamagePerShot * hit.Decay, MidpointRounding.AwayFromZero);
+                _ = struck.ApplyDamage(raw, tick);
+                if (!struck.Alive)
+                {
+                    _kills++;
+                }
+            }
+        }
+        else
+        {
+            int damage = (int)Math.Round(shot.DamagePerShot, MidpointRounding.AwayFromZero);
+            _ = target.ApplyDamage(damage, tick);
+            if (!target.Alive)
+            {
+                _kills++;
+            }
+        }
+
+        if (_config.ProjectileTwinsEnabled)
+        {
+            _groups.Projectiles.Add(new SimProjectile(
+                new EntityId(_nextProjectileId++),
+                tower.Id,
+                (tower.Cell.X * CellSizePx) + (CellSizePx / 2f),
+                (tower.Cell.Y * CellSizePx) + (CellSizePx / 2f),
+                target.X,
+                target.Y,
+                (int)Math.Round(shot.DamagePerShot, MidpointRounding.AwayFromZero),
+                ProjectileTwinSpeedPxPerTick,
+                ProjectileTwinLifetimeTicks));
+        }
+    }
+
+    /// <summary>
+    /// One burn DOT pass (T-065 bank, T-067 wiring): every banked tick lands
+    /// on its living unit through <see cref="Unit.ApplyDamage"/> (the 10%
+    /// armor floor keeps 1-point ticks meaningful against armor).
+    /// </summary>
+    private void SettleBurns(long tick)
+    {
+        if (_burn.ActiveCount == 0)
+        {
+            return;
+        }
+
+        foreach (BurnTick burnTick in _burn.Tick())
+        {
+            if (!TryGetUnit(burnTick.UnitId, out Unit? unit) || !unit.Alive)
+            {
+                continue;
+            }
+
+            _ = unit.ApplyDamage(burnTick.Damage, tick);
+            if (!unit.Alive)
+            {
+                _kills++;
+            }
+        }
+    }
+
+    private bool TryGetUnit(EntityId id, out Unit unit)
+    {
+        foreach (Unit candidate in _groups.Units)
+        {
+            if (candidate.Id.Equals(id))
+            {
+                unit = candidate;
+                return true;
+            }
+        }
+
+        unit = null!;
+        return false;
+    }
+
+    private int FindTowerIndex(EntityId towerId)
+    {
+        for (int i = 0; i < _groups.Towers.Count; i++)
+        {
+            if (_groups.Towers[i].Id.Equals(towerId))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private int FindBuildingIndex(EntityId buildingId)
+    {
+        for (int i = 0; i < _groups.Buildings.Count; i++)
+        {
+            if (_groups.Buildings[i].Id.Equals(buildingId))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private string? ValidateBuildableCell(CellCoord cell)
@@ -1040,7 +1944,7 @@ public sealed class Simulation
         // or a servicing porter on the cell refuses the placement with the
         // SAME code the SimulationActionView preview layer produces (the
         // rule body is shared; the codes cannot drift apart).
-        return BuildOccupancyRule.UnitLayerRejection(cell, _units, _carriers);
+        return BuildOccupancyRule.UnitLayerRejection(cell, _groups.Units, _groups.Carriers); // T-067: 分组视图
     }
 
     /// <summary>
@@ -1059,7 +1963,7 @@ public sealed class Simulation
     {
         _routeCache.Invalidate(cell);
         int pushed = 0;
-        foreach (Carrier carrier in _carriers)
+        foreach (Carrier carrier in _groups.Carriers) // T-067: 分组视图
         {
             if (carrier.Phase != CarrierPhase.Outbound
                 || !_carrierRoutes.TryGetValue(carrier.Id, out IReadOnlyList<CellCoord>? route))
@@ -1223,8 +2127,9 @@ public sealed class Simulation
         float centreY = (tower.Cell.Y * CellSizePx) + (CellSizePx / 2f);
         Unit? best = null;
         float bestDistance = rangeSquared;
-        foreach (Unit unit in _units)
+        for (int ui = 0; ui < _groups.Units.Count; ui++) // T-067: 分组视图（索引化热路径）
         {
+            Unit unit = _groups.Units[ui];
             if (!unit.Alive)
             {
                 continue;
@@ -1246,10 +2151,11 @@ public sealed class Simulation
 
     private void PublishSnapshot(long tick, long hash)
     {
-        var unitViews = new SimUnitView[_units.Count];
+        var unitViews = new SimUnitView[_groups.Units.Count]; // T-067: 分组视图
         int liveCount = 0;
-        foreach (Unit unit in _units)
+        for (int i = 0; i < _groups.Units.Count; i++)
         {
+            Unit unit = _groups.Units[i];
             if (!unit.Alive)
             {
                 continue;
@@ -1262,10 +2168,10 @@ public sealed class Simulation
 
         Array.Resize(ref unitViews, liveCount);
 
-        var buildingViews = new SimBuildingView[_buildings.Count];
-        for (int i = 0; i < _buildings.Count; i++)
+        var buildingViews = new SimBuildingView[_groups.Buildings.Count]; // T-067: 分组视图
+        for (int i = 0; i < _groups.Buildings.Count; i++)
         {
-            SimBuilding building = _buildings[i];
+            SimBuilding building = _groups.Buildings[i];
             buildingViews[i] = new SimBuildingView(
                 building.Id, building.ContentId, building.Cell, building.Hp, building.Hp, building.Tier);
         }
