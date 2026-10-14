@@ -138,4 +138,20 @@ public class IHttpPortContractTests
         Assert.False(new HttpPortResponse(302, string.Empty, null).IsSuccess);
         Assert.False(new HttpPortResponse(500, "oops", null).IsSuccess);
     }
+
+    [Fact]
+    public async Task Port_send_surfaces_transport_failure_as_exception()
+    {
+        // illegal: 传输层异常（拒连类）原样上抛给网关分类
+        using var port = new HttpClientLlmPort(new ThrowingHandler());
+        await Assert.ThrowsAsync<HttpRequestException>(
+            () => port.SendAsync(Request()));
+    }
+
+    private sealed class ThrowingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new HttpRequestException("connection refused (synthetic)");
+    }
 }
