@@ -1,3 +1,4 @@
+using EraCore.Agent.Governance;
 using EraCore.Agent.Pipeline;
 using EraCore.Contracts.Agent;
 using EraCore.Presentation;
@@ -12,6 +13,13 @@ namespace EraTD;
 // All decisions about state live in EraCore.Presentation.PanelStateMachine —
 // this node only mirrors state into visibility/styles (CS-1.6: presentation
 // holds no business rules).
+//
+// T-075 (C-22 full): the third HUD metric regains its full口径 (wave
+// composition + next-wave preview, WaveComposition), the advisor avatar
+// carries the three-tier trust badge (TrustBadgeTracker, §11.4), the
+// defense-line alarm renders through OffModeDowngrade in BOTH switch
+// positions (§10.7 警报不缺失), and the off-switch position persists across
+// runs (PanelSettingsStore, F-097).
 
 /// <summary>
 /// The C-22 panel control. Input path: LineEdit.TextSubmitted (Enter) and
@@ -44,11 +52,16 @@ public sealed partial class SystemPanel : Control
 
     private PanelStateMachine _machine = new();
     private SimHost _host = null!;
+    private TrustBadgeTracker _trustTracker = new(TrustBadge.Trustworthy); // era reset = score 50
+    private bool _alarmAnnounced;
 
     private PanelContainer _hudBar = null!;
     private Label _waveField = null!;
     private Label _rateField = null!;
     private Label _integrityField = null!;
+    private Label _compField = null!;
+    private Label _nextWaveField = null!;
+    private Label _alarmField = null!;
     private Button _reenableButton = null!;
 
     private Button _bubble = null!;
@@ -58,6 +71,8 @@ public sealed partial class SystemPanel : Control
     private CheckBox _offSwitch = null!;
     private Label _reportText = null!;
     private TextureRect _avatar = null!;
+    private Label _trustMark = null!;
+    private Label _trustLabel = null!;
 
     private PanelContainer _planCard = null!;
     private Label _planOrder = null!;
@@ -83,10 +98,34 @@ public sealed partial class SystemPanel : Control
     /// <summary>Order input box node (smoke drives its signal directly).</summary>
     internal LineEdit OrderInput => _orderInput;
 
+    /// <summary>Current wave-composition line of the third HUD metric (smoke probe).</summary>
+    internal string CompText => _compField.Text;
+
+    /// <summary>Current next-wave preview line (smoke probe).</summary>
+    internal string NextWaveText => _nextWaveField.Text;
+
+    /// <summary>Full tier label of the trust badge, e.g. 可托付 (smoke probe; tier only, never the raw score).</summary>
+    internal string BadgeLabelText => TrustBadgeLabels.Label(_trustTracker.Current);
+
+    /// <summary>Trust corner mark visible right now (false while the system is off).</summary>
+    internal bool BadgeMarkVisible => _trustMark is { Visible: true };
+
+    /// <summary>Defense alarm line when firing, empty otherwise (smoke probe).</summary>
+    internal string AlarmText => _alarmField.Visible ? _alarmField.Text : string.Empty;
+
     /// <summary>Binds the real sim + pipeline host (must precede any order).</summary>
     internal void Bind(SimHost host)
     {
         _host = host;
+
+        // F-097: the remembered switch position restores on startup (a UI
+        // preference must never block startup — corrupt files already fell
+        // back to the factory default inside the store).
+        if (!PanelSettingsStore.Load(host.Store).SystemEnabled)
+        {
+            SetSystemEnabled(false);
+        }
+
         RefreshHud(host.BuildHudSnapshot());
     }
 
@@ -100,6 +139,7 @@ public sealed partial class SystemPanel : Control
         BuildPlanCard();
         Layout();
         ApplyState();
+        UpdateBadgeUi();
         RefreshHud(new HudSnapshot(0, 0d, 1d, 0));
     }
 
@@ -134,12 +174,25 @@ public sealed partial class SystemPanel : Control
         _waveField = MetricLabel("波次 W00");
         _rateField = MetricLabel("产出 0.0/s");
         _integrityField = MetricLabel("防线 100%");
+        _compField = MetricLabel("构成 —");
+        _nextWaveField = MetricLabel("下波 —");
+        _alarmField = new Label
+        {
+            Text = string.Empty,
+            Visible = false,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _alarmField.AddThemeFontSizeOverride("font_size", 12);
+        _alarmField.AddThemeColorOverride("font_color", HoloSkin.RiskRed); // §10.3 crisis = red display
         _reenableButton = new Button { Text = "开启系统", Visible = false };
         _reenableButton.Pressed += OnReenablePressed;
 
         row.AddChild(_waveField);
         row.AddChild(_rateField);
         row.AddChild(_integrityField);
+        row.AddChild(_compField);
+        row.AddChild(_nextWaveField);
+        row.AddChild(_alarmField);
         row.AddChild(_reenableButton);
         _hudBar.AddChild(row);
         AddChild(_hudBar);
@@ -238,6 +291,27 @@ public sealed partial class SystemPanel : Control
             StretchMode = TextureRect.StretchModeEnum.Scale,
             MouseFilter = MouseFilterEnum.Ignore,
         };
+
+        // §11.4 三档徽记: the one-glyph corner mark rides the avatar's top
+        // right corner (疑/托/从); the full tier label sits next to it. The
+        // raw score is never shown.
+        _trustMark = new Label
+        {
+            Text = TrustBadgeLabels.Mark(TrustBadge.Trustworthy),
+            Position = new Vector2(7f, -2f),
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _trustMark.AddThemeFontSizeOverride("font_size", 9);
+        _avatar.AddChild(_trustMark);
+
+        _trustLabel = new Label
+        {
+            Text = "信任·可托付",
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _trustLabel.AddThemeFontSizeOverride("font_size", 10);
+        _trustLabel.AddThemeColorOverride("font_color", new Color(HoloSkin.TextDimCyan, 0.75f));
+
         _reportText = new Label
         {
             Text = "军师待命。下单后我会先出方案卡，你确认再动手。",
@@ -248,6 +322,7 @@ public sealed partial class SystemPanel : Control
         _reportText.AddThemeFontSizeOverride("font_size", 11);
         _reportText.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
         reportRow.AddChild(_avatar);
+        reportRow.AddChild(_trustLabel);
         reportRow.AddChild(_reportText);
 
         body.AddChild(titleRow);
@@ -297,9 +372,17 @@ public sealed partial class SystemPanel : Control
 
     private void ApplyState()
     {
-        _bubble.Visible = _machine.State == PanelState.Bubble;
-        _expandedPanel.Visible = _machine.OrderBoxVisible;
-        if (!_machine.PanelVisible)
+        // T-075: OffModeDowngrade.Surfaces is the single frozen matrix the
+        // panel mirrors (开关×表面); PanelStateMachine keeps the visibility
+        // STATE (bubble/expanded memory), this matrix decides what the
+        // off-position degrades (§10.7 人格元素全隐+三指标中性横幅).
+        OffModeSurfaces surfaces = OffModeDowngrade.Surfaces(_machine.SystemEnabled);
+
+        _bubble.Visible = _machine.State == PanelState.Bubble;        // persona surface
+        _expandedPanel.Visible = _machine.OrderBoxVisible;            // order box + wheel + report
+        _trustMark.Visible = surfaces.TrustBadgeVisible;
+        _trustLabel.Visible = surfaces.TrustBadgeVisible;
+        if (!surfaces.PlanCardVisible && _planCard.Visible)
         {
             _planCard.Hide();
             _pendingId = -1;
@@ -308,19 +391,30 @@ public sealed partial class SystemPanel : Control
         // HUD stays in both modes; the skin swaps holo ↔ neutral banner
         // (§10.7: metrics survive the off-switch, functionality lossless).
         _hudBar.AddThemeStyleboxOverride(
-            "panel", _machine.HudNeutral ? HoloSkin.BuildNeutralBox() : HoloSkin.BuildHoloBox());
-        _reenableButton.Visible = _machine.HudNeutral;
-        Color metricColor = _machine.HudNeutral ? Colors.White : HoloSkin.TextDimCyan;
+            "panel", surfaces.HudNeutral ? HoloSkin.BuildNeutralBox() : HoloSkin.BuildHoloBox());
+        _reenableButton.Visible = surfaces.HudNeutral;
+        Color metricColor = surfaces.HudNeutral ? Colors.White : HoloSkin.TextDimCyan;
         _waveField.AddThemeColorOverride("font_color", metricColor);
         _rateField.AddThemeColorOverride("font_color", metricColor);
         _integrityField.AddThemeColorOverride("font_color", metricColor);
+        _compField.AddThemeColorOverride("font_color", metricColor);
+        _nextWaveField.AddThemeColorOverride("font_color", metricColor);
     }
 
-    /// <summary>Drives the off-switch (setting item) through the tested machine.</summary>
+    /// <summary>
+    /// Drives the off-switch (setting item) through the tested machine and
+    /// persists the position (F-097 开关持久化 — survives restarts; only
+    /// written once a host is bound, pure UI state before that).
+    /// </summary>
     internal void SetSystemEnabled(bool enabled)
     {
         _machine.SetSystemEnabled(enabled);
         _offSwitch.SetPressedNoSignal(!enabled);
+        if (_host is not null)
+        {
+            PanelSettingsStore.Save(_host.Store, new PanelSettings { SystemEnabled = enabled });
+        }
+
         ApplyState();
     }
 
@@ -467,18 +561,95 @@ public sealed partial class SystemPanel : Control
 
     // ---- HUD ---------------------------------------------------------------
 
-    /// <summary>Renders the three metrics (mono-padded digit fields from EraCore.Presentation.HudMetrics).</summary>
+    /// <summary>
+    /// Renders the three metrics (mono-padded digit fields from EraCore.Presentation.HudMetrics)
+    /// and the defense-line alarm decision: below the §10.3 warning line the
+    /// alarm fires in BOTH switch positions (T-075 警报不缺失) — red HUD field
+    /// always, plus the advisor bubble line on the rising edge while the
+    /// system is on (OffModeDowngrade owns the decision, tested there).
+    /// </summary>
     internal void RefreshHud(HudSnapshot snapshot)
     {
         _waveField.Text = $"波次 {HudMetrics.FormatWave(snapshot.Wave)}";
         _rateField.Text = $"产出 {HudMetrics.FormatProduction(snapshot.ProductionPerSecond)}";
         _integrityField.Text =
             $"防线 {HudMetrics.FormatIntegrity(snapshot.DefenseIntegrity)}({snapshot.TowerCount}塔)";
+
+        DefenseAlarmView alarm = OffModeDowngrade.DefenseAlarmAt(
+            _machine.SystemEnabled, snapshot.DefenseIntegrity);
+        _alarmField.Visible = alarm.Fires;
+        _alarmField.Text = alarm.Text;
+        if (alarm.Fires)
+        {
+            if (!_alarmAnnounced && alarm.Channel == AlarmChannel.PersonaBubble)
+            {
+                _reportText.Text = alarm.Text; // F-105 persona line, rising edge only
+                _bubble.Text = $"◈ 系统·{alarm.Text}";
+            }
+
+            _alarmAnnounced = true;
+        }
+        else
+        {
+            _alarmAnnounced = false;
+        }
+    }
+
+    /// <summary>
+    /// Renders the FULL third metric (T-075, F-111 全口径): current-wave
+    /// composition (类型×数量×甲) plus the read-only next-wave preview digest.
+    /// </summary>
+    /// <param name="view">Aggregated view from <see cref="SimHost.BuildWaveCompositionView"/>.</param>
+    /// <param name="nameOf">Content-id → display-name lookup (content catalog).</param>
+    internal void RefreshComposition(WaveCompositionView view, Func<string, string> nameOf)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(nameOf);
+        _compField.Text = $"构成 {WaveComposition.FormatSummary(view.CurrentWave, nameOf)}";
+        _nextWaveField.Text =
+            $"下波{HudMetrics.FormatWave(view.NextWave)} {WaveComposition.FormatDigest(view.NextWavePreview)}";
+    }
+
+    /// <summary>
+    /// Feeds the live trust score into the badge tracker (T-075, §11.4):
+    /// silent while the tier holds; a crossing swaps the corner mark/label
+    /// and, while the system is on, speaks the tier-change self-deprecating
+    /// line through the advisor channel (L1 template — never a model call).
+    /// </summary>
+    /// <returns>The observed transition, or null when the tier held.</returns>
+    internal TrustBadgeChange? ObserveTrustScore(int score)
+    {
+        TrustBadgeChange? change = _trustTracker.Observe(score);
+        if (change is not null && _machine.SystemEnabled)
+        {
+            _reportText.Text = change.Line;
+            _bubble.Text = $"◈ 系统·{change.Line}";
+        }
+
+        UpdateBadgeUi();
+        return change;
+    }
+
+    /// <summary>Mirrors the tracker tier into the corner mark + label (three states, no raw score).</summary>
+    private void UpdateBadgeUi()
+    {
+        TrustBadge tier = _trustTracker.Current;
+        _trustMark.Text = TrustBadgeLabels.Mark(tier);
+        _trustMark.AddThemeColorOverride("font_color", tier switch
+        {
+            TrustBadge.Skeptical => HoloSkin.NeutralEdge,   // 疑 = dim slate
+            TrustBadge.Trustworthy => HoloSkin.EdgeCyan,    // 托 = panel cyan
+            _ => new Color(1.00f, 0.84f, 0.40f),            // 从 = warm gold
+        });
+        _trustLabel.Text = $"信任·{TrustBadgeLabels.Label(tier)}";
     }
 
     /// <summary>One-line HUD text for the smoke log (smoke probe).</summary>
-    internal string HudText() =>
-        $"{_waveField.Text} {_rateField.Text} {_integrityField.Text}";
+    internal string HudText()
+    {
+        string alarm = _alarmField.Visible ? $" {_alarmField.Text}" : string.Empty;
+        return $"{_waveField.Text} {_rateField.Text} {_integrityField.Text} {_compField.Text} {_nextWaveField.Text}{alarm}";
+    }
 
     // ---- entrance animation (§13.4 中线展开 3 帧 + 扫描光带) -----------------
 

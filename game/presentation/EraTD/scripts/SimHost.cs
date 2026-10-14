@@ -1,4 +1,5 @@
 using System.Text;
+using EraCore.Agent.Governance;
 using EraCore.Agent.Grammar;
 using EraCore.Agent.Pipeline;
 using EraCore.Combat;
@@ -65,6 +66,23 @@ internal sealed class SimHost
 
     internal IFramebufferProvider Framebuffer { get; }
 
+    /// <summary>
+    /// D-03 store the panel settings persist through (T-075, F-097 关闭系统
+    /// 开关跨运行记忆) — the same dev root the war report lands in.
+    /// </summary>
+    internal IFileStore Store { get; }
+
+    /// <summary>
+    /// The live trust model the badge tier follows (T-075, F-111/§11.4).
+    /// Nothing in the E1 panel mutates it yet — alarm/advice outcomes wire in
+    /// their own tasks; the presenter only reads <see cref="TrustModel.Score"/>.
+    /// </summary>
+    internal TrustModel Trust { get; } = new();
+
+    private readonly EnemySpecCatalog _enemies;
+    private readonly WaveSpawnConfig _waveConfig;
+    private readonly WaveSpawner _previewSpawner;
+
     /// <exception cref="InvalidOperationException">Repo content directory not found (dev runs only).</exception>
     internal SimHost()
     {
@@ -73,11 +91,19 @@ internal sealed class SimHost
         string grammarDir = FindContentDir(
             System.IO.Path.Combine("game", "content", "grammar"), "game/content/grammar");
 
+        _enemies = EnemySpecCatalog.Parse(ReadFile(era1Dir, "enemies.json"));
+        _waveConfig = BuildWaveConfig();
+        // Read-only projection spawner for the next-wave preview (T-075):
+        // PlanWave/WaveStartTick are pure schedule math and never consume the
+        // rng or clock, so a private instance cannot perturb live determinism.
+        _previewSpawner = new WaveSpawner(_enemies, _waveConfig, new SplitMix64Rng(Seed), new FixedTickClock());
+
         SimulationConfig config = BuildConfig(era1Dir);
 
         Simulation = new Simulation(config, new SplitMix64Rng(Seed), Seed);
 
         var store = new DevFileStore();
+        Store = store;
         JournalPath = System.IO.Path.Combine(
             store.Root, "reports", "t055-panel-war-report.jsonl");
         var journal = new JsonlJournalWriter(JournalPath);
@@ -140,6 +166,42 @@ internal sealed class SimHost
         return HudMetrics.Compute(Simulation.CurrentWave, production, towerHealths);
     }
 
+    /// <summary>
+    /// Extracts the FULL third HUD metric (T-075, F-111 全口径 — DEBT v1.5 F8
+    /// 清账): current-wave composition aggregated from the live snapshot's
+    /// enemy units, plus the next-wave preview projected read-only from the
+    /// wave schedule. Pure extraction — grouping/ordering/formatting decisions
+    /// live in <see cref="EraCore.Presentation.WaveComposition"/> (tested).
+    /// Preview ordinal rule (frozen): current wave + 1, clamped up to 1 for
+    /// the pre-first-wave build phase.
+    /// </summary>
+    internal WaveCompositionView BuildWaveCompositionView()
+    {
+        int currentWave = Simulation.CurrentWave;
+        System.Collections.Generic.IReadOnlyList<IUnit> units =
+            Simulation.Snapshots.Latest?.Units ?? Array.Empty<IUnit>();
+        var enemies = units
+            .Where(unit => _enemies.TryGet(unit.ContentId, out _))
+            .Select(unit => (unit.ContentId, unit.Armor));
+        IReadOnlyList<WaveCompositionRow> current = WaveComposition.Aggregate(enemies);
+
+        int previewWave = Math.Max(1, currentWave + 1);
+        WavePlan plan = _previewSpawner.PlanWave(
+            previewWave, _previewSpawner.WaveStartTick(previewWave));
+        IReadOnlyList<WaveCompositionRow> preview = WaveComposition.Preview(
+            _waveConfig.RegularRoster,
+            plan.RegularCount,
+            _waveConfig.EliteLineEnabled ? _waveConfig.EliteEnemyId : null,
+            plan.EliteCount,
+            plan.HasBoss ? _waveConfig.BossEnemyId : null,
+            id => _enemies.Get(id).Armor);
+        return new WaveCompositionView(currentWave, current, previewWave, preview);
+    }
+
+    /// <summary>Chinese display name of an enemy content id (falls back to the id).</summary>
+    internal string NameOfEnemy(string id) =>
+        _enemies.TryGet(id, out EnemySpec? spec) ? spec.NameZh : id;
+
     /// <summary>War-report digest for the smoke line (report bubble evidence).</summary>
     internal string JournalDigest()
     {
@@ -164,10 +226,9 @@ internal sealed class SimHost
         return $"jsonl_lines={lines} path={JournalPath}";
     }
 
-    private static SimulationConfig BuildConfig(string era1Dir)
+    private SimulationConfig BuildConfig(string era1Dir)
     {
         var towers = TowerSpec.LoadCollection(ReadFile(era1Dir, "towers.json"));
-        var enemies = EnemySpecCatalog.Parse(ReadFile(era1Dir, "enemies.json"));
 
         // Frozen T-040 E1 anchors (SimE1Fixture.Config): 16×24 waterless
         // map, one attack lane, top-edge entries, base on the bottom edge,
@@ -185,19 +246,26 @@ internal sealed class SimHost
                 new CellCoord(8, 0), new CellCoord(6, 0), new CellCoord(10, 0), new CellCoord(2, 1),
             },
             TowerCatalog: towers,
-            Enemies: enemies,
-            Waves: new EraCore.Units.WaveSpawnConfig(
-                BaseCount: 10, BeginWave: 5, Spacing: 5, Scaling: 2.0, ThreatLevel: 1.2,
-                RegularRoster: new[] { "era1:enemy-beastling", "era1:enemy-hunter", "era1:enemy-tribesman" },
-                BatchesPerWave: 4,
-                EntryCells: new[]
-                {
-                    new CellCoord(8, 0), new CellCoord(6, 0), new CellCoord(10, 0), new CellCoord(2, 1),
-                }),
+            Enemies: _enemies,
+            Waves: _waveConfig,
             InitialStock: new List<KeyValuePair<ResourceKey, double>> { new(Wood, 200.0) },
             WarehouseCell: WarehouseCell,
             Costs: new BuildCostPolicy(Wood));
     }
+
+    /// <summary>
+    /// The E1 wave schedule (T-040 anchors) as one shared value: the live
+    /// simulation and the T-075 next-wave projection spawner both consume it,
+    /// so the HUD preview can never drift from what will actually spawn.
+    /// </summary>
+    private static WaveSpawnConfig BuildWaveConfig() => new(
+        BaseCount: 10, BeginWave: 5, Spacing: 5, Scaling: 2.0, ThreatLevel: 1.2,
+        RegularRoster: new[] { "era1:enemy-beastling", "era1:enemy-hunter", "era1:enemy-tribesman" },
+        BatchesPerWave: 4,
+        EntryCells: new[]
+        {
+            new CellCoord(8, 0), new CellCoord(6, 0), new CellCoord(10, 0), new CellCoord(2, 1),
+        });
 
     /// <summary>The canonical T-040 milestone command stream (SimE1Fixture.MilestoneCommands anchors).</summary>
     private static IReadOnlyList<SimCommand> MilestoneCommands() => new[]
@@ -253,6 +321,18 @@ internal sealed class SimHost
 
         throw new InvalidOperationException(
             $"content directory {label} not found above the executable (dev runs need the repo checkout)");
+    }
+
+    /// <summary>
+    /// Frozen-tick clock for the projection spawner (T-075): PlanWave and
+    /// WaveStartTick never read the clock, so a constant 0 keeps the preview
+    /// instance pure while satisfying the WaveSpawner constructor contract.
+    /// </summary>
+    private sealed class FixedTickClock : IClock
+    {
+        public long Tick => 0;
+
+        public long NowMs => 0;
     }
 
     /// <summary>

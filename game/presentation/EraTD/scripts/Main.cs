@@ -108,6 +108,9 @@ public sealed partial class Main : Control
             if (frame % HudRefreshFrames == 0)
             {
                 _panel.RefreshHud(_host.BuildHudSnapshot()); // real metrics (F-111)
+                _panel.RefreshComposition( // T-075: full third metric (F-111 全口径)
+                    _host.BuildWaveCompositionView(), _host.NameOfEnemy);
+                _panel.ObserveTrustScore(_host.Trust.Score); // badge tier follows the live model (§11.4)
             }
 
             UpdateDebugLabel(fit);
@@ -185,14 +188,46 @@ public sealed partial class Main : Control
             $"confirm={confirmed} towers={towersBefore}->{towersAfter} hud=\"{hud}\" " +
             $"report=\"{report}\"");
 
+        // T-075: trust tier crossing through the LIVE model (F-111/§11.4) —
+        // advice outcomes carry no per-wave cap (false alarms do, so they
+        // cannot drive a crossing inside one wave): one lost advice stays
+        // inside 可托付 (50→47), four land in 将信将疑 (38), one held climbs
+        // back (41). Each ObserveTrustScore speaks only on a real crossing.
+        _host.Trust.RecordAdviceOutcome(held: false);
+        TrustBadgeChange? sameTier = _panel.ObserveTrustScore(_host.Trust.Score); // 47 — tier holds
+        _host.Trust.RecordAdviceOutcome(held: false);
+        _host.Trust.RecordAdviceOutcome(held: false);
+        _host.Trust.RecordAdviceOutcome(held: false);
+        TrustBadgeChange? tierDown = _panel.ObserveTrustScore(_host.Trust.Score); // 38 → 将信将疑
+        _host.Trust.RecordAdviceOutcome(held: true);
+        TrustBadgeChange? tierUp = _panel.ObserveTrustScore(_host.Trust.Score); // 41 → 可托付
+        GD.Print(
+            $"PANEL_V2 comp=on badge={_panel.BadgeLabelText} next_wave=\"{_panel.NextWaveText}\" " +
+            $"comp_text=\"{_panel.CompText}\" same_tier_silent={sameTier is null} " +
+            $"tier_change_down=\"{tierDown?.Line ?? "none"}\" tier_change_up=\"{tierUp?.Line ?? "none"}\"");
+
         // Off-switch (pillar 4): input/wheel/panel hidden, HUD kept neutral.
         _panel.SetSystemEnabled(false);
         bool inputHidden = !_panel.OrderInput.IsVisibleInTree();
         bool metricsKept = _panel.HudText().Length > 0 && _panel.Machine.HudNeutral;
+
+        // Off-mode full-downgrade probe (T-075): the badge is a persona
+        // element and hides; a below-line integrity reading proves the
+        // alarm still fires through the NEUTRAL channel (警报不缺失, §10.7).
+        bool badgeHidden = !_panel.BadgeMarkVisible;
+        HudSnapshot realSnapshot = _host.BuildHudSnapshot();
+        _panel.RefreshHud(new HudSnapshot(
+            realSnapshot.Wave, realSnapshot.ProductionPerSecond, 0.35d, realSnapshot.TowerCount));
+        bool alarmFires = _panel.AlarmText.Length > 0;
+        string neutralAlarm = _panel.AlarmText;
         GD.Print(
             $"PANEL_OK mode=off state={_panel.Machine.State} " +
             $"input_hidden={inputHidden} panel_hidden={ !_panel.Machine.PanelVisible} " +
             $"hud_neutral_banner=\"{_panel.HudText()}\" metrics_kept={metricsKept}");
+        GD.Print(
+            $"PANEL_V2 comp=off badge={_panel.BadgeLabelText} badge_hidden={badgeHidden} " +
+            $"next_wave=\"{_panel.NextWaveText}\" alarm_fires={alarmFires} alarm=\"{neutralAlarm}\"");
+        _panel.RefreshHud(realSnapshot); // restore the true reading
 
         if (!cardShown || confirmed != PipelineOutcomeKind.Completed || towersAfter <= towersBefore)
         {
@@ -206,8 +241,28 @@ public sealed partial class Main : Control
             GetTree().Quit(1);
         }
 
-        // Switch back on — the remembered state (Expanded) must return.
+        if (sameTier is not null || tierDown is null || tierUp is null)
+        {
+            GD.PushError("trust badge broken: tier crossings did not fire exactly on the boundaries");
+            GetTree().Quit(1);
+        }
+
+        if (!badgeHidden || !alarmFires)
+        {
+            GD.PushError("off-mode downgrade broken: badge visible or neutral alarm missing");
+            GetTree().Quit(1);
+        }
+
+        // Switch back on — the remembered state (Expanded) must return, and
+        // the persisted position must read enabled again (F-097 开关持久化).
         _panel.SetSystemEnabled(true);
+        bool persistedEnabled = PanelSettingsStore.Load(_host.Store).SystemEnabled;
+        GD.Print($"PANEL_V2 settings_persisted={persistedEnabled} path={PanelSettingsStore.RelativePath}");
+        if (!persistedEnabled)
+        {
+            GD.PushError("panel settings store broken: re-enable did not persist");
+            GetTree().Quit(1);
+        }
     }
 
     private void UpdateDebugLabel(in ViewportFit fit) =>
