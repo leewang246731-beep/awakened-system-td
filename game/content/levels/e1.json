@@ -1,0 +1,366 @@
+{
+  "$schema": "urn:eratd:content:levels:1",
+  "content_type": "Level",
+  "era": "era1:era-ancient",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）。本文件=T-085 E1 手工关卡集首批 4 关（F-055）：手工关=固定 seed+布局参数（非随机重掷），每关=地图参数+出生点/核心位+初始资源+命令流脚本（教学引导建造序列，波锚定：wave k 步骤在 k 波开场谷内执行，wave 1 步骤在首波宽限内执行）+三重目标实例（campaign/objectives.json SP-8 池引用）+威胁度+胜波（§7 公式 10+⌊t×10⌋）。锚点：单局时长带=v3.2 §3（手工关 15~40 分钟）；首波宽限=§6（教学关 ×3，非教学 ×1.5~2）；波间隔=§6（120s×乘子，F.2 表）；E1 塔防特色=v3.2 §4 L58；觉醒演出钩子=§10.4 ①（E1 第 2~3 波 断弹→闪红→民夫送箭）；E1 命令动词=E1 薄版五动词（SimE1Fixture.MilestoneCommands 先例）；威胁度=手工定值（SP-9 营邻接派生适用于程序战役图节点；手工关按节奏定值，0.3/0.45/0.6=T-085 任务卡递进锚点）",
+  "_duration_calibration": "每关 budget_seconds=设计预算（objectives C1 ClearTimeSeconds 的 threshold 0.8 乘子基值）；实际时长验收口径=理论节奏估算（EraCore.Tests/Levels/LevelPacingEstimator：宽限+Σ波节奏，波节奏=min(波间隔, 清场+波谷 15s)，清场由命令流塔线 DPS 对波 EHP 按 F.5 先例两线式估算）——不含真实玩家操作时间（实测口径归 T-095 ≥3 人中位）",
+  "items": [
+    {
+      "id": "campaign:level-e1-01",
+      "content_type": "Level",
+      "era": "era1:era-ancient",
+      "slot": 1,
+      "name_zh": "觉醒林地",
+      "name_en": "Awakening Grove",
+      "aliases": ["E1 第一关", "觉醒关", "教学关"],
+      "teaching_level": true,
+      "awakening_cinematic": true,
+      "threat": 0.3,
+      "win_waves": 13,
+      "first_wave_grace_multiplier": 3.0,
+      "budget_seconds": 1200,
+      "map": {
+        "seed": 20261101,
+        "width": 16,
+        "height": 24,
+        "forest_ratio": 0.10,
+        "rock_ratio": 0.0,
+        "water_ratio": 0.0,
+        "base_cell": { "x": 8, "y": 23 },
+        "warehouse_cell": { "x": 2, "y": 14 },
+        "entry_cells": [
+          { "x": 8, "y": 0 },
+          { "x": 6, "y": 0 },
+          { "x": 10, "y": 0 },
+          { "x": 2, "y": 1 }
+        ]
+      },
+      "initial_stock": [
+        { "resource": "era1:res-wood", "amount": 240.0 }
+      ],
+      "waves": {
+        "base_count": 14,
+        "begin_wave": 3,
+        "spacing": 3,
+        "scaling": 1.6,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0,
+        "regular_roster": ["era1:enemy-beastling", "era1:enemy-hunter", "era1:enemy-tribesman"],
+        "elite_line_enabled": false
+      },
+      "command_script": [
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 20 } },
+        { "wave": 1, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 6, "y": 18 } },
+        { "wave": 1, "verb": "build-converter", "cell": { "x": 9, "y": 18 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 6, "y": 21 } },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 3, "to_entity": 4, "carrier_tier": "porter" },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
+        { "wave": 4, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 9, "y": 21 } },
+        { "wave": 4, "verb": "assign-carrier", "from_entity": 4, "to_entity": 6, "carrier_tier": "porter" },
+        { "wave": 9, "verb": "build-tower", "tower": "era1:tower-rockfall", "cell": { "x": 8, "y": 20 } }
+      ],
+      "objectives": {
+        "strategy": ["campaign:obj-s4"],
+        "challenge": ["campaign:obj-c8"]
+      },
+      "cinematic_hooks": [
+        {
+          "id": "campaign:hook-e1-ahwa-arrow-break",
+          "trigger": { "beat": "wave_start", "wave": 2 },
+          "_source": "§10.4 ① E1 第 2~3 波 断弹→闪红→民夫送箭→恢复（演出素材接入点，接线=T-086 C-24）"
+        },
+        {
+          "id": "campaign:hook-e1-awakening-handover",
+          "trigger": { "beat": "victory" },
+          "_source": "首关觉醒交底（绑定期→执行期铺垫，演出素材接入点，接线=T-086）"
+        }
+      ],
+      "unlocks": { "actions": [], "features": [] },
+      "_new": true,
+      "_new_fields": ["map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds", "name_zh", "name_en"],
+      "_source": "T-085 E1 首关=觉醒教学关：威胁 0.3（带下限，胜波 13=10+⌊0.3×10⌋ §7）；首波宽限 ×3=§6 教学关口径；送资源 240 木（覆盖 3×木箭塔 30+落石台 60=150+经济余量 90，towers.json cost_total）；命令流=人力→采集→加工→箭塔→民夫×2→二塔→落石（SimE1Fixture 里程碑链裁剪）；目标抽选 seed 化=map.seed（strategy s4 断供 ≤30s 对位断弹教学、challenge c8 首波零漏敌对位 ×3 宽限）；觉醒演出钩子=§10.4 ①+胜利交底；波表 14/3/3/1.6 [NEW-原型校准]（教学密度：13 波 3~5 散兵）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier",
+        "budget_seconds": "seconds",
+        "map.seed": "int64_seed",
+        "map.width": "cells",
+        "map.height": "cells",
+        "map.forest_ratio": "fraction",
+        "initial_stock.amount": "resource_points",
+        "waves.base_count": "enemies",
+        "waves.begin_wave": "wave_ordinal",
+        "waves.spacing": "waves",
+        "waves.scaling": "divisor",
+        "waves.batches_per_wave": "batches",
+        "waves.valley_seconds": "seconds",
+        "command_script.wave": "wave_ordinal",
+        "command_script.seats": "harvest_seats",
+        "command_script.from_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_entity": "entity_ordinal_warehouse_is_1"
+      }
+    },
+    {
+      "id": "campaign:level-e1-02",
+      "content_type": "Level",
+      "era": "era1:era-ancient",
+      "slot": 2,
+      "name_zh": "枯河隘口",
+      "name_en": "Dry River Pass",
+      "aliases": ["E1 第二关", "隘口关"],
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "threat": 0.3,
+      "win_waves": 13,
+      "first_wave_grace_multiplier": 2.0,
+      "budget_seconds": 1200,
+      "map": {
+        "seed": 20261102,
+        "width": 16,
+        "height": 24,
+        "forest_ratio": 0.12,
+        "rock_ratio": 0.0,
+        "water_ratio": 0.0,
+        "base_cell": { "x": 8, "y": 23 },
+        "warehouse_cell": { "x": 2, "y": 14 },
+        "entry_cells": [
+          { "x": 8, "y": 0 },
+          { "x": 5, "y": 0 },
+          { "x": 11, "y": 0 },
+          { "x": 3, "y": 1 }
+        ]
+      },
+      "initial_stock": [
+        { "resource": "era1:res-wood", "amount": 260.0 }
+      ],
+      "waves": {
+        "base_count": 24,
+        "begin_wave": 1,
+        "spacing": 4,
+        "scaling": 1.6,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0,
+        "regular_roster": ["era1:enemy-hunter", "era1:enemy-tribesman", "era1:enemy-warband"],
+        "elite_line_enabled": false
+      },
+      "command_script": [
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 20 } },
+        { "wave": 1, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 6, "y": 18 } },
+        { "wave": 1, "verb": "build-converter", "cell": { "x": 9, "y": 18 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 6, "y": 21 } },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 3, "to_entity": 4, "carrier_tier": "porter" },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
+        { "wave": 3, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 4, "y": 16 } },
+        { "wave": 3, "verb": "assign-carrier", "from_entity": 6, "to_entity": 1, "carrier_tier": "porter" },
+        { "wave": 6, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 9, "y": 21 } },
+        { "wave": 6, "verb": "assign-carrier", "from_entity": 4, "to_entity": 7, "carrier_tier": "porter" },
+        { "wave": 10, "verb": "build-tower", "tower": "era1:tower-rockfall", "cell": { "x": 8, "y": 20 } },
+        { "wave": 13, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 12, "y": 21 } },
+        { "wave": 13, "verb": "assign-carrier", "from_entity": 4, "to_entity": 9, "carrier_tier": "porter" }
+      ],
+      "objectives": {
+        "strategy": ["campaign:obj-s1"],
+        "challenge": ["campaign:obj-c3"]
+      },
+      "unlocks": { "actions": [], "features": [] },
+      "_new": true,
+      "_new_fields": ["map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds", "name_zh", "name_en"],
+      "_source": "T-085 E1 第二关：威胁 0.3（与首关同档、敌表升密度：猎狼/蛮徒/蛮兵中坚线）；非教学首波宽限 2.0=§6 带 ×1.5~2 上沿；260 木（4 塔 120+落石 60=180+余量 80）；波表 24/1/4/1.6 [NEW-原型校准]（隘口高密度散兵线）；目标 s1 不损失采集站（双采集站布局对位）+c3 限塔 ≤8（脚本 4 塔）；命令流补第二采集线入仓库（池增长教学）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier",
+        "budget_seconds": "seconds",
+        "map.seed": "int64_seed",
+        "map.width": "cells",
+        "map.height": "cells",
+        "map.forest_ratio": "fraction",
+        "initial_stock.amount": "resource_points",
+        "waves.base_count": "enemies",
+        "waves.begin_wave": "wave_ordinal",
+        "waves.spacing": "waves",
+        "waves.scaling": "divisor",
+        "waves.batches_per_wave": "batches",
+        "waves.valley_seconds": "seconds",
+        "command_script.wave": "wave_ordinal",
+        "command_script.seats": "harvest_seats",
+        "command_script.from_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_entity": "entity_ordinal_warehouse_is_1"
+      }
+    },
+    {
+      "id": "campaign:level-e1-03",
+      "content_type": "Level",
+      "era": "era1:era-ancient",
+      "slot": 3,
+      "name_zh": "石语河谷",
+      "name_en": "Stonewhisper Vale",
+      "aliases": ["E1 第三关", "河谷关", "石谷关"],
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "threat": 0.45,
+      "win_waves": 14,
+      "first_wave_grace_multiplier": 1.75,
+      "budget_seconds": 1500,
+      "map": {
+        "seed": 20261103,
+        "width": 16,
+        "height": 24,
+        "forest_ratio": 0.08,
+        "rock_ratio": 0.0,
+        "water_ratio": 0.0,
+        "base_cell": { "x": 8, "y": 23 },
+        "warehouse_cell": { "x": 2, "y": 14 },
+        "entry_cells": [
+          { "x": 8, "y": 0 },
+          { "x": 4, "y": 0 },
+          { "x": 12, "y": 0 }
+        ]
+      },
+      "initial_stock": [
+        { "resource": "era1:res-wood", "amount": 300.0 }
+      ],
+      "waves": {
+        "base_count": 18,
+        "begin_wave": 2,
+        "spacing": 4,
+        "scaling": 1.6,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0,
+        "regular_roster": ["era1:enemy-tribesman", "era1:enemy-warband", "era1:enemy-boar"],
+        "elite_line_enabled": false
+      },
+      "command_script": [
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 20 } },
+        { "wave": 1, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 6, "y": 18 } },
+        { "wave": 1, "verb": "build-converter", "cell": { "x": 9, "y": 18 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 6, "y": 21 } },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 3, "to_entity": 4, "carrier_tier": "porter" },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
+        { "wave": 4, "verb": "build-tower", "tower": "era1:tower-rockfall", "cell": { "x": 8, "y": 20 } },
+        { "wave": 7, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 9, "y": 21 } },
+        { "wave": 7, "verb": "assign-carrier", "from_entity": 4, "to_entity": 7, "carrier_tier": "porter" },
+        { "wave": 11, "verb": "build-tower", "tower": "era1:tower-rockfall", "cell": { "x": 12, "y": 20 } }
+      ],
+      "objectives": {
+        "strategy": ["campaign:obj-s2"],
+        "challenge": ["campaign:obj-c1"]
+      },
+      "unlocks": { "actions": [], "features": [] },
+      "_new": true,
+      "_new_fields": ["threat", "map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds", "name_zh", "name_en"],
+      "_source": "T-085 E1 第三关：威胁 0.45 [NEW]（手工定值——SP-9 营邻接派生（clamp(0.3+0.3×n)）只落 0.3/0.6/0.9/1.2 网格点，手工关按节奏在带内定值 0.45=T-085 任务卡递进锚点；胜波 14=10+⌊0.45×10⌋）；宽限 1.75=§6 带中值；300 木（2 箭塔 60+2 落石 120=180+余量 120）；敌表引入铠猪（甲 2，落石台物理克制指向 SP-1b/SP-3a L101）；目标 s2 防线完整度 ≥40%（§12 警报阈值同源）+c1 限时（预算 1500s×0.8=1200s ≥理论节奏估值，可达成性由 LevelPacingEstimator 断言）；波表 18/2/4/1.6 [NEW-原型校准]",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier",
+        "budget_seconds": "seconds",
+        "map.seed": "int64_seed",
+        "map.width": "cells",
+        "map.height": "cells",
+        "map.forest_ratio": "fraction",
+        "initial_stock.amount": "resource_points",
+        "waves.base_count": "enemies",
+        "waves.begin_wave": "wave_ordinal",
+        "waves.spacing": "waves",
+        "waves.scaling": "divisor",
+        "waves.batches_per_wave": "batches",
+        "waves.valley_seconds": "seconds",
+        "command_script.wave": "wave_ordinal",
+        "command_script.seats": "harvest_seats",
+        "command_script.from_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_entity": "entity_ordinal_warehouse_is_1"
+      }
+    },
+    {
+      "id": "campaign:level-e1-04",
+      "content_type": "Level",
+      "era": "era1:era-ancient",
+      "slot": 4,
+      "name_zh": "双丘烽线",
+      "name_en": "Twin Hillock Line",
+      "aliases": ["E1 第四关", "双丘关", "烽线关"],
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "threat": 0.6,
+      "win_waves": 16,
+      "first_wave_grace_multiplier": 1.5,
+      "budget_seconds": 1440,
+      "map": {
+        "seed": 20261104,
+        "width": 16,
+        "height": 24,
+        "forest_ratio": 0.15,
+        "rock_ratio": 0.0,
+        "water_ratio": 0.0,
+        "base_cell": { "x": 8, "y": 23 },
+        "warehouse_cell": { "x": 2, "y": 14 },
+        "entry_cells": [
+          { "x": 8, "y": 0 },
+          { "x": 4, "y": 0 },
+          { "x": 12, "y": 0 },
+          { "x": 2, "y": 1 },
+          { "x": 14, "y": 1 }
+        ]
+      },
+      "initial_stock": [
+        { "resource": "era1:res-wood", "amount": 360.0 }
+      ],
+      "waves": {
+        "base_count": 14,
+        "begin_wave": 3,
+        "spacing": 4,
+        "scaling": 2.0,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0,
+        "regular_roster": ["era1:enemy-tribesman", "era1:enemy-warband", "era1:enemy-champion"],
+        "elite_line_enabled": false
+      },
+      "command_script": [
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 20 } },
+        { "wave": 1, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 6, "y": 18 } },
+        { "wave": 1, "verb": "build-converter", "cell": { "x": 9, "y": 18 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 6, "y": 21 } },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 3, "to_entity": 4, "carrier_tier": "porter" },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
+        { "wave": 4, "verb": "build-tower", "tower": "era1:tower-rockfall", "cell": { "x": 8, "y": 20 } },
+        { "wave": 7, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 9, "y": 21 } },
+        { "wave": 7, "verb": "assign-carrier", "from_entity": 4, "to_entity": 7, "carrier_tier": "porter" },
+        { "wave": 10, "verb": "build-tower", "tower": "era1:tower-rockfall", "cell": { "x": 12, "y": 20 } },
+        { "wave": 13, "verb": "build-tower", "tower": "era1:tower-wood-arrow", "cell": { "x": 12, "y": 21 } },
+        { "wave": 13, "verb": "assign-carrier", "from_entity": 4, "to_entity": 9, "carrier_tier": "porter" },
+        { "wave": 15, "verb": "build-tower", "tower": "era1:tower-rockfall", "cell": { "x": 3, "y": 20 } }
+      ],
+      "objectives": {
+        "strategy": ["campaign:obj-s6"],
+        "challenge": ["campaign:obj-c7"]
+      },
+      "unlocks": { "actions": [], "features": [] },
+      "_new": true,
+      "_new_fields": ["map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds", "name_zh", "name_en"],
+      "_source": "T-085 E1 第四关（首批压轴）：威胁 0.6（=SP-9 邻接 1 网格点；胜波 16=10+⌊0.6×10⌋）；宽限 1.5=§6 带下沿；360 木（3 箭塔 90+3 落石 180=270+余量 90）；五出生点双丘地形（对应宽正面双线布防）；敌表引入蛮勇士（甲 3 重甲，物理克制 SP-3a L104）；目标 s6 主城仓库零受损+c7 全程不暂停（压轴节奏挑战）；波表 14/3/4/2.0 [NEW-原型校准]（成长除数 2.0 对位长线 16 波）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier",
+        "budget_seconds": "seconds",
+        "map.seed": "int64_seed",
+        "map.width": "cells",
+        "map.height": "cells",
+        "map.forest_ratio": "fraction",
+        "initial_stock.amount": "resource_points",
+        "waves.base_count": "enemies",
+        "waves.begin_wave": "wave_ordinal",
+        "waves.spacing": "waves",
+        "waves.scaling": "divisor",
+        "waves.batches_per_wave": "batches",
+        "waves.valley_seconds": "seconds",
+        "command_script.wave": "wave_ordinal",
+        "command_script.seats": "harvest_seats",
+        "command_script.from_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_entity": "entity_ordinal_warehouse_is_1"
+      }
+    }
+  ]
+}

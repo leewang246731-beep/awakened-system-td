@@ -1,0 +1,333 @@
+{
+  "$schema": "urn:eratd:content:levels:1",
+  "content_type": "Level",
+  "era": "era2:era-classical",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）。本文件=T-085 E2 手工关卡集首批 3 关（F-055）：前三关行与 game/content/era2/levels.json（T-079 冻结排期元数据）同 id 逐字段一致（id/slot/focus/schedule_tier/威胁度/胜波/宽限/教学位/觉醒位/unlocks——一致性由 HandcraftedLevelSetTests 排期一致性断言互证）；手工关=固定 seed+布局参数+命令流脚本+三重目标实例（campaign/objectives.json SP-8 池引用）；能力解锁链=v3.2 §4 L67 新时代前三关排期（关 1 新能源/关 2 新物流/关 3 考古+英雄+系统新能力）+§11.8 三级（对话级→建造级→巡逻/托管级）——L2-1 只水力、L2-2 马车+水渠、L2-3 考古+英雄+SpawnScout/HeroOrder；威胁度/胜波=§7 公式（clamp(0.3+0.3×邻接敌营)→10+⌊t×10⌋：0.3/0.6/0.9→13/16/19）；波间隔=§6（120s×乘子，F.2 表）；E2 命令动词=E1 五动词+升级/英雄令（SimE2Fixture 里程碑链裁剪）；任务卡『威胁 0.5~0.75』带与 T-079 冻结排期（0.3/0.6/0.9）冲突时以冻结数据为准（F-092 三源一致纪律）",
+  "_duration_calibration": "每关 budget_seconds=设计预算（objectives C1 ClearTimeSeconds 的 threshold 0.8 乘子基值）；实际时长验收口径=理论节奏估算（EraCore.Tests/Levels/LevelPacingEstimator：宽限+Σ波节奏，波节奏=min(波间隔, 清场+波谷 15s)，清场由命令流塔线 DPS 对波 EHP 按 F.5 先例两线式估算）——不含真实玩家操作时间（实测口径归 T-095 ≥3 人中位）",
+  "items": [
+    {
+      "id": "campaign:level-e2-01",
+      "content_type": "Level",
+      "era": "era2:era-classical",
+      "slot": 1,
+      "name_zh": "水轮初鸣",
+      "name_en": "First Waters",
+      "aliases": ["E2 第一关", "水力关", "水轮关"],
+      "focus": "new_energy",
+      "focus_zh": "新能源",
+      "schedule_tier": "dialogue",
+      "schedule_tier_zh": "对话级",
+      "adjacent_enemy_camps": 0,
+      "teaching_level": true,
+      "awakening_cinematic": true,
+      "threat": 0.3,
+      "win_waves": 13,
+      "first_wave_grace_multiplier": 3.0,
+      "budget_seconds": 1140,
+      "map": {
+        "seed": 20261201,
+        "width": 20,
+        "height": 26,
+        "forest_ratio": 0.05,
+        "rock_ratio": 0.0,
+        "water_ratio": 0.0,
+        "base_cell": { "x": 10, "y": 25 },
+        "warehouse_cell": { "x": 2, "y": 21 },
+        "entry_cells": [
+          { "x": 10, "y": 0 },
+          { "x": 6, "y": 0 },
+          { "x": 14, "y": 0 }
+        ]
+      },
+      "initial_stock": [
+        { "resource": "era2:res-copper", "amount": 500.0 }
+      ],
+      "waves": {
+        "base_count": 16,
+        "begin_wave": 3,
+        "spacing": 4,
+        "scaling": 1.6,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0,
+        "regular_roster": ["era2:enemy-skirmisher", "era2:enemy-raider", "era2:enemy-firearrow"],
+        "elite_line_enabled": false
+      },
+      "command_script": [
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 21 } },
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 5, "y": 21 } },
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 6, "y": 21 } },
+        { "wave": 1, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 3, "y": 18 } },
+        { "wave": 1, "verb": "build-converter", "converter_recipe": "era2:recipe-arrow", "cell": { "x": 8, "y": 19 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 10, "y": 22 } },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 5, "to_entity": 6, "carrier_tier": "porter" },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 6, "to_entity": 7, "carrier_tier": "porter" },
+        { "wave": 5, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 16, "y": 22 } },
+        { "wave": 5, "verb": "assign-carrier", "from_entity": 6, "to_entity": 8, "carrier_tier": "porter" },
+        { "wave": 9, "verb": "upgrade-tower", "entity": 7, "to_tier": 2 }
+      ],
+      "objectives": {
+        "strategy": ["campaign:obj-s7"],
+        "challenge": ["campaign:obj-c4"]
+      },
+      "cinematic_hooks": [
+        {
+          "id": "campaign:hook-e2-awakening-awaken",
+          "trigger": { "beat": "level_start" },
+          "_source": "§10.4 ② E2 第一关觉醒演出=三选一预填军令→方案卡→塔列队开建→系统交底令簿（演出可跳过；演出素材接入点，接线=T-086 C-24）"
+        }
+      ],
+      "unlocks": {
+        "actions": ["TodoBoard", "StopTask"],
+        "features": ["waterpower_energy"]
+      },
+      "_new": true,
+      "_new_fields": ["map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds"],
+      "_source": "T-085 E2 首关=水力教学关（与 era2/levels.json level-e2-01 同 id 同排期元数据）：威胁 0.3/胜波 13/宽限 ×3/教学位+觉醒位=T-079 冻结值；水力能源骨干=三劳工营（era.json energy waterpower L1 30 的坐席骨干）；500 铜（箭楼 90×2+升档差 180=360+余量 140，towers.json cost_total + UpgradesTo 链 arrow→crossbow）；命令流=对话级教学（亲手建造为主，系统只对话——对位 challenge c4 不使用系统建造）；strategy s7 完成 1 项研究对位 tech-e2-arrow 研究闸 bound_levels 本关（T-073）；敌表轻线（散兵/掠骑/火箭）；波表 16/3/4/1.6 [NEW-原型校准]",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier",
+        "budget_seconds": "seconds",
+        "map.seed": "int64_seed",
+        "map.width": "cells",
+        "map.height": "cells",
+        "map.forest_ratio": "fraction",
+        "initial_stock.amount": "resource_points",
+        "waves.base_count": "enemies",
+        "waves.begin_wave": "wave_ordinal",
+        "waves.spacing": "waves",
+        "waves.scaling": "divisor",
+        "waves.batches_per_wave": "batches",
+        "waves.valley_seconds": "seconds",
+        "command_script.wave": "wave_ordinal",
+        "command_script.seats": "harvest_seats",
+        "command_script.from_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_tier": "tower_tier"
+      }
+    },
+    {
+      "id": "campaign:level-e2-02",
+      "content_type": "Level",
+      "era": "era2:era-classical",
+      "slot": 2,
+      "name_zh": "车道与水渠",
+      "name_en": "Carriage Roads",
+      "aliases": ["E2 第二关", "马车关", "物流关"],
+      "focus": "new_logistics",
+      "focus_zh": "新物流",
+      "schedule_tier": "build",
+      "schedule_tier_zh": "建造级",
+      "adjacent_enemy_camps": 1,
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "threat": 0.6,
+      "win_waves": 16,
+      "first_wave_grace_multiplier": 2.0,
+      "budget_seconds": 1200,
+      "map": {
+        "seed": 20261202,
+        "width": 20,
+        "height": 26,
+        "forest_ratio": 0.05,
+        "rock_ratio": 0.0,
+        "water_ratio": 0.0,
+        "base_cell": { "x": 10, "y": 25 },
+        "warehouse_cell": { "x": 2, "y": 21 },
+        "entry_cells": [
+          { "x": 10, "y": 0 },
+          { "x": 6, "y": 0 },
+          { "x": 14, "y": 0 }
+        ]
+      },
+      "initial_stock": [
+        { "resource": "era2:res-copper", "amount": 1600.0 }
+      ],
+      "waves": {
+        "base_count": 14,
+        "begin_wave": 2,
+        "spacing": 4,
+        "scaling": 2.0,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0,
+        "regular_roster": ["era2:enemy-skirmisher", "era2:enemy-raider", "era2:enemy-crossbowman", "era2:enemy-warrior"],
+        "elite_line_enabled": true,
+        "elite_enemy_id": "era2:enemy-ram"
+      },
+      "command_script": [
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 21 } },
+        { "wave": 1, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 3, "y": 18 } },
+        { "wave": 1, "verb": "build-converter", "converter_recipe": "era2:recipe-arrow", "cell": { "x": 8, "y": 19 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 10, "y": 22 } },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 3, "to_entity": 4, "carrier_tier": "porter" },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
+        { "wave": 3, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 16, "y": 22 } },
+        { "wave": 3, "verb": "assign-carrier", "from_entity": 4, "to_entity": 6, "carrier_tier": "cart" },
+        { "wave": 6, "verb": "upgrade-tower", "entity": 5, "to_tier": 2 },
+        { "wave": 10, "verb": "upgrade-tower", "entity": 6, "to_tier": 2 },
+        { "wave": 14, "verb": "build-tower", "tower": "era2:tower-repeating-crossbow", "cell": { "x": 13, "y": 22 } },
+        { "wave": 14, "verb": "assign-carrier", "from_entity": 4, "to_entity": 7, "carrier_tier": "porter" }
+      ],
+      "objectives": {
+        "strategy": ["campaign:obj-s8"],
+        "challenge": ["campaign:obj-c2"]
+      },
+      "unlocks": {
+        "actions": [
+          "BuildPlan",
+          "UpgradeTower",
+          "SellTower",
+          "SetRally",
+          "RerouteLogistics",
+          "SetStockpile",
+          "FocusFire",
+          "SetTowerMode",
+          "TriggerScroll"
+        ],
+        "features": ["carriage_logistics", "aqueduct"]
+      },
+      "_new": true,
+      "_new_fields": ["map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds"],
+      "_source": "T-085 E2 第二关=新物流关（与 era2/levels.json level-e2-02 同 id 同排期元数据）：威胁 0.6（邻接 1）/胜波 16/宽限 2.0=T-079 冻结值；马车 carrier_tier=cart 首发于本关命令流（era.json logistics carriage 0.6 件/s）；1600 铜（箭楼 90×2+升档差 180×2+连弩 810=1350+余量 250）；塔线全穿刺（箭楼→弩塔×2→连弩——对位 challenge c2 仅穿刺+支援类）；elite 线=攻城锤 ram（era2:enemy-ram 甲 12，§6 精英线 1+⌊(波−8)/4⌋）；strategy s8 物流零死锁对位马车/水渠主题；波表 14/2/4/2.0 [NEW-原型校准]",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier",
+        "budget_seconds": "seconds",
+        "map.seed": "int64_seed",
+        "map.width": "cells",
+        "map.height": "cells",
+        "map.forest_ratio": "fraction",
+        "initial_stock.amount": "resource_points",
+        "waves.base_count": "enemies",
+        "waves.begin_wave": "wave_ordinal",
+        "waves.spacing": "waves",
+        "waves.scaling": "divisor",
+        "waves.batches_per_wave": "batches",
+        "waves.valley_seconds": "seconds",
+        "command_script.wave": "wave_ordinal",
+        "command_script.seats": "harvest_seats",
+        "command_script.from_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_tier": "tower_tier"
+      }
+    },
+    {
+      "id": "campaign:level-e2-03",
+      "content_type": "Level",
+      "era": "era2:era-classical",
+      "slot": 3,
+      "name_zh": "残卷与执戈者",
+      "name_en": "Scrolls and the Spear",
+      "aliases": ["E2 第三关", "考古关", "英雄关"],
+      "focus": "archaeology_hero_system",
+      "focus_zh": "考古+英雄+系统新能力",
+      "schedule_tier": "patrol",
+      "schedule_tier_zh": "巡逻/托管级",
+      "adjacent_enemy_camps": 2,
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "threat": 0.9,
+      "win_waves": 19,
+      "first_wave_grace_multiplier": 1.5,
+      "budget_seconds": 1380,
+      "hero_id": "era2:hero-spearwarden",
+      "map": {
+        "seed": 20261203,
+        "width": 20,
+        "height": 26,
+        "forest_ratio": 0.05,
+        "rock_ratio": 0.0,
+        "water_ratio": 0.0,
+        "base_cell": { "x": 10, "y": 25 },
+        "warehouse_cell": { "x": 2, "y": 21 },
+        "hero_cell": { "x": 10, "y": 24 },
+        "dig_sites": [
+          { "x": 4, "y": 4 },
+          { "x": 16, "y": 8 }
+        ],
+        "entry_cells": [
+          { "x": 10, "y": 0 },
+          { "x": 4, "y": 0 },
+          { "x": 16, "y": 0 },
+          { "x": 7, "y": 0 }
+        ]
+      },
+      "initial_stock": [
+        { "resource": "era2:res-copper", "amount": 4000.0 }
+      ],
+      "waves": {
+        "base_count": 14,
+        "begin_wave": 2,
+        "spacing": 4,
+        "scaling": 1.6,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0,
+        "regular_roster": [
+          "era2:enemy-skirmisher",
+          "era2:enemy-raider",
+          "era2:enemy-crossbowman",
+          "era2:enemy-warrior",
+          "era2:enemy-centurion"
+        ],
+        "elite_line_enabled": true,
+        "elite_enemy_id": "era2:enemy-ram"
+      },
+      "command_script": [
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 21 } },
+        { "wave": 1, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 3, "y": 18 } },
+        { "wave": 1, "verb": "build-converter", "converter_recipe": "era2:recipe-arrow", "cell": { "x": 8, "y": 19 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era2:tower-crossbow", "cell": { "x": 10, "y": 22 } },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 3, "to_entity": 4, "carrier_tier": "porter" },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
+        { "wave": 2, "verb": "hero-order", "order": "move", "cell": { "x": 9, "y": 20 } },
+        { "wave": 4, "verb": "upgrade-tower", "entity": 5, "to_tier": 2 },
+        { "wave": 6, "verb": "hero-order", "order": "skill" },
+        { "wave": 8, "verb": "build-tower", "tower": "era2:tower-fire-oil", "cell": { "x": 13, "y": 22 } },
+        { "wave": 8, "verb": "assign-carrier", "from_entity": 4, "to_entity": 6, "carrier_tier": "cart" },
+        { "wave": 16, "verb": "build-tower", "tower": "era2:tower-onager", "cell": { "x": 16, "y": 22 } },
+        { "wave": 16, "verb": "assign-carrier", "from_entity": 4, "to_entity": 7, "carrier_tier": "porter" }
+      ],
+      "objectives": {
+        "strategy": ["campaign:obj-s5"],
+        "challenge": ["campaign:obj-c6"]
+      },
+      "unlocks": {
+        "actions": ["SpawnScout", "HeroOrder"],
+        "features": ["archaeology", "hero_recruit"]
+      },
+      "_new": true,
+      "_new_fields": ["map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds", "map.dig_sites", "map.hero_cell"],
+      "_source": "T-085 E2 第三关=考古+英雄+系统新能力关（与 era2/levels.json level-e2-03 同 id 同排期元数据）：威胁 0.9（邻接 2）/胜波 19/宽限 1.5=T-079 冻结值；考古=dig_sites 两处遗迹点（legacy/archaeology.json 三通道自本关开放 F-058）；英雄=era2:hero-spearwarden（SP-6 每代第 3 关解锁招募）+hero-order 命令两拍（move/skill）；4000 铜=2 级仓库池上限顶格（弩塔 270+升档差（连弩档 810−270=540）+火油 2430+弩炮 700=3940+余量 60，UpgradesTo 链 arrow→crossbow→repeating→fire-oil 的数据接线口径）；strategy s5 波末塔效率 ≥70%+challenge c6 英雄不出阵或不阵亡（英雄在场=真选择）；敌表全五线+百夫长（甲 6）+elite ram（弩炮物理线对位甲 12）；波表 14/2/4/1.6 [NEW-原型校准]",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier",
+        "budget_seconds": "seconds",
+        "map.seed": "int64_seed",
+        "map.width": "cells",
+        "map.height": "cells",
+        "map.forest_ratio": "fraction",
+        "map.dig_sites": "grid_cells",
+        "initial_stock.amount": "resource_points",
+        "waves.base_count": "enemies",
+        "waves.begin_wave": "wave_ordinal",
+        "waves.spacing": "waves",
+        "waves.scaling": "divisor",
+        "waves.batches_per_wave": "batches",
+        "waves.valley_seconds": "seconds",
+        "command_script.wave": "wave_ordinal",
+        "command_script.seats": "harvest_seats",
+        "command_script.from_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_tier": "tower_tier"
+      }
+    }
+  ]
+}
