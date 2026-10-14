@@ -185,7 +185,7 @@
 |---|---|---|
 | .NET SDK | `D:\dotnet\dotnet.exe`（SDK 8.0.425） | 环境变量 `DOTNET_ROOT=D:\dotnet`；CI runner 同构 |
 | Godot 编辑器 | `D:\game\tools\godot_extract\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe` | `GODOT_BIN` 指此；03 所写 `D:\game\tools\godot\Godot.exe` **作废**；headless 加 `--headless` |
-| 导出模板 | `D:\game\tools\godot-templates\`（T-030 创建并写入编辑器设置） | 默认 C 盘 AppData 路径禁用 |
+| 导出模板 | `D:\game	ools\godot-templates.7.2.stable.mono\`（T-096 装载：官方 mono tpz 下载解包） | 默认 C 盘 AppData 路径禁用；4.7.2 无 `--export-templates-path` 参数（实查），装载机制=NTFS junction `%APPDATA%\Godot\export_templates`→D 盘登记位（指针零字节；展开见 09-env-locked 同步行） |
 | NuGet 缓存 | `NUGET_PACKAGES=D:\nuget` | 目录已建；任何 restore 前必须设置，禁默认 `%USERPROFILE%\.nuget`（C 盘） |
 | 密钥 | `D:\game\config\secrets.local.json`（gitignored） | MiMo key 已实测可用；测试读此文件或环境变量 `ERA_TEST_LLM_KEY`；Key 永不入日志/战报/cassette |
 | MiMo 端点 | `https://api.xiaomimimo.com/v1`，模型 `mimo-v2.6-pro`（flash 备选） | L3 预置模板之一；智谱 GLM `glm-5.3` 为默认模板 |
@@ -203,5 +203,6 @@
 
 ## 变更记录
 
+- v1.1a（2026-10-15，T-096 发包）：§三（附）“导出模板”行更新——模板实际装载（4.7.2.stable.mono，官方 tpz 解包至 D 盘登记位，NTFS junction 装载机制）；决议 D-01~D-33 零改动。
 - v1.1（2026-10-15，W3 收官双轴审查，REV-20261015-wave3-exit F3）：追加 D-33（T-085 威胁度带冲突裁定：任务卡 0.5~0.75 vs T-079 冻结 0.3/0.6/0.9，取冻结——F-092 三源一致纪律）；裁决统计同步 32→33 条。既有 D-01~D-32 零改动。
 - v1.0（2026-10-13）：首次裁决：D-01~D-32；批准 02-audit 20 裁定（3 附约束）与 N1~N10 处置；登记环境事实与 v3.2 数值修正表 32 项。

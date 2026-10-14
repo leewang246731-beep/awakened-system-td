@@ -17,7 +17,7 @@
 | Godot 自带 nupkg | 同目录 `GodotSharp\Tools\nupkgs\`（Godot.NET.Sdk / GodotSharp / Godot.SourceGenerators / GodotSharpEditor，全部恰 4.7.2） | 由 `tools/ci/setup_local_nuget.sh` 镜像进本地 feed |
 | 本地 NuGet feed | `D:\game\tools\nuget-local\`（`game/nuget.config` 源 `godot-local-4.7.2` 指此） | 4 个 nupkg 已镜像实测 |
 | NuGet 包缓存 | `NUGET_PACKAGES=D:\nuget` | 任何 restore/test 前必须 export（禁默认 `%USERPROFILE%\.nuget` C 盘缓存） |
-| 导出模板 | `D:\game\tools\godot-templates\`（T-030 目标位置） | **尚空**——T-030 未执行，先勿做导出类任务 |
+| 导出模板 | `D:\game	ools\godot-templates.7.2.stable.mono\`（T-096 装载） | Godot 4.7.2 无 `--export-templates-path` 参数（CLI help 实查），模板字节落 D 盘登记位，经 NTFS junction `%APPDATA%\Godot\export_templates` → `D:\game	ools\godot-templates` 让编辑器按默认查找路径命中（junction 是指针，C 盘零字节，D 盘纪律保持）；tpz 原包 1.2 GB 留 `D:\game	ools\` |
 | 密钥 | `D:\game\config\secrets.local.json`（gitignored；MiMo key） | 存在已验；内容不读取、不入日志（RL5） |
 | 保底启动器 | `D:\game\tools\Godot-D盘运行时启动器.bat`（set DOTNET_ROOT=D:\dotnet 后拉起编辑器） | 用于用户级变量失效时的手动兜底 |
 
