@@ -1,0 +1,62 @@
+{
+  "$schema": "urn:eratd:content:droptable:1",
+  "content_type": "DropTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；本文件=离线岁月（每日签到）规则+里程碑奖励表（T-073，F-053/附录 G.4 四规则）；content_type=DropTable（奖励表族薄版声明，K-2 15 类封闭枚举无 SignIn 类）",
+  "_reward_whitelist": "里程碑奖励类型冻结白名单六类（同 chests.json：decoration/title/voice/personality/presentation/hidden_quest；F-053 里程碑=限定装饰性内容与蓝图，不触碰核心数值平衡，与 R9 自洽；断签不清零）",
+  "offline": {
+    "full_rate_hours": 4,
+    "diminished_rate": 0.25,
+    "equivalent_cap_hours": 8,
+    "catchup_turn_cap": 50,
+    "turns_per_hour": 1,
+    "invasion_chance_per_turn": 0.06,
+    "income": [
+      { "resource": "era1:res-wood", "per_hour": 12.0 },
+      { "resource": "era1:res-food", "per_hour": 9.0 }
+    ],
+    "_source": "四规则冻结值（附录 G.4）：离线收益 4h 封顶（超出 25% 递减再封顶 8h 等效）+追帧 ≤50 回合+回合钟只在战役界面推进（进行中关卡豁免）+入侵限当前时代；turns_per_hour/invasion_chance_per_turn/income.per_hour 为 T-073 结构旋钮（_new，无文档锚点）；回合钟=战役界面时间（G.4 底座语义，v3.x 包装为每日签到）"
+  },
+  "milestones": [
+    {
+      "day": 3,
+      "reward": {
+        "id": "campaign:cos-streak-3-banner",
+        "reward_class": "decoration",
+        "name_zh": "签到横幅·三日",
+        "name_en": "Streak Banner: Day 3",
+        "aliases": ["三日横幅"]
+      }
+    },
+    {
+      "day": 7,
+      "reward": {
+        "id": "campaign:title-streak-7-quill",
+        "reward_class": "title",
+        "name_zh": "称号：七日执笔",
+        "name_en": "Title: Seven-Day Quill",
+        "aliases": ["七日执笔"]
+      }
+    },
+    {
+      "day": 14,
+      "reward": {
+        "id": "campaign:voice-streak-14-ember",
+        "reward_class": "voice",
+        "name_zh": "音色：余烬十四日",
+        "name_en": "Voice: Fourteen Embers",
+        "aliases": ["余烬十四日"]
+      }
+    },
+    {
+      "day": 30,
+      "reward": {
+        "id": "campaign:pers-streak-30-archivist",
+        "reward_class": "personality",
+        "name_zh": "人格表达：档案官之癖",
+        "name_en": "Persona Quirk: Archivist",
+        "aliases": ["档案官之癖"]
+      }
+    }
+  ],
+  "_milestones_source": "连续登录里程碑=装饰性奖励（v3.2 §7：限定装饰性内容与蓝图；断签不清零——连续数只增不减，漏登不加）；里程碑天数 3/7/14/30 为 T-073 结构旋钮（_new）"
+}

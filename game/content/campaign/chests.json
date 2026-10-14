@@ -1,0 +1,126 @@
+{
+  "$schema": "urn:eratd:content:droptable:1",
+  "content_type": "DropTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；本文件=三重目标档位宝箱表（T-073，F-002/SP-8c）；K-2 ContentType.DropTable（chest rarity distribution 60/30/10%，N8）",
+  "_reward_whitelist": "奖励类型冻结白名单六类（19-r2-easter-eggs.md §R2 P1，与 §19-R9 打脸/签到止于演出不碰数值平衡先例对齐）：decoration/title/voice/personality/presentation/hidden_quest；禁触数值平衡（DPS/成本/系统点/掉率/科技加速）——装载器对白名单外 reward_class 直接拒绝",
+  "rarity_weights": {
+    "common": 60,
+    "rare": 30,
+    "legendary": 10
+  },
+  "_rarity_source": "SP-8c：每档宝箱内 普通/稀有/传说=60%/30%/10%（≥1000 次掉落模拟 ±3% 容差，F-002 验收；保底规则进原型验证 T-088）",
+  "tiers": [
+    { "tier": "bronze", "item_rolls": 2, "bonus_rolls": 0 },
+    { "tier": "silver", "item_rolls": 3, "bonus_rolls": 0 },
+    { "tier": "gold", "item_rolls": 4, "bonus_rolls": 0 },
+    { "tier": "gold_extra", "item_rolls": 4, "bonus_rolls": 1 }
+  ],
+  "_tiers_source": "档位=三重目标完成数（0/1/2/3→青铜/白银/黄金/黄金+额外，07 修正表 #9/N8 冻结：确定性判定，无分数线）；每档抽取次数与黄金+额外的加抽 1 次为 T-073 结构旋钮（_new），稀有度分布本身=冻结 60/30/10",
+  "items": [
+    {
+      "id": "campaign:cos-banner-militia",
+      "rarity": "common",
+      "reward_class": "decoration",
+      "name_zh": "民兵横幅",
+      "name_en": "Militia Banner",
+      "aliases": ["横幅"]
+    },
+    {
+      "id": "campaign:cos-banner-watch",
+      "rarity": "common",
+      "reward_class": "decoration",
+      "name_zh": "哨望横幅",
+      "name_en": "Watch Banner",
+      "aliases": ["哨望横幅"]
+    },
+    {
+      "id": "campaign:cos-talisman-grain",
+      "rarity": "common",
+      "reward_class": "decoration",
+      "name_zh": "谷穗护符",
+      "name_en": "Grain Talisman",
+      "aliases": ["谷穗护符"]
+    },
+    {
+      "id": "campaign:perf-drum-camp",
+      "rarity": "common",
+      "reward_class": "presentation",
+      "name_zh": "营地鼓点",
+      "name_en": "Camp Drums",
+      "aliases": ["营地鼓点"]
+    },
+    {
+      "id": "campaign:perf-horn-dawn",
+      "rarity": "common",
+      "reward_class": "presentation",
+      "name_zh": "破晓号角",
+      "name_en": "Dawn Horn",
+      "aliases": ["破晓号角"]
+    },
+    {
+      "id": "campaign:quest-cache-rumor",
+      "rarity": "common",
+      "reward_class": "hidden_quest",
+      "name_zh": "谣言埋点：废弃窖藏",
+      "name_en": "Hidden Cache Rumor",
+      "aliases": ["废弃窖藏"]
+    },
+    {
+      "id": "campaign:title-wallkeeper",
+      "rarity": "rare",
+      "reward_class": "title",
+      "name_zh": "称号：守墙人",
+      "name_en": "Title: Wallkeeper",
+      "aliases": ["守墙人"]
+    },
+    {
+      "id": "campaign:title-granary-warden",
+      "rarity": "rare",
+      "reward_class": "title",
+      "name_zh": "称号：粮仓看守",
+      "name_en": "Title: Granary Warden",
+      "aliases": ["粮仓看守"]
+    },
+    {
+      "id": "campaign:voice-annalist-calm",
+      "rarity": "rare",
+      "reward_class": "voice",
+      "name_zh": "音色：冷静录事",
+      "name_en": "Voice: Calm Annalist",
+      "aliases": ["冷静录事"]
+    },
+    {
+      "id": "campaign:perf-parade-arcane",
+      "rarity": "rare",
+      "reward_class": "presentation",
+      "name_en": "Arcane Parade",
+      "name_zh": "秘仪巡游",
+      "aliases": ["秘仪巡游"]
+    },
+    {
+      "id": "campaign:pers-quirk-ledger",
+      "rarity": "legendary",
+      "reward_class": "personality",
+      "name_zh": "人格表达：令簿癖",
+      "name_en": "Persona Quirk: Ledger Obsession",
+      "aliases": ["令簿癖"]
+    },
+    {
+      "id": "campaign:voice-annalist-silver",
+      "rarity": "legendary",
+      "reward_class": "voice",
+      "name_zh": "音色：白银编年",
+      "name_en": "Voice: Silver Chronicle",
+      "aliases": ["白银编年"]
+    },
+    {
+      "id": "campaign:quest-vault-of-echoes",
+      "rarity": "legendary",
+      "reward_class": "hidden_quest",
+      "name_zh": "隐藏任务入口：回响地窖",
+      "name_en": "Hidden Quest: Vault of Echoes",
+      "aliases": ["回响地窖"]
+    }
+  ],
+  "_items_source": "物品池全为 R9 对齐六类装饰性内容（_reward_whitelist）；条目为 T-073 首发内容行，稀有度分桶与 60/30/10 分布对齐 SP-8c"
+}

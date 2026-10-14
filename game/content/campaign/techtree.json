@@ -1,0 +1,862 @@
+{
+  "$schema": "urn:eratd:content:tech:1",
+  "content_type": "Tech",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；三重闸门字段=prerequisites（拓扑前置）/materials（材料依赖）/bound_levels（关卡绑定），成本公式变量 cost_sum=Σ成本（v3.2 §7/附录 F.5；塔节点=towers.json cost_total 逐值对齐，其余为声明权重）；资源计价薄版口径：E1/E2 节点的 materials/cost_resource 统一挂 era1:res-*（战役全局池 T-059 薄版单币种；E2 资源行随 T-079 era2 内容行落地后切换）；cost_mix=研究支付分摊（share 和为 1，按 floor+末行补差整分到资源——单资源付不清 E1 池上限 2000 的冻结量级，如箭楼 ≈3013，附录 F.3）",
+  "_gate_semantics": "branch=main|system：system=系统能力独立旁支（F-052，主线任何节点不依赖旁支节点）；kind=tower_unlock|system_upgrade|scroll_unlock（塔解锁/系统升级/卷轴解锁三类）",
+  "items": [
+    {
+      "id": "campaign:tech-e1-arrow",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "main",
+      "kind": "tower_unlock",
+      "name_zh": "木箭塔图纸",
+      "name_en": "Wood Arrow Tower Blueprint",
+      "aliases": [
+        "木箭塔科技",
+        "箭楼科技"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 20
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 30,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.5
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.5
+        }
+      ],
+      "unlocks": [
+        "era1:tower-wood-arrow"
+      ],
+      "_source": "塔节点：Σ成本=era1:tower-wood-arrow cost_total（game/content/era1/towers.json，T-049）；研究成本公式 60+30^1.11×20×全局因子（v3.2 §7/F-051）；材料量为 T-073 结构旋钮",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e1-spike",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "main",
+      "kind": "tower_unlock",
+      "name_zh": "陷阱工艺",
+      "name_en": "Spike Trap Craft",
+      "aliases": [
+        "陷阱科技"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 10
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 15,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.5
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.5
+        }
+      ],
+      "unlocks": [
+        "era1:tower-spike-trap"
+      ],
+      "_source": "塔节点：Σ成本=era1:tower-spike-trap cost_total；公式见 v3.2 §7/F-051；材料量为 T-073 结构旋钮",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e1-campfire",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "main",
+      "kind": "tower_unlock",
+      "name_zh": "篝火阵地",
+      "name_en": "Campfire Ground",
+      "aliases": [
+        "篝火科技"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 15
+        },
+        {
+          "resource": "era1:res-stone",
+          "amount": 5
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 20,
+      "cost_mix": [
+        {
+          "resource": "era1:res-food",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era1:tower-campfire"
+      ],
+      "_source": "塔节点：Σ成本=era1:tower-campfire cost_total；公式见 v3.2 §7/F-051；材料量为 T-073 结构旋钮",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e1-rockfall",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "main",
+      "kind": "tower_unlock",
+      "name_zh": "落石台构筑",
+      "name_en": "Rockfall Construction",
+      "aliases": [
+        "落石科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e1-arrow"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-stone",
+          "amount": 40
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e1-02"
+      ],
+      "cost_sum": 60,
+      "cost_mix": [
+        {
+          "resource": "era1:res-stone",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era1:tower-rockfall"
+      ],
+      "_source": "塔节点：Σ成本=era1:tower-rockfall cost_total；拓扑前置=箭塔线（E1 单体线先立）；关卡绑定=占领 campaign:level-e1-02 后可研究（T-073 结构旋钮）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e1-scroll-volley",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "main",
+      "kind": "scroll_unlock",
+      "name_zh": "守城智典·齐射篇",
+      "name_en": "Guardian Codex: Volley",
+      "aliases": [
+        "齐射卷轴科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e1-arrow"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 25
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e1-02"
+      ],
+      "cost_sum": 45,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.5
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.5
+        }
+      ],
+      "unlocks": [
+        "era1:scroll-volley"
+      ],
+      "_new": true,
+      "_source": "卷轴解锁节点（v3.2 §7 科技树行+附录 F.1 卷轴细则）：Σ成本=声明权重（era1 scrolls.json 未随 T-073 落地，权重对齐 E1 塔中位量级；卷轴内容归属 T-071/T-085）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e1-scroll-rally",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "main",
+      "kind": "scroll_unlock",
+      "name_zh": "守城智典·集结篇",
+      "name_en": "Guardian Codex: Rally",
+      "aliases": [
+        "集结卷轴科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e1-spike"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-food",
+          "amount": 20
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 35,
+      "cost_mix": [
+        {
+          "resource": "era1:res-food",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era1:scroll-rally"
+      ],
+      "_new": true,
+      "_source": "卷轴解锁节点：Σ成本=声明权重（对齐 E1 塔中位量级；卷轴内容归属 T-071/T-085）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e1-gather",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "main",
+      "kind": "system_upgrade",
+      "name_zh": "采集规程改进",
+      "name_en": "Harvest Protocol Improvement",
+      "aliases": [
+        "采集科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e1-arrow"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 30
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 50,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.5
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.5
+        }
+      ],
+      "unlocks": [
+        "campaign:capability-gather-plus"
+      ],
+      "_new": true,
+      "_source": "系统升级节点（游戏系统升级，主线）：Σ成本=声明权重（对齐 E1 塔量级；产出能力 id 归 C-02 能力元数据管线消费）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-sys-e1-logistics",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "system",
+      "kind": "system_upgrade",
+      "name_zh": "系统·物流标注",
+      "name_en": "System: Logistics Markup",
+      "aliases": [
+        "系统物流旁支"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-food",
+          "amount": 15
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 25,
+      "cost_mix": [
+        {
+          "resource": "era1:res-food",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "campaign:capability-sys-logistics-e1"
+      ],
+      "_new": true,
+      "_source": "系统能力独立旁支根（F-052：旁支可整体跳过，主线任何节点不依赖本支；关闭系统 E1 降级 F-097 的科技侧落点）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-sys-e1-budget",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "system",
+      "kind": "system_upgrade",
+      "name_zh": "系统·预算扩容",
+      "name_en": "System: Budget Extension",
+      "aliases": [
+        "系统预算旁支"
+      ],
+      "prerequisites": [
+        "campaign:tech-sys-e1-logistics"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-food",
+          "amount": 25
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e1-02"
+      ],
+      "cost_sum": 40,
+      "cost_mix": [
+        {
+          "resource": "era1:res-food",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "campaign:capability-sys-budget-e1"
+      ],
+      "_new": true,
+      "_source": "系统能力独立旁支（F-052）；Σ成本=声明权重",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-sys-e1-vision",
+      "content_type": "Tech",
+      "era_index": 1,
+      "branch": "system",
+      "kind": "system_upgrade",
+      "name_zh": "系统·敌情标注",
+      "name_en": "System: Threat Markup",
+      "aliases": [
+        "系统视野旁支"
+      ],
+      "prerequisites": [
+        "campaign:tech-sys-e1-logistics"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 20
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 30,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.5
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.5
+        }
+      ],
+      "unlocks": [
+        "campaign:capability-sys-vision-e1"
+      ],
+      "_new": true,
+      "_source": "系统能力独立旁支（F-052）；Σ成本=声明权重",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e2-arrow",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "main",
+      "kind": "tower_unlock",
+      "name_zh": "箭楼图纸",
+      "name_en": "Arrow Tower Blueprint",
+      "aliases": [
+        "箭楼科技"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-stone",
+          "amount": 60
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e2-01"
+      ],
+      "cost_sum": 90,
+      "cost_mix": [
+        {
+          "resource": "era1:res-stone",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:tower-arrow"
+      ],
+      "_source": "E2 塔节点：Σ成本=era2:tower-arrow cost_total（game/content/era2/towers.json，T-065）；研究例锚点：n=90→≈3000（33 倍，v3.2 附录 F.5/07 #D 修正表）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e2-crossbow",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "main",
+      "kind": "tower_unlock",
+      "name_zh": "弩塔构筑",
+      "name_en": "Crossbow Construction",
+      "aliases": [
+        "弩塔科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e2-arrow"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-stone",
+          "amount": 150
+        },
+        {
+          "resource": "era1:res-wood",
+          "amount": 60
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e2-02"
+      ],
+      "cost_sum": 270,
+      "cost_mix": [
+        {
+          "resource": "era1:res-stone",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:tower-crossbow"
+      ],
+      "_source": "E2 塔节点：Σ成本=era2:tower-crossbow cost_total；标准线 ×3 严格阶梯第二级（F.5）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e2-repeating",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "main",
+      "kind": "tower_unlock",
+      "name_zh": "连弩塔铸造",
+      "name_en": "Repeating Crossbow Founding",
+      "aliases": [
+        "连弩科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e2-crossbow"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-stone",
+          "amount": 400
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e2-02"
+      ],
+      "cost_sum": 810,
+      "cost_mix": [
+        {
+          "resource": "era1:res-stone",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:tower-repeating-crossbow"
+      ],
+      "_source": "E2 塔节点：Σ成本=era2:tower-repeating-crossbow cost_total；标准线第三级（F.5 阶梯 90→270→810）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e2-onager",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "main",
+      "kind": "tower_unlock",
+      "name_zh": "弩炮特化线",
+      "name_en": "Onager Specialization",
+      "aliases": [
+        "弩炮科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e2-crossbow"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-stone",
+          "amount": 350
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e2-02"
+      ],
+      "cost_sum": 700,
+      "cost_mix": [
+        {
+          "resource": "era1:res-stone",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:tower-onager"
+      ],
+      "_source": "E2 塔节点：Σ成本=era2:tower-onager cost_total（特化线 tier_line:specialization，F.5）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e2-fireoil",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "main",
+      "kind": "tower_unlock",
+      "name_zh": "火油塔秘方",
+      "name_en": "Fire-Oil Formula",
+      "aliases": [
+        "火油科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e2-repeating"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-stone",
+          "amount": 1200
+        },
+        {
+          "resource": "era1:res-wood",
+          "amount": 400
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e2-02"
+      ],
+      "cost_sum": 2430,
+      "cost_mix": [
+        {
+          "resource": "era1:res-stone",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:tower-fire-oil"
+      ],
+      "_source": "E2 塔节点：Σ成本=era2:tower-fire-oil cost_total=2430（v3.2 §15/07 D-15 恢复 ×3 严格阶梯；30 波经济验算门禁=C-29）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e2-scroll-beacon",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "main",
+      "kind": "scroll_unlock",
+      "name_zh": "守城智典·烽火篇",
+      "name_en": "Guardian Codex: Beacon",
+      "aliases": [
+        "烽火卷轴科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e2-arrow"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-food",
+          "amount": 80
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e2-02"
+      ],
+      "cost_sum": 120,
+      "cost_mix": [
+        {
+          "resource": "era1:res-food",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "era2:scroll-beacon"
+      ],
+      "_new": true,
+      "_source": "卷轴解锁节点：unlocks 对齐 game/content/scrolls/era2.json（T-071）；Σ成本=声明权重（对齐 E2 塔低位量级）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e2-scroll-barbican",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "main",
+      "kind": "scroll_unlock",
+      "name_zh": "守城智典·瓮城篇",
+      "name_en": "Guardian Codex: Barbican",
+      "aliases": [
+        "瓮城卷轴科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e2-onager"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 70
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 100,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.5
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.5
+        }
+      ],
+      "unlocks": [
+        "era2:scroll-barbican-retort"
+      ],
+      "_new": true,
+      "_source": "卷轴解锁节点：unlocks 对齐 game/content/scrolls/era2.json（T-071）；Σ成本=声明权重（对齐 E2 塔低位量级）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-e2-logistics",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "main",
+      "kind": "system_upgrade",
+      "name_zh": "物流阶梯扩容",
+      "name_en": "Logistics Ladder Extension",
+      "aliases": [
+        "物流科技"
+      ],
+      "prerequisites": [
+        "campaign:tech-e2-arrow"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-wood",
+          "amount": 100
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e2-02"
+      ],
+      "cost_sum": 150,
+      "cost_mix": [
+        {
+          "resource": "era1:res-wood",
+          "share": 0.5
+        },
+        {
+          "resource": "era1:res-stone",
+          "share": 0.5
+        }
+      ],
+      "unlocks": [
+        "campaign:capability-logistics-e2"
+      ],
+      "_new": true,
+      "_source": "系统升级节点（游戏系统升级，主线）：Σ成本=声明权重（六档物流 v3.2 §5 L78 的解锁位）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-sys-e2-patrol",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "system",
+      "kind": "system_upgrade",
+      "name_zh": "系统·巡逻解锁",
+      "name_en": "System: Patrol Unlock",
+      "aliases": [
+        "巡逻旁支"
+      ],
+      "prerequisites": [],
+      "materials": [
+        {
+          "resource": "era1:res-food",
+          "amount": 40
+        }
+      ],
+      "bound_levels": [
+        "campaign:level-e2-01"
+      ],
+      "cost_sum": 60,
+      "cost_mix": [
+        {
+          "resource": "era1:res-food",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "campaign:capability-spawn-scout"
+      ],
+      "_new": true,
+      "_source": "系统能力独立旁支（F-052）：SpawnScout=E2 巡逻级解锁（07 修正表 #10/A2：E1 调用返回 ERR_CAPABILITY_LOCKED）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    },
+    {
+      "id": "campaign:tech-sys-e2-advisor",
+      "content_type": "Tech",
+      "era_index": 2,
+      "branch": "system",
+      "kind": "system_upgrade",
+      "name_zh": "系统·参谋扩编",
+      "name_en": "System: Advisor Expansion",
+      "aliases": [
+        "参谋旁支"
+      ],
+      "prerequisites": [
+        "campaign:tech-sys-e2-patrol"
+      ],
+      "materials": [
+        {
+          "resource": "era1:res-food",
+          "amount": 60
+        }
+      ],
+      "bound_levels": [],
+      "cost_sum": 90,
+      "cost_mix": [
+        {
+          "resource": "era1:res-food",
+          "share": 0.6
+        },
+        {
+          "resource": "era1:res-wood",
+          "share": 0.4
+        }
+      ],
+      "unlocks": [
+        "campaign:capability-sys-advisor-e2"
+      ],
+      "_new": true,
+      "_source": "系统能力独立旁支（F-052）；Σ成本=声明权重（对齐 E2 箭楼量级）",
+      "_units": {
+        "cost_sum": "resource_points",
+        "materials.amount": "resource_points"
+      }
+    }
+  ]
+}

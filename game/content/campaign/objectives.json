@@ -1,0 +1,171 @@
+{
+  "$schema": "urn:eratd:content:objectives:1",
+  "content_type": "Level",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；本文件=系统任务三重目标判定池（11-spec-tables.md SP-8a/SP-8b 全 16 条数据化，T-073）；content_type 薄版声明为 Level 族（K-2 15 类封闭枚举无 Objective 类——目标池随关卡内容走，C-02 注册表接线时随 Level 家族投影）",
+  "_judgment_convention": "metric=判分事实字段（LevelRunFacts）；op=at_most|at_least；threshold=阈值（ClearTimeSeconds 的 threshold=关卡预算乘子 0.8，与 facts.level_budget_seconds 相乘生效；OffClassTowerBuilds 配 allowed_classes 求非白名单类建造数；HeroRule 无阈值=不出阵或不阵亡即过）",
+  "strategy_pool": [
+    {
+      "id": "campaign:obj-s1",
+      "hard": false,
+      "metric": "StationsLost",
+      "op": "at_most",
+      "threshold": 0,
+      "name_zh": "不损失任何采集站",
+      "name_en": "Lose no harvester",
+      "_source": "SP-8a S1：全程建筑事件统计"
+    },
+    {
+      "id": "campaign:obj-s2",
+      "hard": false,
+      "metric": "DefenseIntegrityMin",
+      "op": "at_least",
+      "threshold": 0.4,
+      "name_zh": "防线完整度全程 ≥40%",
+      "name_en": "Keep defense integrity at 40%+",
+      "_source": "SP-8a S2：与警报阈值 40% 同源（v3.2 §12 台词模板）"
+    },
+    {
+      "id": "campaign:obj-s3",
+      "hard": false,
+      "metric": "TowersSoldCount",
+      "op": "at_most",
+      "threshold": 0,
+      "name_zh": "不出售任何塔",
+      "name_en": "Sell no tower",
+      "_source": "SP-8a S3：SellTower 计数=0（玩家+系统合并计）"
+    },
+    {
+      "id": "campaign:obj-s4",
+      "hard": false,
+      "metric": "AmmoStarvedSeconds",
+      "op": "at_most",
+      "threshold": 30,
+      "name_zh": "弹药断供累计 ≤30 秒",
+      "name_en": "Ammo starvation within 30s",
+      "_source": "SP-8a S4：断供事件时长求和"
+    },
+    {
+      "id": "campaign:obj-s5",
+      "hard": false,
+      "metric": "WaveEndEfficiencyMin",
+      "op": "at_least",
+      "threshold": 0.7,
+      "name_zh": "每波结束平均塔效率 ≥70%",
+      "name_en": "Wave-end tower efficiency 70%+",
+      "_source": "SP-8a S5：因果提示阈值 50% 之上（附录 G.3）"
+    },
+    {
+      "id": "campaign:obj-s6",
+      "hard": false,
+      "metric": "KeyBuildingsDamagedCount",
+      "op": "at_most",
+      "threshold": 0,
+      "name_zh": "主城与仓库零受损",
+      "name_en": "Keep the keep and warehouse intact",
+      "_source": "SP-8a S6：建筑事件"
+    },
+    {
+      "id": "campaign:obj-s7",
+      "hard": false,
+      "metric": "ResearchCompletedCount",
+      "op": "at_least",
+      "threshold": 1,
+      "name_zh": "本关结束前至少完成 1 项研究",
+      "name_en": "Finish one research this level",
+      "_source": "SP-8a S7：科技树事件"
+    },
+    {
+      "id": "campaign:obj-s8",
+      "hard": false,
+      "metric": "LogisticsDeadlockCount",
+      "op": "at_most",
+      "threshold": 0,
+      "name_zh": "物流零死锁",
+      "name_en": "Zero logistics deadlock",
+      "_source": "SP-8a S8：无待卸队列溢出（物流事件）"
+    }
+  ],
+  "challenge_pool": [
+    {
+      "id": "campaign:obj-c1",
+      "hard": true,
+      "metric": "ClearTimeSeconds",
+      "op": "at_most",
+      "threshold": 0.8,
+      "name_zh": "限时：通关用时 ≤关卡预算×80%",
+      "name_en": "Timed: clear within 80% of budget",
+      "_source": "SP-8b C1★：关卡数据携带预算（s）；threshold=预算乘子"
+    },
+    {
+      "id": "campaign:obj-c2",
+      "hard": true,
+      "metric": "OffClassTowerBuilds",
+      "op": "at_most",
+      "threshold": 0,
+      "allowed_classes": ["pierce", "support"],
+      "name_zh": "限兵种：仅使用穿刺+支援类塔",
+      "name_en": "Pierce and support towers only",
+      "_source": "SP-8b C2★：建造事件按 tower.class 过滤"
+    },
+    {
+      "id": "campaign:obj-c3",
+      "hard": true,
+      "metric": "NetTowerCount",
+      "op": "at_most",
+      "threshold": 8,
+      "name_zh": "限塔：全场塔数 ≤8",
+      "name_en": "At most 8 towers",
+      "_source": "SP-8b C3★：建造/出售净值"
+    },
+    {
+      "id": "campaign:obj-c4",
+      "hard": true,
+      "metric": "SystemBuildPlanCount",
+      "op": "at_most",
+      "threshold": 0,
+      "name_zh": "不使用系统建造",
+      "name_en": "No system BuildPlan",
+      "_source": "SP-8b C4★：BuildPlan 执行 0 次（动作审计 JSONL）"
+    },
+    {
+      "id": "campaign:obj-c5",
+      "hard": false,
+      "metric": "ScrollTriggerCount",
+      "op": "at_most",
+      "threshold": 0,
+      "name_zh": "不使用卷轴",
+      "name_en": "No scroll triggered",
+      "_source": "SP-8b C5：TriggerScroll+手动触发合并计 0"
+    },
+    {
+      "id": "campaign:obj-c6",
+      "hard": false,
+      "metric": "HeroRule",
+      "op": "at_most",
+      "threshold": 0,
+      "name_zh": "英雄不出阵（若出阵：不阵亡）",
+      "name_en": "Hero benched, or unharmed",
+      "_source": "SP-8b C6：出阵/阵亡事件（不出阵或不出局即达成）"
+    },
+    {
+      "id": "campaign:obj-c7",
+      "hard": false,
+      "metric": "PauseCount",
+      "op": "at_most",
+      "threshold": 0,
+      "name_zh": "全程不暂停",
+      "name_en": "Never paused",
+      "_source": "SP-8b C7：暂停事件计数"
+    },
+    {
+      "id": "campaign:obj-c8",
+      "hard": false,
+      "metric": "FirstWaveLeaks",
+      "op": "at_most",
+      "threshold": 0,
+      "name_zh": "首波零漏敌",
+      "name_en": "Zero leaks in wave one",
+      "_source": "SP-8b C8：漏敌计数（首波宽限内）"
+    }
+  ]
+}
