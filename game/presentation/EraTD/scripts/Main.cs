@@ -136,6 +136,13 @@ public sealed partial class Main : Control
         // 段判据。（并行纪律：本文件的接线冲突由后提交者 rebase。）
         SettingsPanelUi.Instantiate(this);
 
+        // ---- 5d) T-086 cinematics (C-24, F-113/F-114) -----------------------
+        // 演出导演挂载（cinematics/CinematicDirector.cs）：E1 啊哈+E2 觉醒
+        // 两脚本接真模拟；headless 下自带冒烟序列并打印
+        // CINE_OK aha=skip-safe awaken=3choice——smoke 演出段判据。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        Cinematics.CinematicDirector.Instantiate(this, _host);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.

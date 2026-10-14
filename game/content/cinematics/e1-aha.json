@@ -1,0 +1,27 @@
+{
+  "$schema": "urn:eratd:content:cinematics:1",
+  "content_type": "Cinematic",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）。本文件=T-086 C-24 E1 首个啊哈演出（F-113，v3.2 §10.4 ① / §10.4 任务口径）：第 2~3 波 断弹→闪红→民夫扛箭穿越→恢复全速 的脚本化闭环，镜头/音效强调；纯演出零世界命令（terminal_commands 空——补给闭环本身由关卡命令流的 assign-carrier 驱动，演出只读快照+高亮）",
+  "id": "cinematic:e1-aha",
+  "hook": "campaign:hook-e1-ahwa-arrow-break",
+  "title_zh": "断弹与送箭",
+  "steps": [
+    { "kind": "sound", "cue": "ding_crisis" },
+    { "kind": "speak", "speaker": "系统", "text": "叮——警告！木箭塔弹药见底，民夫已经在路上了。", "duration_ticks": 45 },
+    { "kind": "highlight", "target": { "type": "cell", "cell": { "x": 6, "y": 21 } }, "flavor": "red_flash", "duration_ticks": 30 },
+    { "kind": "camera_move", "target": { "type": "cell", "cell": { "x": 6, "y": 21 } }, "duration_ticks": 30 },
+    { "kind": "camera_move", "target": { "type": "carrier_to", "cell": { "x": 6, "y": 21 } }, "duration_ticks": 90 },
+    { "kind": "wait_event", "event": "ammo_restored" },
+    { "kind": "checkpoint", "id": "arrow-restored" },
+    { "kind": "highlight", "target": { "type": "cell", "cell": { "x": 6, "y": 21 } }, "flavor": "green_restore", "duration_ticks": 30 },
+    { "kind": "sound", "cue": "ding_reward" },
+    { "kind": "speak", "speaker": "系统", "text": "叮叮！箭已上弦——补给线就是生命线。", "duration_ticks": 45 },
+    { "kind": "camera_move", "target": { "type": "cell", "cell": { "x": 8, "y": 23 } }, "duration_ticks": 30 }
+  ],
+  "terminal_commands": [],
+  "_source": "T-086 E1 啊哈脚本（L1-1 第 2 波触发位=cinematic_hooks/campaign:hook-e1-ahwa-arrow-break）：镜头推向木箭塔（L1-1 命令流 wave1 build-tower @6,21，实体序号 5）→塔头闪红（危机叮+红闪 UI 高亮）→镜头跟民夫扛箭路径（快照 Carrier 位置，converter→tower1 弹药线）→wait_event ammo_restored（宿主观察民夫 DeliveredItems 上升即恢复）→恢复绿+奖励叮叮+一句话气泡→镜头回主城。锚点：断弹危机=§10.3 危机叮；恢复=奖励叮叮；零污染=terminal_commands 空+演出只读快照（Sim 哈希前后不变由 EraCore.Tests/Cinematics 集成断言）。时长=30Hz tick（45t=1.5s）",
+  "_units": {
+    "steps[].duration_ticks": "ticks_30hz",
+    "steps[].cell": "cells"
+  }
+}

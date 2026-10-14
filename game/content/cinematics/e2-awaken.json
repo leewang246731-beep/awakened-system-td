@@ -1,0 +1,37 @@
+{
+  "$schema": "urn:eratd:content:cinematics:1",
+  "content_type": "Cinematic",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）。本文件=T-086 C-24 E2 觉醒演出（F-114，v3.2 §10.4 ②）：黑屏→全息面板展开（复用 HoloSkin）→三选一预填军令卡（复用轮盘 F-116 高频军令数据）→玩家确认→真实走五段管线（方案卡 Confirm）→塔列队开建镜头→系统交底『令簿』（12 意图清单 UI）→『更大的东西醒了』钩子台词（§12.1 谱系：系统=上一纪元指挥官残核『零』的记忆容器叙事）；演出可跳过（跳过=默认选项的终态命令集）",
+  "id": "cinematic:e2-awaken",
+  "hook": "campaign:hook-e2-awakening-awaken",
+  "title_zh": "觉醒·令簿交接",
+  "steps": [
+    { "kind": "screen", "flavor": "black_fade_in", "duration_ticks": 45 },
+    { "kind": "speak", "speaker": "零", "text": "……信号接通。宿主，我是你的系统——编号零，上一纪元留下的指挥残核。", "duration_ticks": 75 },
+    { "kind": "ui", "surface": "holo_panel_expand", "duration_ticks": 45 },
+    { "kind": "sound", "cue": "ding_info" },
+    {
+      "kind": "choice",
+      "prompt": "令簿预填三道军令，选第一道：",
+      "default": 0,
+      "options": [
+        { "label": "守住南门", "on_confirm": [ { "kind": "issue_order", "order": "守住南门" } ] },
+        { "label": "在东门建两座木箭塔", "on_confirm": [ { "kind": "issue_order", "order": "在东门建两座木箭塔" } ] },
+        { "label": "敌情怎么样", "on_confirm": [ { "kind": "issue_order", "order": "敌情怎么样" } ] }
+      ]
+    },
+    { "kind": "wait_event", "event": "order_settled" },
+    { "kind": "checkpoint", "id": "first-order-settled" },
+    { "kind": "camera_move", "target": { "type": "cell", "cell": { "x": 12, "y": 12 } }, "duration_ticks": 60 },
+    { "kind": "ui", "surface": "ledger_reveal", "duration_ticks": 60, "ledger": [ "守住X", "建造", "升级", "出售", "集火", "改集火模式", "物流改道", "储备查询", "敌情查询", "设闹", "巡逻", "卷轴触发+停止" ] },
+    { "kind": "speak", "speaker": "零", "text": "令簿交接完毕——我能听懂的军令，一共这十二条。", "duration_ticks": 75 },
+    { "kind": "speak", "speaker": "零", "text": "对了，残档最深处有一行烧痕：『更大的东西醒了。』……就当我还说梦话。", "duration_ticks": 90 },
+    { "kind": "screen", "flavor": "fade_out", "duration_ticks": 30 },
+    { "kind": "checkpoint", "id": "awakened" }
+  ],
+  "_source": "T-086 E2 觉醒脚本（L2-1 开场=levels/e2.json cinematic_hooks/campaign:hook-e2-awakening-awaken level_start）：三选一选项=SystemPanel.WheelOrders 轮盘军令族数据（F-116 复用，宿主管线 L1 文法全部可解析；首选项锚南门=开发宿主 south_gate 建造环空位，真关卡装载后按关卡分区数据配置）；issue_order 走真实五段管线（Handle→方案卡→Confirm），wait_event order_settled 由宿主在管线终态时回填；令簿 12 行=K-4 IntentKind 冻结枚举顺序（EraCore.Tests/Cinematics 断言行数=12）；镜头锚点 12,12=east_gate 建造环（SimHost/T-053 锚点）。跳过安全=choice default 0 的 on_confirm 即终态命令集（未选即默认）。台词=零的谱系钩子（§12.1 记忆容器+烧痕备注），时长=30Hz tick",
+  "_units": {
+    "steps[].duration_ticks": "ticks_30hz",
+    "steps[].cell": "cells"
+  }
+}
