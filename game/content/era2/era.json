@@ -1,0 +1,90 @@
+{
+  "$schema": "urn:eratd:content:era:1",
+  "content_type": "Era",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E2 时代行锚点=v3.2 §4 L59（docs/我在游戏觉醒系统-游戏设计方案.md）+§4 能源阶梯行/跨代资源行+§5 L78~L79（物流阶梯、仓库等级）；格式先例=era1/era.json（T-049）",
+  "items": [
+    {
+      "id": "era2:era-classical",
+      "content_type": "Era",
+      "era_index": 2,
+      "name_zh": "古典",
+      "name_en": "Classical",
+      "aliases": ["E2", "古典", "古典时代"],
+      "resources": [
+        { "id": "era2:res-copper", "name_zh": "铜", "name_en": "Copper" },
+        { "id": "era2:res-iron", "name_zh": "铁", "name_en": "Iron" },
+        { "id": "era2:res-grain", "name_zh": "粮", "name_en": "Grain" },
+        { "id": "era2:res-horse", "name_zh": "马", "name_en": "Horse" },
+        {
+          "id": "era1:res-wood",
+          "name_zh": "木材",
+          "name_en": "Wood",
+          "legacy_refresh": { "from_era": 1, "abundance_multiplier": 0.5 }
+        },
+        {
+          "id": "era1:res-stone",
+          "name_zh": "石料",
+          "name_en": "Stone",
+          "legacy_refresh": { "from_era": 1, "abundance_multiplier": 0.5 }
+        }
+      ],
+      "_resources_note": "§4 L59 E2 资源=铜/铁/粮/马（本代四种）；木材/石料=上代 2 种基础资源传承刷新（§4 跨代资源行『上代 2 种基础资源刷新（丰度 ×0.5）』，id 沿用 era1 命名空间=同一资源跨代保留，丰度 ×0.5；E1 食物不入 E2 资源集——粮为本代新 Staple 位，无用途旧资源 3:1 折算文明基金不发生在跃迁行内，见 legacy/era_transition.json levy）",
+      "energy": {
+        "type": "waterpower",
+        "name_zh": "水力",
+        "levels": [
+          { "tier": 1, "name_zh": "水力", "output": 30, "_new": true },
+          { "tier": 2, "name_zh": "风车", "output": 100, "_new": true }
+        ],
+        "ladder_multiplier_min": 3.0,
+        "ladder_multiplier_max": 5.0,
+        "risk_events": false
+      },
+      "logistics": {
+        "tier": 1,
+        "carrier": "carriage",
+        "carrier_zh": "马车",
+        "throughput_items_per_s": 0.6,
+        "ladder_items_per_s": [0.3, 0.6, 10.0, 15.0, 20.0, null],
+        "_ladder_note": "末位 null=∞（v3.2 §5 L78 物流阶梯 0.3→0.6→10→15→20→∞ 件/s；E2 处于第 1 档=马车 0.6）",
+        "aqueduct": {
+          "available": true,
+          "name_zh": "水渠",
+          "name_en": "Aqueduct",
+          "_source": "v3.2 §4 L59『马车 0.6、水渠』——水渠=E2 物流第二形态（渠运并列档位；容量/档位细则无文档锚点，数据位先行 _new，实现随 C-07 物流全量 T-064）"
+        }
+      },
+      "warehouse_level": 2,
+      "towers": [
+        "era2:tower-arrow",
+        "era2:tower-crossbow",
+        "era2:tower-repeating-crossbow",
+        "era2:tower-onager",
+        "era2:tower-fire-oil"
+      ],
+      "_towers_note": "§4 L59 塔防特色=箭楼/弩塔/弩炮/火油塔/瓮城——本行五塔对齐 era2/towers.json（T-065）实存行：连弩塔=SP-1b L42 箭楼同线 T3（§4 列名按基础四类省略同线升级位）；瓮城=SP-1b 归类建筑（+20% [NEW-原型校准]），不入塔组五行、随瓮城卷轴（era2:scroll-barbican-retort）与建筑内容另行落地，故本数组与 towers.json ids 恰等",
+      "boss": {
+        "enemy_id": "era2:enemy-boss",
+        "name_zh": "铁蹄",
+        "name_en": "Ironhoof",
+        "hp": 4000,
+        "armor": 10
+      },
+      "system_stage": "executive",
+      "system_stage_zh": "执行期",
+      "system_stage_features": ["delegate_build", "first_ahwa_cinematic"],
+      "_system_stage_note": "§4 L59 系统形态=执行期（可代建；首个啊哈演出）——delegate_build=可代建（BuildPlan 等建造组于 E2 建造级逐关排期解锁，G.2）；first_ahwa_cinematic=首个啊哈演出（§10.4『E2 第一关觉醒演出=三选一预填军令→方案卡→塔列队开建→系统交底令簿』，落位 campaign:level-e2-01，见 levels.json）",
+      "_new": true,
+      "_new_fields": ["energy.levels[0].output", "energy.levels[1].output"],
+      "_source": "v3.2 §4 L59 E2 行（资源=铜/铁/粮/马；能源=水力；物流=马车 0.6、水渠；塔防特色=箭楼/弩塔/弩炮/火油塔/瓮城；Boss=铁蹄 HP4000/甲10；系统形态=执行期）+§4 能源阶梯行（×3~5/级；E2 无负载率类阶梯风险，SP-4 L142 适用代=E3 起）+§4 跨代资源行（上代 2 种基础资源刷新 丰度 ×0.5）+§5 L78~L79（物流阶梯 E2=第 1 档 0.6；仓库等级跃迁自动 +1：E1=1→E2=2）——能源 L1=30（水力）/L2=100（风车）为 T-079 任务卡锚点（倍率 100/30≈3.33∈[3,5]，v3.2 未定逐级绝对值，_new 待原型校准）；Boss HP/甲为 §4 逐字锚点（与 era2/enemies.json e2_boss 行同值，不得漂移）",
+      "_units": {
+        "energy_output": "energy_points_per_second",
+        "throughput_items_per_s": "items_per_second",
+        "abundance_multiplier": "fraction_of_e1_abundance",
+        "hp": "points",
+        "armor": "points",
+        "warehouse_level": "levels"
+      }
+    }
+  ]
+}

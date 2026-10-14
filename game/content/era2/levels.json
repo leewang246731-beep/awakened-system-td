@@ -1,0 +1,122 @@
+{
+  "$schema": "urn:eratd:content:level:1",
+  "content_type": "Level",
+  "era": "era2:era-classical",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E2 前三关排期锚点=v3.2 §4 L67（新时代前三关排期：关 1 新能源、关 2 新物流、关 3 考古+英雄+系统新能力）+§11.8（逐关排期：对话级→建造级→巡逻/托管级）+附录 G.2（19 动作解锁时代列）；关卡行属战役命名空间 campaign:（与 campaign/techtree.json bound_levels、legacy/era_transition.json first_three_schedule 同源引用，id 三处一致由 Era2ContentTests 三源一致性矩阵互证）；威胁度/胜波公式=v3.2 §7（clamp(0.3+0.3×邻接敌营,0.3,1.2)；胜波 10+⌊威胁度×10⌋）",
+  "first_three_schedule_anchor": {
+    "source": "v3.2 §4 L67 + legacy/era_transition.json first_three_schedule（T-074 冻结）",
+    "slots": [
+      { "slot": 1, "focus": "new_energy", "focus_zh": "新能源" },
+      { "slot": 2, "focus": "new_logistics", "focus_zh": "新物流" },
+      { "slot": 3, "focus": "archaeology_hero_system", "focus_zh": "考古+英雄+系统新能力" }
+    ]
+  },
+  "items": [
+    {
+      "id": "campaign:level-e2-01",
+      "content_type": "Level",
+      "era": "era2:era-classical",
+      "slot": 1,
+      "name_zh": "水轮初鸣",
+      "name_en": "First Waters",
+      "aliases": ["E2 第一关", "水力关", "水轮关"],
+      "focus": "new_energy",
+      "focus_zh": "新能源",
+      "schedule_tier": "dialogue",
+      "schedule_tier_zh": "对话级",
+      "adjacent_enemy_camps": 0,
+      "threat": 0.3,
+      "win_waves": 13,
+      "first_wave_grace_multiplier": 3.0,
+      "teaching_level": true,
+      "awakening_cinematic": true,
+      "unlocks": {
+        "actions": ["TodoBoard", "StopTask"],
+        "features": ["waterpower_energy"]
+      },
+      "_new": true,
+      "_new_fields": ["adjacent_enemy_camps", "first_wave_grace_multiplier", "unlocks.actions", "name_zh", "name_en"],
+      "_source": "§4 L67 关 1=新能源（水力系统开放：era.json energy waterpower L1 30）+§11.8 对话级（管理组对话级动作 TodoBoard/StopTask 落位，G.2 两行解锁时代=E2）+§10.4『E2 第一关觉醒演出=三选一预填军令→方案卡→塔列队开建→系统交底令簿（演出可跳过）』→awakening_cinematic；§6 教学关首波宽限 ×3→grace 3.0；邻接敌营 0→威胁度 clamp(0.3+0.3×0)=0.3、胜波 10+⌊0.3×10⌋=13（§7 公式，[NEW] 选值为 E2 首关最低档）；关名 [NEW]；箭楼研究闸=campaign:tech-e2-arrow bound_levels 本关（T-073）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier"
+      }
+    },
+    {
+      "id": "campaign:level-e2-02",
+      "content_type": "Level",
+      "era": "era2:era-classical",
+      "slot": 2,
+      "name_zh": "车道与水渠",
+      "name_en": "Carriage Roads",
+      "aliases": ["E2 第二关", "马车关", "物流关"],
+      "focus": "new_logistics",
+      "focus_zh": "新物流",
+      "schedule_tier": "build",
+      "schedule_tier_zh": "建造级",
+      "adjacent_enemy_camps": 1,
+      "threat": 0.6,
+      "win_waves": 16,
+      "first_wave_grace_multiplier": 2.0,
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "unlocks": {
+        "actions": [
+          "BuildPlan",
+          "UpgradeTower",
+          "SellTower",
+          "SetRally",
+          "RerouteLogistics",
+          "SetStockpile",
+          "FocusFire",
+          "SetTowerMode",
+          "TriggerScroll"
+        ],
+        "features": ["carriage_logistics", "aqueduct"]
+      },
+      "_new": true,
+      "_new_fields": ["adjacent_enemy_camps", "first_wave_grace_multiplier", "unlocks.actions", "name_zh", "name_en"],
+      "_source": "§4 L67 关 2=新物流（马车 0.6/水渠开放：era.json logistics tier 1+aqueduct）+§11.8 建造级（G.2 建造组四动作 BuildPlan/UpgradeTower/SellTower/SetRally+物流组 RerouteLogistics/SetStockpile（新物流关对位）+战斗组 FocusFire/SetTowerMode/TriggerScroll——执行期『可代建』自本关成立；TriggerScroll 对位 SP-5 卷轴 E2 解锁+tech-e2-scroll-beacon bound_levels 本关（T-073））+§6 首波宽限带 ×1.5~2 上沿 2.0 [NEW]；邻接敌营 1→威胁度 clamp(0.3+0.3×1)=0.6、胜波 10+⌊0.6×10⌋=16（§7 公式）；关名 [NEW]；弩塔/连弩/弩炮/火油/烽火卷轴/物流阶梯研究闸 bound_levels 本关（T-073 techtree E2 节）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier"
+      }
+    },
+    {
+      "id": "campaign:level-e2-03",
+      "content_type": "Level",
+      "era": "era2:era-classical",
+      "slot": 3,
+      "name_zh": "残卷与执戈者",
+      "name_en": "Scrolls and the Spear",
+      "aliases": ["E2 第三关", "考古关", "英雄关"],
+      "focus": "archaeology_hero_system",
+      "focus_zh": "考古+英雄+系统新能力",
+      "schedule_tier": "patrol",
+      "schedule_tier_zh": "巡逻/托管级",
+      "adjacent_enemy_camps": 2,
+      "threat": 0.9,
+      "win_waves": 19,
+      "first_wave_grace_multiplier": 1.5,
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "unlocks": {
+        "actions": ["SpawnScout", "HeroOrder"],
+        "features": ["archaeology", "hero_recruit"]
+      },
+      "_new": true,
+      "_new_fields": ["adjacent_enemy_camps", "first_wave_grace_multiplier", "unlocks.actions", "name_zh", "name_en"],
+      "_source": "§4 L67 关 3=考古+英雄+系统新能力——考古=legacy/archaeology.json 三通道开放（F-058，本关起可考）；英雄=每代第 3 关解锁招募（G.2 HeroOrder 行『英雄解锁后（每代第 3 关）』+SP-6『每代第 3 关解锁招募』→era2:hero-spearwarden）；系统新能力=SpawnScout（G.2『E2 巡逻级解锁，E1 返回 ERR_CAPABILITY_LOCKED』——巡逻级=§11.8 三级排期末档=本关；techtree 旁支 tech-sys-e2-patrol unlocks campaign:capability-spawn-scout，研究闸 bound_levels=level-e2-01 占领后可研究，运行时解锁位=本关）+§11.8 巡逻/托管级；+§6 首波宽限带下沿 1.5 [NEW]；邻接敌营 2→威胁度 clamp(0.3+0.3×2)=0.9、胜波 10+⌊0.9×10⌋=19（§7 公式，前三关递进 13→16→19）；关名 [NEW]",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier"
+      }
+    }
+  ]
+}
