@@ -63,6 +63,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # T-096：redline R13（基线 8402414 可达性）与 T8（金样 commit 边界）
+          # 都要对仓库历史做 git 查询——默认 fetch-depth=1 的浅检出下两者必红
+          # （R13 基线不可达；T8 无父提交可 diff 退化成全树误报）。全量检出。
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
