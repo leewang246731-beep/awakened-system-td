@@ -1,0 +1,104 @@
+{
+  "schema": "game-assets/1",
+  "batch": "video-tier-E-easter-eggs",
+  "layer_id": "E",
+  "plan": "docs/engineering/31-visual-enrichment-master-plan.md (v2.0 owner-approved, tier E detail E-01..E-04)",
+  "produced_at": "2026-10-15",
+  "task": "T-149 tier E (4 easter-egg clips; E-09/E-05 both per owner Q17C approval)",
+  "source_of_truth": "19-r2-easter-eggs.md (E-09 念旧之人 / E-05 零的观察手记) + 31号 §1.2 six-era identity card + §二.2 tier E rows E-01..E-04",
+  "model_primary": "doubao-seedance-2-5-260628 (Volcano Ark, arkvideo.mjs skill)",
+  "spec": {
+    "resolution": "480p (854x480, h264, 24fps)",
+    "ratio": "16:9",
+    "durations_s": { "E-a": 12, "E-b": 8, "E-c": 10, "E-d": 8 },
+    "audio": "generate_audio=true (tier E = audio ON per plan; AAC stereo)",
+    "watermark": false,
+    "transcode": "none (raw mp4 masters only; ogv dist chain belongs to T-152)",
+    "style_family": "easter-egg variants of the layered-strata grammar (31号 §1.4: E layer is the sanctioned 破格 tier); no text in any clip"
+  },
+  "palette_anchors": {
+    "all-era chain (E-a, E-d)": "#C9915C / #4E8A6E / #A8503C / #3D7EA6 / #3FC1C9",
+    "system cyan vs doodle warm (E-b)": "#3FC1C9 vs #C9915C / #E07B39",
+    "stargate finale (E-c)": "#3E55C9 / #1D1B33 / #BFE8F2 (E1 complementary loop, 31号 §1.3)"
+  },
+  "counts": {
+    "deliverables": 4,
+    "total_duration_s": 38.272,
+    "generation_tasks_succeeded": 4,
+    "retries_quality": 0,
+    "retry_network": 1,
+    "rejected_takes_archived": 0,
+    "self_review_frame_audits": 12,
+    "self_review_pass_clips": 4
+  },
+  "cost": {
+    "tokens_per_task": { "E-a": 115690, "E-b": 77260, "E-c": 96475, "E-d": 77260 },
+    "tokens_total": 366685,
+    "unit_price_basis": "Seedance 2.5 pure-text-to-video 70 CNY per 1M tokens (tier E audio ON: free, token count unchanged)",
+    "estimated_cost_cny": 25.67,
+    "plan_direct_estimate_cny": 25.46,
+    "plan_budget_band_cny": "102-127 (x4-x5 multiplier)",
+    "actual_multiplier": 1.0
+  },
+  "network_incidents": [
+    "poll of E-d task hit one transient 'fetch failed' (transport jitter, same class as tier D incidents); 30s backoff + re-poll recovered; task itself succeeded server-side, no duplicate submission, no cost impact"
+  ],
+  "items": [
+    {
+      "id": "E-a",
+      "layer_id": "E-01",
+      "egg_id": "E-09 念旧之人 (19-r2: 整关零出售通关 → 系统'你一座塔都舍不得卖'; collection keepsake 'all the cities you built')",
+      "duration_s": 12.064,
+      "file": "E:/game-videos/expand-v1/E/2026-10-15_E-a.mp4",
+      "md5": "4483bb6ab5505b167d1e8c119510b846",
+      "bytes": 8118854,
+      "task_id": "cgt-20261015110901-s0hxn",
+      "tokens": 115690,
+      "retries": 0,
+      "review": "3/3 frames PASS @2s/6s/10.5s — lateral pan traverses era strata in order (wood+stone → stone+iron+radar edge → radar+spire with earlier ghosts retained); palette follows hex anchors; no text",
+      "prompt": "Slow lateral tracking shot gliding right across a monumental commemorative collage scroll: one single ancient defense line rendered as overlapping silhouettes from successive eras, stacked like translucent geological strata on the same rampart. Frontmost, a three-tier wooden watchtower with thatched eaves in dawn ochre-gold (#C9915C); behind it a stone bastion with gables and crenellations in bronze verdigris (#4E8A6E); behind that a riveted iron lattice truss tower in riveted-iron ochre red (#A8503C); then a concrete radar tower with a parabolic dish in electric grid blue (#3D7EA6); deepest, a flowing nano energy spire with floating rings in fusion cyan (#3FC1C9). Each older silhouette remains visible as a ghost layer beneath the newer ones, era colors accumulating into rich sediment. Glowing memory-fragment particles drift over the scroll like keepsake dust. Layered color strata, sedimentary composition, nostalgic keepsake-album mood, gentle ambient sound. No text, no letters."
+    },
+    {
+      "id": "E-b",
+      "layer_id": "E-02",
+      "egg_id": "E-05 零的观察手记 (19-r2: 战报回放尾页系统私货日志; Q17C both-approved)",
+      "duration_s": 8.064,
+      "file": "E:/game-videos/expand-v1/E/2026-10-15_E-b.mp4",
+      "md5": "cfa98c2327f5152fd9904ee327a379dc",
+      "bytes": 5495016,
+      "task_id": "cgt-20261015110915-03lfg",
+      "tokens": 77260,
+      "retries": 0,
+      "review": "3/3 frames PASS @2s/4s/6.5s — cold cyan holographic UI progressively overgrown by naive warm crayon doodles (tower/stars/spirals/arrows/sun), contrast ratio evolves per brief; zero readable or pseudo-writing marks; no artifacts",
+      "prompt": "Close-up of a cold holographic system interface floating in a dark void: translucent fusion-cyan (#3FC1C9) panels, fine grid lines, slow scanning beams, hexagonal lattice nodes and abstract glowing data blocks. Across this sterile machinery, childlike naive crayon doodles gradually grow in warm hand-drawn strokes of ochre-gold (#C9915C) and ember orange (#E07B39): a wobbly little watchtower, crooked stars, a spiral scribble, looping arrows, a lopsided sun. The clumsy warm doodles spread along the panel seams, circling and playfully redrawing the cold UI elements, as if a hidden intelligence were secretly learning to draw by watching. The contrast deepens until the page feels like the observation journal of a child overlaying a machine. Soft holographic glow meets waxy crayon texture. No text, no letters, no numbers, no readable characters — only abstract doodle shapes."
+    },
+    {
+      "id": "E-c",
+      "layer_id": "E-03",
+      "egg_id": "隐藏结局预告 (31号 E-03: 星门环裂缝中闪现的隐藏结局剪影, 《零的真相》集齐铺垫)",
+      "duration_s": 10.08,
+      "file": "E:/game-videos/expand-v1/E/2026-10-15_E-c.mp4",
+      "md5": "2cd8a41e63df9a2b7e6596d62b813aea",
+      "bytes": 3111110,
+      "task_id": "cgt-20261015111258-49ex1",
+      "tokens": 96475,
+      "retries": 0,
+      "review": "3/3 frames PASS @2s/5s/8.5s — stargate ring + motionless watcher from behind + widening sliver fissure with unrevealed glimmer; all three finale hex anchors held with no warm drift; no text",
+      "prompt": "Hidden-ending teaser, minimal and suspenseful. In deep-space dark matter violet-black (#1D1B33), a colossal stargate ring glows in deep stargate indigo (#3E55C9), seen from behind the small dark silhouette of a lone watcher who stands perfectly still, back to camera, at the bottom of the frame. A hairline fissure of pale zero-point cyan (#BFE8F2) light runs down the heart of the gate and slowly widens by a mere sliver; gravitational lens arcs bend faintly around the crack, and drifting memory-light dust rises. Deep inside the fissure something almost imperceptible glimmers — never fully revealed. The watcher never moves. Layered nebula strata, extreme restraint, quiet dread and wonder, low ambient drone. No text, no letters."
+    },
+    {
+      "id": "E-d",
+      "layer_id": "E-04",
+      "egg_id": "无尽里程碑 (31号 E-04: F-123 无尽三榜波次纪念; no-text discipline — wave count expressed by form)",
+      "duration_s": 8.064,
+      "file": "E:/game-videos/expand-v1/E/2026-10-15_E-d.mp4",
+      "md5": "168a28059a85d23c3298f5d7f6dd9eb3",
+      "bytes": 5317129,
+      "task_id": "cgt-20261015111304-qkphg",
+      "tokens": 77260,
+      "retries": 0,
+      "review": "3/3 frames PASS @2s/4s/6.5s — strata column rises with correct era order (ochre/verdigris → iron red/grid blue → fusion-cyan arc crown near top); zero digits anywhere; no artifacts",
+      "prompt": "Abstract milestone montage for an endless-mode tribute: waves climb and stack without numbers. The recurring triangle motif evolves in quick succession — a spearhead triangle becomes a pediment triangle, then a truss triangle with a turning gear, then a play-button triangle, then a stretching force-field arc — each new wave of the motif rising one stratum higher atop the previous ones, like counting by shape alone. With every wave a new color stratum settles beneath: dawn ochre-gold (#C9915C), bronze verdigris (#4E8A6E), riveted-iron red (#A8503C), grid blue (#3D7EA6), fusion cyan (#3FC1C9), stacking into a rising sediment column that climbs toward the top of the frame. Glowing memory-fragment sparks burst briefly at each new tier; the cadence accelerates. Layered color strata, rhythmic pulse, escalating momentum. No text, no numbers, no letters."
+    }
+  ]
+}
