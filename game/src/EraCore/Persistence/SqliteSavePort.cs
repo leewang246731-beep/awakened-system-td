@@ -204,20 +204,32 @@ public sealed class SqliteSavePort : ISavePort
     /// Rotation + connection + pragmas + write-version alignment shared by
     /// both write operations. MUST be called while holding <c>_writeGate</c>
     /// (the public writers take it with a plain <c>lock</c>, which releases
-    /// even on throw).
+    /// even on throw). If version alignment throws (e.g. a store from a
+    /// newer format), the freshly opened connection is disposed HERE: the
+    /// caller's <c>using</c> only disposes what BeginWrite returns, so a
+    /// throw on the return path would otherwise leak the native file handle
+    /// (found by the T-100 dual-backend write-refusal equivalence test).
     /// </summary>
     private SqliteConnection BeginWrite()
     {
         RotateBackupsBeforeWrite();
         var connection = OpenConnection(SqliteOpenMode.ReadWriteCreate);
-        ApplyDurabilityPragmas(connection);
-        var storedVersion = TryReadStoredVersion(connection);
-        if (storedVersion is int stored && stored != SaveVersion.Current)
+        try
         {
-            _migrator.Migrate(connection, stored, SaveVersion.Current);
-        }
+            ApplyDurabilityPragmas(connection);
+            var storedVersion = TryReadStoredVersion(connection);
+            if (storedVersion is int stored && stored != SaveVersion.Current)
+            {
+                _migrator.Migrate(connection, stored, SaveVersion.Current);
+            }
 
-        return connection;
+            return connection;
+        }
+        catch
+        {
+            connection.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
