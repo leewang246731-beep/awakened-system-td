@@ -22,10 +22,14 @@ public sealed record PanelSettings
 /// <summary>
 /// System.Text.Json source-generation context for the C-22 panel settings
 /// (AOT red line 07 D-05, mirrors <c>GovernanceJsonContext</c>): the only
-/// serialization entry point for presentation-layer settings.
+/// serialization entry point for presentation-layer settings. T-102 added
+/// the render-tier preference record; enums ride as readable strings
+/// (UseStringEnumConverter — bool-only <see cref="PanelSettings"/> output
+/// is unchanged).
 /// </summary>
-[JsonSourceGenerationOptions(WriteIndented = false)]
+[JsonSourceGenerationOptions(WriteIndented = false, UseStringEnumConverter = true)]
 [JsonSerializable(typeof(PanelSettings))]
+[JsonSerializable(typeof(RenderTierSettings))]
 public sealed partial class PresentationJsonContext : JsonSerializerContext
 {
 }

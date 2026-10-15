@@ -66,6 +66,7 @@ public sealed partial class SystemPanel : Control
 
     private Button _bubble = null!;
     private PanelContainer _expandedPanel = null!;
+    private TextureRect _scanlineOverlay = null!; // T-102: tier-gated scanline pass (§13.4)
     private LineEdit _orderInput = null!;
     private Label _ghostHint = null!;
     private CheckBox _offSwitch = null!;
@@ -232,6 +233,8 @@ public sealed partial class SystemPanel : Control
             ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
             MouseFilter = MouseFilterEnum.Ignore,
         };
+
+        _scanlineOverlay = scan;
 
         var bevel = new PanelContainer();
         bevel.AddThemeStyleboxOverride("panel", HoloSkin.BuildInnerBevel());
@@ -419,6 +422,19 @@ public sealed partial class SystemPanel : Control
     }
 
     private void OnOffSwitchToggled(bool pressed) => SetSystemEnabled(!pressed);
+
+    /// <summary>
+    /// T-102 (C-21 渲染三档): toggles the §13.4 scanline overlay pass from the
+    /// render-tier decision (<see cref="EraCore.Presentation.RendererDecisionMap"/>
+    /// — L 档无扫描线). Mirrors the decision only; no tier logic lives here.
+    /// </summary>
+    internal void SetScanlineEnabled(bool enabled)
+    {
+        if (_scanlineOverlay is not null)
+        {
+            _scanlineOverlay.Visible = enabled;
+        }
+    }
 
     private void OnReenablePressed() => SetSystemEnabled(true);
 

@@ -8,6 +8,8 @@
 ; footer (dynamic base_url + Coding Plan notice). All decisions live in
 ; EraCore.Presentation.SettingsFormState — this scene only lays out nodes;
 ; wiring is scripts/SettingsPanelUi.cs (the script's only mount point).
+; T-102 (C-21): + RenderTierRow 画质档位下拉（渲染三档 L/M/H + 自动探测，
+; 持久化 settings/render-tier.json，即时保存——非 BYOK 字段不进保存按钮路径）。
 
 [ext_resource type="Script" path="res://scripts/SettingsPanelUi.cs" id="1_settings"]
 
@@ -50,6 +52,18 @@ theme_override_constants/separation = 2
 [node name="Title" type="Label" parent="Scroll/Form"]
 layout_mode = 2
 text = "AI 设置（BYOK — 自带密钥，本游戏不收费）"
+
+[node name="RenderTierRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/RenderTierRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "画质档位（渲染三档）"
+
+[node name="RenderTierDropdown" type="OptionButton" parent="Scroll/Form/RenderTierRow"]
+layout_mode = 2
 
 [node name="TemplateRow" type="HBoxContainer" parent="Scroll/Form"]
 layout_mode = 2

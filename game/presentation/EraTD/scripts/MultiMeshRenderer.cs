@@ -152,9 +152,14 @@ public sealed partial class MultiMeshRenderer : MultiMeshInstance2D
     /// Rewrites the unit instances that currently live inside
     /// <paramref name="dirtyChunks"/> (chunk membership via cell position;
     /// units outside the dirty set keep last frame's transform and color).
+    /// T-102 (C-21 渲染三档): <paramref name="impactFlashUnitIds"/> carries the
+    /// effect-gated hit-flash set (units whose HP dropped this frame AND
+    /// passed the tier density gate in <see cref="EraCore.Presentation.RendererDecisionMap"/>)
+    /// — those render one bright flash frame instead of the HP-tint color.
     /// </summary>
     public void RebuildUnitChunks(
-        IReadOnlyCollection<(int ChunkX, int ChunkY)> dirtyChunks, SimSnapshot snapshot)
+        IReadOnlyCollection<(int ChunkX, int ChunkY)> dirtyChunks, SimSnapshot snapshot,
+        IReadOnlyCollection<long>? impactFlashUnitIds = null)
     {
         if (_kind != LayerKind.Units)
         {
@@ -174,10 +179,20 @@ public sealed partial class MultiMeshRenderer : MultiMeshInstance2D
 
             int slot = UnitSlot(unit.Id.Value);
             Multimesh.SetInstanceTransform2D(slot, CellTransform(unit.X, unit.Y, cell));
-            float hpRatio = unit.MaxHp > 0 ? (float)unit.Hp / unit.MaxHp : 0f;
-            Multimesh.SetInstanceColor(slot, new Color(1f - hpRatio, 0.35f + 0.5f * hpRatio, 0.25f));
+            if (impactFlashUnitIds is not null && impactFlashUnitIds.Contains(unit.Id.Value))
+            {
+                Multimesh.SetInstanceColor(slot, ImpactFlashColor); // gated combat effect (T-102)
+            }
+            else
+            {
+                float hpRatio = unit.MaxHp > 0 ? (float)unit.Hp / unit.MaxHp : 0f;
+                Multimesh.SetInstanceColor(slot, new Color(1f - hpRatio, 0.35f + 0.5f * hpRatio, 0.25f));
+            }
         }
     }
+
+    /// <summary>Impact-flash tint (tier-gated combat effect): white-hot overrides the HP tint for one frame.</summary>
+    private static readonly Color ImpactFlashColor = new(1f, 0.96f, 0.72f);
 
     private static QuadMesh MakeCellQuad() => new()
     {

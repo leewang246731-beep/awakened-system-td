@@ -26,6 +26,9 @@ namespace EraTD;
 /// <item>C-22 panel: HUD three metrics refresh from the same real
 /// snapshots; the panel smoke drives the order box signal, the plan-card
 /// confirm and the off-switch, then prints the PANEL_OK markers.</item>
+/// <item>T-102 (C-21 渲染三档): persisted preference + probe facts select a
+/// capability row; the loop consumes RendererDecisionMap plans (L 按需直绘
+/// + 特效密度门 + 扫描线/后期开关，能力矩阵驱动) and prints RENDER_OK.</item>
 /// </list>
 /// </summary>
 public sealed partial class Main : Control
@@ -33,6 +36,7 @@ public sealed partial class Main : Control
     private const int SmokeFrames = 660;  // 22 s of sim time — the milestone stream (last tick 600) completes
     private const int UnitLayerCapacity = 128; // wave-1 budget headroom (grace 108 s ⇒ smoke sees no enemies)
     private const int HudRefreshFrames = 15;   // HUD redraw cadence (0.5 s of sim time)
+    private const int AutoProbeFrames = 60;    // T-102: 首次 60 帧测帧率自适应（窗口运行；headless 无帧推进）
 
     private SimHost _host = null!;
     private SimSnapshotBridge _bridge = null!;
@@ -41,6 +45,15 @@ public sealed partial class Main : Control
     private Label _debugLabel = null!;
     private Camera2D _camera = null!;
     private SystemPanel _panel = null!;
+
+    // T-102 (C-21 渲染三档): capability row + current plan the render loop
+    // consumes (能力矩阵驱动——renderers never branch on the tier enum).
+    private RenderTierCapabilities _renderCaps = RenderTierMatrix.Medium;
+    private RenderFramePlan _renderPlan = null!;
+    private readonly Dictionary<long, int> _prevUnitHp = new(); // HP-drop combat-effect requests
+    private readonly HashSet<(int ChunkX, int ChunkY)> _groundDrawnChunks = new(); // L 档按需直绘已画集
+    private readonly List<double> _fpsProbeSamples = new();    // windowed auto-probe (T-102)
+    private int _effectRequestsTotal;
 
     public override void _Ready()
     {
@@ -64,19 +77,32 @@ public sealed partial class Main : Control
 
         // ---- 3) REAL sim host + snapshot adapter (mock→real swap, T-055) --
         _host = new SimHost();
+
+        // ---- 3b) T-102 render tier (C-21 渲染三档): persisted preference →
+        // probe facts (headless startup has no frame pacing data — windowed
+        // runs re-probe over the first 60 frames in _Process) → capability
+        // row. Chunk edge, bake/draw policy, effect gate and overlay toggles
+        // all read from this row (no tier ifs below).
+        RenderTierSettings tierSettings = RenderTierStore.Load(_host.Store);
+        _renderCaps = RenderTierMatrix.Capabilities(
+            RenderTierSelector.Select(tierSettings.Preference, ProbeFacts()));
+        _renderPlan = RendererDecisionMap.PlanFrame(_renderCaps, 0);
+
         _bridge = new SimSnapshotBridge(
             _host.SnapshotSource, _host.Framebuffer,
-            _host.Framebuffer.WidthCells, _host.Framebuffer.HeightCells);
+            _host.Framebuffer.WidthCells, _host.Framebuffer.HeightCells,
+            chunkCells: _renderCaps.DirtyChunkCells);
         _panel.Bind(_host);
+        _panel.SetScanlineEnabled(_renderPlan.ScanlinePass);
 
         int mapWidth = _host.Framebuffer.WidthCells;
         int mapHeight = _host.Framebuffer.HeightCells;
         float cell = SimSnapshotBridge.CellSizePx;
         _camera.Position = new Vector2(mapWidth * cell / 2f, mapHeight * cell / 2f);
 
-        _groundLayer.SetupGround(mapWidth, mapHeight, DirtyRegionSet.DefaultChunkCells,
+        _groundLayer.SetupGround(mapWidth, mapHeight, _renderCaps.DirtyChunkCells,
             TerrainAtlas.Build(), TerrainAtlas.TileIndexForColor);
-        _unitLayer.SetupUnits(mapWidth, mapHeight, DirtyRegionSet.DefaultChunkCells, capacity: UnitLayerCapacity);
+        _unitLayer.SetupUnits(mapWidth, mapHeight, _renderCaps.DirtyChunkCells, capacity: UnitLayerCapacity);
 
         // ---- 4) dirty-chunk render loop over real ticks (headless-safe) ---
         int framesWithGroundWork = 0;
@@ -89,18 +115,33 @@ public sealed partial class Main : Control
             _host.StepFrame(); // T-076 (F-118): one render frame through the pause/speed clock (default 1x ⇒ tick-for-tick identical to the retired Step call)
             _bridge.SyncFrame(); // snapshot diff → dirty chunks
 
-            var groundChunks = _bridge.TakeDirtyGroundChunks();
-            if (groundChunks.Count > 0)
+            // ---- T-102: combat effect gate (纯决策) — HP 掉落=受击特效请求，
+            // 档位密度门决定放行集（L 减半），受击单位本帧以闪光色直绘。
+            HashSet<long> impactFlashIds = CollectImpactFlashes(_bridge.Current);
+
+            if (_renderPlan.BakeStaticGround)
             {
-                _groundLayer.RebuildGroundChunks(groundChunks, _host.Framebuffer);
-                framesWithGroundWork++;
-                groundChunksRebuilt += groundChunks.Count;
+                var groundChunks = _bridge.TakeDirtyGroundChunks();
+                if (groundChunks.Count > 0)
+                {
+                    _groundLayer.RebuildGroundChunks(groundChunks, _host.Framebuffer);
+                    framesWithGroundWork++;
+                    groundChunksRebuilt += groundChunks.Count;
+                }
+            }
+            else
+            {
+                // L 档按需直绘：跳过静态烘焙（烘焙脏集直接丢弃），只直绘镜头
+                // 视野内尚未画过的 chunk（ChunksInView 圈选；镜头移动自动补画）。
+                _ = _bridge.TakeDirtyGroundChunks();
+                RebuildOnDemandGround(ref groundChunksRebuilt, ref framesWithGroundWork);
             }
 
             var unitChunks = _bridge.TakeDirtyUnitChunks();
             if (unitChunks.Count > 0)
             {
-                _unitLayer.RebuildUnitChunks(unitChunks, _bridge.Current!);
+                _unitLayer.RebuildUnitChunks(
+                    unitChunks, _bridge.Current!, impactFlashIds.Count > 0 ? impactFlashIds : null);
                 framesWithUnitWork++;
                 unitChunksRebuilt += unitChunks.Count;
             }
@@ -175,6 +216,12 @@ public sealed partial class Main : Control
         // EXPAND_OK——smoke 视觉扩充段判据。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         Expand.VisualExpansionDirector.Instantiate(this);
+
+        // ---- 5i) T-102 render tiers (C-21 渲染三档, F-159) ------------------
+        // 三档决策表差异 + 自动探测 + L 档按需直绘执行回路 + 偏好持久化
+        // round-trip——headless 冒烟判据打印 RENDER_OK（smoke 渲染三档段）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        RunRenderTierSmoke(groundChunksRebuilt, unitChunksRebuilt, framesWithGroundWork);
 
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
@@ -335,4 +382,264 @@ public sealed partial class Main : Control
             $"scale={fit.Scale} off=({fit.OffsetX},{fit.OffsetY}) " +
             $"fps={Engine.GetFramesPerSecond()} tick={_bridge.Current?.Tick.ToString() ?? "-"} " +
             $"wave={_host.Simulation.CurrentWave}";
+
+    // ------------------------------------------------- T-102 render tiers
+
+    /// <summary>
+    /// Startup probe facts (T-102): Web feature is readable immediately; FPS
+    /// needs real frame pacing, which a synchronous headless _Ready has none
+    /// of — windowed runs re-probe over the first 60 frames in _Process.
+    /// </summary>
+    private RenderProbeFacts ProbeFacts() => new(
+        IsWeb: OS.HasFeature("web"),
+        FirstMinuteAverageFps: 0d); // unknown at startup ⇒ auto keeps the M default
+
+    /// <summary>
+    /// Windowed auto-probe (T-102 首次 60 帧测帧率自适应): collects real
+    /// Engine FPS samples for 60 frames, then re-selects the tier from the
+    /// probed average and live-applies the per-frame decisions (effect gate
+    /// + overlay passes); assembly-time facts (chunk granularity, bake)
+    /// apply from the next launch. Headless never reaches _Process (Quit in
+    /// _Ready) so smoke output stays deterministic.
+    /// </summary>
+    public override void _Process(double delta)
+    {
+        base._Process(delta);
+        if (_fpsProbeSamples.Count >= AutoProbeFrames)
+        {
+            return;
+        }
+
+        _fpsProbeSamples.Add(Engine.GetFramesPerSecond());
+        if (_fpsProbeSamples.Count < AutoProbeFrames)
+        {
+            return;
+        }
+
+        double average = 0f;
+        foreach (double sample in _fpsProbeSamples)
+        {
+            average += sample;
+        }
+
+        average /= _fpsProbeSamples.Count;
+        var facts = new RenderProbeFacts(OS.HasFeature("web"), average);
+        RenderTier probed = RenderTierSelector.Select(RenderTierPreference.Auto, facts);
+        _renderCaps = RenderTierMatrix.Capabilities(probed);
+        _renderPlan = RendererDecisionMap.PlanFrame(_renderCaps, 0);
+        _panel.SetScanlineEnabled(_renderPlan.ScanlinePass);
+        GD.Print(
+            $"RENDER_PROBE frames={AutoProbeFrames} avg_fps={average:F1} " +
+            $"tier={RenderTierMatrix.TierId(probed)} live_applied=fx-gate+scan+post " +
+            "assembly=next-launch");
+    }
+
+    /// <summary>
+    /// Combat effect requests this frame (T-102): units whose HP dropped
+    /// since the previously observed snapshot — real combat events, never
+    /// synthesized. The tier density gate (纯决策 RendererDecisionMap) picks
+    /// which of them flash; the surviving set drives the unit-layer flash
+    /// color in RebuildUnitChunks.
+    /// </summary>
+    private HashSet<long> CollectImpactFlashes(SimSnapshot? snapshot)
+    {
+        var flashes = new HashSet<long>();
+        if (snapshot is null)
+        {
+            return flashes;
+        }
+
+        var requests = new List<long>();
+        foreach (IUnit unit in snapshot.Units)
+        {
+            if (_prevUnitHp.TryGetValue(unit.Id.Value, out int before) && unit.Hp < before)
+            {
+                requests.Add(unit.Id.Value);
+            }
+        }
+
+        _effectRequestsTotal += requests.Count;
+        RenderFramePlan plan = RendererDecisionMap.PlanFrame(_renderCaps, requests.Count);
+        for (int i = 0; i < requests.Count; i++)
+        {
+            if (RendererDecisionMap.AllowEffectSpawn(plan, i))
+            {
+                flashes.Add(requests[i]);
+            }
+        }
+
+        _prevUnitHp.Clear();
+        foreach (IUnit unit in snapshot.Units)
+        {
+            _prevUnitHp[unit.Id.Value] = unit.Hp;
+        }
+
+        return flashes;
+    }
+
+    /// <summary>
+    /// L 档按需直绘 (T-102): rebuilds only camera-view chunks that have not
+    /// been drawn yet — the static bake is skipped, so the ground buffer
+    /// fills lazily as chunks become visible (camera pans draw new chunks).
+    /// </summary>
+    private void RebuildOnDemandGround(ref int chunksRebuilt, ref int framesWithWork)
+    {
+        (int x0, int y0, int x1, int y1) = CameraCellRect();
+        IReadOnlyList<(int ChunkX, int ChunkY)> view = RendererDecisionMap.ChunksInView(
+            _host.Framebuffer.WidthCells, _host.Framebuffer.HeightCells,
+            _renderCaps.DirtyChunkCells, x0, y0, x1, y1);
+
+        var pending = new List<(int ChunkX, int ChunkY)>();
+        foreach ((int chunkX, int chunkY) in view)
+        {
+            if (_groundDrawnChunks.Add((chunkX, chunkY)))
+            {
+                pending.Add((chunkX, chunkY));
+            }
+        }
+
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        _groundLayer.RebuildGroundChunks(pending, _host.Framebuffer);
+        chunksRebuilt += pending.Count;
+        framesWithWork++;
+    }
+
+    /// <summary>Camera view rect in cells (main lens sits centered on the map; 32 px = 1 cell).</summary>
+    private (int X0, int Y0, int X1, int Y1) CameraCellRect()
+    {
+        Vector2 size = GetViewport().GetVisibleRect().Size;
+        Vector2 center = _camera.Position;
+        float cell = SimSnapshotBridge.CellSizePx;
+        return (
+            (int)Math.Floor((center.X - size.X / 2f) / cell),
+            (int)Math.Floor((center.Y - size.Y / 2f) / cell),
+            (int)Math.Ceiling((center.X + size.X / 2f) / cell),
+            (int)Math.Ceiling((center.Y + size.Y / 2f) / cell));
+    }
+
+    /// <summary>
+    /// T-102 acceptance smoke (I 级): proves headless that (1) the three-tier
+    /// decision tables are pairwise distinct over the OBSERVED live load,
+    /// (2) auto-probe selects M under headless facts (no fps data ⇒ default
+    /// unchanged), (3) the L tier executes for real — 60 frames through an
+    /// L-configured bridge with the static bake skipped and only view chunks
+    /// direct-drawn (each exactly once), and (4) the tier preference
+    /// round-trips through the D-03 store. Prints RENDER_OK / RENDER_FAIL.
+    /// </summary>
+    private void RunRenderTierSmoke(int groundChunksRebuilt, int unitChunksRebuilt, int framesWithGroundWork)
+    {
+        var problems = new List<string>();
+
+        // (1) three-tier decision diff over the real observed load (三档差异可测)
+        var plans = new Dictionary<RenderTier, RenderFramePlan>();
+        foreach (RenderTier tier in RenderTierMatrix.AllTiers)
+        {
+            plans[tier] = RendererDecisionMap.PlanFrame(
+                RenderTierMatrix.Capabilities(tier), _effectRequestsTotal);
+        }
+
+        bool pairwiseDiff = plans[RenderTier.Low] != plans[RenderTier.Medium]
+            && plans[RenderTier.Medium] != plans[RenderTier.High]
+            && plans[RenderTier.Low] != plans[RenderTier.High];
+        if (!pairwiseDiff)
+        {
+            problems.Add("三档决策表未两两不同");
+        }
+
+        // (2) auto probe under headless facts: no fps data ⇒ M default
+        RenderProbeFacts facts = ProbeFacts();
+        RenderTier probed = RenderTierSelector.Select(RenderTierPreference.Auto, facts);
+        if (probed != RenderTier.Medium)
+        {
+            problems.Add($"headless 探测应保持 M 缺省，实选 {probed}");
+        }
+
+        // (3) L execution: 60 frames through an L-configured bridge on the
+        // REAL host — bake skipped, only camera-view chunks direct-drawn.
+        var lowCaps = RenderTierMatrix.Low;
+        var lowBridge = new SimSnapshotBridge(
+            _host.SnapshotSource, _host.Framebuffer,
+            _host.Framebuffer.WidthCells, _host.Framebuffer.HeightCells,
+            chunkCells: lowCaps.DirtyChunkCells);
+        var drawn = new HashSet<(int, int)>();
+        (int vx0, int vy0, int vx1, int vy1) = CameraCellRect();
+        IReadOnlyList<(int ChunkX, int ChunkY)> viewChunks = RendererDecisionMap.ChunksInView(
+            _host.Framebuffer.WidthCells, _host.Framebuffer.HeightCells,
+            lowCaps.DirtyChunkCells, vx0, vy0, vx1, vy1);
+        int lowFramesWithUnitWork = 0;
+        for (int frame = 0; frame < AutoProbeFrames; frame++)
+        {
+            _host.StepFrame();
+            lowBridge.SyncFrame();
+            _ = lowBridge.TakeDirtyGroundChunks(); // L 档丢弃烘焙脏集（按需直绘替代）
+            var unitChunks = lowBridge.TakeDirtyUnitChunks();
+            if (unitChunks.Count > 0)
+            {
+                _unitLayer.RebuildUnitChunks(unitChunks, lowBridge.Current!);
+                lowFramesWithUnitWork++; // 单位层不受烘焙策略影响（密度门见决策表）
+            }
+
+            var pending = new List<(int ChunkX, int ChunkY)>();
+            foreach ((int chunkX, int chunkY) in viewChunks)
+            {
+                if (drawn.Add((chunkX, chunkY)))
+                {
+                    pending.Add((chunkX, chunkY));
+                }
+            }
+
+            if (pending.Count > 0)
+            {
+                _groundLayer.RebuildGroundChunks(pending, _host.Framebuffer);
+            }
+        }
+
+        if (drawn.Count != viewChunks.Count || drawn.Count == 0)
+        {
+            problems.Add($"L 档按需直绘应恰好画完视野 chunk 集（view={viewChunks.Count} drawn={drawn.Count}）");
+        }
+
+        if (lowFramesWithUnitWork > AutoProbeFrames)
+        {
+            problems.Add("L 档执行回路帧数超界");
+        }
+
+        // (4) preference persistence round-trip on the D-03 store (restore Auto)
+        RenderTierStore.Save(_host.Store, new RenderTierSettings { Preference = RenderTierPreference.Low });
+        bool persistedLow = RenderTierStore.Load(_host.Store).Preference == RenderTierPreference.Low;
+        RenderTierStore.Save(_host.Store, RenderTierSettings.Default);
+        bool restoredAuto = RenderTierStore.Load(_host.Store).Preference == RenderTierPreference.Auto;
+        if (!persistedLow || !restoredAuto)
+        {
+            problems.Add("档位偏好持久化 round-trip 失败");
+        }
+
+        string tierSummaries = string.Join(" ", RenderTierMatrix.AllTiers.Select(tier =>
+        {
+            RenderFramePlan plan = plans[tier];
+            return $"{RenderTierMatrix.TierId(tier)}[bake={(plan.BakeStaticGround ? "on" : "off")}" +
+                   $",chunk={plan.ChunkCells},fx={plan.EffectSpawnsAllowed}/{plan.EffectSpawnRequests}" +
+                   $",scan={(plan.ScanlinePass ? "on" : "off")},post={(plan.PostProcessPass ? "on" : "off")}]";
+        }));
+
+        if (problems.Count == 0)
+        {
+            GD.Print(
+                "RENDER_OK tier=L|M|H decisions=diff auto=probe" +
+                $"(sel={RenderTierMatrix.TierId(probed)} web={facts.IsWeb} fps=unknown-headless) " +
+                $"{tierSummaries} wired={RenderTierMatrix.TierId(_renderCaps.Tier)} " +
+                $"m_loop ground_chunks={groundChunksRebuilt} unit_chunks={unitChunksRebuilt} " +
+                $"l_loop frames={AutoProbeFrames} view_chunks={viewChunks.Count} " +
+                $"effect_requests={_effectRequestsTotal} persist=roundtrip-ok");
+        }
+        else
+        {
+            GD.PushError("RENDER_FAIL " + string.Join("; ", problems));
+            GD.Print("RENDER_FAIL " + string.Join("; ", problems));
+        }
+    }
 }

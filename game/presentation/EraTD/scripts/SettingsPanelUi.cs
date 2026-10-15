@@ -10,9 +10,10 @@ namespace EraTD;
 
 // T-077（C-26 BYOK 设置界面，F-081；方案 §11.6）：settings_panel.tscn 的唯一
 // 挂载脚本。所有表单决策在 EraCore.Presentation.SettingsFormState（纯逻辑，
-// 已测）——本节点只做三件事（CS-1.6）：把控件值搬进/搬出表单状态、把
+// 已测）——本节点只做四件事（CS-1.6）：把控件值搬进/搬出表单状态、把
 // llm.config.json 读写接到 D-03 注入根（DevFileStore）、把「测试连接/拉取
-// 列表」接到 C-16 的 LlmConnectionProbe/LlmModelList。
+// 列表」接到 C-16 的 LlmConnectionProbe/LlmModelList、把 T-102 画质档位行
+// （渲染三档偏好，非 BYOK 字段）即时持久化到 settings/render-tier.json。
 //
 // Key 纪律（RL5/F-084）：KeyInput 的值只流向 ISecretStore——表单状态、
 // llm.config.json、状态/结果文案一律不接触明文；回显永远走 KeyMasker
@@ -43,6 +44,7 @@ public sealed partial class SettingsPanelUi : Control
     // handler runs must not be treated as player edits.
     private bool _applying;
 
+    private OptionButton _renderTierDropdown = null!;
     private OptionButton _templateDropdown = null!;
     private CheckBox _openAiRadio = null!;
     private CheckBox _anthropicRadio = null!;
@@ -153,6 +155,7 @@ public sealed partial class SettingsPanelUi : Control
 
     private void WireNodes()
     {
+        _renderTierDropdown = GetNode<OptionButton>("Scroll/Form/RenderTierRow/RenderTierDropdown");
         _templateDropdown = GetNode<OptionButton>("Scroll/Form/TemplateRow/TemplateDropdown");
         _openAiRadio = GetNode<CheckBox>("Scroll/Form/ProtocolRow/OpenAiRadio");
         _anthropicRadio = GetNode<CheckBox>("Scroll/Form/ProtocolRow/AnthropicRadio");
@@ -189,6 +192,12 @@ public sealed partial class SettingsPanelUi : Control
             _templateDropdown.AddItem($"{template.Name}  {template.BaseUrl}");
         }
 
+        // T-102 画质档位下拉（渲染三档+自动；索引=RenderTierPreference 枚举序）
+        _renderTierDropdown.AddItem("自动（探测：Web/帧率自适应）");   // Auto = 0
+        _renderTierDropdown.AddItem("低（集显/Web 流畅优先）");         // Low = 1
+        _renderTierDropdown.AddItem("中（默认画质）");                  // Medium = 2
+        _renderTierDropdown.AddItem("高（全开+更细脏粒度）");           // High = 3
+
         // 协议单选（同一 ButtonGroup → 互斥 radio）
         var group = new ButtonGroup();
         _openAiRadio.ButtonGroup = group;
@@ -216,6 +225,7 @@ public sealed partial class SettingsPanelUi : Control
 
         // 信号（玩家输入路径；程序化写值由 _applying 屏蔽）
         _templateDropdown.ItemSelected += OnTemplateSelected;
+        _renderTierDropdown.ItemSelected += OnRenderTierSelected;
         _openAiRadio.Toggled += _ => OnProtocolChanged();
         _anthropicRadio.Toggled += _ => OnProtocolChanged();
         _baseUrlInput.TextChanged += OnBaseUrlChanged;
@@ -246,6 +256,28 @@ public sealed partial class SettingsPanelUi : Control
         _config = LoadConfig();
         _form.Load(_config);
         ApplyFieldsToUi();
+
+        // T-102: 画质档位非 BYOK 表单字段——独立偏好文件，加载即回显
+        _renderTierDropdown.Select((int)RenderTierStore.Load(_files).Preference);
+    }
+
+    /// <summary>
+    /// T-102 (C-21 渲染三档): quality-tier row handler — the preference is
+    /// NOT a BYOK form field, so it persists immediately to
+    /// settings/render-tier.json (no 保存 button hop); Main.cs reads it on
+    /// the next launch and probes from it.
+    /// </summary>
+    private void OnRenderTierSelected(long index)
+    {
+        if (_applying || index is < 0 or > (int)RenderTierPreference.High)
+        {
+            return;
+        }
+
+        RenderTierStore.Save(_files, new RenderTierSettings
+        {
+            Preference = (RenderTierPreference)index,
+        });
     }
 
     private LlmConfig LoadConfig()
@@ -669,6 +701,27 @@ public sealed partial class SettingsPanelUi : Control
             problems.Add("Coding Plan 白名单提示缺失");
         }
 
+        // T-102 画质档位行：四项下拉 + 真实信号路径选「低」→ 即时持久化 →
+        // 盘上回读为 Low → 选回「自动」恢复出厂位
+        if (_renderTierDropdown.ItemCount != 4)
+        {
+            problems.Add($"画质档位下拉项数 {_renderTierDropdown.ItemCount}≠4");
+        }
+
+        _renderTierDropdown.Select(1);
+        _renderTierDropdown.EmitSignal(OptionButton.SignalName.ItemSelected, 1L);
+        if (RenderTierStore.Load(_files).Preference != RenderTierPreference.Low)
+        {
+            problems.Add("画质档位行未即时持久化为 Low");
+        }
+
+        _renderTierDropdown.Select(0);
+        _renderTierDropdown.EmitSignal(OptionButton.SignalName.ItemSelected, 0L);
+        if (RenderTierStore.Load(_files).Preference != RenderTierPreference.Auto)
+        {
+            problems.Add("画质档位行未恢复出厂 Auto");
+        }
+
         // 测试连接/拉取列表接线：探针走禁用预置行 → 零网络分类拒绝（中英文案）
         var probe = await ProbeAsync("xiaomi-mimo").ConfigureAwait(true);
         if (probe.Ok || probe.ErrorKey != LlmErrorKeys.Disabled
@@ -687,7 +740,8 @@ public sealed partial class SettingsPanelUi : Control
         {
             GD.Print(
                 $"SETTINGS_OK providers={providerCount} mask=on declare=on " +
-                $"probe={probe.ErrorKey} fetch={fetch.ErrorKey} backend={_secrets.Backend} key_file=clean");
+                $"probe={probe.ErrorKey} fetch={fetch.ErrorKey} backend={_secrets.Backend} " +
+                "render_tier=roundtrip-ok key_file=clean");
         }
         else
         {
