@@ -43,6 +43,19 @@ internal static class LegacyFixture
         throw new InvalidOperationException("未找到 game/content/legacy（测试须在仓库内运行）");
     }
 
+    /// <summary>
+    /// One era content dir under game/content (e.g. "era3") — the cross-era
+    /// policy tests read the real era.json documents through it (T-115).
+    /// </summary>
+    public static string EraDir(string era)
+    {
+        string contentRoot = Directory.GetParent(FindLegacyDir())!.FullName;
+        string dir = Path.Combine(contentRoot, era);
+        return Directory.Exists(dir)
+            ? dir
+            : throw new InvalidOperationException($"未找到 game/content/{era}（测试须在仓库内运行）");
+    }
+
     private static string LoadText(string fileName) =>
         File.ReadAllText(Path.Combine(FindLegacyDir(), fileName));
 
