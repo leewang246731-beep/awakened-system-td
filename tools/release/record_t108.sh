@@ -28,7 +28,9 @@ DOTNET_CLI="$(command -v dotnet || true)"
 
 for dir in textures shaders audio scenes scripts cinematics narrative expand; do
   if [ ! -e "$HARNESS/$dir" ]; then
-    cmd //c "mklink /J $dir D:\\game\\game\\presentation\\EraTD\\$dir" >/dev/null
+    # mklink 的接点路径相对 cmd 继承的工作目录——先 cd 进 harness 再建，
+    # 接点必落 harness 内（此前相对调用方 cwd，从非 harness 目录起跑会接错位置）
+    (cd "$HARNESS" && cmd //c "mklink /J $dir D:\\game\\game\\presentation\\EraTD\\$dir" >/dev/null)
     echo "record_t108: junction $dir 建立"
   fi
 done

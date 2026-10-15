@@ -1,7 +1,9 @@
 # CI — EraTD GitHub Actions 流水线（T-027 [DEBT-W0] 清账）
 #
-# 形态：windows-latest 单 job 多步骤，顺序与本地 tools/ci/run_all.sh 完全一致
-# （08 §3 任务纪律第 4 条 PR 必跑段；06 §3.3 七段布局的 W0 形态——W1 起随
+# 形态：windows-latest 单 job 多步骤，与本地 tools/ci/run_all.sh 同序但**非全量**：
+# 远端覆盖红线/单测/构建/冒烟（G2/G1/G3/G4）；G2.5 资产规格与 G2.6 模组离线
+# 校验为本地门禁（run_all.sh Step 1.5/1.6，未接入远端）——08 §3 任务纪律第 4 条
+# PR 必跑段以本地 run_all 全绿为准（06 §3.3 七段布局的 W0 形态——W1 起随
 # 对象落地逐段扩出 regression/perf 段）：
 #   Stage 1 lint-scan    : redline_scan.py（06 §3.1 已启用 9 条，W1 收口）+ 扫描器元测试
 #   Stage 2 unit-logic   : dotnet test（EraCore.Tests，纯 nuget.org 还原）

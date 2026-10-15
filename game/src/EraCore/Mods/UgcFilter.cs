@@ -218,7 +218,9 @@ public static partial class UgcFilter
 
     /// <summary>
     /// 扫描一段文本的攻击模式（不含长度——长度按字段带宽另行裁决）。
-    /// 规则判定序=枚举序，每条规则取首个命中模式；零命中返回空表。
+    /// 报告顺序为枚举序——各规则首条命中按 <see cref="UgcRule"/> 枚举值序出现；
+    /// 注入/伪权限/敏感词三规则 zh、en 两张词表可各报一条（每表取首个命中模式，
+    /// 同规则 zh 先于 en）。零命中返回空表。
     /// </summary>
     public static IReadOnlyList<UgcTextHit> ScanText(string text)
     {
