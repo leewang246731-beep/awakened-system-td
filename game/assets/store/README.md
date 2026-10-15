@@ -21,6 +21,7 @@ harness——真项目源码原样编译+真 Main 场景同构驱动，60 s@60fp
 | `shot-04-menu-loop-v020-alpha.png` | 640×360 | 截图④：主菜单循环（游戏内实拍） |
 | `shot-05-south-gate-v020-alpha.png` | 640×360 | 截图⑤：南门新防线 |
 | `faq.md` | — | FAQ 三条（中英，README/itch 页复用） |
+| `page.md` | — | itch 项目页文案与挂接清单（T-107：一句话/特性/FAQ 三条/控件说明 中英+媒体挂接表+dashboard 参数速查） |
 
 ## 版本角标方案
 
@@ -30,6 +31,8 @@ ffmpeg drawtext 右下角 `v0.2.0-alpha`（Consolas 等宽 14~17px+半透明底�
 烧录位图角标（结论与依据见 REV §角标）。
 
 ## itch 页建议用法
+
+> T-107 起权威口径=`page.md`（挂接清单+页面参数+正文文案一式收齐），本节为速览。
 
 - 首屏动图=hero-dual GIF；断链/军令单段 GIF 放「玩法」小节；
 - `capsule-512` 作 itch 主封面（cover image）；
