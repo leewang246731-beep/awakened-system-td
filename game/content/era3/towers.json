@@ -1,0 +1,122 @@
+{
+  "$schema": "urn:eratd:content:building:1",
+  "content_type": "Building",
+  "era": "era3:era-industrial",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；数值锚点出处见各 item 的 _source 字段（T-112；格式先例=era1/towers.json T-049+era2/towers.json T-065）；F.5 基准表仅钉 E2 行——E3 全部数值为 F.5 类推锚带 [NEW]（标注推导式），待原型校准",
+  "ammo_convention": {
+    "shots_per_ammo_item": 10,
+    "_source": "v3.2 §5 L78「1 件弹药 = 10 发」（docs/我在游戏觉醒系统-游戏设计方案.md）"
+  },
+  "items": [
+    {
+      "id": "era3:tower-gatling",
+      "content_type": "Building",
+      "class": "pierce",
+      "name_zh": "加特林",
+      "name_en": "Gatling",
+      "aliases": ["加特林", "加特林塔", "机枪塔", "gatling"],
+      "tier": 1,
+      "max_tier": 2,
+      "upgrades_to": "era3:tower-mortar",
+      "tier_line": "standard",
+      "cost_total": 270,
+      "dps": 240.0,
+      "damage_per_shot": 16,
+      "reload_ticks": 2,
+      "range_cells": 8.0,
+      "hp": 400,
+      "ammo_item": "era3:ammo-bullet",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item"],
+      "_source": "定类锚点 SP-1b L46「E3 加特林=穿刺（预归类 [NEW-章节设计复核]）」——T-112 复核追认（速射低单发=穿刺职责：单发小 d 对重甲被 −甲 吃大比例、对无甲群高效）。F.5 类推锚带 [NEW]：成本 270=E2 T1 90×3（跨代基点步恰一级 ×3 阶梯，E2 对 E1 同式重演 30→90）；DPS 240=E2 标准线 T4 终点 240（跨代基点=前代标准线终点——新时代 T1 不弱于前代任何塔，E1→E2 同性质：E2 T1 30＞E1 线 T2 投影 20）；射程 8.0=F.5 箭楼线 T2 位值（半格网格合法值）；单发/攻速拆分 d=16@15 发/s（reload 2 ticks@30 Hz，16×30/2=240 自洽）→ [NEW]；hp/弹药件（弹链=era3:ammo-bullet）无文档锚点 → _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era3:tower-mortar",
+      "content_type": "Building",
+      "class": "splash",
+      "name_zh": "臼炮",
+      "name_en": "Mortar",
+      "aliases": ["臼炮", "臼炮塔", "迫击炮", "mortar"],
+      "tier": 2,
+      "max_tier": 2,
+      "tier_line": "standard",
+      "cost_total": 810,
+      "dps": 480.0,
+      "damage_per_shot": 480,
+      "reload_ticks": 30,
+      "range_cells": 11.0,
+      "hp": 520,
+      "ammo_item": "era3:ammo-shell",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "splash_radius_cells": 2.0
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item", "traits.splash_radius_cells"],
+      "_source": "定类锚点 SP-1b L47「E3 臼炮=溅射（预归类 [NEW-章节设计复核]）」——T-112 复核追认（面伤害职责：密集群）。标准线 T2 终点（upgrades_to 无后继行，不发明 T3）。F.5 类推锚带 [NEW]：成本 810=270×3（严格 ×3/级，F.5 90→270→810→2430 阶梯同带重演）；DPS 480=240×2（严格 ×2/级）；射程 11.0=F.5 弩炮 T3 特化位 11.0（类变终点档自有锚：加特林（穿刺）→臼炮（溅射）为类变步，+25% 带不适用；11/8=×1.375 恰落 1.25±15% 设计带内=双保险；半格网格合法）；单发/攻速拆分 d=480@1 发/s（臼炮大口径重弹：d 大对重甲扣减占比小，480×30/30=480 自洽）→ [NEW]；AOE 半径 2.0 格 [NEW]（＞E2 火油 1.5——重弹面伤档；溅射边缘保底 40% 引擎侧 Damage.SplashDecay）；T2 同级无标准单体参照行→溅射 ×0.8 类带 N/A（E2 火油 T4 同款哨兵先例，Era2TowerContentTests.Class_bands；E3 出同级单体行时必须补 ValidateClassBand）；hp/弹药件（臼炮弹=era3:ammo-shell）_new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points",
+        "splash_radius_cells": "cells"
+      }
+    },
+    {
+      "id": "era3:tower-ironclad-wall",
+      "content_type": "Building",
+      "class": "support",
+      "name_zh": "铁甲墙",
+      "name_en": "Ironclad Wall",
+      "aliases": ["铁甲墙", "铁墙", "装甲墙", "ironclad wall"],
+      "tier": 1,
+      "max_tier": 1,
+      "cost_total": 120,
+      "dps": 0.0,
+      "damage_per_shot": 0,
+      "reload_ticks": null,
+      "range_cells": 0.0,
+      "hp": 1600,
+      "ammo_item": null,
+      "ammo_per_shot": 0,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_new": true,
+      "_new_fields": ["cost_total", "hp"],
+      "_source": "定类锚点 SP-1b L48「E3 铁甲墙=支援（纯阻挡、零伤害（不计 DPS 带；HP 计入流场代价 ×5 规则））[E3 归类待 T-112 章节设计复核（Wave 6；round 2 处置 #9 补挂）]」——T-112 复核落定：支援类、零伤零射程（dps 0/range 0/reload null 先例=E1 陷阱/篝火）；HP 计入流场拆墙代价 ×5（全封死→拆墙模式的代价标的）。成本 120/HP 1600 [NEW]（HP 显著高于同级武器塔=阻挡利基；max_tier 1——墙体不升级，无后继行不发明）；支援类不入 DPS 验证带（SP-1a L30）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    }
+  ]
+}

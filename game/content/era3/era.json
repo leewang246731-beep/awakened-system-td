@@ -1,0 +1,117 @@
+{
+  "$schema": "urn:eratd:content:era:1",
+  "content_type": "Era",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E3 时代行锚点=v3.2 §4 L60（docs/我在游戏觉醒系统-游戏设计方案.md）+§4 能源阶梯行/跨代资源行+§5 L78~L79（物流阶梯、仓库等级）；格式先例=era1/era.json（T-049）+era2/era.json（T-079）",
+  "items": [
+    {
+      "id": "era3:era-industrial",
+      "content_type": "Era",
+      "era_index": 3,
+      "name_zh": "工业",
+      "name_en": "Industrial",
+      "aliases": ["E3", "工业", "工业时代"],
+      "resources": [
+        { "id": "era3:res-coal", "name_zh": "煤", "name_en": "Coal" },
+        {
+          "id": "era2:res-iron",
+          "name_zh": "铁",
+          "name_en": "Iron",
+          "legacy_refresh": { "from_era": 2, "abundance_multiplier": 0.5 }
+        },
+        { "id": "era3:res-steel", "name_zh": "钢", "name_en": "Steel" },
+        {
+          "id": "era2:res-copper",
+          "name_zh": "铜",
+          "name_en": "Copper",
+          "legacy_refresh": { "from_era": 2, "abundance_multiplier": 0.5 }
+        }
+      ],
+      "_resources_note": "§4 L60 E3 资源=煤/铁/钢（本代行三资源：煤=本代新矿；钢=炼链制品（era3/recipes.json era3:recipe-steel 的输出件，非原料——SupplyChain one key one meaning）；铁=沿用 E2 命名空间跨代保留）。铜+铁=上代（E2）2 种基础资源传承刷新（§4 跨代资源行『上代 2 种基础资源刷新（丰度 ×0.5）』：E2 基础二资源=铜/铁，粮=Staple 位、马=物流位不入刷新对；铁既是刷新行又是 §4 E3 行点名资源=炼钢主原料；E1 木材/石料不再续刷——『上代』=紧邻前代 E2）。无用途旧资源 3:1 折算文明基金不发生在本行内（见 legacy/era_transition.json levy，E2→E3 扩展=T-117）",
+      "energy": {
+        "type": "steam",
+        "name_zh": "蒸汽",
+        "levels": [
+          { "tier": 1, "name_zh": "蒸汽机", "output": 300, "_new": true },
+          { "tier": 2, "name_zh": "锅炉", "output": 1200, "_new": true }
+        ],
+        "ladder_multiplier_min": 3.0,
+        "ladder_multiplier_max": 5.0,
+        "risk_events": true,
+        "risk": {
+          "kind": "overheat_explosion",
+          "name_zh": "过热爆炸",
+          "trigger": {
+            "overload_threshold_percent": 100,
+            "sustained_s": 30,
+            "heat_capacity": 100
+          },
+          "heat_dynamics": {
+            "gain_per_s_overloaded": 2,
+            "overload_step_percent": 10,
+            "bonus_gain_per_s_per_extra_10pct_overload": 1,
+            "decay_per_s_unloaded": 5,
+            "min_seconds_to_full_heat_at_sustained_overload": 50
+          },
+          "explosion_radius_cells": 4,
+          "consequences": {
+            "building_damage_fraction_of_max_hp": 0.5,
+            "enemy_damage": 300,
+            "culprit_outage_s": 60,
+            "culprit_degraded_output_fraction": 0.5,
+            "culprit_degraded_duration_s": 30
+          },
+          "_source": "SP-4 L146『E3 过热爆炸』行全值（docs/engineering/11-spec-tables.md 表体 [NEW-原型校准]，已定案待 Wave 1 金样回归校准）：触发=负载率 ≥100% 连续 30 s 且热量槽达 100；热量槽过热期 +2/s、负载率每 +10% 追加 +1/s、卸载后 −5/s 回落，0→100 需 ≥50 s（连续满载最快，期间卸载即中断）；爆炸半径 4 格；后果=对建筑其最大 HP×50%、对敌 300 伤害、肇事发电机停机 60 s 后以 50% 功率运行 30 s。配套口径③（SP-4 L150）：阈值入内容数据禁止硬编码（RL7；T-113 实装侧读本行）"
+        }
+      },
+      "logistics": {
+        "tier": 2,
+        "carrier": "mine_rail",
+        "carrier_zh": "矿轨",
+        "throughput_items_per_s": 10.0,
+        "ladder_items_per_s": [0.3, 0.6, 10.0, 15.0, 20.0, null],
+        "_ladder_note": "末位 null=∞（v3.2 §5 L78 物流阶梯 0.3→0.6→10→15→20→∞ 件/s；E3 处于第 2 档=矿轨 10/s）。15.0 档（阶梯第 3 档）=传送带、卡车=E4 物流（§4 L61 E4 行，T-123 数据行），E3 不提前启用——E3 美术包（T-119）预制的传送带双层动画为 E4 档位前置资产，非 E3 数据位"
+      },
+      "warehouse_level": 3,
+      "towers": [
+        "era3:tower-gatling",
+        "era3:tower-mortar",
+        "era3:tower-ironclad-wall"
+      ],
+      "_towers_note": "§4 L60 塔防特色=加特林/臼炮/铁甲墙——三塔对齐 era3/towers.json 实存行（本数组与 towers.json ids 恰等）；定类=SP-1b L46~L48 预归类经 T-112 章节设计复核追认：加特林=穿刺、臼炮=溅射、铁甲墙=支援（纯阻挡零伤害——round 2 处置 #9 挂接的 E3 归类复核于本行落定）",
+      "boss": {
+        "enemy_id": "era3:enemy-boss",
+        "name_zh": "堡垒号",
+        "name_en": "Bastion",
+        "hp": 9000,
+        "armor": 16
+      },
+      "system_stage": "autonomous",
+      "system_stage_zh": "自主期",
+      "system_stage_features": ["auto_execute_approved_plans"],
+      "_system_stage_note": "§4 L60 系统形态=自主期（自动执行获批计划）——auto_execute_approved_plans=获批计划自动执行（§11.8 逐关排期在关 3 托管级落位，见 era3/levels.json）；19 动作封闭清单无 E3 新动词（ActionCatalog 全体 UnlockEra≤E2，三源矩阵见 Era3ContentTests），自主期=执行方式升级非动作扩员",
+      "_new": true,
+      "_new_fields": ["energy.levels[0].output", "energy.levels[1].output", "energy.risk"],
+      "_source": "v3.2 §4 L60 E3 行（资源=煤/铁/钢；能源=蒸汽；物流=矿轨 10/s；塔防特色=加特林/臼炮/铁甲墙；Boss=堡垒号 HP9000/甲16；系统形态=自主期）+§4 能源阶梯行（×3~5/级；E3 过热爆炸=SP-4 负载率类阶梯风险首代）+§4 跨代资源行（上代 2 种基础资源刷新 丰度 ×0.5）+§5 L78~L79（物流阶梯 E3=第 2 档 10；仓库等级跃迁自动 +1：E2=2→E3=3）——能源 L1=300（蒸汽机）/L2=1200（锅炉）为 T-112 任务卡锚点（倍率 1200/300=4∈[3,5]，v3.2 未定逐级绝对值，_new 待原型校准）；energy.risk 全值=SP-4 L146 表体；Boss HP/甲为 §4 逐字锚点（与 era3/enemies.json e3_boss 行同值，不得漂移）",
+      "_units": {
+        "energy_output": "energy_points_per_second",
+        "throughput_items_per_s": "items_per_second",
+        "abundance_multiplier": "fraction_of_e2_abundance",
+        "hp": "points",
+        "armor": "points",
+        "warehouse_level": "levels",
+        "overload_threshold_percent": "percent",
+        "sustained_s": "seconds",
+        "heat_capacity": "heat_points",
+        "gain_per_s_overloaded": "heat_points_per_second",
+        "decay_per_s_unloaded": "heat_points_per_second",
+        "min_seconds_to_full_heat_at_sustained_overload": "seconds",
+        "explosion_radius_cells": "cells",
+        "building_damage_fraction_of_max_hp": "fraction_of_max_hp",
+        "enemy_damage": "points",
+        "culprit_outage_s": "seconds",
+        "culprit_degraded_output_fraction": "fraction_of_rated_output",
+        "culprit_degraded_duration_s": "seconds"
+      }
+    }
+  ]
+}

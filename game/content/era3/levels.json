@@ -1,0 +1,112 @@
+{
+  "$schema": "urn:eratd:content:level:1",
+  "content_type": "Level",
+  "era": "era3:era-industrial",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E3 前三关排期锚点=v3.2 §4 L67（新时代前三关排期：关 1 新能源、关 2 新物流、关 3 考古+英雄+系统新能力）+§11.8（逐关排期：对话级→建造级→巡逻/托管级）+附录 G.2（19 动作解锁时代列）；关卡行属战役命名空间 campaign:（techtree E3 节点=T-116 落位、legacy/era_transition.json E2→E3 扩展=T-117 落位——本表先行冻结排期侧）；威胁度/胜波公式=v3.2 §7（clamp(0.3+0.3×邻接敌营,0.3,1.2)；胜波 10+⌊威胁度×10⌋）",
+  "first_three_schedule_anchor": {
+    "source": "v3.2 §4 L67 + §11.8（E2→E3 跃迁的 era_transition first_three_schedule 扩展=T-117，本表为排期侧先行冻结源）",
+    "slots": [
+      { "slot": 1, "focus": "new_energy", "focus_zh": "新能源" },
+      { "slot": 2, "focus": "new_logistics", "focus_zh": "新物流" },
+      { "slot": 3, "focus": "archaeology_hero_system", "focus_zh": "考古+英雄+系统新能力" }
+    ]
+  },
+  "items": [
+    {
+      "id": "campaign:level-e3-01",
+      "content_type": "Level",
+      "era": "era3:era-industrial",
+      "slot": 1,
+      "name_zh": "汽笛初鸣",
+      "name_en": "First Steam",
+      "aliases": ["E3 第一关", "蒸汽关", "汽笛关"],
+      "focus": "new_energy",
+      "focus_zh": "新能源",
+      "schedule_tier": "dialogue",
+      "schedule_tier_zh": "对话级",
+      "adjacent_enemy_camps": 0,
+      "threat": 0.3,
+      "win_waves": 13,
+      "first_wave_grace_multiplier": 3.0,
+      "teaching_level": true,
+      "awakening_cinematic": false,
+      "unlocks": {
+        "actions": [],
+        "features": ["steam_energy", "overheat_risk"]
+      },
+      "_new": true,
+      "_new_fields": ["adjacent_enemy_camps", "first_wave_grace_multiplier", "unlocks.actions", "name_zh", "name_en"],
+      "_source": "§4 L67 关 1=新能源（蒸汽系统开放：era.json energy steam L1 300）+蒸汽教学=T-112 任务卡『关 1 蒸汽教学』——overheat_risk=SP-4 E3 过热爆炸自本关起生效（负载率类阶梯风险首代，era.json energy.risk 参数位）+§11.8 对话级+§6 教学关首波宽限 ×3→grace 3.0；unlocks.actions=[]——19 动作封闭清单已于 E2 全解锁（ActionCatalog 全体 UnlockEra≤E2，三源矩阵见 Era3ContentTests），E3 无新动词，排期三级=系统运行档位节奏非动作解锁位；邻接敌营 0→威胁度 clamp(0.3+0.3×0)=0.3、胜波 10+⌊0.3×10⌋=13（§7 公式，[NEW] 选值为 E3 首关最低档，与 E2 同式递进 13→16→19）；关名 [NEW]；awakening_cinematic=false（§10.4 觉醒演出为 E2 第一关专属锚点）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier"
+      }
+    },
+    {
+      "id": "campaign:level-e3-02",
+      "content_type": "Level",
+      "era": "era3:era-industrial",
+      "slot": 2,
+      "name_zh": "矿脉铁轨",
+      "name_en": "Ore and Rails",
+      "aliases": ["E3 第二关", "矿轨关", "物流关"],
+      "focus": "new_logistics",
+      "focus_zh": "新物流",
+      "schedule_tier": "build",
+      "schedule_tier_zh": "建造级",
+      "adjacent_enemy_camps": 1,
+      "threat": 0.6,
+      "win_waves": 16,
+      "first_wave_grace_multiplier": 2.0,
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "unlocks": {
+        "actions": [],
+        "features": ["mine_rail_logistics"]
+      },
+      "_new": true,
+      "_new_fields": ["adjacent_enemy_camps", "first_wave_grace_multiplier", "unlocks.actions", "name_zh", "name_en"],
+      "_source": "§4 L67 关 2=新物流（矿轨 10/s 开放：era.json logistics tier 2 carrier mine_rail）+T-112 任务卡『关 2 矿轨+传送带』——传送带 15/s=物流阶梯第 3 档=E4 行（§4 L61，T-123 数据位），E3 侧以阶梯数组 15.0 档位预告、不提前启用（E3 美术包 T-119 传送带双层动画=E4 档前置资产）+§11.8 建造级+§6 首波宽限带 ×1.5~2 上沿 2.0 [NEW]；邻接敌营 1→威胁度 clamp(0.3+0.3×1)=0.6、胜波 10+⌊0.6×10⌋=16（§7 公式）；关名 [NEW]；unlocks.actions=[]（同关 1 注）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier"
+      }
+    },
+    {
+      "id": "campaign:level-e3-03",
+      "content_type": "Level",
+      "era": "era3:era-industrial",
+      "slot": 3,
+      "name_zh": "考古与新令",
+      "name_en": "Digs and Directives",
+      "aliases": ["E3 第三关", "考古关", "英雄关"],
+      "focus": "archaeology_hero_system",
+      "focus_zh": "考古+英雄+系统新能力",
+      "schedule_tier": "patrol",
+      "schedule_tier_zh": "巡逻/托管级",
+      "adjacent_enemy_camps": 2,
+      "threat": 0.9,
+      "win_waves": 19,
+      "first_wave_grace_multiplier": 1.5,
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "unlocks": {
+        "actions": [],
+        "features": ["archaeology", "hero_recruit", "autonomous_execution"]
+      },
+      "_new": true,
+      "_new_fields": ["adjacent_enemy_camps", "first_wave_grace_multiplier", "unlocks.actions", "name_zh", "name_en"],
+      "_source": "§4 L67 关 3=考古+英雄+系统新能力——考古=legacy/archaeology.json 三通道本代续开（F-058）；英雄=每代第 3 关解锁招募（G.2 HeroOrder 行+SP-6『每代第 3 关』——E3 英雄行 SP-6 占位、随章节设计定案落位，hero_recruit=排期位先行冻结）；系统新能力=autonomous_execution（§4 L60 系统形态=自主期『自动执行获批计划』——§11.8 巡逻/托管级末档=托管级落位；era.json system_stage_features 同源）+§6 首波宽限带下沿 1.5 [NEW]；邻接敌营 2→威胁度 clamp(0.3+0.3×2)=0.9、胜波 10+⌊0.9×10⌋=19（§7 公式，前三关递进 13→16→19）；关名 [NEW]；unlocks.actions=[]（同关 1 注）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier"
+      }
+    }
+  ]
+}

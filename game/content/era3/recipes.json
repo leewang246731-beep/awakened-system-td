@@ -1,0 +1,76 @@
+{
+  "$schema": "urn:eratd:content:recipe:1",
+  "content_type": "Resource",
+  "era": "era3:era-industrial",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E3 配方集锚点=v3.2 §5 L74~L76（链深 ≤3；1 件弹药=10 发；T1 采集 0.5 件/s/坐席）+§4 L60 E3 资源行（煤/铁/钢）+era2/recipes.json 行形先例（T-079）；K-2 15 类封闭枚举无 Recipe 类——配方行随资源经济族走，content_type 薄版声明为 Resource（先例=era2/recipes.json，T-079）；行形状对齐 AmmoRecipe（inputs 篮子/AmmoResource/CraftTicks，一 craft 产 1 件）；全部篮子/时长 [NEW] 待原型校准",
+  "raw_resources": [
+    { "resource": "era3:res-coal", "name_zh": "煤" },
+    { "resource": "era2:res-iron", "name_zh": "铁（传承刷新）" },
+    { "resource": "era2:res-copper", "name_zh": "铜（传承刷新）" }
+  ],
+  "_raw_note": "深度 1 原料集=本代可采原料三件（煤=本代新矿；铁/铜=上代 2 种基础资源传承刷新，§4 跨代资源行）。钢（era3:res-steel）=era.json 资源行成员（§4 L60 点名）但为炼链制品（era3:recipe-steel 输出）——SupplyChain one key one meaning：制品不入原料表（era2 先例中 §4 点名资源恰全为原料故两表相等，E3 起 §4 点名含制品、两表自本代起分立）",
+  "chain_depth_max": 3,
+  "_chain_note": "v3.2 §5 L74 链深 ≤3（原料=1，制品=1+最深输入）——本表最深=弹链/臼炮弹 3（煤/铁/铜(1)→钢(2)→弹药(3)），守卫=SupplyChain.Validate（T-034），Era3ContentTests 装载校验",
+  "items": [
+    {
+      "id": "era3:recipe-steel",
+      "content_type": "Resource",
+      "kind": "intermediate",
+      "era_index": 3,
+      "name_zh": "钢",
+      "name_en": "Steel",
+      "aliases": ["钢", "钢材", "steel"],
+      "inputs": [
+        { "resource": "era3:res-coal", "amount": 2 },
+        { "resource": "era2:res-iron", "amount": 2 }
+      ],
+      "output": { "resource": "era3:res-steel", "amount": 1 },
+      "craft_ticks": 150,
+      "chain_depth": 2,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "煤→钢炼链主件（§4 L60 资源=煤/铁/钢+T-112 任务卡『煤→钢炼链』）[NEW 数值标注]——篮子 2 煤+2 铁→1 钢（煤=还原剂+燃料双职的平炉炼钢位；铁=传承刷新资源入炼篮——§4 跨代资源行刷新用途实例）、时长 150 ticks（5 s@30 Hz）待原型校准；链位=中间件（深度 2：煤/铁(1)→钢(2)），弹链/臼炮弹的前置",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era3:recipe-bullet",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 3,
+      "name_zh": "弹链",
+      "name_en": "Belt",
+      "aliases": ["弹链", "机枪弹链", "子弹链", "belt"],
+      "inputs": [
+        { "resource": "era3:res-steel", "amount": 1 },
+        { "resource": "era2:res-copper", "amount": 1 }
+      ],
+      "output": { "resource": "era3:ammo-bullet", "amount": 1 },
+      "craft_ticks": 90,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era3:tower-gatling 弹药位（era3/towers.json）[NEW 数值标注]——篮子 1 钢+1 铜→1 件（钢=弹头、铜=弹壳——传承刷新铜的本代用途落位）、时长 90 ticks（3 s@30 Hz，对齐 E2 箭矢/石矢档）待原型校准；链位=链深天花板锚（铜(1)→钢(2)→弹链(3)=§5 链深 ≤3 恰用满，SupplyChain 边界行）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era3:recipe-shell",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 3,
+      "name_zh": "臼炮弹",
+      "name_en": "Shell",
+      "aliases": ["臼炮弹", "高爆弹", "shell"],
+      "inputs": [
+        { "resource": "era3:res-steel", "amount": 2 },
+        { "resource": "era3:res-coal", "amount": 1 }
+      ],
+      "output": { "resource": "era3:ammo-shell", "amount": 1 },
+      "craft_ticks": 180,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era3:tower-mortar 弹药位（era3/towers.json）[NEW 数值标注]——篮子 2 钢+1 煤→1 件（钢=弹体、煤=发射药位）、时长 180 ticks（6 s@30 Hz，对齐 E2 攻城矢 180 大质量低速档）待原型校准；链位=链深天花板锚（煤(1)→钢(2)→臼炮弹(3)恰用满）；铁甲墙无弹药（ammo_item=null，不入弹药覆盖闭合）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    }
+  ]
+}
