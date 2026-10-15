@@ -1,0 +1,8 @@
+{
+  "_doc": "示例模组①『更多箭塔』（T-103 样板）：新增 1 座 T1 塔 + 1 个弹种。manifest 锚点=v2.1 §16 条 3（modid:contentid 命名空间/坏模组弹错/CI 校验）。数值不越现有曲线：cost/dps 均取 era1 T1 带 [30,60]/[10,20] 中位（R7 锚点口径，game/content/era1/towers.json）。",
+  "mod_id": "more-arrows",
+  "name_zh": "更多箭塔",
+  "name_en": "More Arrows",
+  "version": "1.0.0",
+  "requires": []
+}

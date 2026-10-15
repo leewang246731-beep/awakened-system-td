@@ -1,0 +1,41 @@
+{
+  "$schema": "urn:eratd:mod:building:1",
+  "content_type": "Building",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；patch:true + 全名 id=覆盖已装载的内置内容（patch 为全量替换：其余字段照抄基线行 game/content/era1/towers.json era1:tower-wood-arrow）",
+  "items": [
+    {
+      "id": "era1:tower-wood-arrow",
+      "content_type": "Building",
+      "patch": true,
+      "class": "pierce",
+      "name_zh": "木箭塔",
+      "name_en": "Wood Arrow Tower",
+      "aliases": ["木箭塔", "箭塔", "arrow tower"],
+      "tier": 1,
+      "max_tier": 2,
+      "cost_total": 35,
+      "dps": 12.0,
+      "damage_per_shot": 12,
+      "reload_ticks": 30,
+      "range_cells": 5.0,
+      "hp": 120,
+      "ammo_item": "era1:ammo-arrow",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_source": "重平衡：dps 10→12（+20%）、cost_total 30→35（+17%）——性价比 +3%，均留在 era1 T1 锚点带内（dps∈[10,20]、cost∈[30,60]，不越现有曲线）；一致性：damage_per_shot=dps×reload_ticks/30=12；其余字段照抄基线行（patch=全量替换语义）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    }
+  ]
+}

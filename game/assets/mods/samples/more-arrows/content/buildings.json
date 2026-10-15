@@ -1,0 +1,40 @@
+{
+  "$schema": "urn:eratd:mod:building:1",
+  "content_type": "Building",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；裸 id 由装载器自动命名空间化为 more-arrows:tower-barbed（v2.1 §16 条 3）",
+  "items": [
+    {
+      "id": "tower-barbed",
+      "content_type": "Building",
+      "class": "pierce",
+      "name_zh": "倒刺箭塔",
+      "name_en": "Barbed Arrow Tower",
+      "aliases": ["倒刺箭塔", "倒刺塔", "barbed tower"],
+      "tier": 1,
+      "max_tier": 2,
+      "cost_total": 45,
+      "dps": 15.0,
+      "damage_per_shot": 15,
+      "reload_ticks": 30,
+      "range_cells": 4.5,
+      "hp": 130,
+      "ammo_item": "more-arrows:proj-barbed",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_source": "T1 数值合规（R7 锚点口径）：cost_total 45∈era1 T1 带 [30,60]、dps 15∈[10,20]（game/content/era1/towers.json 木箭塔 30/10 与 落石台 60/20 的包络内插，不越现有曲线）；tier_growth 沿 v3.2 §6 三乘子锚（×2/×3/×1.25）；hp 130∈[80,150] T1 带",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    }
+  ]
+}

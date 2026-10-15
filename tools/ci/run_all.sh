@@ -6,6 +6,9 @@
 #   1.5) asset_validator.py     → G2.5 资产规格校验（T-045 接入：入库 PNG 过
 #                                尺寸/调色板/文件名门禁；REJECT=红。范围=
 #                                game/assets 资产库根 + presentation 纹理目录）
+#   1.6) mod_validate.py        → G2.6 模组离线校验（T-103 接入：封闭 schema/
+#                                命名空间/依赖/DSL 三族；FAIL=红。范围=
+#                                game/assets/mods/samples + game/content 预载）
 #   2) dotnet test              → G1 测试全绿（game/EraTD.sln 全部测试，不启动 Godot）
 #   3) dotnet build -c Release  → G3 构建零警告（TreatWarningsAsErrors=true，警告即红）
 #   4) smoke_godot.sh           → G4 Godot headless 冒烟（判据=SMOKE_OK）
@@ -125,6 +128,29 @@ else
   exit 1
 fi
 
+# ---- Step 1.6/4: G2.6 模组离线校验（T-103 接入）------------------------------
+
+# mod_validate.py（T-103）：mods 目录封闭 schema/命名空间/依赖/DSL 三族离线校验
+# （判据=EraCore/Mods 装载器的 Python 镜像；范围=game/assets/mods/samples 样板
+# 模组库根——直接子目录=模组包；本体内容预载 game/content 供 patch 目标锚定）。
+# CI 门禁=0 FAIL。
+step_header 1.6 "G2.6 模组离线校验 mod_validate.py（schema/命名空间/依赖/DSL 三族）"
+if "$PYTHON" "$REPO_ROOT/tools/ci/mod_validate.py" --json "$LOG_DIR/mods.json" \
+      "$REPO_ROOT/game/assets/mods/samples" --content "$REPO_ROOT/game/content" \
+      2>&1 | tee "$LOG_DIR/mods.log"; then
+  MODS_RC=0
+else
+  MODS_RC=$?
+fi
+MODS_SUMMARY_LINE=$(grep -E '^summary:' "$LOG_DIR/mods.log" | tail -n 1)
+if [ "$MODS_RC" -eq 0 ]; then
+  record G2.6 PASS "${MODS_SUMMARY_LINE#summary: }"
+else
+  record G2.6 FAIL "mod_validate exit $MODS_RC（FAIL 明细见上方输出；判据=T-103 封闭 schema 镜像）"
+  echo "run_all: 任一步失败即停（G2.6 模组校验红）" >&2
+  exit 1
+fi
+
 # ---- Step 2/4: G1 测试全绿 --------------------------------------------------
 
 step_header 2 "G1 测试 dotnet test（$SLN）"
@@ -200,11 +226,12 @@ fi
 
 echo ""
 echo "==================== 门禁汇总（G1~G4 + G2.5 ↔ docs/engineering/13-quality-gates.md + 14-art-license-audit §3）===================="
-for g in G2 G2.5 G1 G3 G4; do
+for g in G2 G2.5 G2.6 G1 G3 G4; do
   printf '  %-4s %-14s : %-5s %s\n' "$g" "$(case $g in
     G1) echo 测试全绿;;
     G2) echo 红线零违规;;
     G2.5) echo 资产规格校验;;
+    G2.6) echo 模组离线校验;;
     G3) echo 构建零警告;;
     G4) echo 冒烟通过;; esac)" \
     "${G_STATUS[$g]}" "${G_DETAIL[$g]}"

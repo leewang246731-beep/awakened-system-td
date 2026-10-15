@@ -1,0 +1,33 @@
+{
+  "$schema": "urn:eratd:mod:projectile:1",
+  "content_type": "Projectile",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；裸 id 自动命名空间化为 more-arrows:proj-barbed；on_hit=DSL 三族之『效果原语』（v2.1 §16 条 5），op 封闭清单内取值",
+  "items": [
+    {
+      "id": "proj-barbed",
+      "content_type": "Projectile",
+      "name_zh": "倒刺箭",
+      "name_en": "Barbed Arrow",
+      "aliases": ["倒刺箭", "barbed arrow"],
+      "damage_per_shot": 15,
+      "speed_px_per_tick": 6.0,
+      "pierce_count": 1,
+      "on_hit": [
+        {
+          "op": "slow_percent",
+          "percent": 10,
+          "ticks": 30,
+          "_source": "倒刺减速 10%/1 s——锚定 SP-1b L38 尖刺陷阱 slow 30%/120 ticks 的量级带内（≤30%、≤120 ticks，不越现有曲线）"
+        }
+      ],
+      "_source": "弹种首版（Projectile 内容 K-2 类）；damage_per_shot 15=倒刺箭塔 damage_per_shot 同值（一致性：dps=damage_per_shot×30/reload_ticks=15）；speed 6 px/tick _new 待原型校准（敌速域上界之 3~5 倍）",
+      "_units": {
+        "damage_per_shot": "points",
+        "speed_px_per_tick": "pixels_per_tick_at_30hz",
+        "pierce_count": "enemies",
+        "on_hit.percent": "percent",
+        "on_hit.ticks": "ticks_at_30hz"
+      }
+    }
+  ]
+}

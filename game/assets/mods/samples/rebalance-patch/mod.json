@@ -1,0 +1,8 @@
+{
+  "_doc": "示例模组②『重平衡 patch』（T-103 样板）：patch 模式覆盖内置 era1:tower-wood-arrow——item 带 patch:true + 目标全名 id，装载器以模组版替换注册表条目并出 overlay 报告（v2.1 §16 条 3『later load wins with a conflict report』）。改动力度不越锚点带：cost 30→35∈[30,60]、dps 10→12∈[10,20]（R7 锚点口径，game/content/era1/towers.json）。",
+  "mod_id": "rebalance-patch",
+  "name_zh": "重平衡补丁",
+  "name_en": "Rebalance Patch",
+  "version": "1.0.0",
+  "requires": []
+}
