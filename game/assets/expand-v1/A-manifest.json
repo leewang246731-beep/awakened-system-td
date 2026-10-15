@@ -1,0 +1,191 @@
+{
+ "schema": "game-assets/1",
+ "batch": "P2-video-A",
+ "layer_id": "A",
+ "plan": "docs/engineering/31-visual-enrichment-master-plan.md (业主已批 v2.0 §二.2 A 层)",
+ "produced_at": "2026-10-15",
+ "model_primary": "doubao-seedance-2-5-260628 (火山方舟)",
+ "api": "ark-video skill (scripts/arkvideo.mjs submit/poll/download)",
+ "style_anchor": "Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements.",
+ "common_params": "model=doubao-seedance-2-5-260628 resolution=480p ratio=16:9 generate_audio=true watermark=false; watermark 未设置=默认 false（母片无 AI 水印）",
+ "palette_anchors": {
+  "E1": "#C9915C / #6B7A5A / #E07B39 晨曦赭金",
+  "E2": "#4E8A6E / #B3593A / #E8E2D0 青铜苍",
+  "E3": "#A8503C / #2E2A28 / #C9C4BC 铆铁赭红",
+  "E4": "#3D7EA6 / #9A9A94 / #E3C14F 电网蓝",
+  "E5": "#3FC1C9 / #8A5FC9 / #DCE4E8 聚变青",
+  "E6": "#3E55C9 / #1D1B33 / #BFE8F2 星门靛蓝"
+ },
+ "counts": {
+  "deliverables": 7,
+  "menu_loop": 1,
+  "era_transitions": 5,
+  "finale": 1,
+  "generation_tasks_billed": 9,
+  "self_review_pass": 7,
+  "self_review_fail": 0,
+  "quality_regenerations": 0
+ },
+ "cost": {
+  "tokens_total": 2021175,
+  "unit_price_basis": "Seedance 2.5 ¥70/1M tokens 纯文生（17 号 §4.1/§4.2 实测口径）；480p ≈¥0.67/s 与实测 token 量吻合",
+  "estimated_cost_cny": 141.48,
+  "generation_calls": 9,
+  "note": "另 1 次 s2 参数 400 重提（失败任务不计费）+1 次 poll 网络抖动重试——均非质量重生成"
+ },
+ "spec_deviations": [
+  "跃迁时长：任务指令 20~25s 取 20s（31 号表 v2.0 为 15s）",
+  "A-07 终章：任务指令 90s(3×30s)+480p（31 号表为 60s(2×30s)+720p Q18A 保清晰）——按任务指令执行，业主验收时确认；如需 720p 可按 manifest prompts 原样重制"
+ ],
+ "notes": [
+  "A/D/E 层开音频：generate_audio=true 全部执行（17 号 §4.2 实测不加价）",
+  "不做 ogv 转码/像素化——工程接线属 T-152，本批保留 480p 母片（mp4）",
+  "跃迁 A-02~06 表标像素化=是，由 T-152 固定色板像素化滤镜链后置执行（31 号 §三 加载管线）",
+  "A-01 循环接缝：首尾帧构图/色板一致，轻微接缝可接受（任务纪律预授权）；实机如观感不佳可由 T-152 加 0.5s 交叉淡入",
+  "AI 生成标注（F-147）：全部 7 条为 AI 生成视频",
+  "交错纪律：与 D 层共享 API，全程在途 ≤2，未遇 429/限流",
+  "素材不入游戏——工程接线属 T-152；本批归档 E 盘 + manifest 入库副本"
+ ],
+ "items": [
+  {
+   "id": "A-01",
+   "content": "主菜单循环底片：六时代母题塔剪影在星门环下缓慢轮转（首尾无缝循环）",
+   "duration_s": 20.06,
+   "file": "2026-10-15_A-01.mp4",
+   "tasks": [
+    {
+     "task_id": "cgt-20261015103118-i4we9",
+     "tokens": 192550,
+     "cost_cny": 13.48
+    }
+   ],
+   "retries": 0,
+   "self_review": "首帧 PASS（靛蓝色板+星门环+塔群剪影+无文字）；尾帧对比 PASS——循环接缝轻微可接受（任务纪律预授权注记）",
+   "prompt": "Main menu idle background loop, seamless loop with start and end frame matching. A vast stargate ring of deep-space indigo (#3E55C9) hangs over a dark violet-black (#1D1B33) starfield, slowly rotating. Beneath the ring, six watchtower silhouettes from six eras orbit slowly in sequence, cross-fading one into the next: a three-tier wooden watchtower with thatched eaves, a stone bastion with gables and crenellations, a riveted iron lattice truss tower, a concrete radar tower with parabolic dish, a flowing nano energy spire with floating rings, and finally a stargate echo. Glowing memory-fragment light dust (pale cyan #BFE8F2) drifts upward through the layered color strata. Extremely slow, calm, meditative camera with gentle parallax drift. Ambient sound: deep warm space drone, soft ethereal chimes, faint cosmic wind. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements."
+  },
+  {
+   "id": "A-02",
+   "content": "E1→E2 跃迁：木望楼生长为石堡箭楼，晨曦赭金层积入青铜苍",
+   "duration_s": 20.06,
+   "file": "2026-10-15_A-02.mp4",
+   "tasks": [
+    {
+     "task_id": "cgt-20261015103122-g6j7m",
+     "tokens": 192550,
+     "cost_cny": 13.48
+    }
+   ],
+   "retries": 0,
+   "self_review": "首帧 PASS（#C9915C 赭金主导+木塔剪影+层积风格+无文字）",
+   "prompt": "Era transition cinematic, ancient era to classical era. Under a dawn sky of warm ochre-gold (#C9915C), a three-tier wooden watchtower with thatched eaves and wood-grain texture begins to grow: its timber frame hardens, stones rise along its flanks, gables and crenellations crystallize, and it becomes a stone bastion watchtower with bronze reliefs. The layered color strata of the whole scene slowly settle from dawn ochre-gold into bronze verdigris green (#4E8A6E), with terracotta red (#B3593A) and marble white (#E8E2D0) accents emerging. A spearhead-triangle silhouette in the foreground corner slowly morphs into a temple pediment triangle. Glowing memory fragments drift like embers. Slow majestic push-in camera, locked-off horizon. Ambient sound: deep wooden creaks, stone blocks settling, distant bronze chimes with long reverb, morning wind. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements."
+  },
+  {
+   "id": "A-03",
+   "content": "E2→E3 跃迁：石堡生出桁架铆钉与蒸汽管，青铜苍没入铆铁赭红",
+   "duration_s": 20.06,
+   "file": "2026-10-15_A-03.mp4",
+   "tasks": [
+    {
+     "task_id": "cgt-20261015103441-5kqor",
+     "tokens": 192550,
+     "cost_cny": 13.48
+    }
+   ],
+   "retries": 0,
+   "self_review": "首帧 PASS（#4E8A6E 青铜苍主导+堡楼剪影+无文字）",
+   "prompt": "Era transition cinematic, classical era to industrial era. A stone bastion watchtower under bronze verdigris green (#4E8A6E) light begins to transform: dark iron rivets sprout across its stone face, a truss lattice framework of girders grows upward around it, steam pipes coil and hiss, chimneys rise, and it becomes a riveted iron lattice tower. The layered color strata sink from verdigris green into riveted-iron ochre red (#A8503C), with coal black (#2E2A28) shadows and steam grey-white (#C9C4BC) plumes. A pediment-triangle silhouette morphs into a truss triangle with a single turning gear embedded inside. Glowing memory fragments flicker like forge sparks. Slow lateral dolly, industrial rhythm. Ambient sound: stone cracking, heavy riveting hammer strikes, steam hiss, distant machinery clank, low factory drone. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements."
+  },
+  {
+   "id": "A-04",
+   "content": "E3→E4 跃迁：铁塔浇筑成混凝土雷达塔，煤黑让位电网蓝",
+   "duration_s": 20.06,
+   "file": "2026-10-15_A-04.mp4",
+   "tasks": [
+    {
+     "task_id": "cgt-20261015103503-129vy",
+     "tokens": 192550,
+     "cost_cny": 13.48
+    }
+   ],
+   "retries": 0,
+   "self_review": "首帧 PASS（#A8503C+煤黑起始+桁架塔剪影+无文字）",
+   "prompt": "Era transition cinematic, industrial era to modern era. The riveted iron lattice tower in riveted-iron ochre red (#A8503C) is engulfed by flowing concrete: its truss pours and casts into a monolithic concrete radar tower, a great parabolic dish antenna unfolds at its crown, glass curtain walls shimmer into place. The layered color strata shift from iron red and coal black (#2E2A28) into electric grid blue (#3D7EA6), with concrete grey (#9A9A94) bands and warning yellow (#E3C14F) accents. A truss triangle with a gear morphs into a play-button triangle as a radar sweep fan rotates across the horizon. Glowing memory fragments pulse like data packets. Slow rising crane shot. Ambient sound: concrete pouring rumble, deep mechanical shift, radar ping sweeps, electric hum swelling. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements."
+  },
+  {
+   "id": "A-05",
+   "content": "E4→E5 跃迁：雷达塔涌起纳米流态能量尖塔，电网蓝点燃聚变青",
+   "duration_s": 20.06,
+   "file": "2026-10-15_A-05.mp4",
+   "tasks": [
+    {
+     "task_id": "cgt-20261015103815-g5ysz",
+     "tokens": 192550,
+     "cost_cny": 13.48
+    }
+   ],
+   "retries": 0,
+   "self_review": "首帧 PASS（#3D7EA6 主导+雷达塔抛物面+无文字）",
+   "prompt": "Era transition cinematic, modern era to future era. The concrete radar tower under electric grid blue (#3D7EA6) dissolves upward: liquid nano-material streams off its dish and condenses into a flowing energy spire crowned with floating suspension rings, holographic lattice grids shimmering around it. The layered color strata ignite from grid blue into fusion cyan (#3FC1C9), with fusion violet (#8A5FC9) blooms and nano silver-white (#DCE4E8) highlights. A play-button triangle stretches into a force-field arc, and a hexagonal crystal lattice spreads across the sky like a veil. Glowing memory fragments flow along light-stream circuits. Slow orbital camera rising around the spire. Ambient sound: energy surge shimmer, plasma harmonic hum, crystalline high bell tones, deep sub pulse. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements."
+  },
+  {
+   "id": "A-06",
+   "content": "E5→终章跃迁：能量尖塔塔顶展开成星门环，六色层积收束为靛蓝",
+   "duration_s": 20.06,
+   "file": "2026-10-15_A-06.mp4",
+   "tasks": [
+    {
+     "task_id": "cgt-20261015103855-09s8n",
+     "tokens": 192550,
+     "cost_cny": 13.48
+    }
+   ],
+   "retries": 0,
+   "self_review": "首帧 PASS（#3FC1C9 聚变青+紫点缀+尖塔剪影+无文字）",
+   "prompt": "Era transition cinematic, future era to deep-space finale. The nano energy spire in fusion cyan (#3FC1C9) reaches its apex: its tip splits open and unfolds, ring by ring, into a colossal stargate against deep space. Six color strata of all eras (ochre gold, verdigris, iron red, grid blue, fusion cyan) peel away and converge inward, settling into deep stargate indigo (#3E55C9). Dark matter violet-black (#1D1B33) depths and pale zero-point cyan (#BFE8F2) light dust complete the palette. The hexagonal lattice closes into the stargate ring, a hairline fissure of light glowing at its heart. Glowing memory fragments stream into the ring from every direction. Slow reverent pull-back revealing the gate at scale. Ambient sound: cosmic choir swell, deep gravitational rumble, one soft bell strike, silence tail. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements."
+  },
+  {
+   "id": "A-07",
+   "content": "终章播片：真相揭示+首尾回环补色收束（靛蓝褪回 E1 暖赭；3×30s 尾帧链拼接）",
+   "duration_s": 90.21,
+   "file": "2026-10-15_A-07.mp4",
+   "concat_from": [
+    "2026-10-15_A-07-s1.mp4",
+    "2026-10-15_A-07-s2.mp4",
+    "2026-10-15_A-07-s3.mp4"
+   ],
+   "tasks": [
+    {
+     "task_id": "cgt-20261015104149-8qmom",
+     "seg": "s1",
+     "first_frame": null,
+     "tokens": 288625,
+     "cost_cny": 20.2
+    },
+    {
+     "task_id": "cgt-20261015104718-l4yuz",
+     "seg": "s2",
+     "first_frame": "tail of s1 (return_last_frame 链)",
+     "param_retry": "首提 ratio=16:9 被 400 拒（首帧任务须 adaptive，17 号 §9），改 adaptive 重提成功——参数重试不计费不计质量重生成",
+     "tokens": 288625,
+     "cost_cny": 20.2
+    },
+    {
+     "task_id": "cgt-20261015105239-k7d8f",
+     "seg": "s3",
+     "first_frame": "tail of s2 (return_last_frame 链)",
+     "note": "poll 一次本地网络 fetch failed 抖动，任务服务端正常成功计费一次",
+     "tokens": 288625,
+     "cost_cny": 20.2
+    }
+   ],
+   "retries": 0,
+   "concat": "ffmpeg concat + libx264/aac 24fps 重编码（17 号 §8.6）",
+   "self_review": "s1/s2/s3 首帧逐段 PASS；30s/60s 拼接点抽帧 PASS（无花屏/撕裂/黑帧）；75s 处暖赭回归+木塔剪影 PASS（补色回环达成）",
+   "prompts": {
+    "s1": "Finale cutscene part 1 of 3, truth revelation. Deep space dominated by stargate indigo (#3E55C9) and dark matter violet-black (#1D1B33). The colossal stargate, final form of the watchtower, slowly charges open: pale zero-point cyan (#BFE8F2) light dust and streams of memory fragments flow inward from all directions, gathering into the ring. A hairline fissure of pure light widens at the ring's center. Layered nebula strata drift behind. Very slow push-in toward the opening fissure, reverent and immense. Ambient sound: deep space drone, rising luminous shimmer, layered whispers of memory like distant chimes, building to a threshold. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements.",
+    "s2": "Finale cutscene part 2 of 3, memory of six eras. Continuing from the open stargate: camera drifts through the gate into a vast corridor of horizontal layered color strata. Six immense strata bands wash through one by one like a geological memory replay: dawn ochre gold (#C9915C) with a wooden watchtower echo, bronze verdigris (#4E8A6E) with temple pediment and chime ripples, riveted iron red (#A8503C) with gears and steam, grid blue (#3D7EA6) with radar sweeps and play-button triangles, fusion cyan (#3FC1C9) with hex lattices, deep indigo (#3E55C9) void. Memory fragments re-knit themselves into glowing threads within each band. Slow continuous forward glide, one era dissolving into the next. Ambient sound: layered era echoes fading in and out, chimes, gears, radar pings, plasma hum, woven into one requiem-like passage. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements.",
+    "s3": "Finale cutscene part 3 of 3, complementary color return, memory homecoming. The deep indigo (#3E55C9) starfield slowly fades and warms, hue rotating through the color wheel back to dawn: the scene settles into the first era's warm ochre-gold (#C9915C) over a quiet prehistoric steppe at first light. The camera comes to rest on the exact horizon where a lone three-tier wooden watchtower silhouette stands, mirrored composition of the game's opening. A spearhead-triangle silhouette rests planted in the earth at the frame's corner. Memory fragments drift down gently like ember snow, settling into the ground. Mist, warm horizon glow, utter stillness and closure. Static held shot with imperceptible slow breathing. Ambient sound: soft morning wind over grassland, distant birdsong, warm sustained pad fading to near silence. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette of the evolving watchtower motif, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no UI elements."
+   }
+  }
+ ]
+}
