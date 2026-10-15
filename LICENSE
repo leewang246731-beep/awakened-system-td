@@ -25,3 +25,7 @@ SOFTWARE.
 Scope note: this MIT license covers the source code of this repository
 (including tools/art/*.py generator scripts). Art and audio assets shipped
 with the game are licensed separately under CC BY-NC 4.0 — see ASSETS-LICENSE.
+AI-generated assets (chapter illustrations, loading screens, skins, advisor
+portraits, cinematic masters) are part of that CC BY-NC 4.0 asset grant:
+AI-generated assets licensed CC BY-NC, generation manifests included (see
+game/assets/expand-v1/ manifests).

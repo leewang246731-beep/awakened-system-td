@@ -10,6 +10,13 @@
 ; wiring is scripts/SettingsPanelUi.cs (the script's only mount point).
 ; T-102 (C-21): + RenderTierRow 画质档位下拉（渲染三档 L/M/H + 自动探测，
 ; 持久化 settings/render-tier.json，即时保存——非 BYOK 字段不进保存按钮路径）。
+; T-109 (C-31/C-26 合规披露, F-147/F-153): + 「你的话发给谁」三档对比条
+; （CompareHeading/L1Row/L2Row/L3Row，文案与状态由
+; EraCore.Presentation.DataFlowCompareBar 逐行供给）+ AI 生成素材标注行
+; （AiAssetLabel，静态非模态，EraCore.Llm.LlmDisclosureCatalog）+ 首启
+; 数据流向声明弹窗（DisclosureOverlay 模态：确认持久化 settings/
+; llm-disclosure.json；「暂不启用」不落盘下次仍弹——状态机
+; EraCore.Llm.LlmDisclosureGate）。
 
 [ext_resource type="Script" path="res://scripts/SettingsPanelUi.cs" id="1_settings"]
 
@@ -324,3 +331,89 @@ text = ""
 layout_mode = 2
 autowrap_mode = 2
 text = ""
+
+[node name="CompareHeading" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+text = "你的话发给谁（三档对比）"
+
+[node name="L1Row" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="L2Row" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="L3Row" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="AiAssetLabel" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="DisclosureOverlay" type="ColorRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.03, 0.05, 0.08, 0.92)
+
+[node name="DisclosureBox" type="PanelContainer" parent="DisclosureOverlay"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -340.0
+offset_top = -190.0
+offset_right = 340.0
+offset_bottom = 190.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="DisclosureOverlay/DisclosureBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="DisclosureOverlay/DisclosureBox/VBox"]
+layout_mode = 2
+text = "启用 AI 功能前：数据流向声明"
+
+[node name="FlowText" type="Label" parent="DisclosureOverlay/DisclosureBox/VBox"]
+custom_minimum_size = Vector2(640, 0)
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="TelemetryText" type="Label" parent="DisclosureOverlay/DisclosureBox/VBox"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="OptionalText" type="Label" parent="DisclosureOverlay/DisclosureBox/VBox"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="EnText" type="Label" parent="DisclosureOverlay/DisclosureBox/VBox"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="ConfirmButton" type="Button" parent="DisclosureOverlay/DisclosureBox/VBox"]
+layout_mode = 2
+text = "我已了解，继续启用 AI（不再提示）"
+
+[node name="DeclineButton" type="Button" parent="DisclosureOverlay/DisclosureBox/VBox"]
+layout_mode = 2
+text = "暂不启用（下次打开仍会说明）"

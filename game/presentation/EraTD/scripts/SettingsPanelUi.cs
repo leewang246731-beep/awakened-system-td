@@ -19,6 +19,15 @@ namespace EraTD;
 // llm.config.json、状态/结果文案一律不接触明文；回显永远走 KeyMasker
 // （尾 4 位）。常驻声明页脚随 base_url 逐字刷新，Coding Plan 1315 提示常驻。
 //
+// T-109（C-31/C-26 合规披露，F-147/F-153）：①首启数据流向声明弹窗
+// （DisclosureOverlay）——打开设置页时按 EraCore.Llm.LlmDisclosureGate
+// 状态机决定（未启+系统开+云档可用 → 弹；确认持久化 settings/
+// llm-disclosure.json；「暂不启用」不落盘；系统关=永不弹）；②「你的话
+// 发给谁」三档对比条（CompareHeading/L1~L3Row，文案由
+// EraCore.Presentation.DataFlowCompareBar 供给）；③AI 生成素材标注行
+// （AiAssetLabel 静态非模态，EraCore.Llm.LlmDisclosureCatalog）——Web 版
+// 与画质档位行一同保留（披露不随 BYOK 表单隐藏）。
+//
 // 并行纪律：Main.cs 只追加一行 Instantiate（冲突由后提交者 rebase）；
 // headless 下自带冒烟序列并打印 SETTINGS_OK（smoke 判据）。
 
@@ -26,7 +35,10 @@ namespace EraTD;
 /// The C-26 BYOK settings panel (T-077): full-field editor over one
 /// provider row of llm.config.json with the four-preset dropdown, masked
 /// key entry backed by <see cref="ISecretStore"/>, connection probe,
-/// /models fetch and the persistent data-flow declaration footer.
+/// /models fetch and the persistent data-flow declaration footer. T-109
+/// adds the compliance surfaces: the first-run data-flow notice overlay
+/// (F-147), the three-tier "你的话发给谁" compare bar and the AI-asset
+/// labeling row (F-153).
 /// </summary>
 public sealed partial class SettingsPanelUi : Control
 {
@@ -89,6 +101,21 @@ public sealed partial class SettingsPanelUi : Control
     private Label _declarationFooter = null!;
     private Label _codingPlanNotice = null!;
 
+    // T-109 (F-153 声明/对比条 + F-147 标注 + 首启声明弹窗)
+    private Label _compareHeading = null!;
+    private Label _l1Row = null!;
+    private Label _l2Row = null!;
+    private Label _l3Row = null!;
+    private Label _aiAssetLabel = null!;
+    private ColorRect _disclosureOverlay = null!;
+    private Label _disclosureTitle = null!;
+    private Label _disclosureFlow = null!;
+    private Label _disclosureTelemetry = null!;
+    private Label _disclosureOptional = null!;
+    private Label _disclosureEn = null!;
+    private Button _disclosureConfirm = null!;
+    private Button _disclosureDecline = null!;
+
     /// <summary>The pure form state (EraCore, tested) — smoke/assert access.</summary>
     internal SettingsFormState Form => _form;
 
@@ -138,11 +165,58 @@ public sealed partial class SettingsPanelUi : Control
         return new DevFileStore();
     }
 
-    /// <summary>Opens/closes the panel over the game (backdrop + form).</summary>
-    internal void Open() => Visible = true;
+    /// <summary>
+    /// Opens/closes the panel over the game (backdrop + form). T-109: the
+    /// first-run data-flow notice rides this entry — the BYOK page is where
+    /// AI features get enabled, so the disclosure gates it (LlmDisclosureGate
+    /// state machine: 未启+系统开+云档可用 → 弹；已确认 → 永不再；系统关 →
+    /// 永不弹).
+    /// </summary>
+    internal void Open()
+    {
+        Visible = true;
+        MaybeShowDisclosure();
+    }
 
     /// <summary>Hides the panel (state stays loaded).</summary>
     internal void Close() => Visible = false;
+
+    // ------------------------------------------- T-109 first-run disclosure
+
+    private bool DisclosureDue() => LlmDisclosureGate.PromptRequired(
+        PanelSettingsStore.Load(_files).SystemEnabled,
+        _tiers.L3CloudByok,
+        LlmDisclosureStore.Load(_files).Acknowledged);
+
+    private void MaybeShowDisclosure()
+    {
+        if (!DisclosureDue())
+        {
+            _disclosureOverlay.Visible = false;
+            return;
+        }
+
+        string baseUrl = _form.Fields.BaseUrl;
+        _disclosureFlow.Text = LlmDisclosureCatalog.DialogFlowZh(baseUrl);
+        _disclosureEn.Text = string.Join("\n",
+            LlmDisclosureCatalog.DialogFlowEn(baseUrl),
+            LlmDisclosureCatalog.DialogTelemetryEn,
+            LlmDisclosureCatalog.DialogOptionalEn);
+        _disclosureOverlay.Visible = true;
+    }
+
+    private void OnDisclosureConfirm()
+    {
+        // 确认=持久化「已确认」：此后任何打开都不再弹（settings/llm-disclosure.json）
+        LlmDisclosureStore.Save(_files, new LlmDisclosureSettings { Acknowledged = true });
+        _disclosureOverlay.Visible = false;
+    }
+
+    private void OnDisclosureDecline()
+    {
+        // 暂不启用：不落盘（状态保留「未启」），下次打开设置页仍会说明
+        _disclosureOverlay.Visible = false;
+    }
 
     public override void _Ready()
     {
@@ -200,6 +274,21 @@ public sealed partial class SettingsPanelUi : Control
         _probeResult = GetNode<Label>("Scroll/Form/ProbeResult");
         _declarationFooter = GetNode<Label>("Scroll/Form/DeclarationFooter");
         _codingPlanNotice = GetNode<Label>("Scroll/Form/CodingPlanNotice");
+
+        // T-109: 对比条三行 + AI 素材标注 + 首启声明弹窗
+        _compareHeading = GetNode<Label>("Scroll/Form/CompareHeading");
+        _l1Row = GetNode<Label>("Scroll/Form/L1Row");
+        _l2Row = GetNode<Label>("Scroll/Form/L2Row");
+        _l3Row = GetNode<Label>("Scroll/Form/L3Row");
+        _aiAssetLabel = GetNode<Label>("Scroll/Form/AiAssetLabel");
+        _disclosureOverlay = GetNode<ColorRect>("DisclosureOverlay");
+        _disclosureTitle = GetNode<Label>("DisclosureOverlay/DisclosureBox/VBox/Title");
+        _disclosureFlow = GetNode<Label>("DisclosureOverlay/DisclosureBox/VBox/FlowText");
+        _disclosureTelemetry = GetNode<Label>("DisclosureOverlay/DisclosureBox/VBox/TelemetryText");
+        _disclosureOptional = GetNode<Label>("DisclosureOverlay/DisclosureBox/VBox/OptionalText");
+        _disclosureEn = GetNode<Label>("DisclosureOverlay/DisclosureBox/VBox/EnText");
+        _disclosureConfirm = GetNode<Button>("DisclosureOverlay/DisclosureBox/VBox/ConfirmButton");
+        _disclosureDecline = GetNode<Button>("DisclosureOverlay/DisclosureBox/VBox/DeclineButton");
 
         // 四模板下拉（§11.6：智谱 GLM / 小米 MiMo / 自定义 / 本地 LM Studio）
         foreach (var template in SettingsFormState.Templates)
@@ -262,8 +351,23 @@ public sealed partial class SettingsPanelUi : Control
         _logConversation.Toggled += _ => OnNumericChanged();
         _testConnectionButton.Pressed += () => _ = ProbeAsync(_form.Fields.ProviderId);
         _saveButton.Pressed += OnSave;
+        _disclosureConfirm.Pressed += OnDisclosureConfirm;
+        _disclosureDecline.Pressed += OnDisclosureDecline;
 
         _codingPlanNotice.Text = SettingsFormState.CodingPlanNoticeZh;
+
+        // T-109: 静态披露文案（对比条标题 + AI 素材标注 + 弹窗标题/按钮/中英文案）
+        _compareHeading.Text = DataFlowCompareBar.HeadingZh;
+        _aiAssetLabel.Text = $"{LlmDisclosureCatalog.AiAssetLabelZh}\n{LlmDisclosureCatalog.AiAssetLabelEn}";
+        _disclosureTitle.Text = LlmDisclosureCatalog.DialogTitleZh;
+        _disclosureConfirm.Text = LlmDisclosureCatalog.DialogConfirmZh;
+        _disclosureDecline.Text = LlmDisclosureCatalog.DialogDeclineZh;
+        _disclosureTelemetry.Text = LlmDisclosureCatalog.DialogTelemetryZh;
+        _disclosureOptional.Text = LlmDisclosureCatalog.DialogOptionalZh;
+        _disclosureEn.Text = string.Join("\n",
+            LlmDisclosureCatalog.DialogFlowEn(string.Empty),
+            LlmDisclosureCatalog.DialogTelemetryEn,
+            LlmDisclosureCatalog.DialogOptionalEn);
 
         // T-106 (F-164): platform tier constraints apply last — the Web
         // export hides every BYOK (L3) surface and keeps only the render
@@ -278,6 +382,8 @@ public sealed partial class SettingsPanelUi : Control
     /// tier row stays (a Web-relevant setting, not a BYOK field). Desktop is
     /// untouched. The L3 enforcement itself lives in the gateway gate + the
     /// <see cref="ProbeAsync"/>/<see cref="FetchModelsAsync"/> guards below.
+    /// T-109: the AI-asset labeling row is exempt too — a disclosure is not
+    /// a BYOK field and must stay visible on every platform.
     /// </summary>
     private void ApplyWebTierConstraints()
     {
@@ -289,7 +395,9 @@ public sealed partial class SettingsPanelUi : Control
         var form = GetNode<Control>("Scroll/Form");
         foreach (Node child in form.GetChildren())
         {
-            if (child is Control control && child.Name != "RenderTierRow")
+            if (child is Control control
+                && child.Name != "RenderTierRow"
+                && child.Name != "AiAssetLabel")
             {
                 control.Visible = false;
             }
@@ -380,6 +488,7 @@ public sealed partial class SettingsPanelUi : Control
 
         RefreshKeyEcho();
         RefreshDeclaration();
+        RefreshCompareBar();
         _applying = false;
     }
 
@@ -435,6 +544,7 @@ public sealed partial class SettingsPanelUi : Control
 
         _form.Edit(f => f with { BaseUrl = text });
         RefreshDeclaration(); // 常驻声明随 base_url 逐字刷新（§11.6）
+        RefreshCompareBar();  // T-109: 对比条 L3 行随流向逐字刷新
     }
 
     private void OnModelChanged(string text)
@@ -469,6 +579,8 @@ public sealed partial class SettingsPanelUi : Control
             LogConversation = _logConversation.ButtonPressed,
             LogRetention = (int)_logRetention.Value,
         });
+
+        RefreshCompareBar(); // T-109: 启用开关切换 L3 行三态
     }
 
     // ------------------------------------------------------------ API key
@@ -504,6 +616,28 @@ public sealed partial class SettingsPanelUi : Control
     private void RefreshDeclaration()
     {
         _declarationFooter.Text = _form.DeclarationText();
+    }
+
+    /// <summary>
+    /// T-109 (F-153): re-renders the three data-flow compare rows from the
+    /// pure resolver — current platform tiers, the active row's enable
+    /// switch and base_url all flow in; the presenter never words the rows
+    /// itself (文案与状态同源，禁双份措辞).
+    /// </summary>
+    private void RefreshCompareBar()
+    {
+        var rows = DataFlowCompareBar.Resolve(
+            _tiers, _form.Fields.Enable, _form.Fields.BaseUrl);
+        foreach (var row in rows)
+        {
+            Label label = row.Tier switch
+            {
+                DataFlowTier.L1Grammar => _l1Row,
+                DataFlowTier.L2LocalModel => _l2Row,
+                _ => _l3Row,
+            };
+            label.Text = $"{row.Zh}\n{row.En}";
+        }
     }
 
     // ------------------------------------------------------ save/persist
@@ -791,6 +925,107 @@ public sealed partial class SettingsPanelUi : Control
             problems.Add("画质档位行未恢复出厂 Auto");
         }
 
+        // T-109 首启数据流向声明（状态机全路径）：未启+系统开+桌面 → Open 弹；
+        // 「暂不启用」不落盘、重开仍弹；确认 → 持久化 → 重开不弹；系统关 →
+        // 即使未确认也永不弹
+        Close();
+        Open();
+        if (!_disclosureOverlay.Visible)
+        {
+            problems.Add("首启声明未按状态机弹出（未启+系统开+桌面）");
+        }
+
+        if (!_disclosureFlow.Text.Contains("localhost:1234"))
+        {
+            problems.Add($"首启声明未含当前 base_url：{_disclosureFlow.Text}");
+        }
+
+        _disclosureDecline.EmitSignal(BaseButton.SignalName.Pressed);
+        if (_disclosureOverlay.Visible)
+        {
+            problems.Add("「暂不启用」未关闭弹窗");
+        }
+
+        if (LlmDisclosureStore.Load(_files).Acknowledged)
+        {
+            problems.Add("「暂不启用」却落了确认（状态须保留未启）");
+        }
+
+        Open();
+        if (!_disclosureOverlay.Visible)
+        {
+            problems.Add("未确认状态下重开未再弹");
+        }
+
+        _disclosureConfirm.EmitSignal(BaseButton.SignalName.Pressed);
+        if (!LlmDisclosureStore.Load(_files).Acknowledged)
+        {
+            problems.Add("确认未持久化到 settings/llm-disclosure.json");
+        }
+
+        if (_disclosureOverlay.Visible)
+        {
+            problems.Add("确认后弹窗未关闭");
+        }
+
+        Open();
+        if (_disclosureOverlay.Visible)
+        {
+            problems.Add("已确认后仍弹（应永不再弹）");
+        }
+
+        // 系统关 ⇒ 永不弹：重置为未确认 + 系统开关关 → 打开不再弹
+        LlmDisclosureStore.Save(_files, LlmDisclosureSettings.Default);
+        PanelSettingsStore.Save(_files, new PanelSettings { SystemEnabled = false });
+        Open();
+        if (_disclosureOverlay.Visible)
+        {
+            problems.Add("系统关闭（AI 关）时仍弹（应永不弹）");
+        }
+
+        // 还原沙盒：系统开 + 已确认（后续步骤不再受弹窗影响）
+        PanelSettingsStore.Save(_files, new PanelSettings { SystemEnabled = true });
+        LlmDisclosureStore.Save(_files, new LlmDisclosureSettings { Acknowledged = true });
+
+        // T-109 对比条三态：标题在位；L1 恒「不发送任何数据」；启用行 L3 含
+        // 当前 base_url；关闭启用 → L3 切零发送
+        if (!_compareHeading.Text.Contains("你的话发给谁"))
+        {
+            problems.Add("对比条标题缺失");
+        }
+
+        if (!_l1Row.Text.Contains("不发送任何数据"))
+        {
+            problems.Add("L1 行未声明零发送");
+        }
+
+        if (!_l2Row.Text.Contains("本地推理") && !_l2Row.Text.Contains("Web 版不可用"))
+        {
+            problems.Add("L2 行状态文案缺失");
+        }
+
+        if (!_l3Row.Text.Contains("localhost:1234"))
+        {
+            problems.Add($"启用态 L3 行未含当前 base_url：{_l3Row.Text}");
+        }
+
+        // button_pressed 属性写值即触发 Toggled（与既有 smoke 同路径）→
+        // OnNumericChanged → RefreshCompareBar 三态切换
+        _enable.ButtonPressed = false;
+        if (!_l3Row.Text.Contains("不发送任何数据") || _l3Row.Text.Contains("localhost:1234"))
+        {
+            problems.Add($"关闭态 L3 行未切零发送：{_l3Row.Text}");
+        }
+
+        _enable.ButtonPressed = true;
+
+        // T-109 AI 生成素材标注（静态非模态）：中英文案+manifest 链接在位
+        if (!_aiAssetLabel.Text.Contains("AI 生成")
+            || !_aiAssetLabel.Text.Contains(LlmDisclosureCatalog.ManifestDirPath))
+        {
+            problems.Add("AI 素材标注行缺失（文案/manifest 链接）");
+        }
+
         // 测试连接/拉取列表接线：探针走禁用预置行 → 零网络分类拒绝（中英文案）
         var probe = await ProbeAsync("xiaomi-mimo").ConfigureAwait(true);
         if (probe.Ok || probe.ErrorKey != LlmErrorKeys.Disabled
@@ -810,7 +1045,8 @@ public sealed partial class SettingsPanelUi : Control
             GD.Print(
                 $"SETTINGS_OK providers={providerCount} mask=on declare=on " +
                 $"probe={probe.ErrorKey} fetch={fetch.ErrorKey} backend={_secrets.Backend} " +
-                "render_tier=roundtrip-ok key_file=clean");
+                "render_tier=roundtrip-ok key_file=clean disclosure=statemachine-ok " +
+                "compare=3tier-ok ai_label=manifest-linked");
         }
         else
         {
