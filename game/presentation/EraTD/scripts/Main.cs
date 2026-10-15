@@ -1,6 +1,12 @@
 using EraCore.Agent.Pipeline;
+using EraCore.Contracts.Foundation;
+using EraCore.Contracts.Persistence;
 using EraCore.Contracts.Sim;
+using EraCore.IO;
+using EraCore.Llm;
+using EraCore.Persistence;
 using EraCore.Presentation;
+using EraCore.Secrets;
 using Godot;
 
 namespace EraTD;
@@ -222,6 +228,13 @@ public sealed partial class Main : Control
         // round-trip——headless 冒烟判据打印 RENDER_OK（smoke 渲染三档段）。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         RunRenderTierSmoke(groundChunksRebuilt, unitChunksRebuilt, framesWithGroundWork);
+
+        // ---- 5j) T-106 Web 约束 (F-164/F-144) -------------------------------
+        // 平台三档可用性表（Web=L1 恒开+L2/L3 禁）+ L3 网关平台门（最强场景
+        // 零网络拒绝走真实探针文案链）+ T-100 存档探针 Web 事实回落 JSON——
+        // headless 冒烟判据打印 WEB_OK（smoke Web 约束段；失败 Quit(1)）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        RunWebSmoke();
 
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
@@ -641,5 +654,128 @@ public sealed partial class Main : Control
             GD.PushError("RENDER_FAIL " + string.Join("; ", problems));
             GD.Print("RENDER_FAIL " + string.Join("; ", problems));
         }
+    }
+
+    // ------------------------------------------------- T-106 Web 约束
+
+    /// <summary>
+    /// T-106 acceptance smoke (I 级, F-164/F-144): proves the Web-constraint
+    /// code paths inside THIS engine process — (1) the platform tier table
+    /// (<see cref="WebConstraints"/>: Web 行=L1 恒开+L2/L3 禁，桌面行=三档
+    /// 全开，且 live 平台事实与 L3 门一致); (2) the L3 gateway platform gate
+    /// refusing the STRONGEST case (enabled row + key stored + whitelisted
+    /// domain) with the <c>web-tier-disabled</c> key, zero network, through
+    /// the real <see cref="LlmConnectionProbe"/> copy chain; (3) the T-100
+    /// save probe under the Web fact (e_sqlite3 unavailable) falling back to
+    /// <see cref="JsonFileSavePort"/> with a Warn record. The desktop real
+    /// probe outcome is printed for observability but NOT gated (its native
+    /// resolution inside the Godot mono host is environment-dependent).
+    /// Prints WEB_OK / WEB_FAIL; a failure quits non-zero BEFORE SMOKE_OK.
+    /// </summary>
+    private void RunWebSmoke()
+    {
+        var problems = new List<string>();
+
+        // (1) 平台三档表：Web 行与桌面行都断言（纯表离线全验）
+        AgentTierAvailability webRow = WebConstraints.Availability(isWeb: true);
+        AgentTierAvailability desktopRow = WebConstraints.Availability(isWeb: false);
+        if (webRow is not { L1Grammar: true, L2LocalModel: false, L3CloudByok: false })
+        {
+            problems.Add("Web 档位行应 L1=on L2=off L3=off");
+        }
+
+        if (desktopRow is not { L1Grammar: true, L2LocalModel: true, L3CloudByok: true })
+        {
+            problems.Add("桌面档位行应三档全开");
+        }
+
+        bool liveWeb = OS.HasFeature("web");
+        if (WebConstraints.Availability(liveWeb).L3CloudByok == liveWeb)
+        {
+            problems.Add("live 平台事实与 L3 门不一致（Web 必须 L3=off）");
+        }
+
+        // (2) L3 网关平台门：最强场景（默认模板激活行 enable=true + Key 在库）
+        // 仍被 web-tier-disabled 拒绝——探针同步完成（零网络，wire 端口不可达）
+        string smokeRoot = System.IO.Path.Combine(
+            DevFileStore.DefaultDevRoot, ".tmp-tests", "web-smoke");
+        if (System.IO.Directory.Exists(smokeRoot))
+        {
+            System.IO.Directory.Delete(smokeRoot, recursive: true);
+        }
+
+        var gateFiles = new DevFileStore(smokeRoot);
+        var gateLog = new CollectingLogSink();
+        var gateSecrets = SecretStoreFactory.Create(gateFiles, gateLog);
+        LlmConfig config = LlmProviderPresets.DefaultConfig();
+        gateSecrets.Store(config.ActiveProvider, "synthetic-web-smoke-key-000222");
+        var gatedGateway = new LlmGateway(
+            config, new UnreachableWirePort(), gateSecrets,
+            cloudTierEnabled: WebConstraints.Availability(isWeb: true).L3CloudByok);
+        LlmProbeResult probed = new LlmConnectionProbe(gatedGateway)
+            .ProbeAsync(config.ActiveProvider).GetAwaiter().GetResult();
+        if (probed.Ok || probed.ErrorKey != LlmErrorKeys.WebTierDisabled
+            || probed.MessageZh.Length == 0 || probed.MessageEn.Length == 0)
+        {
+            problems.Add($"L3 平台门拒绝未按预期：ok={probed.Ok} key={probed.ErrorKey}");
+        }
+
+        // (3) T-100 存档探针 Web 事实：e_sqlite3 不可用 → JsonFileSavePort 回落
+        // + Warn 记录（桌面真探针结果只观测不断言——Godot mono 宿主内原生库
+        // 解析依环境而异，探针语义本就是"运行时决定"）
+        var saveLog = new CollectingLogSink();
+        ISavePort webSave = SavePortFactory.Create(gateFiles, saveLog, sqliteProbe: () => false);
+        if (webSave is not JsonFileSavePort)
+        {
+            problems.Add($"Web 探针应回落 JsonFileSavePort，实得 {webSave.GetType().Name}");
+        }
+
+        if (!saveLog.Lines.Exists(line => line.Contains("json-fallback", StringComparison.Ordinal)))
+        {
+            problems.Add("Web 存档回落未记录 json-fallback");
+        }
+
+        ISavePort liveSave = SavePortFactory.Create(gateFiles, saveLog);
+        string liveBackend = liveSave is JsonFileSavePort ? "json" : "sqlite";
+
+        if (problems.Count == 0)
+        {
+            GD.Print(
+                "WEB_OK tier-table=l1-only-on-web l3-gate=" + LlmErrorKeys.WebTierDisabled +
+                " save-web-fallback=json warn=logged live_save_probe=" + liveBackend +
+                " render-tier-web=auto-L(T-102) coep=not-required(threads-off)");
+        }
+        else
+        {
+            GD.PushError("WEB_FAIL " + string.Join("; ", problems));
+            GD.Print("WEB_FAIL " + string.Join("; ", problems));
+            GetTree().Quit(1);
+        }
+    }
+
+    /// <summary>
+    /// ILogSink collector (K-1): captures lines so smoke assertions can read
+    /// the degradation records (同面板 PanelLogSink 私有纪律——按文件私有).
+    /// </summary>
+    private sealed class CollectingLogSink : ILogSink
+    {
+        public List<string> Lines { get; } = [];
+
+        public void Write(LogLevel level, long tick, string message) =>
+            Lines.Add($"[{level}] {message}");
+    }
+
+    /// <summary>
+    /// IHttpPort that must never be reached: the T-106 platform gate refuses
+    /// BEFORE the wire port exists in the call path — any SendAsync call
+    /// throws, which the probe classifies as <c>network</c> and the smoke
+    /// then fails loudly on the expected <c>web-tier-disabled</c> key.
+    /// </summary>
+    private sealed class UnreachableWirePort : IHttpPort
+    {
+        public Task<HttpPortResponse> SendAsync(
+            HttpPortRequest request, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "platform gate leaked: the wire port must be unreachable on the Web tier");
     }
 }

@@ -33,11 +33,25 @@ public sealed partial class SettingsPanelUi : Control
     /// <summary>Synthetic smoke key (never real key material; RL5).</summary>
     internal const string SmokeKey = "synthetic-smoke-key-000111";
 
+    /// <summary>
+    /// T-106 (F-164 Web 版约束): notice replacing the whole BYOK form on the
+    /// Web export — the tier switches themselves live in
+    /// <see cref="WebConstraints"/> (pure, tested); this copy only states
+    /// the outcome to the player.
+    /// </summary>
+    internal const string WebTierNoticeZh =
+        "Web 版约束：网页版仅保留 L1 军令语法（离线解析）；L2 本地模型与 L3 BYOK 云模型在浏览器沙箱中禁用，不会发出任何网络请求。";
+
     private IFileStore _files = null!;
     private ISecretStore _secrets = null!;
     private IHttpPort _port = null!;
     private SettingsFormState _form = new();
     private LlmConfig _config = null!;
+
+    // T-106 (F-164): the platform tier row (Web ⇒ L3 off ⇒ BYOK surfaces
+    // hidden + gateway platform gate). Sourced ONCE from WebConstraints —
+    // the panel never branches on OS.HasFeature itself (能力表驱动).
+    private AgentTierAvailability _tiers = WebConstraints.Availability(isWeb: false);
 
     // True while ApplyFieldsToUi mirrors form state into the controls —
     // programmatic setters re-emit their signals, and those re-entrant
@@ -94,6 +108,7 @@ public sealed partial class SettingsPanelUi : Control
         ui._files = files ?? CreateDefaultFiles();
         ui._secrets = secrets ?? SecretStoreFactory.Create(ui._files, new PanelLogSink());
         ui._port = port ?? new SettingsHttpPort(ui);
+        ui._tiers = WebConstraints.Availability(OS.HasFeature("web")); // T-106 F-164
         ui.WireNodes();
         ui.LoadFromDisk();
         host.AddChild(ui);
@@ -249,6 +264,44 @@ public sealed partial class SettingsPanelUi : Control
         _saveButton.Pressed += OnSave;
 
         _codingPlanNotice.Text = SettingsFormState.CodingPlanNoticeZh;
+
+        // T-106 (F-164): platform tier constraints apply last — the Web
+        // export hides every BYOK (L3) surface and keeps only the render
+        // tier row; the probe/fetch paths get the gateway platform gate.
+        ApplyWebTierConstraints();
+    }
+
+    /// <summary>
+    /// T-106 (F-164 Web 版约束): on the Web export every BYOK (L3) form row
+    /// hides (key entry included — nothing to configure when the tier is
+    /// platform-disabled) and a notice states the constraint; the render
+    /// tier row stays (a Web-relevant setting, not a BYOK field). Desktop is
+    /// untouched. The L3 enforcement itself lives in the gateway gate + the
+    /// <see cref="ProbeAsync"/>/<see cref="FetchModelsAsync"/> guards below.
+    /// </summary>
+    private void ApplyWebTierConstraints()
+    {
+        if (_tiers.L3CloudByok)
+        {
+            return; // 桌面：完整 BYOK 表单（现行行为不变）
+        }
+
+        var form = GetNode<Control>("Scroll/Form");
+        foreach (Node child in form.GetChildren())
+        {
+            if (child is Control control && child.Name != "RenderTierRow")
+            {
+                control.Visible = false;
+            }
+        }
+
+        form.AddChild(new Label
+        {
+            Name = "WebTierNotice",
+            Text = WebTierNoticeZh,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            CustomMinimumSize = new Vector2(0, 64),
+        });
     }
 
     private void LoadFromDisk()
@@ -505,7 +558,11 @@ public sealed partial class SettingsPanelUi : Control
         try
         {
             var candidate = _form.BuildConfig(_config);
-            var probe = new LlmConnectionProbe(new LlmGateway(candidate, _port, _secrets));
+            // T-106 (F-164): the platform gate rides the gateway itself —
+            // on Web every probe is refused web-tier-disabled with zero
+            // network BEFORE the wire port exists in the call path.
+            var probe = new LlmConnectionProbe(new LlmGateway(
+                candidate, _port, _secrets, cloudTierEnabled: _tiers.L3CloudByok));
             var result = await probe.ProbeAsync(providerId).ConfigureAwait(true);
             _probeResult.Text = $"{result.MessageZh}\n{result.MessageEn}";
             return result;
@@ -534,6 +591,18 @@ public sealed partial class SettingsPanelUi : Control
         _fetchResult.Text = "拉取中…";
         try
         {
+            // T-106 (F-164): /models bypasses the gateway (raw port call) —
+            // the platform gate is enforced HERE instead: on Web the fetch
+            // refuses with the same classified key, zero wire calls.
+            if (!_tiers.L3CloudByok)
+            {
+                LlmErrorCatalog.TryGetCopy(LlmErrorKeys.WebTierDisabled, out string zh, out string en);
+                var refused = new LlmModelListResult(
+                    false, [], LlmErrorKeys.WebTierDisabled, zh, en);
+                _fetchResult.Text = $"{zh}\n{en}";
+                return refused;
+            }
+
             var candidate = _form.BuildConfig(_config);
             var row = candidate.FindProvider(providerId);
             if (row is null)

@@ -11,6 +11,14 @@ public static class LlmErrorKeys
     /// <summary>Provider or the whole L3 tier disabled — refused with zero network.</summary>
     public const string Disabled = "disabled";
 
+    /// <summary>
+    /// The whole L3 tier is platform-disabled (T-106, F-164 Web 版约束) —
+    /// the Web build refuses every route before any other gate, zero network.
+    /// Distinct from <see cref="Disabled"/> (a player setting) so the refusal
+    /// reason cannot be mistaken for a configuration problem.
+    /// </summary>
+    public const string WebTierDisabled = "web-tier-disabled";
+
     /// <summary>Provider id not present in the config snapshot.</summary>
     public const string UnknownProvider = "unknown-provider";
 
@@ -85,6 +93,9 @@ public static class LlmErrorCatalog
         new(LlmErrorKeys.Disabled,
             "L3 云模型未启用：该服务在设置中处于关闭状态，本次调用未发出任何网络请求。",
             "Cloud model tier disabled: this provider is switched off in settings; no network request was sent."),
+        new(LlmErrorKeys.WebTierDisabled,
+            "Web 版约束：网页版只保留 L1 军令语法，L3 云模型已禁用，本次调用未发出任何网络请求。",
+            "Web build constraint: the web version keeps the L1 order grammar only; the L3 cloud tier is disabled and no network request was sent."),
         new(LlmErrorKeys.UnknownProvider,
             "未找到该服务配置（提供方 id 不在配置文件中），请重新保存设置。",
             "Provider not found (id missing from the config file); re-save your settings."),

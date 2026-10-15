@@ -73,6 +73,7 @@ public sealed class LlmGateway : ILlmTransport
     private readonly TimeSpan _idleTimeout;
     private readonly Func<TimeSpan, CancellationToken, Task> _retryDelay;
     private readonly LlmCallLogRing? _callLog;
+    private readonly bool _cloudTierEnabled;
 
     /// <param name="config">Config snapshot; the whitelist freezes from it here.</param>
     /// <param name="port">Wire port (real networking lives outside EraCore).</param>
@@ -93,6 +94,12 @@ public sealed class LlmGateway : ILlmTransport
     /// Player-visible call-log ring (F-091); null ⇒ the gateway simply
     /// does not record. Rows never contain keys or prompts by construction.
     /// </param>
+    /// <param name="cloudTierEnabled">
+    /// L3 platform switch (T-106, F-164): the Web host passes false and
+    /// EVERY route is refused with <see cref="LlmErrorKeys.WebTierDisabled"/>
+    /// before any other gate — no wire call, no key access, no retry. The
+    /// default (true) keeps desktop behaviour byte-identical.
+    /// </param>
     public LlmGateway(
         LlmConfig config,
         IHttpPort port,
@@ -101,7 +108,8 @@ public sealed class LlmGateway : ILlmTransport
         TimeSpan? idleTimeout = null,
         LlmDomainWhitelist? whitelist = null,
         Func<TimeSpan, CancellationToken, Task>? retryDelay = null,
-        LlmCallLogRing? callLog = null)
+        LlmCallLogRing? callLog = null,
+        bool cloudTierEnabled = true)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _port = port ?? throw new ArgumentNullException(nameof(port));
@@ -111,6 +119,7 @@ public sealed class LlmGateway : ILlmTransport
         _retryDelay = retryDelay ?? DefaultRetryDelay;
         _callLog = callLog;
         _whitelist = whitelist ?? LlmDomainWhitelist.FromProviders(config.Providers);
+        _cloudTierEnabled = cloudTierEnabled;
     }
 
     private static Task DefaultRetryDelay(TimeSpan delay, CancellationToken cancellationToken) =>
@@ -155,9 +164,10 @@ public sealed class LlmGateway : ILlmTransport
     /// <item>调用日志 — every completed route appends one key-free,
     /// prompt-free row to the attached ring (F-091).</item>
     /// </list>
-    /// All zero-network refusals happen in the attempt itself, in this
-    /// order: provider existence → enable flag → endpoint/whitelist → key
-    /// presence → body build. Only then does the wire port see a request.
+    /// All zero-network refusals happen in this order: platform tier gate
+    /// (T-106 Web constraint, before everything) → provider existence →
+    /// enable flag → endpoint/whitelist → key presence → body build. Only
+    /// then does the wire port see a request.
     /// </summary>
     public async Task<LlmGatewayCallResult> RouteAsync(
         LlmProviderConfig? provider,
@@ -166,6 +176,18 @@ public sealed class LlmGateway : ILlmTransport
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
+
+        // T-106 (F-164 Web 版约束): platform gate first — a Web-disabled
+        // gateway refuses BEFORE provider existence, before the whitelist,
+        // before key access and before the retry loop; the wire port is
+        // structurally unreachable (proven by the NeverPort tests).
+        if (!_cloudTierEnabled)
+        {
+            var refused = Result(
+                false, null, LlmErrorKeys.WebTierDisabled, null, null, stopwatch.Elapsed);
+            RecordCallLog(provider, refused);
+            return refused;
+        }
 
         if (provider is null)
         {
