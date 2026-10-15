@@ -22,6 +22,9 @@ test_asset_validator.py — asset_validator.py 自测（任务 T-046；零三方
                           插画聚合件（P1/P3/P4 非图标）尺寸/色板降 INFO；
                           P4/achievements/ B 档严管子树不豁免照常拒；
                           结构/命名仍拒；仓内 73 件聚合树零拒
+  7c. store_exemption    T-108 显式豁免区③（商店页物料）：store/ 下 PNG
+                          尺寸/色板降 INFO；版本号带点/结构损坏仍拒；
+                          豁免区外同规格照常拒；仓内真实物料零拒
   8. cli_semantics        CLI 端到端：退出码 0/1、--json 报告结构、
                           非 PNG 目录（game/content/ 纯 JSON）0 文件通过
 样例均在系统临时目录创建、用后删除。
@@ -472,6 +475,54 @@ def test_cli_semantics() -> None:
         shutil.rmtree(bad, ignore_errors=True)
 
 
+def test_store_exemption() -> None:
+    """T-108 显式豁免区③（商店页物料）：game/assets/store/ 下 PNG 尺寸/色板
+    降 INFO（消息带豁免注记）；结构/命名红线不豁免（版本号不带点的
+    v020-alpha kebab 形态过、带点形态拒）；豁免区外同规格照常拒；仓内真实
+    商店物料零拒。"""
+    root = tempfile.mkdtemp(prefix="av_store_")
+    try:
+        store_dir = os.path.join(root, "game", "assets", "store")
+        os.makedirs(store_dir)
+        # 640x360 真实录屏截图形态（非清单尺寸+多色）
+        write(store_dir, "shot-01-combat-v020-alpha.png", png_bytes(640, 360, 8, 6))
+        # 豁免区内仍拒：版本号带点（非 kebab）/ 结构损坏
+        write(store_dir, "shot-99-v0.2.0-alpha.png", png_bytes(640, 360, 8, 6))
+        write(store_dir, "broken.png", png_bytes(16, 16, 8, 2)[:30])
+        # 豁免区外同尺寸：照常 REJECT（豁免按路径界定，不外溢）
+        outside = os.path.join(root, "game", "assets", "era2")
+        os.makedirs(outside)
+        write(outside, "big-shot.png", png_bytes(640, 360, 8, 6))
+
+        report = av.run([root], av.DEFAULT_ALLOWED_SIZES, 64, False)
+        by_path = {
+            os.path.relpath(r["path"], root).replace(os.sep, "/"): r
+            for r in report["results"]
+        }
+        shot = by_path["game/assets/store/shot-01-combat-v020-alpha.png"]
+        check(severity_of(shot, "SIZE-ALLOWLIST") == "INFO"
+              and "store 商店物料豁免" in next(
+                  f["message"] for f in shot["findings"]
+                  if f["rule"] == "SIZE-ALLOWLIST"),
+              "store 豁免：尺寸门禁降 INFO 且消息带豁免注记")
+        check(severity_of(by_path["game/assets/store/shot-99-v0.2.0-alpha.png"],
+                          "FILENAME-KEBAB") == "REJECT", "豁免区版本号带点仍拒（kebab 红线）")
+        check(severity_of(by_path["game/assets/store/broken.png"],
+                          "PNG-STRUCTURE") == "REJECT", "豁免区结构损坏仍拒")
+        check(severity_of(by_path["game/assets/era2/big-shot.png"],
+                          "SIZE-ALLOWLIST") == "REJECT", "豁免区外同尺寸照常拒")
+        check(report["rejected"] == 3, "豁免用例汇总 3 拒（带点命名/结构/区外尺寸）")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    # 仓内真实商店物料（v020-alpha 批）：全过、零 REJECT
+    repo_store = os.path.join(REPO_ROOT, "game", "assets", "store")
+    if os.path.isdir(repo_store):
+        report = av.run([repo_store], av.DEFAULT_ALLOWED_SIZES, 64, False)
+        pngs = [r for r in report["results"] if r["path"].endswith(".png")]
+        check(report["rejected"] == 0, f"仓内商店物料零拒（{len(pngs)} PNG）")
+
+
 def main() -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -487,6 +538,7 @@ def main() -> int:
     test_structure_rules()
     test_cinematics_exemption()
     test_expand_illustration_exemption()
+    test_store_exemption()
     test_cli_semantics()
     print("-" * 60)
     print(f"selftest summary: {PASS} passed, {FAIL} failed")

@@ -1,0 +1,18 @@
+# T-108 录制 harness 自身的忽略面：
+# - 七个目录是指向 game/presentation/EraTD/ 同名目录的 NTFS junction
+#   （.cs 源=编译面按真源原样编译；textures/shaders/audio=scenes=资源面）。
+#   录制期由 record_t108.sh mklink 建立——绝不入库（防 git 穿越 junction
+#   重复收录真项目源/资源）。
+# - out/ 为 AVI/GIF 中间产物（母片另存 E 盘），.godot/ 为本工程导入缓存
+#   （根 .gitignore 已有 .godot/，此处显式再列一道）。
+/textures/
+/shaders/
+/audio/
+/scenes/
+/scripts/
+/cinematics/
+/narrative/
+/expand/
+/out/
+/.godot/
+/*.uid

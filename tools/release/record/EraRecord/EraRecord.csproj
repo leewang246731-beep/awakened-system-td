@@ -1,0 +1,25 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <!--
+    T-108 商店物料录制 harness（E 泳道）。
+    编译面=真项目 presentation 源码（经 NTFS junction：scripts/audio/
+    cinematics/narrative/expand 五个 .cs 目录）+ 本目录 RecordDriver.cs——
+    全部真源文件在 harness 工程内原样编译，ScriptPath 特性与 res:// 路径
+    一一对应（scenes/*.tscn 的脚本绑定因此可用）。EraCore 保持二进制
+    ProjectReference（零 Godot 依赖的纯逻辑库，无脚本面）。
+    运行期 RecordDriver 按 scenes/main.tscn 同构搭建节点树触发真
+    Main._Ready，再逐帧驱动同一条渲染回路并走演示节拍；游戏工程零改动
+    （T-105 并行纪律：只写 tools/release/ + game/assets/store/）。
+    junction 目录见本目录 .gitignore——绝不入库（防 git 穿越重复收录）。
+  -->
+  <PropertyGroup>
+    <RootNamespace>EraRecord</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\game\src\EraCore\EraCore.csproj" />
+  </ItemGroup>
+</Project>

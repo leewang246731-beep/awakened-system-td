@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+; T-108 录制 harness 场景：唯一节点=RecordDriver（脚本在 RecordDriver.cs，
+; 节点树在其 _Ready 内按 scenes/main.tscn 同构搭建并挂真 Main 脚本）。
+
+[ext_resource type="Script" path="res://RecordDriver.cs" id="1_driver"]
+
+[node name="RecordDriver" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_driver")

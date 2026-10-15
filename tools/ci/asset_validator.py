@@ -90,17 +90,26 @@ CINEMATICS_EXEMPT_PREFIX = "game/assets/cinematics/"
 EXPAND_ILLUSTRATION_EXEMPT_PREFIX = "game/assets/expand-v1/"
 EXPAND_STRICT_SUBTREE = "game/assets/expand-v1/P4/achievements/"
 
+# T-108 显式豁免区③（商店页物料）：640×360 真实录屏抽帧截图/512×512 胶囊
+# 合成图——营销面 artifact，非 sprite 管线资产，SIZE/PALETTE 降 INFO；
+# PNG-STRUCTURE/FILENAME-KEBAB 红线不放松（营销文件名同走 kebab、版本号
+# 不带点：v020-alpha 形态）。
+STORE_EXEMPT_PREFIX = "game/assets/store/"
+
 
 def _exemption(rel: str) -> str:
     """豁免判定：返回豁免注记文案（空串=不豁免）。
 
     cinematics：T-152 序列帧 Atlas；expand-v1：T-096-v02 插画聚合件（achievements
-    子树除外——B 档 sprite 红线面维持严管，豁免按路径精确界定不外溢）。
+    子树除外——B 档 sprite 红线面维持严管，豁免按路径精确界定不外溢）；
+    store：T-108 商店页营销物料（真实录屏抽帧/概念图合成——不进 sprite 管线）。
     """
     if CINEMATICS_EXEMPT_PREFIX in rel:
         return "cinematics 序列帧豁免（T-152，31 号 §三 C 层抽帧 Atlas——A 档直用不进 sprite 管线，显式豁免注明）"
     if EXPAND_ILLUSTRATION_EXEMPT_PREFIX in rel and EXPAND_STRICT_SUBTREE not in rel:
         return "expand-v1 插画聚合豁免（T-096-v02，Q16A A 档直用分层红线——插画面放行；P4/achievements B 档严管面不豁免）"
+    if STORE_EXEMPT_PREFIX in rel:
+        return "store 商店物料豁免（T-108，营销面 artifact——真实录屏抽帧/概念图合成，不进 sprite 管线；结构/命名红线不放松）"
     return ""
 
 KEBAB_RE_OK = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\.png$")

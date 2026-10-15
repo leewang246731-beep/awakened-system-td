@@ -1,0 +1,39 @@
+; Engine configuration file.
+; T-108 商店物料录制 harness（tools/release/record/EraRecord）。
+; 与 game/presentation/EraTD/project.godot 同一显示策略（640x360 像素风、
+; canvas_items/keep/integer、gl_compatibility、nearest）——保证录出的帧
+; 与真游戏窗口逐像素同口径。资源目录（textures/shaders/audio/scenes）
+; 为指向真项目同名目录的 NTFS junction（录制期由 record_t108.sh 建立，
+; 不入库——见本目录 .gitignore）。
+
+config_version=5
+
+[application]
+
+config/name="EraRecord"
+run/main_scene="res://record_driver.tscn"
+config/features=PackedStringArray("4.7", "C#")
+
+[dotnet]
+
+project/assembly_name="EraRecord"
+
+[display]
+
+window/size/viewport_width=640
+window/size/viewport_height=360
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+window/stretch/scale_mode="integer"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+
+[movie_writer]
+
+; 录制源质量抬高一档（默认 0.75）：GIF 转换前要经 palette 量化，源越干净
+; 抖动越少；AVI 仅作中间件落 E 盘，不入库。
+movie_writer/mjpeg_quality=0.92
