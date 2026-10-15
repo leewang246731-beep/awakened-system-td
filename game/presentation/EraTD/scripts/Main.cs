@@ -244,6 +244,15 @@ public sealed partial class Main : Control
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         RunWebSmoke();
 
+        // ---- 5k) T-111 战报回放 (C-30/C-22, F-121/F-174) ---------------------
+        // 回放 UI 挂载（scripts/ReplayUi.cs）：reports/ 存档目录 JSONL 离线
+        // 加载 + 军令/审批/执行/汇报四色时间轴（任意 tick 跳转，复用
+        // JournalReplayer/ReplayTimeline）+ 回放摘要 md 导出；headless 下自带
+        // 冒烟并打印 REPLAY_UI_OK files=2 load=ok seek=ok export=md——smoke
+        // 回放段判据（失败 Quit(1)）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        ReplayUi.Instantiate(this, _host);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.

@@ -300,6 +300,21 @@ public static class JournalReplayer
         _ => string.Empty,
     };
 
+    /// <summary>
+    /// Typed pipeline payload of one event (T-111 timeline source): the six
+    /// pipeline payload records deserialize here, audit-class lines (C-14
+    /// ledger) return null. Shared parser — the replayer folds decision
+    /// traces and the <see cref="ReplayTimeline"/> builds the timeline from
+    /// the SAME typed payloads, so no second parser can drift.
+    /// </summary>
+    /// <param name="evt">One journal event.</param>
+    /// <param name="order">Order counter of the payload (−1 for audit lines).</param>
+    public static object? TryPayload(JournalEvent evt, out int order)
+    {
+        ArgumentNullException.ThrowIfNull(evt);
+        return TryParsePipelinePayload(evt, out object? payload, out order) ? payload : null;
+    }
+
     private static bool TryParsePipelinePayload(JournalEvent evt, out object? payload, out int order)
     {
         payload = null;
