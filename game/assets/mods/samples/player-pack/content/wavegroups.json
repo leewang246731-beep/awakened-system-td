@@ -1,0 +1,24 @@
+{
+  "$schema": "urn:eratd:mod:wavegroup:1",
+  "content_type": "WaveGroup",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；裸 id 自动命名空间化为 player-pack:pack-night-patrol；world_ops=DSL 三族之『世界操作』（v2.1 §16 条 5）；enemies[] roster 面为普通扩展键（封闭 schema 按扩展缝忽略，宿主侧 ModParamSpace 读取入波）",
+  "items": [
+    {
+      "id": "pack-night-patrol",
+      "content_type": "WaveGroup",
+      "name_zh": "夜巡群",
+      "name_en": "Night Patrol",
+      "aliases": ["夜巡群", "夜巡", "night patrol"],
+      "enemies": ["player-pack:enemy-shade"],
+      "world_ops": [
+        {
+          "op": "spawn_wave_group",
+          "wave_group": "player-pack:pack-night-patrol",
+          "_source": "自指声明：本组被排入波程时成群入场（影掠兽 roster 由 enemies 面承载）"
+        }
+      ],
+      "_source": "玩家自配波组：影掠兽 ×成群位（WaveGroup 内容类；roster=enemies[] 扩展面，spawn 经 world_ops 封闭词表声明——T-103 装载校验通过后由 F-095 参数空间面读入波程 roster）",
+      "_units": { "enemies[]": "content_ids" }
+    }
+  ]
+}

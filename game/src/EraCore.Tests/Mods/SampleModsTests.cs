@@ -70,14 +70,14 @@ public class SampleModsTests
 
     // ---- 装载 ------------------------------------------------------------
 
-    [Fact] // [F-165] 两示例模组全量装载：零错误、装载序=按 id 排序确定化
+    [Fact] // [F-165] 示例模组全量装载：零错误、装载序=按 id 排序确定化（T-104 起三包：+player-pack）
     public void Samples_LoadClean_InIdOrder()
     {
         (ModLoadResult result, _) = BootWithSamples();
 
         Assert.True(result.Ok);
         Assert.Equal(
-            new[] { "more-arrows", "rebalance-patch" },
+            new[] { "more-arrows", "player-pack", "rebalance-patch" },
             result.Packages.Select(p => p.ModId).ToArray());
     }
 

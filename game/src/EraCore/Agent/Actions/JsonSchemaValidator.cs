@@ -21,14 +21,28 @@ namespace EraCore.Agent.Actions;
 public sealed class JsonSchemaValidator : ISchemaValidator
 {
     private readonly Func<int> _eraOrdinal;
+    private readonly IReadOnlySet<string>? _buildPlanTowerIds;
 
     /// <param name="eraOrdinal">
     /// Current era ordinal provider (E1=1 … finale=6). Defaults to E1 —
     /// the caller advances it as the campaign progresses.
     /// </param>
-    public JsonSchemaValidator(Func<int>? eraOrdinal = null)
+    /// <param name="buildPlanTowerIds">
+    /// F-095 dynamic tower enum (T-104): the builtin ∪ registry tower-id
+    /// set (<c>ModParamSpace.BuildableTowerIds</c>). When non-null the
+    /// BuildPlan <c>tower_id</c> field is additionally validated against
+    /// this union — mod towers enter the closed schema's parameter space
+    /// ("内置+注册表动态并集"). Null (every existing caller) keeps the
+    /// historical behavior EXACTLY: no enum check at the schema gate, the
+    /// level-catalog check at the handler stays the backstop — 无模组时
+    /// 零漂移. The verb list itself is never mod-extensible (K-3); the
+    /// cells cap 4+2×era is frozen law and does not adapt (v2.1 §16
+    /// item 4 widens parameter SPACES, not domain constants).
+    /// </param>
+    public JsonSchemaValidator(Func<int>? eraOrdinal = null, IReadOnlySet<string>? buildPlanTowerIds = null)
     {
         _eraOrdinal = eraOrdinal ?? (static () => EraOrdinals.E1);
+        _buildPlanTowerIds = buildPlanTowerIds;
     }
 
     /// <summary>
@@ -151,6 +165,25 @@ public sealed class JsonSchemaValidator : ISchemaValidator
                     }
 
                     ValidateField(rule, value, "/" + rule.Name, lines, eraOrdinal, errors);
+                }
+
+                // 2.5) F-095 dynamic tower enum (T-104): only when the caller
+                // wired the builtin ∪ registry union — mod tower ids pass the
+                // closed schema as first-class parameter values; ids outside
+                // the union are schema denials at the gate (the handler's
+                // level-catalog check remains the second, era-aware backstop).
+                // Unwired (null) = historical behavior, byte-for-byte.
+                if (_buildPlanTowerIds is not null
+                    && schema.Verb == nameof(SystemActionKind.BuildPlan)
+                    && root.TryGetProperty("tower_id", out JsonElement towerIdElement)
+                    && towerIdElement.ValueKind == JsonValueKind.String
+                    && towerIdElement.GetString() is { Length: > 0 } towerId
+                    && !_buildPlanTowerIds.Contains(towerId))
+                {
+                    errors.Add(new SchemaValidationError(
+                        "/tower_id",
+                        LineOf(lines, "tower_id"),
+                        $"'tower_id' '{towerId}' is outside the builtin+registry tower union (F-095 mod parameter space)"));
                 }
 
                 // 3) Closed schema: fields outside the table are violations too.

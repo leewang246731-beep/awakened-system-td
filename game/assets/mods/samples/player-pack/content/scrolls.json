@@ -1,0 +1,41 @@
+{
+  "$schema": "urn:eratd:mod:scroll:1",
+  "content_type": "Scroll",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；裸 id 自动命名空间化为 player-pack:scroll-quickstep；system_commands=DSL 三族之『系统命令』（v2.1 §16 条 5）——verb 取 K-3 19 动词封闭清单（动词清单不可由模组扩展）",
+  "items": [
+    {
+      "id": "scroll-quickstep",
+      "sp_id": "PP-001",
+      "content_type": "Scroll",
+      "kind": "action_card",
+      "name_zh": "疾风令",
+      "name_en": "Quickstep Order",
+      "aliases": ["疾风令", "疾风", "quickstep order"],
+      "priority": 55,
+      "unlock_era": 2,
+      "cooldown_ticks": 1350,
+      "action": {
+        "effect": "tower_class_attack_speed",
+        "scope": "tower_class",
+        "tower_class": "pierce",
+        "magnitude": 0.25,
+        "duration_ticks": 450,
+        "_units": { "magnitude": "fraction", "duration_ticks": "ticks_at_30hz" }
+      },
+      "system_commands": [
+        {
+          "verb": "TriggerScroll",
+          "args": { "scroll_id": "player-pack:scroll-quickstep" },
+          "_source": "动作卡语义：仅经 TriggerScroll 显式触发（SP-5 动作卡口径），系统命令面声明同动词透传"
+        }
+      ],
+      "acquisition": { "kind": "era_gift", "ref": "era2:era-classical" },
+      "_source": "SP-5 动作卡族：穿刺塔攻速 +25%/15 s——量值锚 SC-003 备刃（穿刺塔 +25% 15 s）同源；冷却 45 s（1350 ticks）锚 SC-001 同档；优先级 _new（SP-5 无文档锚点）；获取=E2 时代赠礼（模组包自赠位）",
+      "_units": {
+        "priority": "arbitration_points_higher_wins",
+        "cooldown_ticks": "ticks_at_30hz",
+        "unlock_era": "era_ordinal"
+      }
+    }
+  ]
+}

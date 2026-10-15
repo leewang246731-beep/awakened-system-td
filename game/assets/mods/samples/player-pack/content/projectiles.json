@@ -1,0 +1,65 @@
+{
+  "$schema": "urn:eratd:mod:projectile:1",
+  "content_type": "Projectile",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；裸 id 自动命名空间化为 player-pack:proj-thorn / player-pack:proj-cinder；on_hit=DSL 三族之『效果原语』（v2.1 §16 条 5），op 封闭清单内取值且数值镜像进所属塔 traits（引擎执行面）",
+  "items": [
+    {
+      "id": "proj-thorn",
+      "content_type": "Projectile",
+      "name_zh": "荆棘弩矢",
+      "name_en": "Thorn Bolt",
+      "aliases": ["荆棘弩矢", "thorn bolt"],
+      "damage_per_shot": 18,
+      "speed_px_per_tick": 6.0,
+      "pierce_count": 1,
+      "on_hit": [
+        {
+          "op": "slow_percent",
+          "percent": 15,
+          "ticks": 45,
+          "_source": "减速 15%/1.5 s——量级带内保守半值（SP-1b L38 尖刺 slow 30%/120t 的 ≤ 半值，不越现有曲线）；数值与 tower-thorn-ballista traits.slow_percent/slow_ticks 同值镜像（弹种=伤害与效果之源）"
+        }
+      ],
+      "_source": "荆棘弩塔弹种：damage_per_shot 18=塔 damage_per_shot 同值（一致性：dps=18×30/30）；speed 6 px/tick 沿 more-arrows proj-barbed 同档（敌速域上界之 ~3 倍）",
+      "_units": {
+        "damage_per_shot": "points",
+        "speed_px_per_tick": "pixels_per_tick_at_30hz",
+        "pierce_count": "enemies",
+        "on_hit.percent": "percent",
+        "on_hit.ticks": "ticks_at_30hz"
+      }
+    },
+    {
+      "id": "proj-cinder",
+      "content_type": "Projectile",
+      "name_zh": "焚石弹",
+      "name_en": "Cinder Shell",
+      "aliases": ["焚石弹", "cinder shell"],
+      "damage_per_shot": 48,
+      "speed_px_per_tick": 5.0,
+      "pierce_count": 1,
+      "on_hit": [
+        {
+          "op": "splash_radius_cells",
+          "radius_cells": 1.5,
+          "_source": "溅射半径 1.5 格——与 tower-cinder-mortar traits.splash_radius_cells 同值镜像（T-065 溅射衰减边沿地板 40% 现行生效）"
+        },
+        {
+          "op": "burn_dps",
+          "dps": 6,
+          "ticks": 90,
+          "_source": "燃灼 6/3 s——与 tower-cinder-mortar traits.burn_dps/burn_ticks 同值镜像（T-065 燃灼 DoT 现行生效）；独立灼伤源不计入注册表 dps（F.5 四组验算口径外）"
+        }
+      ],
+      "_source": "焚石炮弹种：damage_per_shot 48=塔 damage_per_shot 同值（一致性：dps=48×30/90=16）；speed 5 px/tick 抛体档（较箭矢 6 慢一档）",
+      "_units": {
+        "damage_per_shot": "points",
+        "speed_px_per_tick": "pixels_per_tick_at_30hz",
+        "pierce_count": "enemies",
+        "on_hit.radius_cells": "cells",
+        "on_hit.dps": "points_per_second",
+        "on_hit.ticks": "ticks_at_30hz"
+      }
+    }
+  ]
+}

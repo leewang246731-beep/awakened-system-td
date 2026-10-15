@@ -1,0 +1,85 @@
+{
+  "$schema": "urn:eratd:mod:building:1",
+  "content_type": "Building",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；裸 id 由装载器自动命名空间化为 player-pack:tower-thorn-ballista（v2.1 §16 条 3）",
+  "items": [
+    {
+      "id": "tower-thorn-ballista",
+      "content_type": "Building",
+      "class": "pierce",
+      "name_zh": "荆棘弩塔",
+      "name_en": "Thorn Ballista",
+      "aliases": ["荆棘弩塔", "荆棘弩", "thorn ballista"],
+      "tier": 1,
+      "max_tier": 1,
+      "cost_total": 50,
+      "dps": 18.0,
+      "damage_per_shot": 18,
+      "reload_ticks": 30,
+      "range_cells": 5.0,
+      "hp": 130,
+      "ammo_item": "player-pack:proj-thorn",
+      "ammo_per_shot": 0,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "slow_percent": 15,
+        "slow_ticks": 45
+      },
+      "_source": "T1 数值合规（R7 锚点口径）：cost_total 50∈era1 T1 武器带 [30,60]、dps 18∈[10,20] 且穿刺类带 [17,23]（基线=落石台 20×(1±15%)，SP-1a）、hp 130∈[40,150]；tier_growth 沿 v3.2 §6 三乘子锚（×2/×3/×1.25）；ammo_per_shot=0（自填线，免搬运链）但弹种联动仍锚 proj-thorn（damage_per_shot=18 同值，on_hit slow 15%/45t 镜像进 traits——引擎侧减速随 C-10 单位状态系统生效）；traits.slow 量级锚 SP-1b L38 尖刺陷阱 slow 30%/120t 的保守半值（15%/45t，不越现有曲线）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points",
+        "traits.slow_percent": "percent",
+        "traits.slow_ticks": "ticks_at_30hz"
+      }
+    },
+    {
+      "id": "tower-cinder-mortar",
+      "content_type": "Building",
+      "class": "splash",
+      "name_zh": "焚石炮",
+      "name_en": "Cinder Mortar",
+      "aliases": ["焚石炮", "焚石", "cinder mortar"],
+      "tier": 1,
+      "max_tier": 1,
+      "cost_total": 55,
+      "dps": 16.0,
+      "damage_per_shot": 48,
+      "reload_ticks": 90,
+      "range_cells": 4.0,
+      "hp": 140,
+      "ammo_item": "player-pack:proj-cinder",
+      "ammo_per_shot": 0,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "splash_radius_cells": 1.5,
+        "burn_dps": 6,
+        "burn_ticks": 90
+      },
+      "_source": "T1 数值合规（R7 锚点口径）：cost_total 55∈[30,60]、dps 16∈[10,20] 且溅射类带 [13.6,18.4]（SP-1a 溅射 ×0.8×基线 20±15%）、hp 140∈[40,150]；tier_growth 沿 v3.2 §6 三乘子锚；reload 90t/单发 48（dps=48×30/90=16，爆发节律锚落石台 90t 同族）；ammo_per_shot=0（自填线）但弹种联动仍锚 proj-cinder（damage_per_shot=48 同值；on_hit splash_radius 1.5 格+burn 6/90t 镜像进 traits——引擎侧溅射衰减+燃灼 DoT 现行生效，T-065）；burn 6dps/3s 为控制带保守值（≤尖刺 slow 带量级族），待原型校准",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points",
+        "traits.splash_radius_cells": "cells",
+        "traits.burn_dps": "points_per_second",
+        "traits.burn_ticks": "ticks_at_30hz"
+      }
+    }
+  ]
+}

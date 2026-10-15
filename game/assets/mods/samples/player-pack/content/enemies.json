@@ -1,0 +1,22 @@
+{
+  "$schema": "urn:eratd:mod:enemy:1",
+  "content_type": "Enemy",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键；裸 id 自动命名空间化为 player-pack:enemy-shade；经夜巡波组（wavegroups.json）入波",
+  "items": [
+    {
+      "id": "enemy-shade",
+      "content_type": "Enemy",
+      "sp_id": "pp_shade",
+      "name_zh": "影掠兽",
+      "name_en": "Shade Stalker",
+      "aliases": ["影掠兽", "影兽", "shade stalker"],
+      "hp": 55,
+      "armor": 0,
+      "speed_px_per_tick": 1.92,
+      "speed_cells_per_s": 1.8,
+      "traits": {},
+      "_source": "SP-3a era1 敌带内插值：hp 55∈[40,70]（兽崽 40/猎狼 70 之间）、速 1.92∈[1.07,2.56]（1.8 格/s，兽崽 1.6 与猎狼 2.4 之间）——无甲快袭位，不越现有曲线；入波经 pack-night-patrol 波组 roster",
+      "_units": { "hp": "points", "armor": "points", "speed_px_per_tick": "px_per_tick_at_30hz", "speed_cells_per_s": "cells_per_second" }
+    }
+  ]
+}
