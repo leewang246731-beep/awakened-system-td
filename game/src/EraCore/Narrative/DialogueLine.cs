@@ -23,23 +23,27 @@ public enum SystemPersona
 
 /// <summary>
 /// One narrative line (T-089, C-24 narrative slice): key + text + speaker,
-/// optional persona tag (F-109 weighting) and optional sound-cue slot
+/// optional persona tag (F-109 weighting), optional sound-cue slot
 /// (音效位, the closed <c>ding_*</c> set shared with
-/// <see cref="EraCore.Cinematics.CinematicScript.SoundCues"/>). Pure data —
-/// presentation renders it through the existing SystemPanel bubble /
-/// cinematic subtitle precedents; the record itself performs no I/O.
+/// <see cref="EraCore.Cinematics.CinematicScript.SoundCues"/>) and optional
+/// illustration slot (T-152 配图位 <see cref="ImageKey"/>, 31 号 §三——
+/// 素材键来自 visual-assets.json story 图批). Pure data — presentation
+/// renders it through the existing SystemPanel bubble / cinematic subtitle
+/// precedents; the record itself performs no I/O.
 /// </summary>
 /// <param name="Key">Stable content key (chapter-scoped, e.g. <c>e1.act1.system</c>).</param>
 /// <param name="Speaker">Speaker label shown to the player (旁白/系统/零/斥候/使者/工头).</param>
 /// <param name="Text">The line text (already resolved — templates live in <see cref="SystemLineLibrary"/>).</param>
 /// <param name="Persona">Persona tag for weighted selection; null = untagged (context line).</param>
 /// <param name="SoundCue">Optional ding cue slot (ding_info/ding_reward/ding_crisis).</param>
+/// <param name="ImageKey">Optional illustration slot (T-152, 31 号 §三：story-*/banner-*/hook-* 素材键；null = 纯文本行).</param>
 public sealed record DialogueLine(
     string Key,
     string Speaker,
     string Text,
     SystemPersona? Persona,
-    string? SoundCue)
+    string? SoundCue,
+    string? ImageKey = null)
 {
     /// <summary>
     /// Presentation-ready bubble text (the SystemPanel subtitle convention:

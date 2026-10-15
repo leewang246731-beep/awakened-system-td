@@ -13,7 +13,7 @@ Kenney Tiny Dungeon 为 16×16 CC0 tile 包（14 §1.1 A1），进 32px 网格�
                         Tiny Dungeon 16×16 及其整数放大；"非 2 的幂或不在
                         允许清单"的尺寸拒绝入库——48 为清单内显式允许的
                         非 2 幂例外，清单本身即判据）
-  FILENAME-KEBAB REJECT  文件名非 kebab-case 小写（^[a-z0-9]+(-[a-z0-9]+)*\\.png$）
+  FILENAME-KEBAB REJECT  文件名非 kebab-case 小写（^[a-z0-9]+(-[a-z0-9]+)*\.png$）
   PALETTE-COUNT  REJECT  实际使用颜色数 > master 调色板上限 64 色
                         （14 §3「master ≤64 色」；Wave 1 round 1 review #6
                         起默认拒绝入库；`--allow-oversized-palette` 逃生阀
@@ -22,6 +22,14 @@ Kenney Tiny Dungeon 为 16×16 CC0 tile 包（14 §1.1 A1），进 32px 网格�
                         首版不下判定（自动帧门禁随 sheet 结构规格在 T-045
                         接入）；显式给定 `--expect-frames N` 时按声明值判定：
                         探测帧数≠N（含无法给出帧数的非横条图）→ REJECT
+
+显式豁免（T-152，31 号 §三 C 层口径——"ogv/序列帧入 G2.5 范围或显式豁免
+注明"取"入范围+豁免注明"）：路径位于 `game/assets/cinematics/` 的 PNG
+（Boss 入场/败亡抽帧 Atlas，1440×810=36 帧@240x135，A 档直用不进 sprite
+管线）——SIZE-ALLOWLIST 与 PALETTE-COUNT 降为 INFO（消息带"cinematics
+序列帧豁免"注记）；PNG-STRUCTURE/FILENAME-KEBAB 仍 REJECT（结构与命名
+红线不放松）。ogv 非 PNG 不在扫描面（转码产物由
+tools/art/expand_transcode.py --verify 把关：OggS 魔数/时长/零 mp4 残留）。
 
 实现说明：
   - 像素尺寸与颜色统计直接解析 PNG 二进制：IHDR 头（宽/高/位深/颜色类型/
@@ -63,6 +71,12 @@ DEFAULT_ALLOWED_SIZES = (16, 32, 48, 64)
 
 # 14 §3「调色板 master ≤64 色」
 DEFAULT_MAX_PALETTE = 64
+
+# T-152 显式豁免区（31 号 §三 C 层抽帧序列帧——A 档直用不进 sprite 管线）：
+# 命中该 repo 相对前缀的 PNG 的 SIZE-ALLOWLIST/PALETTE-COUNT 降为 INFO；
+# 结构/命名门禁不豁免。ogv 非 PNG 不在扫描面（转码产物由
+# tools/art/expand_transcode.py --verify 把关）。
+CINEMATICS_EXEMPT_PREFIX = "game/assets/cinematics/"
 
 KEBAB_RE_OK = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\.png$")
 
@@ -284,8 +298,11 @@ def validate_file(path: str, allowed_sizes, max_palette: int,
     allow_oversized_palette：调色板超限降为 WARN（美术特批逃生阀，
     审批留痕须走审查记录）。expect_frames：None=自动帧探测仅 INFO；
     给定 N=探测帧数≠N（含非横条图无法给出帧数）→ REJECT。
+    cinematics 豁免区（CINEMATICS_EXEMPT_PREFIX 命中）：T-152 序列帧
+    Atlas 的尺寸/色板门禁降为 INFO（显式豁免注明）；结构/命名仍 REJECT。
     """
     rel = path.replace(os.sep, "/")
+    exempt = CINEMATICS_EXEMPT_PREFIX in rel
     findings = []
     result = {
         "path": rel,
@@ -322,10 +339,13 @@ def validate_file(path: str, allowed_sizes, max_palette: int,
     bad = [d for d in (info["width"], info["height"]) if d not in allowed_sizes]
     if bad:
         findings.append({
-            "rule": "SIZE-ALLOWLIST", "severity": "REJECT",
+            "rule": "SIZE-ALLOWLIST",
+            "severity": "INFO" if exempt else "REJECT",
             "message": (f"尺寸 {info['width']}x{info['height']} 不在允许清单 "
-                        f"{sorted(allowed_sizes)}（14 §3 首版=Kenney Tiny Dungeon "
-                        f"16×16 整数放大；非清单尺寸拒绝入库）"),
+                        f"{sorted(allowed_sizes)}"
+                        + ("；cinematics 序列帧豁免（T-152，31 号 §三 C 层抽帧 Atlas"
+                           "——A 档直用不进 sprite 管线，显式豁免注明）" if exempt else
+                           "（14 §3 首版=Kenney Tiny Dungeon 16×16 整数放大；非清单尺寸拒绝入库）")),
         })
 
     if info["colors"] is None:
@@ -338,14 +358,21 @@ def validate_file(path: str, allowed_sizes, max_palette: int,
         ncolors = len(info["colors"])
         result["palette_colors"] = ncolors
         if ncolors > max_palette:
-            findings.append({
-                "rule": "PALETTE-COUNT",
-                "severity": "WARN" if allow_oversized_palette else "REJECT",
-                "message": (f"实际使用颜色 {ncolors} > master 上限 {max_palette}"
-                            f"（14 §3「master ≤64 色」"
-                            + ("；--allow-oversized-palette 逃生阀生效（美术特批，审批留痕见审查记录）"
-                               if allow_oversized_palette else "；默认拒绝入库") + "）"),
-            })
+            if exempt:
+                findings.append({
+                    "rule": "PALETTE-COUNT", "severity": "INFO",
+                    "message": (f"实际使用颜色 {ncolors} > master 上限 {max_palette}"
+                                "；cinematics 序列帧豁免（T-152 显式豁免注明）"),
+                })
+            else:
+                findings.append({
+                    "rule": "PALETTE-COUNT",
+                    "severity": "WARN" if allow_oversized_palette else "REJECT",
+                    "message": (f"实际使用颜色 {ncolors} > master 上限 {max_palette}"
+                                f"（14 §3「master ≤64 色」"
+                                + ("；--allow-oversized-palette 逃生阀生效（美术特批，审批留痕见审查记录）"
+                                   if allow_oversized_palette else "；默认拒绝入库") + "）"),
+                })
 
     if expect_frames is None:
         if info["frames_hint"] and info["frames_hint"] > 1:

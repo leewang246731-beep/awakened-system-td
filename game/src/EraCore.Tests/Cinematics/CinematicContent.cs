@@ -50,4 +50,41 @@ internal static class CinematicContent
 
     /// <summary>Raw level file text (hook rows live in items[*].cinematic_hooks).</summary>
     public static string LevelJson(string era) => Read("levels", era + ".json");
+
+    /// <summary>The T-152 visual asset catalog straight out of content (31 号 §二/§三).</summary>
+    public static EraCore.Cinematics.VisualAssetCatalog VisualAssets() =>
+        EraCore.Cinematics.VisualAssetCatalog.Parse(
+            Read("cinematics", "visual-assets.json"), "cinematics/visual-assets.json");
+
+    /// <summary>One T-152 era-transition script (transition-e1-e2 … transition-e5-e6).</summary>
+    public static CinematicScript Transition(string fromEra, string toEra) =>
+        CinematicScript.Parse(
+            Read("cinematics", $"transition-{fromEra}-{toEra}.json"),
+            $"cinematics/transition-{fromEra}-{toEra}.json");
+
+    /// <summary>The T-152 finale script (A-07 终章播片位).</summary>
+    public static CinematicScript Finale() =>
+        CinematicScript.Parse(Read("cinematics", "finale-zero.json"), "cinematics/finale-zero.json");
+
+    /// <summary>Repo root (the directory containing game/assets — T-152 入库产物探针).</summary>
+    public static string RepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            if (Directory.Exists(Path.Combine(dir.FullName, "game", "assets", "cinematics")))
+            {
+                return dir.FullName;
+            }
+
+            dir = dir.Parent!;
+        }
+
+        throw new InvalidOperationException("未找到仓库根（测试须在仓库内运行）");
+    }
+
+    /// <summary>One content file's text by repo-relative path (T-152 共享探针).</summary>
+    public static string ContentFile(string relative) =>
+        File.ReadAllText(Path.Combine(RepoRoot(), "game", "content",
+            relative.Replace('/', Path.DirectorySeparatorChar)));
 }

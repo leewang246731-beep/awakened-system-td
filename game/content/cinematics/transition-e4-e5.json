@@ -1,0 +1,41 @@
+{
+  "$schema": "urn:eratd:content:cinematics:1",
+  "content_type": "Cinematic",
+  "_annotation": "T-152 ③d 时代跃迁过场（31 号 §三 d 位）：video_frame 跃迁像素化片（Q18A）+ palette_shift 时代色板层积过渡；transition 拍由战役宿主在 F-003 跃迁事务点发射（无关卡钩子行——manual/campaign 通道）。时长拍数=30 tick/s × 母片时长（visual-assets.json A-02~06）。",
+  "id": "cinematic:transition-e4-e5",
+  "title_zh": "时代跃迁·现代 → 未来",
+  "steps": [
+    {
+      "kind": "screen",
+      "flavor": "black_fade_in",
+      "duration_ticks": 15
+    },
+    {
+      "kind": "video_frame",
+      "asset": "A-05",
+      "skippable": true,
+      "duration_ticks": 602
+    },
+    {
+      "kind": "palette_shift",
+      "from_era": "e4",
+      "to_era": "e5",
+      "duration_ticks": 90
+    },
+    {
+      "kind": "speak",
+      "speaker": "系统",
+      "text": "雷达塔涌起能量尖塔——电网蓝，点燃聚变青。",
+      "duration_ticks": 75
+    },
+    {
+      "kind": "checkpoint",
+      "id": "transition-e4-e5-end"
+    },
+    {
+      "kind": "screen",
+      "flavor": "fade_out",
+      "duration_ticks": 15
+    }
+  ]
+}

@@ -86,6 +86,7 @@ public sealed partial class CinematicDirector : Control
     private CinematicHookRouter _router = null!;
     private CinematicProgress _progress = CinematicProgress.Default;
     private VictorySettlementArchive _victoryArchive = VictorySettlementArchive.Default;
+    private EraCore.Cinematics.VisualAssetCatalog _catalog = null!;
 
     private readonly DingBus _ding = new();
     private readonly Dictionary<string, long> _ammoWatch = new(); // tower cell key → magazine ItemsAccepted at registration
@@ -102,6 +103,16 @@ public sealed partial class CinematicDirector : Control
     private PanelContainer _surfaceBox = null!;
     private Label _surfaceTitle = null!;
     private VBoxContainer _surfaceRows = null!;
+
+    // T-152 三新步渲染载体：video_frame 全屏播片 / image_card 插画 / palette_shift 色板渐变
+    private VideoStreamPlayer _videoFrame = null!;
+    private TextureRect _imageCard = null!;
+    private ColorRect _paletteOverlay = null!;
+    private Color _paletteFrom;
+    private Color _paletteTo;
+    private ulong _paletteStartMsec;
+    private bool _paletteActive;
+    private ulong _paletteDurationMs;
 
     // ---- smoke evidence accumulators --------------------------------------
     private int _cueCount;
@@ -192,7 +203,23 @@ public sealed partial class CinematicDirector : Control
             CinematicScript.Parse(ReadFile(cinematicsDir, "e2-awaken.json"), "cinematics/e2-awaken.json"),
             CinematicScript.Parse(ReadFile(cinematicsDir, "victory.json"), "cinematics/victory.json"),
         };
+
+        // T-152 ③d 时代跃迁过场 5 条 + 终章播片（无关卡钩子行——transition 拍由
+        // 战役宿主在 F-003 跃迁事务点发射；finale 走 E6 播片位显式通道）。
+        foreach (string transition in new[]
+                 {
+                     "transition-e1-e2", "transition-e2-e3", "transition-e3-e4",
+                     "transition-e4-e5", "transition-e5-e6", "finale-zero",
+                 })
+        {
+            scripts.Add(CinematicScript.Parse(
+                ReadFile(cinematicsDir, $"{transition}.json"), $"cinematics/{transition}.json"));
+        }
+
         _scripts = scripts;
+
+        _catalog = EraCore.Cinematics.VisualAssetCatalog.Parse(
+            ReadFile(cinematicsDir, "visual-assets.json"), "cinematics/visual-assets.json");
 
         var hookRows = new List<CinematicHookRow>();
         hookRows.AddRange(CinematicHookRouter.ParseLevelHooks(
@@ -216,6 +243,7 @@ public sealed partial class CinematicDirector : Control
             CinematicBeat.LevelStart => _router.OnLevelStart(),
             CinematicBeat.WaveStart => _router.OnWaveStart(wave),
             CinematicBeat.Victory => _router.OnVictory(),
+            CinematicBeat.Transition => _router.OnTransition(),
             _ => Array.Empty<string>(),
         };
 
@@ -520,6 +548,15 @@ public sealed partial class CinematicDirector : Control
                 case CinematicEffect.SettlementCommentarySpoken comment:
                     ShowSettlementCommentary(comment);
                     break;
+                case CinematicEffect.ImageCardShown card:
+                    ShowImageCard(card.ImageKey);
+                    break;
+                case CinematicEffect.VideoFrameStarted frame:
+                    ShowVideoFrame(frame);
+                    break;
+                case CinematicEffect.PaletteShiftStarted shift:
+                    StartPaletteShift(shift);
+                    break;
                 case CinematicEffect.Completed:
                     OnPerformanceCompleted();
                     break;
@@ -540,6 +577,10 @@ public sealed partial class CinematicDirector : Control
         _subtitle.Visible = false;
         _highlight.Visible = false;
         _fade.Visible = false;
+        StopVideoFrame(); // T-152：播片立即停并释放（18 号 §2.3 整文件驻内存）
+        _imageCard.Visible = false;
+        _paletteOverlay.Visible = false;
+        _paletteActive = false;
         if (_playing is not null)
         {
             _progress = CinematicProgressStore.MarkCompleted(_progress, _playing.Id);
@@ -731,6 +772,16 @@ public sealed partial class CinematicDirector : Control
         {
             HoldAccelerate(false);
         }
+
+        // T-152 palette_shift 渐变推进（表现层时基；到端点后停在 To 色）
+        if (_paletteActive)
+        {
+            ulong elapsed = Time.GetTicksMsec() - _paletteStartMsec;
+            float t = _paletteDurationMs == 0
+                ? 1f
+                : MathF.Min(1f, elapsed / (float)_paletteDurationMs);
+            _paletteOverlay.Color = new Color(_paletteFrom.Lerp(_paletteTo, t), 0.32f);
+        }
     }
 
     private void PointCamera(CinematicTarget target)
@@ -827,6 +878,76 @@ public sealed partial class CinematicDirector : Control
         _subtitle.Text = $"◈ 方案卡：{outcome.PendingCard!.OrderText} → 确认执行";
     }
 
+    // ---- T-152 三新步渲染（image_card / video_frame / palette_shift） ----------
+
+    /// <summary>
+    /// image_card：素材键→插画贴图（外部轨 D21-5），缺图自动降级——卡片隐藏、
+    /// 字幕通道提示（31 号 §三「缺图自动降级纯文本」）。
+    /// </summary>
+    private void ShowImageCard(string imageKey)
+    {
+        Texture2D? texture = EraTD.Expand.ExpandAssetPaths.LoadPng(
+            EraTD.Expand.ExpandAssetPaths.ExternalImagePath(_catalog, imageKey));
+        if (texture is null)
+        {
+            _subtitle.Text = $"◈ 〔{imageKey}〕（插画缺失·降级为文本）";
+            _subtitle.Visible = true;
+            _imageCard.Visible = false;
+            return;
+        }
+
+        _imageCard.Texture = texture;
+        _imageCard.Visible = true;
+    }
+
+    /// <summary>
+    /// video_frame：ogv 全屏播片（内置轨绝对路径，18 号 C7 VideoStreamTheora）。
+    /// Web 静帧降级（D21-2）：素材缺失时黑屏+字幕提示，演出按拍数推进。
+    /// </summary>
+    private void ShowVideoFrame(CinematicEffect.VideoFrameStarted frame)
+    {
+        string? path = EraTD.Expand.ExpandAssetPaths.OgvPath(_catalog, frame.AssetId);
+        if (path is null)
+        {
+            _subtitle.Text = $"◈ 〔{frame.AssetId}〕（视频缺失·静帧降级）";
+            _subtitle.Visible = true;
+            return;
+        }
+
+        _videoFrame.Stream = new VideoStreamTheora { File = path };
+        _videoFrame.VolumeDb = frame.Skippable ? -6f : -3f; // A/D/E 原声压低让位 BGM
+        _videoFrame.Visible = true;
+        _videoFrame.Play();
+    }
+
+    private void StopVideoFrame()
+    {
+        _videoFrame.Stop();
+        _videoFrame.Stream = null;
+        _videoFrame.Visible = false;
+    }
+
+    /// <summary>
+    /// palette_shift：时代色板层积渐变（31 号 §1.3——终章回环 E6→E1 的载体）。
+    /// 端点色来自素材目录色板锚；进度按真实毫秒推进（表现层时基，不入 tick 域）。
+    /// </summary>
+    private void StartPaletteShift(CinematicEffect.PaletteShiftStarted shift)
+    {
+        _paletteFrom = EraColorOf(shift.FromEra);
+        _paletteTo = EraColorOf(shift.ToEra);
+        _paletteDurationMs = (ulong)(shift.DurationTicks * 1000L / 30); // 30 tick/s 时域换算（K-1）
+        _paletteStartMsec = Time.GetTicksMsec();
+        _paletteActive = true;
+        _paletteOverlay.Color = new Color(_paletteFrom, 0.32f);
+        _paletteOverlay.Visible = true;
+    }
+
+    private Color EraColorOf(string eraKey)
+    {
+        (int r, int g, int b) = _catalog.Palettes[eraKey].Primary;
+        return new Color(r / 255f, g / 255f, b / 255f);
+    }
+
     private void HideSurfaces()
     {
         _surfaceBox.Hide();
@@ -882,6 +1003,36 @@ public sealed partial class CinematicDirector : Control
         _surfaceBox.CustomMinimumSize = new Vector2(300f, 0f);
         _surfaceBox.Hide();
         layer.AddChild(_surfaceBox);
+
+        // T-152 三新步载体（顺序=叠层：播片最底、色板纱、插画居中）
+        _videoFrame = new VideoStreamPlayer
+        {
+            Expand = true,
+            Visible = false,
+            VolumeDb = -6f,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _videoFrame.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        layer.AddChild(_videoFrame);
+
+        _paletteOverlay = new ColorRect
+        {
+            Visible = false,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _paletteOverlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        layer.AddChild(_paletteOverlay);
+
+        _imageCard = new TextureRect
+        {
+            Visible = false,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _imageCard.SetAnchorsPreset(Control.LayoutPreset.Center);
+        _imageCard.Size = new Vector2(480f, 480f);
+        _imageCard.Position = new Vector2(160f, 60f);
+        layer.AddChild(_imageCard);
     }
 
     private PanelContainer BuildHoloBox(out Label title, out VBoxContainer rows, string titleText)

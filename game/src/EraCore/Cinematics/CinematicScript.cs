@@ -146,6 +146,27 @@ public abstract record CinematicStep
 
     /// <summary>系统一句话点评 — the persona×trust-badge line of the decided settlement.</summary>
     public sealed record PersonaComment(int DurationTicks) : CinematicStep;
+
+    /// <summary>
+    /// 图片卡（T-152, 31 号 §三）：全屏/半屏插画按内容键显示——素材 id 来自
+    /// <see cref="VisualAssetCatalog"/> 的图批（story-*/banner-*/hook-*/…）。
+    /// 纯数据效果：host 解析键→贴图，缺图自动降级纯文本（零 I/O 契约延续）。
+    /// </summary>
+    public sealed record ImageCard(string ImageKey, int DurationTicks) : CinematicStep;
+
+    /// <summary>
+    /// 视频帧（T-152, 31 号 §三）：播放素材目录登记的 ogv 片段（A-01…E-d）。
+    /// <paramref name="Skippable"/> = 可跳过位（31 号 §三「ogv 播放+跳过位」；
+    /// false 时该段不可单独跳过——受保护演出语义由脚本声明）；时长拍数是
+    /// Web 静帧降级/无头模式下的回退节拍，真机由宿主按视频 finished 收尾。
+    /// </summary>
+    public sealed record VideoFrame(string AssetId, bool Skippable, int DurationTicks) : CinematicStep;
+
+    /// <summary>
+    /// 时代色板渐变（T-152, 31 号 §1.3/§三）：旧时代色板→新时代色板的层积
+    /// 过渡（终章回环=靛蓝褪回 E1 暖赭的载体）。era 键为封闭表 e1~e6。
+    /// </summary>
+    public sealed record PaletteShift(string FromEra, string ToEra, int DurationTicks) : CinematicStep;
 }
 
 /// <summary>
@@ -198,6 +219,28 @@ public sealed record CinematicScript(
     /// <summary>Closed UI-surface set.</summary>
     public static readonly IReadOnlySet<string> UiSurfaces =
         new HashSet<string> { "holo_panel_expand", "ledger_reveal" };
+
+    /// <summary>
+    /// Closed era-key set of <c>palette_shift</c>（六时代身份卡，31 号 §1.2；
+    /// e6=终章深空——终章回环的落点也是这六键之一）。
+    /// </summary>
+    public static readonly IReadOnlySet<string> PaletteEras =
+        new HashSet<string> { "e1", "e2", "e3", "e4", "e5", "e6" };
+
+    /// <summary>
+    /// Closed step-kind set（T-152 后 16 动词，smoke 的 CINE_V2 verbs=16 以此为
+    /// 口径）：既有 13 演出动词（camera_move/highlight/wait_event/speak/sound/
+    /// screen/ui/choice/verdict_reveal/tier_reveal/wheel_spin/chest_open/
+    /// persona_comment）+ T-152 三新步（image_card/video_frame/palette_shift）。
+    /// checkpoint 不计入动词表——它是跳过安全标记（skip-safety marker the host
+    /// observes），非演出动词；解析层与错误信息仍列全部 17 kind。
+    /// </summary>
+    public static readonly IReadOnlyList<string> StepKinds = new[]
+    {
+        "camera_move", "highlight", "wait_event", "speak", "sound", "screen", "ui",
+        "choice", "verdict_reveal", "tier_reveal", "wheel_spin",
+        "chest_open", "persona_comment", "image_card", "video_frame", "palette_shift",
+    };
 
     /// <summary>
     /// Strict parser (field-pathed errors, missing fields throw). Keys
@@ -496,9 +539,43 @@ public sealed record CinematicScript(
                 return new CinematicStep.PersonaComment(duration);
             }
 
+            case "image_card":
+            {
+                string imageKey = String(el, "image", source);
+                Require(!string.IsNullOrWhiteSpace(imageKey), $"{source}: image_card.image 为空白（素材键，见 visual-assets.json 图批）");
+                int duration = Int(el, "duration_ticks", source); // RL7：图片卡节拍入脚本数据
+                RequireDuration(duration, min: 1, source, "image_card");
+                return new CinematicStep.ImageCard(imageKey, duration);
+            }
+
+            case "video_frame":
+            {
+                string assetId = String(el, "asset", source);
+                Require(!string.IsNullOrWhiteSpace(assetId), $"{source}: video_frame.asset 为空白（素材 id A-01…E-d，见 visual-assets.json）");
+                bool skippable = OptionalBool(el, "skippable", true); // 可跳过位（31 号 §三）
+                int duration = Int(el, "duration_ticks", source); // RL7：回退节拍（Web 静帧/无头）入脚本数据
+                RequireDuration(duration, min: 1, source, "video_frame");
+                return new CinematicStep.VideoFrame(assetId, skippable, duration);
+            }
+
+            case "palette_shift":
+            {
+                string from = String(el, "from_era", source);
+                Require(
+                    PaletteEras.Contains(from),
+                    $"{source}: palette_shift.from_era 未登记（{from}，封闭表 {string.Join("/", PaletteEras)}）");
+                string to = String(el, "to_era", source);
+                Require(
+                    PaletteEras.Contains(to),
+                    $"{source}: palette_shift.to_era 未登记（{to}，封闭表 {string.Join("/", PaletteEras)}）");
+                int duration = Int(el, "duration_ticks", source); // RL7：渐变节拍入脚本数据
+                RequireDuration(duration, min: 1, source, "palette_shift");
+                return new CinematicStep.PaletteShift(from, to, duration);
+            }
+
             default:
                 throw new CinematicSchemaException(
-                    $"{source}: 未登记步骤 kind（{kind}，封闭动词表 camera_move/highlight/wait_event/speak/sound/screen/ui/choice/checkpoint/verdict_reveal/tier_reveal/wheel_spin/chest_open/persona_comment）");
+                    $"{source}: 未登记步骤 kind（{kind}，封闭动词表 {string.Join("/", StepKinds)} + 标记 checkpoint）");
         }
     }
 
@@ -618,6 +695,21 @@ public sealed record CinematicScript(
         }
 
         return parsed;
+    }
+
+    private static bool OptionalBool(JsonElement parent, string name, bool fallback)
+    {
+        if (!parent.TryGetProperty(name, out JsonElement value) || value.ValueKind == JsonValueKind.Null)
+        {
+            return fallback;
+        }
+
+        if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            throw new CinematicSchemaException($"字段 {name} 须为布尔");
+        }
+
+        return value.ValueKind == JsonValueKind.True;
     }
 
     private static JsonElement Object(JsonElement parent, string name, string source)

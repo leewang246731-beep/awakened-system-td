@@ -14,8 +14,8 @@
         "title_zh": "受辱·城邦被嘲",
         "predicate": { "kind": "wave_start", "wave": 2 },
         "lines": [
-          { "key": "e2.act1.envoy", "speaker": "使者", "text": "边陲小城也配叫城邦？拿木栅栏去挡火矢吧。" },
-          { "key": "e2.act1.zero", "speaker": "零", "text": "叮——检测到外交嘲讽：伤害为零，侮辱性拉满。", "cue": "ding_info" }
+          { "key": "e2.act1.envoy", "speaker": "使者", "text": "边陲小城也配叫城邦？拿木栅栏去挡火矢吧。", "image": "story-e2-act1-humiliation-1" },
+          { "key": "e2.act1.zero", "speaker": "零", "text": "叮——检测到外交嘲讽：伤害为零，侮辱性拉满。", "image": "story-e2-act1-humiliation-2", "cue": "ding_info" }
         ]
       },
       {
@@ -23,8 +23,8 @@
         "title_zh": "觉醒·水力革新",
         "predicate": { "kind": "wave_start", "wave": 5 },
         "lines": [
-          { "key": "e2.act2.zero", "speaker": "零", "text": "水轮已转——用水力代替人力，这是革新的第一步。", "cue": "ding_reward" },
-          { "key": "e2.act2.narrator", "speaker": "旁白", "text": "湍流推动木轮，箭簇第一次不需要人力打磨。" }
+          { "key": "e2.act2.zero", "speaker": "零", "text": "水轮已转——用水力代替人力，这是革新的第一步。", "image": "story-e2-act2-innovation-1", "cue": "ding_reward" },
+          { "key": "e2.act2.narrator", "speaker": "旁白", "text": "湍流推动木轮，箭簇第一次不需要人力打磨。", "image": "story-e2-act2-innovation-2" }
         ]
       },
       {
@@ -32,14 +32,14 @@
         "title_zh": "打脸·守城名场面",
         "predicate": { "kind": "wave_start", "wave": 9 },
         "lines": [
-          { "key": "e2.act3.narrator", "speaker": "旁白", "text": "火矢如雨，水渠边的城墙却越战越亮——城邦史官记下了这一页。" },
-          { "key": "e2.act3.zero", "speaker": "零", "text": "叮！名场面达成。嘲讽者的账，记在城墙上了。", "cue": "ding_reward" }
+          { "key": "e2.act3.narrator", "speaker": "旁白", "text": "火矢如雨，水渠边的城墙却越战越亮——城邦史官记下了这一页。", "image": "story-e2-act3-face-slap-1" },
+          { "key": "e2.act3.zero", "speaker": "零", "text": "叮！名场面达成。嘲讽者的账，记在城墙上了。", "image": "story-e2-act3-face-slap-2", "cue": "ding_reward" }
         ]
       }
     ]
   },
   "opening": [
-    { "key": "e2.open.narrator", "speaker": "旁白", "text": "新时代的水汽扑面而来。城邦的界碑立在河谷下游，火矢的烟已经在天边。" },
+    { "key": "e2.open.narrator", "speaker": "旁白", "text": "新时代的水汽扑面而来。城邦的界碑立在河谷下游，火矢的烟已经在天边。", "image": "story-e2-opening" },
     { "key": "e2.open.zero", "speaker": "零", "text": "叮！时代跃迁完成。宿主，这一纪元的答案是——水与铜。", "cue": "ding_info" }
   ],
   "intermission_pools": {

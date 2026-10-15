@@ -60,10 +60,22 @@ internal static class HoloSkin
     /// </summary>
     internal static StyleBoxFlat BuildHoloBox()
     {
+        return BuildHoloBox(EdgeCyan);
+    }
+
+    /// <summary>
+    /// T-152 UI 时代皮肤变体（31 号 §三 h 位）：同一骨架、仅换边框主色——
+    /// 面板骨架零改动纪律（§10.2「系统超然于时代」：骨架恒定，时代皮肤只换
+    /// 边框主色/徽记/扫描线色阶）。色值来自素材目录六时代色板锚（e1~e6），
+    /// 由调用方传入——本类不持有时代数值（RL7）。
+    /// </summary>
+    internal static StyleBoxFlat BuildHoloBox(Godot.Color eraBorder)
+    {
         var box = new StyleBoxFlat
         {
-            BgColor = BaseBlue,
-            BorderColor = EdgeCyan,
+            BgColor = new Godot.Color(
+                eraBorder.R * 0.22f, eraBorder.G * 0.22f, eraBorder.B * 0.32f, 0.85f),
+            BorderColor = eraBorder,
             BorderWidthLeft = 2,
             BorderWidthTop = 2,
             BorderWidthRight = 2,

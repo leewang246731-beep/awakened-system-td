@@ -15,8 +15,8 @@
         "title_zh": "受辱·兽群践踏",
         "predicate": { "kind": "wave_start", "wave": 2 },
         "lines": [
-          { "key": "e1.act1.narrator", "speaker": "旁白", "text": "兽群踏碎了营地东篱。守了半辈子的猎户，头一次丢下猎弓逃散。" },
-          { "key": "e1.act1.taunt", "speaker": "斥候", "text": "就凭这些木栅栏？兽王打个响鼻就能踏平你们！" },
+          { "key": "e1.act1.narrator", "speaker": "旁白", "text": "兽群踏碎了营地东篱。守了半辈子的猎户，头一次丢下猎弓逃散。", "image": "story-e1-act1-humiliation-1" },
+          { "key": "e1.act1.taunt", "speaker": "斥候", "text": "就凭这些木栅栏？兽王打个响鼻就能踏平你们！", "image": "story-e1-act1-humiliation-2" },
           { "key": "e1.act1.system", "speaker": "系统", "text": "叮——检测到防线完整度骤降。宿主，你的营地正在被践踏。", "cue": "ding_crisis" }
         ]
       },
@@ -25,8 +25,8 @@
         "title_zh": "觉醒·系统绑定",
         "predicate": { "kind": "cinematic_fired", "script": "cinematic:e1-aha" },
         "lines": [
-          { "key": "e1.act2.bind", "speaker": "系统", "text": "叮——绑定完成。本系统『零』，上一纪元残存的核心，正式接管你的面板。", "cue": "ding_reward" },
-          { "key": "e1.act2.proof", "speaker": "系统", "text": "先证明我值得存在：盯住那座断粮的箭塔，民夫已经在路上了。" }
+          { "key": "e1.act2.bind", "speaker": "系统", "text": "叮——绑定完成。本系统『零』，上一纪元残存的核心，正式接管你的面板。", "image": "story-e1-act2-awakening-1", "cue": "ding_reward" },
+          { "key": "e1.act2.proof", "speaker": "系统", "text": "先证明我值得存在：盯住那座断粮的箭塔，民夫已经在路上了。", "image": "story-e1-act2-awakening-2" }
         ]
       },
       {
@@ -35,15 +35,15 @@
         "predicate": { "kind": "wave_start", "wave": 5 },
         "lines": [
           { "key": "e1.act3.ready", "speaker": "系统", "text": "兽群回来了——但这次，箭塔是满的，民夫在线上。", "cue": "ding_info" },
-          { "key": "e1.act3.narrator", "speaker": "旁白", "text": "第一头野兽在栅栏前倒下时，逃散的猎户停住了脚步。" },
+          { "key": "e1.act3.narrator", "speaker": "旁白", "text": "第一头野兽在栅栏前倒下时，逃散的猎户停住了脚步。", "image": "story-e1-act3-face-slap-1" },
           { "key": "e1.act3.taunt-back", "speaker": "斥候", "text": "不可能……那些木栅栏，怎么会咬人？！" },
-          { "key": "e1.act3.system", "speaker": "系统", "text": "叮！打脸时刻记录完毕。宿主，反推开始。", "cue": "ding_reward" }
+          { "key": "e1.act3.system", "speaker": "系统", "text": "叮！打脸时刻记录完毕。宿主，反推开始。", "image": "story-e1-act3-face-slap-2", "cue": "ding_reward" }
         ]
       }
     ]
   },
   "opening": [
-    { "key": "e1.open.narrator", "speaker": "旁白", "text": "林地边缘，篝火将熄。你攥着一柄断矛醒来——这具身体只留下一句话：守住营地。" },
+    { "key": "e1.open.narrator", "speaker": "旁白", "text": "林地边缘，篝火将熄。你攥着一柄断矛醒来——这具身体只留下一句话：守住营地。", "image": "story-e1-opening" },
     { "key": "e1.open.system", "speaker": "系统", "text": "……信号微弱。检测到宿主生命体征，正在尝试接管面板……", "cue": "ding_info" }
   ],
   "intermission_pools": {
@@ -70,7 +70,7 @@
     "hook_id": "campaign:hook-e1-awakening-handover",
     "lines": [
       { "key": "e1.end.handover", "speaker": "系统", "text": "叮！交底时间：记忆里有片烧焦的残页，写着『更大的东西醒了』。以后，叫我零。", "cue": "ding_reward" },
-      { "key": "e1.end.narrator", "speaker": "旁白", "text": "营地守住了。远处河谷深处，岩壁上似乎刻着什么。" }
+      { "key": "e1.end.narrator", "speaker": "旁白", "text": "营地守住了。远处河谷深处，岩壁上似乎刻着什么。", "image": "story-e1-tease" }
     ],
     "tease": {
       "next_era": "era2:era-classical",

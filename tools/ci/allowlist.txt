@@ -54,3 +54,24 @@ R9: docs/engineering/23-migration-plan.md | migration doc is env-facts style (dr
 R9: AGENTS.md | project charter contains env-facts quick-reference by design (see 09-env-locked precedent)
 R9: docs/engineering/24-t078-era2-art.md | era2 art pack task doc: E:\game-assets references are the same client USB asset-library inventory facts as 18-21/23 (its §6 cites 21 号 §2; env facts of record live in 07 §三（附）) — T-078 committed the doc without the entry (2ffd036), registered here to unblock run_all
 R9: docs/engineering/28-t094-art-freeze.md | T-094 art freeze manifest: E:\game-assets\freeze-v0.1 is the client-mandated USB sync destination for the frozen asset pack (same client USB library facts as 18-21/23/24; env facts of record live in 07 §三（附）) — registered in the same commit as the doc
+
+# —— T-152（视觉扩充接线）新增声明 ——
+# 生产泳道批次报告与入库 manifest（T-148~T-151 提交）引用 E:\game-videos /
+# E:\game-assets 盘符=甲方 U 盘素材库清点事实（同 18-21/23/24/28 先例：登记
+# 事实非硬编码缺陷；代码侧 RL9 不变，环境事实以 07 §三（附）为准）——
+# 生产 commit（063966f..ebf9156）未登记即落库，此处按 T-078 先例补登记解
+# 除 run_all 阻塞（D 泳道 T-152 集成收尾时发现）。
+R9: docs/engineering/31-visual-enrichment-master-plan.md | 视觉扩充全案 v2.0（业主已批）：E:\game-assets\E:\game-videos 为甲方 U 盘素材库归档位置事实（§四.4 归档规范）
+R9: docs/engineering/32-p1-image-batch.md | P1 图批生产报告：U 盘母片归档路径事实（同上先例）
+R9: docs/engineering/33-video-A-tier.md | A 层视频批生产报告（同上先例）
+R9: docs/engineering/34-video-D-tier.md | D 层视频批生产报告（同上先例）
+R9: docs/engineering/35-video-E-tier.md | E 层视频批生产报告（同上先例）
+R9: docs/engineering/36-video-B-tier.md | B 层视频批生产报告（同上先例）
+R9: docs/engineering/37-video-C-tier.md | C 层视频批生产报告（同上先例）
+R9: docs/engineering/38-p4-image-batch.md | P4 氛围批生产报告（同上先例）
+R9: docs/engineering/39-p3-image-batch.md | P3 彩蛋批生产报告（同上先例）
+R9: game/assets/expand-v1/B-manifest.json | 资产台账（21 号 D21-4 登记纪律）：file 字段记录 U 盘母片位置=台账数据非代码配置
+R9: game/assets/expand-v1/C-manifest.json | 资产台账（同上）
+R9: game/assets/expand-v1/D-manifest.json | 资产台账（同上）
+R9: game/assets/expand-v1/E-manifest.json | 资产台账（同上）
+R9: game/content/cinematics/visual-assets.json | T-152 素材目录内容：external_image_root=D21-5 双轨开发期外部轨根（甲方 U 盘素材库，31 号 §三 加载图行原文口径；发布期构建聚合拷入 res://，代码侧 RL9 不变）

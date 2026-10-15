@@ -14,7 +14,11 @@ test_asset_validator.py — asset_validator.py 自测（任务 T-046；零三方
                           匹配过、不匹配拒、非横条图拒
   5. filename_rules       kebab-case 过；大写/下划线拒
   6. structure_rules      截断/CRC 损坏/非 PNG 拒；隔行图跳过计数不崩
-  7. cli_semantics        CLI 端到端：退出码 0/1、--json 报告结构、
+  7. cinematics_exemption T-152 显式豁免（31 号 §三 C 层序列帧）：
+                          game/assets/cinematics/ 下 PNG 尺寸/色板降 INFO
+                          （消息带豁免注记）；结构/命名仍拒；豁免区外同规格
+                          照常拒；仓内 8 张真实 1440x810 Atlas 零拒
+  8. cli_semantics        CLI 端到端：退出码 0/1、--json 报告结构、
                           非 PNG 目录（game/content/ 纯 JSON）0 文件通过
 样例均在系统临时目录创建、用后删除。
 """
@@ -285,6 +289,55 @@ def test_structure_rules() -> None:
         shutil.rmtree(root, ignore_errors=True)
 
 
+def test_cinematics_exemption() -> None:
+    """T-152 显式豁免（31 号 §三 C 层）：game/assets/cinematics/ 下 PNG 的
+    尺寸/色板门禁降 INFO（豁免注明入消息）；结构/命名红线不豁免；豁免区外
+    同规格 PNG 照常 REJECT（豁免不外溢）。"""
+    root = tempfile.mkdtemp(prefix="av_cine_")
+    try:
+        cine_dir = os.path.join(root, "game", "assets", "cinematics", "strips")
+        os.makedirs(cine_dir)
+        # 1440x810 序列帧 Atlas 形态（非清单尺寸；宽:高=16:9 非横条帧）
+        write(cine_dir, "boss-e1-death.png", png_bytes(1440, 810, 8, 6))
+        # 豁免区内仍拒：结构损坏 / 非 kebab 命名
+        write(cine_dir, "broken.png", png_bytes(16, 16, 8, 2)[:30])
+        write(cine_dir, "BadName.PNG", png_bytes(16, 16, 8, 2))
+        # 豁免区外同尺寸：照常 REJECT（豁免按路径界定，不外溢）
+        outside = os.path.join(root, "game", "assets", "era1")
+        os.makedirs(outside)
+        write(outside, "big-banner.png", png_bytes(1440, 810, 8, 6))
+
+        report = av.run([root], av.DEFAULT_ALLOWED_SIZES, 64, False)
+        by_path = {
+            os.path.relpath(r["path"], root).replace(os.sep, "/"): r
+            for r in report["results"]
+        }
+        strip = by_path["game/assets/cinematics/strips/boss-e1-death.png"]
+        check(severity_of(strip, "SIZE-ALLOWLIST") == "INFO"
+              and "cinematics 序列帧豁免" in next(
+                  f["message"] for f in strip["findings"]
+                  if f["rule"] == "SIZE-ALLOWLIST"),
+              "cinematics 豁免：尺寸门禁降 INFO 且消息带豁免注记")
+        check(severity_of(by_path["game/assets/cinematics/strips/broken.png"],
+                          "PNG-STRUCTURE") == "REJECT", "豁免区结构损坏仍拒")
+        check(severity_of(by_path["game/assets/cinematics/strips/BadName.PNG"],
+                          "FILENAME-KEBAB") == "REJECT", "豁免区命名不豁免")
+        check(severity_of(by_path["game/assets/era1/big-banner.png"],
+                          "SIZE-ALLOWLIST") == "REJECT", "豁免区外同尺寸照常拒")
+        check(report["rejected"] == 3, "豁免用例汇总 3 拒（结构/命名/区外尺寸）")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    # 仓内真实序列帧（8 张 1440x810）：全 INFO 豁免、零 REJECT
+    strips_dir = os.path.join(REPO_ROOT, "game", "assets", "cinematics")
+    if os.path.isdir(strips_dir):
+        report = av.run([strips_dir], av.DEFAULT_ALLOWED_SIZES, 64, False)
+        pngs = [r for r in report["results"] if r["path"].endswith(".png")]
+        check(report["rejected"] == 0, f"仓内 cinematics 序列帧零拒（{len(pngs)} PNG）")
+        check(all(r["width"] == 1440 and r["height"] == 810 for r in pngs),
+              "仓内序列帧全部 1440x810（36 帧@240x135）")
+
+
 def test_cli_semantics() -> None:
     """CLI 端到端（子进程真实退出码）：正例 0、反例 1、--json 结构、
     非 PNG 目录（game/content/ 纯 JSON）0 文件通过。"""
@@ -364,6 +417,7 @@ def main() -> int:
     test_frames_rules()
     test_filename_rules()
     test_structure_rules()
+    test_cinematics_exemption()
     test_cli_semantics()
     print("-" * 60)
     print(f"selftest summary: {PASS} passed, {FAIL} failed")

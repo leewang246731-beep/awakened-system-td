@@ -167,6 +167,15 @@ public sealed partial class Main : Control
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         InfoLayersUi.Instantiate(this, _host);
 
+        // ---- 5h) T-152 visual expansion (31 号 v2.0 插入点接线) ------------
+        // 视觉扩充总装（expand/VisualExpansionDirector.cs）：素材目录装载
+        // （51 ogv+8 序列帧+《零的真相》+73 图+24 成就图标）+主菜单循环/
+        // 全屏播片/Boss 序列帧/加载屏/记忆档案收藏链（《零的真相》解锁）/
+        // 彩蛋展示/时代皮肤；headless 下自带冒烟并打印 CINE_V2 计数+
+        // EXPAND_OK——smoke 视觉扩充段判据。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        Expand.VisualExpansionDirector.Instantiate(this);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.

@@ -407,7 +407,15 @@ public sealed record StoryChapter(
                     $"{source}: {name}.cue 未登记（{cue}，封闭表 {string.Join("/", SoundCues)}）");
             }
 
-            lines.Add(new DialogueLine(key, speaker, text, persona, cue));
+            // T-152 配图位（31 号 §三 b 位）：可选 story-*/banner-*/hook-* 素材键——
+            // 缺图自动降级纯文本（表现层职责），这里只做非空校验。
+            string? image = OptionalString(lineEl, "image");
+            if (image is not null)
+            {
+                Require(!image.Any(char.IsWhiteSpace), $"{source}: {name}.image 含空白（素材键，见 visual-assets.json）");
+            }
+
+            lines.Add(new DialogueLine(key, speaker, text, persona, cue, image));
         }
 
         return lines;

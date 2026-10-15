@@ -1,0 +1,514 @@
+{
+ "schema": "game-assets/cinematics-ledger/1",
+ "task": "T-152 ① 转码入库（31 号 §三 加载管线；18 号 C2 ogv 口径）",
+ "produced_at": "2026-10-15",
+ "pixelate_ids": [
+  "A-02",
+  "A-03",
+  "A-04",
+  "A-05",
+  "A-06"
+ ],
+ "pixelate_note": "Q18A 仅跃迁 A-02~06 像素化（31 号 §二.2 列）；A-01/A-07 保清晰",
+ "strip_rule": "fps=6 × 36 帧 tile 6x6 @ 240x135",
+ "zero_truth": "D-01~08 各前 7.5s concat = 60s（31 号 ★行，零生成）",
+ "entries": [
+  {
+   "id": "A-01",
+   "out": "game/assets/cinematics/A/a-01.ogv",
+   "status": "kept",
+   "pixelate": false
+  },
+  {
+   "id": "A-02",
+   "out": "game/assets/cinematics/A/a-02.ogv",
+   "status": "kept",
+   "pixelate": true
+  },
+  {
+   "id": "A-03",
+   "out": "game/assets/cinematics/A/a-03.ogv",
+   "status": "transcoded",
+   "pixelate": true,
+   "audio": true,
+   "duration_s": 20.06,
+   "bytes": 3960906
+  },
+  {
+   "id": "A-04",
+   "out": "game/assets/cinematics/A/a-04.ogv",
+   "status": "transcoded",
+   "pixelate": true,
+   "audio": true,
+   "duration_s": 20.06,
+   "bytes": 4430955
+  },
+  {
+   "id": "A-05",
+   "out": "game/assets/cinematics/A/a-05.ogv",
+   "status": "transcoded",
+   "pixelate": true,
+   "audio": true,
+   "duration_s": 20.06,
+   "bytes": 7522714
+  },
+  {
+   "id": "A-06",
+   "out": "game/assets/cinematics/A/a-06.ogv",
+   "status": "transcoded",
+   "pixelate": true,
+   "audio": true,
+   "duration_s": 20.06,
+   "bytes": 2891456
+  },
+  {
+   "id": "A-07",
+   "out": "game/assets/cinematics/A/a-07.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 90.21,
+   "bytes": 7185329
+  },
+  {
+   "id": "B-01",
+   "out": "game/assets/cinematics/B/b-01.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 437617
+  },
+  {
+   "id": "B-02",
+   "out": "game/assets/cinematics/B/b-02.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 2344978
+  },
+  {
+   "id": "B-03",
+   "out": "game/assets/cinematics/B/b-03.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 1443137
+  },
+  {
+   "id": "B-04",
+   "out": "game/assets/cinematics/B/b-04.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 929424
+  },
+  {
+   "id": "B-05",
+   "out": "game/assets/cinematics/B/b-05.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 650274
+  },
+  {
+   "id": "B-06",
+   "out": "game/assets/cinematics/B/b-06.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 785277
+  },
+  {
+   "id": "B-07",
+   "out": "game/assets/cinematics/B/b-07.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 465511
+  },
+  {
+   "id": "B-08",
+   "out": "game/assets/cinematics/B/b-08.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 673893
+  },
+  {
+   "id": "B-09",
+   "out": "game/assets/cinematics/B/b-09.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 455084
+  },
+  {
+   "id": "B-10",
+   "out": "game/assets/cinematics/B/b-10.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 570340
+  },
+  {
+   "id": "B-11",
+   "out": "game/assets/cinematics/B/b-11.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 403402
+  },
+  {
+   "id": "B-12",
+   "out": "game/assets/cinematics/B/b-12.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 537225
+  },
+  {
+   "id": "B-13",
+   "out": "game/assets/cinematics/B/b-13.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 395949
+  },
+  {
+   "id": "B-14",
+   "out": "game/assets/cinematics/B/b-14.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 546660
+  },
+  {
+   "id": "B-15",
+   "out": "game/assets/cinematics/B/b-15.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 373130
+  },
+  {
+   "id": "C-01",
+   "out": "game/assets/cinematics/C/c-01.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 6.04,
+   "bytes": 318609
+  },
+  {
+   "id": "C-02",
+   "out": "game/assets/cinematics/C/c-02.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 6.04,
+   "bytes": 488574
+  },
+  {
+   "id": "C-03",
+   "out": "game/assets/cinematics/C/c-03.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 6.04,
+   "bytes": 360580
+  },
+  {
+   "id": "C-04",
+   "out": "game/assets/cinematics/C/c-04.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 6.04,
+   "bytes": 568769
+  },
+  {
+   "id": "C-05",
+   "out": "game/assets/cinematics/C/c-05.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 6.04,
+   "bytes": 145707
+  },
+  {
+   "id": "C-06",
+   "out": "game/assets/cinematics/C/c-06.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 6.04,
+   "bytes": 1026371
+  },
+  {
+   "id": "C-07",
+   "out": "game/assets/cinematics/C/c-07.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 6.04,
+   "bytes": 232081
+  },
+  {
+   "id": "C-08",
+   "out": "game/assets/cinematics/C/c-08.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 6.04,
+   "bytes": 466098
+  },
+  {
+   "id": "C-09",
+   "out": "game/assets/cinematics/C/c-09.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 286390
+  },
+  {
+   "id": "C-10",
+   "out": "game/assets/cinematics/C/c-10.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 453056
+  },
+  {
+   "id": "C-11",
+   "out": "game/assets/cinematics/C/c-11.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 1091100
+  },
+  {
+   "id": "C-12",
+   "out": "game/assets/cinematics/C/c-12.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 612503
+  },
+  {
+   "id": "C-13",
+   "out": "game/assets/cinematics/C/c-13.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 878000
+  },
+  {
+   "id": "C-14",
+   "out": "game/assets/cinematics/C/c-14.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 583766
+  },
+  {
+   "id": "C-15",
+   "out": "game/assets/cinematics/C/c-15.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 8.04,
+   "bytes": 1291230
+  },
+  {
+   "id": "C-16",
+   "out": "game/assets/cinematics/C/c-16.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 10.04,
+   "bytes": 485511
+  },
+  {
+   "id": "C-17",
+   "out": "game/assets/cinematics/C/c-17.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": false,
+   "duration_s": 10.04,
+   "bytes": 568000
+  },
+  {
+   "id": "D-01",
+   "out": "game/assets/cinematics/D/d-01.ogv",
+   "status": "kept",
+   "pixelate": false
+  },
+  {
+   "id": "D-02",
+   "out": "game/assets/cinematics/D/d-02.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 8.06,
+   "bytes": 680688
+  },
+  {
+   "id": "D-03",
+   "out": "game/assets/cinematics/D/d-03.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 8.06,
+   "bytes": 989439
+  },
+  {
+   "id": "D-04",
+   "out": "game/assets/cinematics/D/d-04.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 8.06,
+   "bytes": 375971
+  },
+  {
+   "id": "D-05",
+   "out": "game/assets/cinematics/D/d-05.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 8.06,
+   "bytes": 446200
+  },
+  {
+   "id": "D-06",
+   "out": "game/assets/cinematics/D/d-06.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 8.06,
+   "bytes": 432930
+  },
+  {
+   "id": "D-07",
+   "out": "game/assets/cinematics/D/d-07.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 8.06,
+   "bytes": 1046527
+  },
+  {
+   "id": "D-08",
+   "out": "game/assets/cinematics/D/d-08.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 8.06,
+   "bytes": 778862
+  },
+  {
+   "id": "E-a",
+   "out": "game/assets/cinematics/E/e-a.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 12.06,
+   "bytes": 1291865
+  },
+  {
+   "id": "E-b",
+   "out": "game/assets/cinematics/E/e-b.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 8.06,
+   "bytes": 1325265
+  },
+  {
+   "id": "E-c",
+   "out": "game/assets/cinematics/E/e-c.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 10.08,
+   "bytes": 226626
+  },
+  {
+   "id": "E-d",
+   "out": "game/assets/cinematics/E/e-d.ogv",
+   "status": "transcoded",
+   "pixelate": false,
+   "audio": true,
+   "duration_s": 8.06,
+   "bytes": 746437
+  },
+  {
+   "id": "C-01",
+   "out": "game/assets/cinematics/strips/boss-e1-enter.png",
+   "status": "kept"
+  },
+  {
+   "id": "C-02",
+   "out": "game/assets/cinematics/strips/boss-e2-enter.png",
+   "status": "kept"
+  },
+  {
+   "id": "C-03",
+   "out": "game/assets/cinematics/strips/boss-e3-enter.png",
+   "status": "kept"
+  },
+  {
+   "id": "C-04",
+   "out": "game/assets/cinematics/strips/boss-e4-enter.png",
+   "status": "kept"
+  },
+  {
+   "id": "C-05",
+   "out": "game/assets/cinematics/strips/boss-e1-death.png",
+   "status": "kept"
+  },
+  {
+   "id": "C-06",
+   "out": "game/assets/cinematics/strips/boss-e2-death.png",
+   "status": "kept"
+  },
+  {
+   "id": "C-07",
+   "out": "game/assets/cinematics/strips/boss-e3-death.png",
+   "status": "kept"
+  },
+  {
+   "id": "C-08",
+   "out": "game/assets/cinematics/strips/boss-e4-death.png",
+   "status": "kept"
+  },
+  {
+   "id": "zero-truth",
+   "out": "game/assets/cinematics/D/zero-truth.ogv",
+   "status": "transcoded",
+   "duration_s": 60.0,
+   "bytes": 4673775
+  }
+ ]
+}

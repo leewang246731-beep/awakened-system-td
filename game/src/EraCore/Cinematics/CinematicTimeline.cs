@@ -77,6 +77,25 @@ public abstract record CinematicEffect
     /// <summary>系统一句话点评 — the decided persona×trust-badge line (with the T-075 cross-tier echo when any).</summary>
     public sealed record SettlementCommentarySpoken(DecidedCommentary Commentary) : CinematicEffect;
 
+    /// <summary>
+    /// 图片卡开始（T-152, 31 号 §三 image_card）：host 解析 ImageKey→插画贴图
+    /// （visual-assets.json 图批），缺图自动降级纯文本——效果本身是纯数据。
+    /// </summary>
+    public sealed record ImageCardShown(string ImageKey, int DurationTicks) : CinematicEffect;
+
+    /// <summary>
+    /// 视频帧开始（T-152, 31 号 §三 video_frame）：host 播放 ogv（内置轨
+    /// VideoStreamTheora；Web 静帧降级 D21-2）。可跳过位随效果携带；跳过
+    /// 落在同一终态命令集——零污染契约延续。
+    /// </summary>
+    public sealed record VideoFrameStarted(string AssetId, bool Skippable, int DurationTicks) : CinematicEffect;
+
+    /// <summary>
+    /// 时代色板渐变开始（T-152, 31 号 §1.3 palette_shift）：host 以六时代
+    /// 色板锚渲染层积过渡（终章回环=E6 靛蓝褪回 E1 暖赭）。
+    /// </summary>
+    public sealed record PaletteShiftStarted(string FromEra, string ToEra, int DurationTicks) : CinematicEffect;
+
     /// <summary>Terminal state reached (natural end or skip) — world commands are due in the host.</summary>
     public sealed record Completed() : CinematicEffect;
 }
@@ -518,6 +537,18 @@ public sealed class CinematicTimeline
             case CinematicStep.PersonaComment comment:
                 effects.Add(new CinematicEffect.SettlementCommentarySpoken(RequiredSettlement().Commentary));
                 _remaining = comment.DurationTicks;
+                break;
+            case CinematicStep.ImageCard card:
+                effects.Add(new CinematicEffect.ImageCardShown(card.ImageKey, card.DurationTicks));
+                _remaining = card.DurationTicks;
+                break;
+            case CinematicStep.VideoFrame frame:
+                effects.Add(new CinematicEffect.VideoFrameStarted(frame.AssetId, frame.Skippable, frame.DurationTicks));
+                _remaining = frame.DurationTicks;
+                break;
+            case CinematicStep.PaletteShift shift:
+                effects.Add(new CinematicEffect.PaletteShiftStarted(shift.FromEra, shift.ToEra, shift.DurationTicks));
+                _remaining = shift.DurationTicks;
                 break;
         }
 

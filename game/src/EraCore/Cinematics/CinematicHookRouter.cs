@@ -6,7 +6,8 @@ namespace EraCore.Cinematics;
 /// The beat an 演出素材接入点 fires on (T-086, §10.4 hook grammar — the
 /// <c>trigger.beat</c> values of <c>game/content/levels/*.json</c>
 /// <c>cinematic_hooks</c> rows): E2 觉醒=level_start, E1 啊哈=wave_start(第
-/// 2~3 波), 首关胜利交底=victory.
+/// 2~3 波), 首关胜利交底=victory; T-152 增 transition=时代跃迁过场
+/// （A-02~06 档，31 号 §三——战役宿主在 F-003 跃迁事务点发射）。
 /// </summary>
 public enum CinematicBeat
 {
@@ -18,6 +19,9 @@ public enum CinematicBeat
 
     /// <summary>Level victory (首关觉醒交底位).</summary>
     Victory = 2,
+
+    /// <summary>Era transition (T-152, 31 号 §三 d 位：跃迁 5 条过场钩子).</summary>
+    Transition = 3,
 }
 
 /// <summary>One 演出素材接入点 row of a level file: hook id + beat + optional wave anchor.</summary>
@@ -100,6 +104,12 @@ public sealed class CinematicHookRouter
 
     /// <summary>Scripts bound to the victory beat.</summary>
     public IReadOnlyList<string> OnVictory() => Match(row => row.Beat == CinematicBeat.Victory);
+
+    /// <summary>
+    /// Scripts bound to the era-transition beat (T-152, 31 号 §三 d 位)——
+    /// 战役宿主在 F-003 时代跃迁事务点显式调用；无 wave 锚（跃迁无波位）。
+    /// </summary>
+    public IReadOnlyList<string> OnTransition() => Match(row => row.Beat == CinematicBeat.Transition);
 
     /// <summary>
     /// Marks a script as fired WITHOUT routing it (the replay path 可回看:
@@ -239,7 +249,8 @@ public sealed class CinematicHookRouter
         "level_start" => CinematicBeat.LevelStart,
         "wave_start" => CinematicBeat.WaveStart,
         "victory" => CinematicBeat.Victory,
+        "transition" => CinematicBeat.Transition,
         _ => throw new CinematicSchemaException(
-            $"{source}: 钩子 {hookId} 未登记 beat（{beat}，封闭表 level_start/wave_start/victory）"),
+            $"{source}: 钩子 {hookId} 未登记 beat（{beat}，封闭表 level_start/wave_start/victory/transition）"),
     };
 }

@@ -1,0 +1,41 @@
+{
+  "$schema": "urn:eratd:content:cinematics:1",
+  "content_type": "Cinematic",
+  "_annotation": "T-152 ③d 时代跃迁过场（31 号 §三 d 位）：video_frame 跃迁像素化片（Q18A）+ palette_shift 时代色板层积过渡；transition 拍由战役宿主在 F-003 跃迁事务点发射（无关卡钩子行——manual/campaign 通道）。时长拍数=30 tick/s × 母片时长（visual-assets.json A-02~06）。",
+  "id": "cinematic:transition-e1-e2",
+  "title_zh": "时代跃迁·远古 → 古典",
+  "steps": [
+    {
+      "kind": "screen",
+      "flavor": "black_fade_in",
+      "duration_ticks": 15
+    },
+    {
+      "kind": "video_frame",
+      "asset": "A-02",
+      "skippable": true,
+      "duration_ticks": 602
+    },
+    {
+      "kind": "palette_shift",
+      "from_era": "e1",
+      "to_era": "e2",
+      "duration_ticks": 90
+    },
+    {
+      "kind": "speak",
+      "speaker": "系统",
+      "text": "木望楼长成石堡箭楼——晨曦赭金，层积入青铜苍。",
+      "duration_ticks": 75
+    },
+    {
+      "kind": "checkpoint",
+      "id": "transition-e1-e2-end"
+    },
+    {
+      "kind": "screen",
+      "flavor": "fade_out",
+      "duration_ticks": 15
+    }
+  ]
+}

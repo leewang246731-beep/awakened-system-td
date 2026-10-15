@@ -1,0 +1,982 @@
+{
+ "$schema": "urn:eratd:content:visualassets:1",
+ "content_type": "VisualAssetCatalog",
+ "_annotation": "T-152 素材目录（31 号 v2.0 §二/§三 插入点映射）。videos/strips/composite=repo 内置轨（game/assets/cinematics/）；images 各批=外部轨（D21-5 双轨：开发期 U 盘 E:/game-assets/expand-v1，发布期聚合拷入 res://）；achievements=repo 内置 game/assets/expand-v1/P4/achievements。时长/像素化/音频/用途/色板=31 号 §二.2/§1.2 口径。",
+ "repo_video_root": "game/assets/cinematics",
+ "external_image_root": "E:/game-assets/expand-v1",
+ "repo_achievement_root": "game/assets/expand-v1/P4/achievements",
+ "ticks_per_second": 30,
+ "videos": [
+  {
+   "id": "A-01",
+   "layer": "A",
+   "file": "A/a-01.ogv",
+   "duration_s": 20.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "menu_loop"
+  },
+  {
+   "id": "A-02",
+   "layer": "A",
+   "file": "A/a-02.ogv",
+   "duration_s": 20.06,
+   "pixelate": true,
+   "audio": true,
+   "usage": "era_transition"
+  },
+  {
+   "id": "A-03",
+   "layer": "A",
+   "file": "A/a-03.ogv",
+   "duration_s": 20.06,
+   "pixelate": true,
+   "audio": true,
+   "usage": "era_transition"
+  },
+  {
+   "id": "A-04",
+   "layer": "A",
+   "file": "A/a-04.ogv",
+   "duration_s": 20.06,
+   "pixelate": true,
+   "audio": true,
+   "usage": "era_transition"
+  },
+  {
+   "id": "A-05",
+   "layer": "A",
+   "file": "A/a-05.ogv",
+   "duration_s": 20.06,
+   "pixelate": true,
+   "audio": true,
+   "usage": "era_transition"
+  },
+  {
+   "id": "A-06",
+   "layer": "A",
+   "file": "A/a-06.ogv",
+   "duration_s": 20.06,
+   "pixelate": true,
+   "audio": true,
+   "usage": "era_transition"
+  },
+  {
+   "id": "A-07",
+   "layer": "A",
+   "file": "A/a-07.ogv",
+   "duration_s": 90.21,
+   "pixelate": false,
+   "audio": true,
+   "usage": "finale"
+  },
+  {
+   "id": "B-01",
+   "layer": "B",
+   "file": "B/b-01.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "wonder"
+  },
+  {
+   "id": "B-02",
+   "layer": "B",
+   "file": "B/b-02.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "wonder"
+  },
+  {
+   "id": "B-03",
+   "layer": "B",
+   "file": "B/b-03.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "wonder"
+  },
+  {
+   "id": "B-04",
+   "layer": "B",
+   "file": "B/b-04.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "wonder"
+  },
+  {
+   "id": "B-05",
+   "layer": "B",
+   "file": "B/b-05.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "wonder"
+  },
+  {
+   "id": "B-06",
+   "layer": "B",
+   "file": "B/b-06.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "wonder"
+  },
+  {
+   "id": "B-07",
+   "layer": "B",
+   "file": "B/b-07.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "advisor_milestone"
+  },
+  {
+   "id": "B-08",
+   "layer": "B",
+   "file": "B/b-08.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "advisor_milestone"
+  },
+  {
+   "id": "B-09",
+   "layer": "B",
+   "file": "B/b-09.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "advisor_milestone"
+  },
+  {
+   "id": "B-10",
+   "layer": "B",
+   "file": "B/b-10.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "advisor_milestone"
+  },
+  {
+   "id": "B-11",
+   "layer": "B",
+   "file": "B/b-11.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "advisor_milestone"
+  },
+  {
+   "id": "B-12",
+   "layer": "B",
+   "file": "B/b-12.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "persona_unlock"
+  },
+  {
+   "id": "B-13",
+   "layer": "B",
+   "file": "B/b-13.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "persona_unlock"
+  },
+  {
+   "id": "B-14",
+   "layer": "B",
+   "file": "B/b-14.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "persona_unlock"
+  },
+  {
+   "id": "B-15",
+   "layer": "B",
+   "file": "B/b-15.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "persona_unlock"
+  },
+  {
+   "id": "C-01",
+   "layer": "C",
+   "file": "C/c-01.ogv",
+   "duration_s": 6.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "boss_enter"
+  },
+  {
+   "id": "C-02",
+   "layer": "C",
+   "file": "C/c-02.ogv",
+   "duration_s": 6.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "boss_enter"
+  },
+  {
+   "id": "C-03",
+   "layer": "C",
+   "file": "C/c-03.ogv",
+   "duration_s": 6.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "boss_enter"
+  },
+  {
+   "id": "C-04",
+   "layer": "C",
+   "file": "C/c-04.ogv",
+   "duration_s": 6.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "boss_enter"
+  },
+  {
+   "id": "C-05",
+   "layer": "C",
+   "file": "C/c-05.ogv",
+   "duration_s": 6.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "boss_death"
+  },
+  {
+   "id": "C-06",
+   "layer": "C",
+   "file": "C/c-06.ogv",
+   "duration_s": 6.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "boss_death"
+  },
+  {
+   "id": "C-07",
+   "layer": "C",
+   "file": "C/c-07.ogv",
+   "duration_s": 6.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "boss_death"
+  },
+  {
+   "id": "C-08",
+   "layer": "C",
+   "file": "C/c-08.ogv",
+   "duration_s": 6.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "boss_death"
+  },
+  {
+   "id": "C-09",
+   "layer": "C",
+   "file": "C/c-09.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "level_opening"
+  },
+  {
+   "id": "C-10",
+   "layer": "C",
+   "file": "C/c-10.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "level_opening"
+  },
+  {
+   "id": "C-11",
+   "layer": "C",
+   "file": "C/c-11.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "level_opening"
+  },
+  {
+   "id": "C-12",
+   "layer": "C",
+   "file": "C/c-12.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "level_opening"
+  },
+  {
+   "id": "C-13",
+   "layer": "C",
+   "file": "C/c-13.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "level_opening"
+  },
+  {
+   "id": "C-14",
+   "layer": "C",
+   "file": "C/c-14.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "level_opening"
+  },
+  {
+   "id": "C-15",
+   "layer": "C",
+   "file": "C/c-15.ogv",
+   "duration_s": 8.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "level_opening"
+  },
+  {
+   "id": "C-16",
+   "layer": "C",
+   "file": "C/c-16.ogv",
+   "duration_s": 10.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "first_clear"
+  },
+  {
+   "id": "C-17",
+   "layer": "C",
+   "file": "C/c-17.ogv",
+   "duration_s": 10.04,
+   "pixelate": false,
+   "audio": false,
+   "usage": "first_clear"
+  },
+  {
+   "id": "D-01",
+   "layer": "D",
+   "file": "D/d-01.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "memory"
+  },
+  {
+   "id": "D-02",
+   "layer": "D",
+   "file": "D/d-02.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "memory"
+  },
+  {
+   "id": "D-03",
+   "layer": "D",
+   "file": "D/d-03.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "memory"
+  },
+  {
+   "id": "D-04",
+   "layer": "D",
+   "file": "D/d-04.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "memory"
+  },
+  {
+   "id": "D-05",
+   "layer": "D",
+   "file": "D/d-05.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "memory"
+  },
+  {
+   "id": "D-06",
+   "layer": "D",
+   "file": "D/d-06.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "memory"
+  },
+  {
+   "id": "D-07",
+   "layer": "D",
+   "file": "D/d-07.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "memory"
+  },
+  {
+   "id": "D-08",
+   "layer": "D",
+   "file": "D/d-08.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "memory"
+  },
+  {
+   "id": "E-a",
+   "layer": "E",
+   "file": "E/e-a.ogv",
+   "duration_s": 12.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "easter_e09"
+  },
+  {
+   "id": "E-b",
+   "layer": "E",
+   "file": "E/e-b.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "easter_e05"
+  },
+  {
+   "id": "E-c",
+   "layer": "E",
+   "file": "E/e-c.ogv",
+   "duration_s": 10.08,
+   "pixelate": false,
+   "audio": true,
+   "usage": "hidden_finale_teaser"
+  },
+  {
+   "id": "E-d",
+   "layer": "E",
+   "file": "E/e-d.ogv",
+   "duration_s": 8.06,
+   "pixelate": false,
+   "audio": true,
+   "usage": "endless_milestone"
+  }
+ ],
+ "strips": [
+  {
+   "id": "C-01",
+   "file": "strips/boss-e1-enter.png",
+   "era": "e1",
+   "kind": "boss_enter",
+   "frames": 36,
+   "frame_w": 240,
+   "frame_h": 135,
+   "cols": 6
+  },
+  {
+   "id": "C-02",
+   "file": "strips/boss-e2-enter.png",
+   "era": "e2",
+   "kind": "boss_enter",
+   "frames": 36,
+   "frame_w": 240,
+   "frame_h": 135,
+   "cols": 6
+  },
+  {
+   "id": "C-03",
+   "file": "strips/boss-e3-enter.png",
+   "era": "e3",
+   "kind": "boss_enter",
+   "frames": 36,
+   "frame_w": 240,
+   "frame_h": 135,
+   "cols": 6
+  },
+  {
+   "id": "C-04",
+   "file": "strips/boss-e4-enter.png",
+   "era": "e4",
+   "kind": "boss_enter",
+   "frames": 36,
+   "frame_w": 240,
+   "frame_h": 135,
+   "cols": 6
+  },
+  {
+   "id": "C-05",
+   "file": "strips/boss-e1-death.png",
+   "era": "e1",
+   "kind": "boss_death",
+   "frames": 36,
+   "frame_w": 240,
+   "frame_h": 135,
+   "cols": 6
+  },
+  {
+   "id": "C-06",
+   "file": "strips/boss-e2-death.png",
+   "era": "e2",
+   "kind": "boss_death",
+   "frames": 36,
+   "frame_w": 240,
+   "frame_h": 135,
+   "cols": 6
+  },
+  {
+   "id": "C-07",
+   "file": "strips/boss-e3-death.png",
+   "era": "e3",
+   "kind": "boss_death",
+   "frames": 36,
+   "frame_w": 240,
+   "frame_h": 135,
+   "cols": 6
+  },
+  {
+   "id": "C-08",
+   "file": "strips/boss-e4-death.png",
+   "era": "e4",
+   "kind": "boss_death",
+   "frames": 36,
+   "frame_w": 240,
+   "frame_h": 135,
+   "cols": 6
+  }
+ ],
+ "composite": {
+  "id": "zero-truth",
+  "file": "D/zero-truth.ogv",
+  "duration_s": 60.0,
+  "requires": [
+   "D-01",
+   "D-02",
+   "D-03",
+   "D-04",
+   "D-05",
+   "D-06",
+   "D-07",
+   "D-08"
+  ]
+ },
+ "images": {
+  "banners": [
+   {
+    "id": "banner-e1-l1-awakening-grove",
+    "file": "P1/banners/banner-e1-l1-awakening-grove.png",
+    "era": "e1"
+   },
+   {
+    "id": "banner-e1-l2-dry-river-pass",
+    "file": "P1/banners/banner-e1-l2-dry-river-pass.png",
+    "era": "e1"
+   },
+   {
+    "id": "banner-e1-l3-stonewhisper-vale",
+    "file": "P1/banners/banner-e1-l3-stonewhisper-vale.png",
+    "era": "e1"
+   },
+   {
+    "id": "banner-e1-l4-twin-hillock-line",
+    "file": "P1/banners/banner-e1-l4-twin-hillock-line.png",
+    "era": "e1"
+   },
+   {
+    "id": "banner-e2-l1-first-waters",
+    "file": "P1/banners/banner-e2-l1-first-waters.png",
+    "era": "e2"
+   },
+   {
+    "id": "banner-e2-l2-carriage-roads",
+    "file": "P1/banners/banner-e2-l2-carriage-roads.png",
+    "era": "e2"
+   },
+   {
+    "id": "banner-e2-l3-scrolls-and-spear",
+    "file": "P1/banners/banner-e2-l3-scrolls-and-spear.png",
+    "era": "e2"
+   }
+  ],
+  "story": [
+   {
+    "id": "story-e1-act1-humiliation-1",
+    "file": "P1/story/story-e1-act1-humiliation-1.png",
+    "era": "e1"
+   },
+   {
+    "id": "story-e1-act1-humiliation-2",
+    "file": "P1/story/story-e1-act1-humiliation-2.png",
+    "era": "e1"
+   },
+   {
+    "id": "story-e1-act2-awakening-1",
+    "file": "P1/story/story-e1-act2-awakening-1.png",
+    "era": "e1"
+   },
+   {
+    "id": "story-e1-act2-awakening-2",
+    "file": "P1/story/story-e1-act2-awakening-2.png",
+    "era": "e1"
+   },
+   {
+    "id": "story-e1-act3-face-slap-1",
+    "file": "P1/story/story-e1-act3-face-slap-1.png",
+    "era": "e1"
+   },
+   {
+    "id": "story-e1-act3-face-slap-2",
+    "file": "P1/story/story-e1-act3-face-slap-2.png",
+    "era": "e1"
+   },
+   {
+    "id": "story-e1-opening",
+    "file": "P1/story/story-e1-opening.png",
+    "era": "e1"
+   },
+   {
+    "id": "story-e1-tease",
+    "file": "P1/story/story-e1-tease.png",
+    "era": "e1"
+   },
+   {
+    "id": "story-e2-act1-humiliation-1",
+    "file": "P1/story/story-e2-act1-humiliation-1.png",
+    "era": "e2"
+   },
+   {
+    "id": "story-e2-act1-humiliation-2",
+    "file": "P1/story/story-e2-act1-humiliation-2.png",
+    "era": "e2"
+   },
+   {
+    "id": "story-e2-act2-innovation-1",
+    "file": "P1/story/story-e2-act2-innovation-1.png",
+    "era": "e2"
+   },
+   {
+    "id": "story-e2-act2-innovation-2",
+    "file": "P1/story/story-e2-act2-innovation-2.png",
+    "era": "e2"
+   },
+   {
+    "id": "story-e2-act3-face-slap-1",
+    "file": "P1/story/story-e2-act3-face-slap-1.png",
+    "era": "e2"
+   },
+   {
+    "id": "story-e2-act3-face-slap-2",
+    "file": "P1/story/story-e2-act3-face-slap-2.png",
+    "era": "e2"
+   },
+   {
+    "id": "story-e2-opening",
+    "file": "P1/story/story-e2-opening.png",
+    "era": "e2"
+   }
+  ],
+  "hooks": [
+   {
+    "id": "hook-e1-mural-airship",
+    "file": "P1/hooks/hook-e1-mural-airship.png",
+    "era": "e1"
+   },
+   {
+    "id": "hook-e2-prophecy-page",
+    "file": "P1/hooks/hook-e2-prophecy-page.png",
+    "era": "e2"
+   },
+   {
+    "id": "hook-e3-impossible-blueprint",
+    "file": "P1/hooks/hook-e3-impossible-blueprint.png",
+    "era": "e3"
+   },
+   {
+    "id": "hook-e4-satellite-signal",
+    "file": "P1/hooks/hook-e4-satellite-signal.png",
+    "era": "e4"
+   },
+   {
+    "id": "hook-e5-echo-whisper",
+    "file": "P1/hooks/hook-e5-echo-whisper.png",
+    "era": "e5"
+   }
+  ],
+  "easter": [
+   {
+    "id": "e1-banner-memory-faded",
+    "file": "P3/variants/e1-banner-memory-faded.png",
+    "era": "e1"
+   },
+   {
+    "id": "e2-banner-prophecy-overlaid",
+    "file": "P3/variants/e2-banner-prophecy-overlaid.png",
+    "era": "e2"
+   },
+   {
+    "id": "e09-tower-six-forms-scroll",
+    "file": "P3/variants/e09-tower-six-forms-scroll.png",
+    "era": "e1"
+   },
+   {
+    "id": "e05-panel-doodle-eroded",
+    "file": "P3/variants/e05-panel-doodle-eroded.png",
+    "era": "e1"
+   },
+   {
+    "id": "e09-nostalgic-panorama",
+    "file": "P3/exclusives/e09-nostalgic-panorama.png",
+    "era": "e1"
+   },
+   {
+    "id": "e05-zero-journal-cover",
+    "file": "P3/exclusives/e05-zero-journal-cover.png",
+    "era": "e1"
+   }
+  ],
+  "skins": [
+   {
+    "id": "skin-e1",
+    "file": "P4/skins/skin-e1.png",
+    "era": "e1"
+   },
+   {
+    "id": "skin-e2",
+    "file": "P4/skins/skin-e2.png",
+    "era": "e2"
+   },
+   {
+    "id": "skin-e3",
+    "file": "P4/skins/skin-e3.png",
+    "era": "e3"
+   },
+   {
+    "id": "skin-e4",
+    "file": "P4/skins/skin-e4.png",
+    "era": "e4"
+   },
+   {
+    "id": "skin-e5",
+    "file": "P4/skins/skin-e5.png",
+    "era": "e5"
+   },
+   {
+    "id": "skin-e6",
+    "file": "P4/skins/skin-e6.png",
+    "era": "e6"
+   }
+  ],
+  "loading": [
+   {
+    "id": "loading-e1",
+    "file": "P4/loading/loading-e1.png",
+    "era": "e1"
+   },
+   {
+    "id": "loading-e2",
+    "file": "P4/loading/loading-e2.png",
+    "era": "e2"
+   },
+   {
+    "id": "loading-e3",
+    "file": "P4/loading/loading-e3.png",
+    "era": "e3"
+   },
+   {
+    "id": "loading-e4",
+    "file": "P4/loading/loading-e4.png",
+    "era": "e4"
+   },
+   {
+    "id": "loading-e5",
+    "file": "P4/loading/loading-e5.png",
+    "era": "e5"
+   },
+   {
+    "id": "loading-e6",
+    "file": "P4/loading/loading-e6.png",
+    "era": "e6"
+   }
+  ],
+  "personas": [
+   {
+    "id": "persona-venom-elder",
+    "file": "P4/personas/persona-venom-elder.png",
+    "era": "e1"
+   },
+   {
+    "id": "persona-strategist-scholar",
+    "file": "P4/personas/persona-strategist-scholar.png",
+    "era": "e1"
+   },
+   {
+    "id": "persona-craftsman-goofy",
+    "file": "P4/personas/persona-craftsman-goofy.png",
+    "era": "e1"
+   },
+   {
+    "id": "persona-tsundere-youth",
+    "file": "P4/personas/persona-tsundere-youth.png",
+    "era": "e1"
+   }
+  ]
+ },
+ "achievements": [
+  {
+   "id": "achv-era1-clear",
+   "file": "P4/achievements/achv-era1-clear.png"
+  },
+  {
+   "id": "achv-era2-clear",
+   "file": "P4/achievements/achv-era2-clear.png"
+  },
+  {
+   "id": "achv-era3-clear",
+   "file": "P4/achievements/achv-era3-clear.png"
+  },
+  {
+   "id": "achv-era4-clear",
+   "file": "P4/achievements/achv-era4-clear.png"
+  },
+  {
+   "id": "achv-era5-clear",
+   "file": "P4/achievements/achv-era5-clear.png"
+  },
+  {
+   "id": "achv-era6-clear",
+   "file": "P4/achievements/achv-era6-clear.png"
+  },
+  {
+   "id": "achv-no-station-lost",
+   "file": "P4/achievements/achv-no-station-lost.png"
+  },
+  {
+   "id": "achv-defense-intact",
+   "file": "P4/achievements/achv-defense-intact.png"
+  },
+  {
+   "id": "achv-no-tower-sold",
+   "file": "P4/achievements/achv-no-tower-sold.png"
+  },
+  {
+   "id": "achv-ammo-steady",
+   "file": "P4/achievements/achv-ammo-steady.png"
+  },
+  {
+   "id": "achv-efficiency-master",
+   "file": "P4/achievements/achv-efficiency-master.png"
+  },
+  {
+   "id": "achv-key-untouched",
+   "file": "P4/achievements/achv-key-untouched.png"
+  },
+  {
+   "id": "achv-first-research",
+   "file": "P4/achievements/achv-first-research.png"
+  },
+  {
+   "id": "achv-logistics-clean",
+   "file": "P4/achievements/achv-logistics-clean.png"
+  },
+  {
+   "id": "achv-system-bound",
+   "file": "P4/achievements/achv-system-bound.png"
+  },
+  {
+   "id": "achv-system-offline",
+   "file": "P4/achievements/achv-system-offline.png"
+  },
+  {
+   "id": "achv-advisor-max",
+   "file": "P4/achievements/achv-advisor-max.png"
+  },
+  {
+   "id": "achv-persona-all",
+   "file": "P4/achievements/achv-persona-all.png"
+  },
+  {
+   "id": "achv-scroll-first",
+   "file": "P4/achievements/achv-scroll-first.png"
+  },
+  {
+   "id": "achv-memory-all",
+   "file": "P4/achievements/achv-memory-all.png"
+  },
+  {
+   "id": "achv-zero-truth",
+   "file": "P4/achievements/achv-zero-truth.png"
+  },
+  {
+   "id": "achv-wonder-first",
+   "file": "P4/achievements/achv-wonder-first.png"
+  },
+  {
+   "id": "achv-boss-first",
+   "file": "P4/achievements/achv-boss-first.png"
+  },
+  {
+   "id": "achv-endless-milestone",
+   "file": "P4/achievements/achv-endless-milestone.png"
+  }
+ ],
+ "palettes": {
+  "e1": {
+   "label_zh": "晨曦赭金",
+   "primary": "c9915c",
+   "secondary": [
+    "6b7a5a",
+    "e07b39"
+   ],
+   "motif_zh": "木望楼"
+  },
+  "e2": {
+   "label_zh": "青铜苍",
+   "primary": "4e8a6e",
+   "secondary": [
+    "b3593a",
+    "e8e2d0"
+   ],
+   "motif_zh": "石堡箭楼"
+  },
+  "e3": {
+   "label_zh": "铆铁赭红",
+   "primary": "a8503c",
+   "secondary": [
+    "2e2a28",
+    "c9c4bc"
+   ],
+   "motif_zh": "铆接铁塔"
+  },
+  "e4": {
+   "label_zh": "电网蓝",
+   "primary": "3d7ea6",
+   "secondary": [
+    "9a9a94",
+    "e3c14f"
+   ],
+   "motif_zh": "混凝土雷达塔"
+  },
+  "e5": {
+   "label_zh": "聚变青",
+   "primary": "3fc1c9",
+   "secondary": [
+    "8a5fc9",
+    "dce4e8"
+   ],
+   "motif_zh": "能量尖塔"
+  },
+  "e6": {
+   "label_zh": "星门靛蓝",
+   "primary": "3e55c9",
+   "secondary": [
+    "1d1b33",
+    "bfe8f2"
+   ],
+   "motif_zh": "星门"
+  }
+ }
+}

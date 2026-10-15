@@ -28,12 +28,21 @@ public sealed partial class NarrativeHud : Control
 {
     private const int BubbleMaxChars = 48;
 
+    /// <summary>气泡配图边长（T-152：96px 方形缩略，Nearest 全局过滤）。</summary>
+    private const int BubbleImageSize = 96;
+
     private SimHost _host = null!;
     private NarrativeDirector? _director;
     private CinematicHookRouter? _router;
     private int _lastWave; // 0 = pre-first-wave grace（首帧不误发波拍）
+    private EraCore.Cinematics.VisualAssetCatalog? _catalog; // T-152 配图位素材目录
 
     private Label _bubble = null!;
+    private TextureRect _bubbleImage = null!;
+
+    // T-152 冒烟探针：配图渲染/降级计数
+    internal int _imagesShown;
+    internal int _imagesDegraded;
 
     /// <summary>Mount helper (Main.cs single-line wiring, same as the other HUDs).</summary>
     internal static NarrativeHud Instantiate(Main main, SimHost host)
@@ -54,6 +63,17 @@ public sealed partial class NarrativeHud : Control
         _bubble.AddThemeFontSizeOverride("font_size", 11);
         _bubble.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
         AddChild(_bubble);
+
+        // T-152 配图位：气泡左侧 96px 插画缩略（缺图隐藏——自动降级）
+        _bubbleImage = new TextureRect
+        {
+            Visible = false,
+            Position = new Vector2(8f, 196f),
+            Size = new Vector2(BubbleImageSize, BubbleImageSize),
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        AddChild(_bubbleImage);
 
         if (LoadContent())
         {
@@ -106,6 +126,32 @@ public sealed partial class NarrativeHud : Control
             : line.BubbleText;
         _bubble.Text = text;
         _bubble.Visible = true;
+
+        // T-152 ③b 配图位（31 号 §三 b 位）：DialogueLine.ImageKey→插画贴图；
+        // 缺图自动降级纯文本（外部轨 D21-5，U 盘不在机/键未配=隐藏）。
+        if (line.ImageKey is { } key && _catalog is not null)
+        {
+            Texture2D? texture = Expand.ExpandAssetPaths.LoadPng(
+                Expand.ExpandAssetPaths.ExternalImagePath(_catalog, key));
+            if (texture is not null)
+            {
+                _bubbleImage.Texture = texture;
+                _bubbleImage.Visible = true;
+                _bubble.Position = new Vector2(8f + BubbleImageSize + 6f, _bubble.Position.Y);
+                _imagesShown++;
+            }
+            else
+            {
+                _bubbleImage.Visible = false;
+                _bubble.Position = new Vector2(8f, _bubble.Position.Y);
+                _imagesDegraded++;
+            }
+        }
+        else
+        {
+            _bubbleImage.Visible = false;
+            _bubble.Position = new Vector2(8f, _bubble.Position.Y);
+        }
     }
 
     /// <summary>
@@ -120,9 +166,15 @@ public sealed partial class NarrativeHud : Control
 
         const long wave2Tick = 28_800; // L1-1 生产节拍实锚：grace(21600)+1×interval(7200)
         const long wave5Tick = 50_400; // grace+4×interval
-        int actLines = director.OnWaveStart(2, wave2Tick).Count; // 受辱幕+波 2 嘲讽
-        int bindLines = director.OnCinematicFired(_router!.OnWaveStart(2).Single(), wave2Tick).Count;
-        int slapLines = director.OnWaveStart(5, wave5Tick).Count;
+        var act1Batch = director.OnWaveStart(2, wave2Tick); // 受辱幕+波 2 嘲讽
+        int actLines = act1Batch.Count;
+        Show(act1Batch); // T-152：冒烟也走真实渲染路径（配图位显示/降级计数在此累积）
+        var bindBatch = director.OnCinematicFired(_router!.OnWaveStart(2).Single(), wave2Tick);
+        int bindLines = bindBatch.Count;
+        Show(bindBatch);
+        var slapBatch = director.OnWaveStart(5, wave5Tick);
+        int slapLines = slapBatch.Count;
+        Show(slapBatch);
         MockArcVerdict verdict = MockArcRulebook.Judge(director.MockArc!, victory: true, towersStanding: 3);
 
         int acts = director.ActsCompleted;
@@ -143,11 +195,13 @@ public sealed partial class NarrativeHud : Control
 
         var ending = director.OnVictory(wave5Tick + 30);
 
-        bool ok = acts == 3 && loop > 0 && within && verdict.HiddenHit && ending.Count > 0 && samples.Count == 3;
+        bool ok = acts == 3 && loop > 0 && within && verdict.HiddenHit && ending.Count > 0 && samples.Count == 3
+            && _imagesShown + _imagesDegraded >= 1; // T-152：配图位至少被走到一次（显示或降级）
         GD.Print(
             $"NARR_OK acts={acts} loop={loop:0}s budget={budget}s within={(within ? 1 : 0)} " +
             $"lines={actLines}+{bindLines}+{slapLines} idle_samples={samples.Count} " +
-            $"hidden_tier={verdict.HiddenChestTier} sim_towers={_host.Simulation.Towers.Count}");
+            $"hidden_tier={verdict.HiddenChestTier} sim_towers={_host.Simulation.Towers.Count} " +
+            $"bubble_images={_imagesShown}shown+{_imagesDegraded}degraded");
         if (!ok)
         {
             GD.Print("NARR_FAIL golden loop invariant broken");
@@ -167,6 +221,8 @@ public sealed partial class NarrativeHud : Control
             _router = new CinematicHookRouter(
                 CinematicHookRouter.ParseLevelHooks(ReadContent("levels", "e1.json"), "levels/e1.json"),
                 new[] { CinematicScript.Parse(ReadContent("cinematics", "e1-aha.json"), "cinematics/e1-aha.json") });
+            _catalog = EraCore.Cinematics.VisualAssetCatalog.Parse(
+                ReadContent("cinematics", "visual-assets.json"), "cinematics/visual-assets.json");
             return true;
         }
         catch (Exception ex)

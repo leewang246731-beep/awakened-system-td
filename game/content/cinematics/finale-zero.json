@@ -1,0 +1,42 @@
+{
+  "$schema": "urn:eratd:content:cinematics:1",
+  "content_type": "Cinematic",
+  "_annotation": "T-152 ③d 终章播片（31 号 §三 A-07 位）：真相揭示+首尾回环补色收束（靛蓝褪回 E1 暖赭，§1.3）。全片可跳过+图鉴回看（唯一长片）；E6 播片对话场景挂载点。时长=90.2s×30tps。",
+  "id": "cinematic:finale-zero",
+  "title_zh": "终章·零的真相揭示",
+  "minimum_play_ticks": 90,
+  "steps": [
+    {
+      "kind": "screen",
+      "flavor": "black_fade_in",
+      "duration_ticks": 20
+    },
+    {
+      "kind": "video_frame",
+      "asset": "A-07",
+      "skippable": true,
+      "duration_ticks": 2706
+    },
+    {
+      "kind": "palette_shift",
+      "from_era": "e6",
+      "to_era": "e1",
+      "duration_ticks": 120
+    },
+    {
+      "kind": "speak",
+      "speaker": "零",
+      "text": "六段层积，一次归源。零把自己拆成记忆碎片，散入每一座守望塔的影子里。",
+      "duration_ticks": 120
+    },
+    {
+      "kind": "checkpoint",
+      "id": "finale-zero-end"
+    },
+    {
+      "kind": "screen",
+      "flavor": "fade_out",
+      "duration_ticks": 20
+    }
+  ]
+}
