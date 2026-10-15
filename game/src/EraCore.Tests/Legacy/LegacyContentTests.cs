@@ -140,7 +140,7 @@ public class LegacyContentTests
 
     // ---- era_transition.json ------------------------------------------ legal
 
-    [Fact] // legal — F-003/F-011 跃迁参数锚点：30% 带走 + 3:1 折算 + 仓库+1 + 前三关排期
+    [Fact] // legal — F-003/F-011 跃迁参数锚点：30% 带走 + 3:1 折算 + 仓库+1 + 终局关 E1/E2 行 + 双目标时代前三关排期（T-117）
     public void era_transition_params_match_frozen_anchors()
     {
         EraTransitionSpec spec = LegacyDataLoader.ParseEraTransition(Load("era_transition.json"));
@@ -151,20 +151,65 @@ public class LegacyContentTests
         Assert.Equal(1, spec.WarehouseLevelGain); // 仓库自动 +1（§5）
         Assert.True(spec.PyramidBonusCarriesOver); // 金字塔随遗迹城跨代
         Assert.Equal("campaign:level-e1-final", spec.FinalLevels[1]);
-        Assert.Equal(3, spec.FirstThreeSchedule.Count);
-        Assert.Equal("new_energy", spec.FirstThreeSchedule.Single(s => s.Slot == 1).Focus); // 关 1 新能源
-        Assert.Equal("campaign:level-e2-01", spec.FirstThreeSchedule.Single(s => s.Slot == 1).LevelId);
-        Assert.Equal("new_logistics", spec.FirstThreeSchedule.Single(s => s.Slot == 2).Focus); // 关 2 新物流
-        Assert.Equal("archaeology_hero_system", spec.FirstThreeSchedule.Single(s => s.Slot == 3).Focus); // 关 3 考古+英雄+系统新能力
+        Assert.Equal("campaign:level-e2-final", spec.FinalLevels[2]); // T-117 E2→E3 行（id 裁定=E1 行同款约定，见 _source）
+
+        // 排期=两个目标时代各三行（target_era 2=E1→E2 冻结行；3=T-117 E2→E3 行）
+        Assert.Equal(6, spec.FirstThreeSchedule.Count);
+        IReadOnlyList<EraFirstThreeSlot> e2 = spec.ScheduleFor(2);
+        Assert.Equal(3, e2.Count);
+        Assert.Equal("new_energy", e2.Single(s => s.Slot == 1).Focus); // 关 1 新能源
+        Assert.Equal("campaign:level-e2-01", e2.Single(s => s.Slot == 1).LevelId);
+        Assert.Equal("new_logistics", e2.Single(s => s.Slot == 2).Focus); // 关 2 新物流
+        Assert.Equal("archaeology_hero_system", e2.Single(s => s.Slot == 3).Focus); // 关 3 考古+英雄+系统新能力
+
+        IReadOnlyList<EraFirstThreeSlot> e3 = spec.ScheduleFor(3);
+        Assert.Equal(3, e3.Count);
+        Assert.Equal("campaign:level-e3-01", e3.Single(s => s.Slot == 1).LevelId); // T-117：E2→E3 前三关=e3-01..03
+        Assert.Equal("new_energy", e3.Single(s => s.Slot == 1).Focus);
+        Assert.Equal("campaign:level-e3-02", e3.Single(s => s.Slot == 2).LevelId);
+        Assert.Equal("new_logistics", e3.Single(s => s.Slot == 2).Focus);
+        Assert.Equal("campaign:level-e3-03", e3.Single(s => s.Slot == 3).LevelId);
+        Assert.Equal("archaeology_hero_system", e3.Single(s => s.Slot == 3).Focus);
+        Assert.Empty(spec.ScheduleFor(6)); // 未声明目标时代=空（E5→终章行属未来内容）
     }
 
-    [Fact] // illegal — 前三关槽位重复拒绝
+    [Fact] // illegal — 前三关槽位重复拒绝（同 target_era 内 (era, slot) 重复）
     public void era_transition_rejects_duplicate_schedule_slots()
     {
-        string row = "{\"slot\":1,\"level_id\":\"l\",\"focus\":\"f\"}";
-        Assert.Throws<InvalidOperationException>(() => LegacyDataLoader.ParseEraTransition(
-            "{\"content_type\":\"Era\",\"first_three_schedule\":[" + row + "," + row + "]}"));
+        string row = "{\"slot\":1,\"target_era\":3,\"level_id\":\"l\",\"focus\":\"f\"}";
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            LegacyDataLoader.ParseEraTransition(ScheduleDoc("[" + row + "," + row + "]")));
+        Assert.Contains("distinct", ex.Message, StringComparison.Ordinal); // 真因=槽位重复（非缺字段）
     }
+
+    [Theory] // illegal — 排期行缺 target_era / 同时代槽 1..3 不完整 → 点名拒绝（T-117 结构守卫）
+    [InlineData(
+        "[{\"slot\":1,\"level_id\":\"l\",\"focus\":\"f\"}]",
+        "target_era")]
+    [InlineData(
+        "[{\"slot\":1,\"target_era\":3,\"level_id\":\"l\",\"focus\":\"f\"},{\"slot\":2,\"target_era\":3,\"level_id\":\"m\",\"focus\":\"g\"},{\"slot\":1,\"target_era\":2,\"level_id\":\"n\",\"focus\":\"h\"}]",
+        "slots 1..3")]
+    public void era_transition_rejects_missing_target_era_and_incomplete_slots(string rows, string needle)
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            LegacyDataLoader.ParseEraTransition(ScheduleDoc(rows)));
+        Assert.Contains(needle, ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A minimal but shape-complete era-transition document whose schedule
+    /// array is <paramref name="scheduleJson"/> — the negative rows must fail
+    /// on their OWN rule, not on a missing sibling field (CS-3.3).
+    /// </summary>
+    private static string ScheduleDoc(string scheduleJson) => """
+        {"content_type":"Era",
+         "preconditions":{"requires_final_level":true,"requires_wonder":true},
+         "levy":{"carried_share":0.3,"useless_fold_divisor":3},
+         "warehouse":{"level_gain_per_transition":1},
+         "pyramid_bonus_carries_over":true,
+         "final_levels":{"_source":"n"},
+         "first_three_schedule":
+        """ + scheduleJson + "}";
 
     // ---- boundary ------------------------------------------------------
 

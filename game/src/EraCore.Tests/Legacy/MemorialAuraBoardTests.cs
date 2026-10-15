@@ -53,6 +53,59 @@ public class MemorialAuraBoardTests
         Assert.Equal(0.05, board.EffectiveRepairDiscount(), 9);
     }
 
+    [Fact] // [F-059] legal（T-117 显式化）——第 4 座"建"不生效：经考古修复通道真实建出 4 座
+    // 纪念馆（真 ArchaeologyService.Restore 抽中 AsMemorial→注册），第 4 座落地后
+    // 前 3 座的生效光环值逐项不变，且下游 StackingRule 修复报价分文不动。
+    public void fourth_memorial_built_through_the_restoration_channel_changes_no_effective_aura()
+    {
+        var table = LegacyFixture.Archaeology();
+        var service = new ArchaeologyService(table);
+        MemorialAuraBoard board = Board();
+
+        // 建造路径=修复通道抽中纪念馆（权重 40/100，确定性 seed 驱动；每座带递增
+        // research 光环+内容 repair 光环以使"取最大"两通道皆可观测——auras 覆写
+        // 是 RegisterMemorial 的测试缝）
+        var rng = new EraCore.Tests.World.LcgRng(20261174);
+        double[] escalating = { 0.04, 0.05, 0.06, 0.90 };
+        int built = 0;
+        while (built < 4)
+        {
+            RestorationOutcome outcome = service.Restore(wreckValue: 1000, rng, board);
+            if (outcome.AsMemorial)
+            {
+                board.RegisterMemorial(new Dictionary<string, double>
+                {
+                    ["research_relief"] = escalating[built],
+                    ["repair_discount"] = 0.05, // 内容值（archaeology.json memorial_auras）
+                });
+                built++;
+            }
+        }
+
+        Assert.Equal(4, board.Memorials.Count); // 四馆全立（拆除是危险位，永不自动）
+        Assert.Equal(3, board.EffectiveCount); // 生效数封顶 3（F.3 全图至多 3 座生效）
+        Assert.Equal(0.06, board.EffectiveResearchRelief(), 9); // 第 4 座 0.90 不生效——前 3 最大值不变
+        Assert.Equal(0.05, board.EffectiveRepairDiscount(), 9); // 内容 repair 光环不变
+
+        // 下游单一咽喉：第 4 座前后修复报价逐分一致（Restore 折算基数=残值×0.3×0.8=240，
+        // 光环经 StackingRule：240×(1−0.05)=228）
+        const double foldedBase = 1000 * 0.3 * 0.8; // Restore 的 07 #28 折算层（×0.3×0.8）
+        double quoteWithFourth = EraCore.Legacy.StackingRule.Apply(foldedBase, new[] { board.EffectiveRepairDiscount() });
+        MemorialAuraBoard threeOnly = Board();
+        for (int i = 0; i < 3; i++)
+        {
+            threeOnly.RegisterMemorial(new Dictionary<string, double>
+            {
+                ["research_relief"] = escalating[i],
+                ["repair_discount"] = 0.05,
+            });
+        }
+
+        double quoteWithThree = EraCore.Legacy.StackingRule.Apply(foldedBase, new[] { threeOnly.EffectiveRepairDiscount() });
+        Assert.Equal(quoteWithThree, quoteWithFourth, 12);
+        Assert.Equal(foldedBase * (1 - 0.05), quoteWithFourth, 9); // 手算对照=228
+    }
+
     [Fact] // boundary — 无馆=零光环
     public void no_memorials_means_no_auras()
     {

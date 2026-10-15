@@ -18,6 +18,7 @@
     "rock_ratio": 0.10,
     "water_ratio": 0.08,
     "resource_node_count": 12,
+    "_resource_nodes_note": "D-35（T-117 G4 裁定）：跨代大陆资源节点维持无类型（纯占位格+occupancy 冲突源，Rock=矿位代理语义不变）——资源类型与传承丰度 ×0.5 不在本层引入 schema：丰度走全局策略通道（CrossEraResourcePolicy.AbundanceOf，关卡 map.ratio 层物化=设计 §5.1 稀缺逐关点配），节点数=计数旋钮（era 传承乘数不是节点数旋钮，回归矩阵钉 30 seed 恒=声明值）",
     "terrain_yield_radius_cells": 10,
     "resource_avoid_yield_zone": true,
     "threat_node_count": 9,

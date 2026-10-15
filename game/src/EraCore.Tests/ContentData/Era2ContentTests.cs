@@ -481,12 +481,15 @@ public class Era2ContentTests
     [Fact]
     public void Level_ids_and_focus_align_with_frozen_legacy_transition_schedule()
     {
-        // [F-012] 排期第四源互证：legacy/era_transition.json first_three_schedule（T-074 冻结）
-        // ——slot/level_id/focus 三列逐值对齐，任何一侧漂移即红。
+        // [F-012] 排期第四源互证：legacy/era_transition.json first_three_schedule
+        // ——slot/level_id/focus 三列逐值对齐，任何一侧漂移即红。T-117 起表内
+        // 共存两个目标时代的排期行（target_era=2/3），E2 侧只对本代行断言。
         var legacyDir = FindRepoContentDir(Path.Combine("legacy"));
         Assert.NotNull(legacyDir);
         var schedule = ArrayProperty(LoadDocFrom(legacyDir!.FullName, "era_transition.json").RootElement,
-            "first_three_schedule").EnumerateArray().ToList();
+            "first_three_schedule").EnumerateArray()
+            .Where(s => IntProperty(s, "target_era") == 2)
+            .ToList();
         Assert.Equal(3, schedule.Count);
 
         foreach (var frozen in schedule)

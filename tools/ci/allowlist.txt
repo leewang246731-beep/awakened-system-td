@@ -54,6 +54,7 @@ R9: docs/engineering/23-migration-plan.md | migration doc is env-facts style (dr
 R9: AGENTS.md | project charter contains env-facts quick-reference by design (see 09-env-locked precedent)
 R9: docs/engineering/24-t078-era2-art.md | era2 art pack task doc: E:\game-assets references are the same client USB asset-library inventory facts as 18-21/23 (its §6 cites 21 号 §2; env facts of record live in 07 §三（附）) — T-078 committed the doc without the entry (2ffd036), registered here to unblock run_all
 R9: docs/engineering/28-t094-art-freeze.md | T-094 art freeze manifest: E:\game-assets\freeze-v0.1 is the client-mandated USB sync destination for the frozen asset pack (same client USB library facts as 18-21/23/24; env facts of record live in 07 §三（附）) — registered in the same commit as the doc
+R9: docs/engineering/40-t115-crossera-audit.md | T-115 cross-era audit report: §六 执行环境说明 cites the shared dev data root D:\game\game\data as a test-host contention disclosure（记录性环境事实，同 reviews/ 先例类；环境事实以 07 §三（附）为准）— T-115 committed the doc without the entry (dae46ee), registered here by T-117 to unblock run_all（T-078 补登记先例）
 
 # —— T-152（视觉扩充接线）新增声明 ——
 # 生产泳道批次报告与入库 manifest（T-148~T-151 提交）引用 E:\game-videos /

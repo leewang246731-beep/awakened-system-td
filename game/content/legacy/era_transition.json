@@ -1,7 +1,7 @@
 {
   "$schema": "urn:eratd:content:legacy:era-transition:1",
   "content_type": "Era",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；本文件=C-20 E1→E2 跃迁事务参数表（T-074，F-003/F-011）",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；本文件=C-20 时代跃迁事务参数表（E1→E2=T-074 冻结；E2→E3 扩展=T-117，F-003/F-011）",
   "preconditions": {
     "requires_final_level": true,
     "requires_wonder": true,
@@ -20,18 +20,21 @@
   "_pyramid_note": "金字塔=E1 奇观且实体随遗迹城跨代保留（F.7 映射回放），其资源上限 +20% 项随仓库新等级继续生效（附录 F.3 池上限公式只有金字塔一个奇观项）",
   "final_levels": {
     "1": "campaign:level-e1-final",
-    "_source": "各时代终局关 id（占位：E1 终局关；E2+ 随 T-117/T-079 内容行扩展）"
+    "2": "campaign:level-e2-final",
+    "_source": "各时代终局关 id（键=被离开的时代序号，Precheck 以 FinalLevels[FromEraIndex] 硬校验占领）。E1 行=T-074 占位；E2 行=T-117 落位——id 裁定=沿用 E1 行命名约定 campaign:level-e{n}-final（n=被离开时代）：仓库现状 era3/levels.json 尚无终局关标记（T-116 在途），而 final_levels 语义（附录 F.3 跃迁硬条件=本时代终局关）与 E1 先例共同钉死 n=2；若 T-116 以其它 id（如 campaign:level-e3-boss）落 E2 终局关行，则以 T-116 实关行为准同步本行（一行字符串的协调缝）"
   },
   "first_three_schedule": [
     {
       "slot": 1,
+      "target_era": 2,
       "level_id": "campaign:level-e2-01",
       "focus": "new_energy",
       "focus_zh": "新能源",
-      "_source": "v3.2 §4：新时代前三关排期——关 1 新能源"
+      "_source": "v3.2 §4：新时代前三关排期——关 1 新能源（target_era=2：本行属 E1→E2 跃迁的目标时代排期）"
     },
     {
       "slot": 2,
+      "target_era": 2,
       "level_id": "campaign:level-e2-02",
       "focus": "new_logistics",
       "focus_zh": "新物流",
@@ -39,15 +42,41 @@
     },
     {
       "slot": 3,
+      "target_era": 2,
       "level_id": "campaign:level-e2-03",
       "focus": "archaeology_hero_system",
       "focus_zh": "考古+英雄+系统新能力",
       "_source": "v3.2 §4：新时代前三关排期——关 3 考古+英雄+系统新能力（§11.8）"
+    },
+    {
+      "slot": 1,
+      "target_era": 3,
+      "level_id": "campaign:level-e3-01",
+      "focus": "new_energy",
+      "focus_zh": "新能源",
+      "_source": "T-117 E2→E3 扩展：v3.2 §4 L67 关 1 新能源——逐值对齐 era3/levels.json slot 1 行（T-112 冻结排期侧；Era3ContentTests 前向守卫校验）"
+    },
+    {
+      "slot": 2,
+      "target_era": 3,
+      "level_id": "campaign:level-e3-02",
+      "focus": "new_logistics",
+      "focus_zh": "新物流",
+      "_source": "T-117 E2→E3 扩展：v3.2 §4 L67 关 2 新物流——逐值对齐 era3/levels.json slot 2 行（矿轨 10/s 物流档）"
+    },
+    {
+      "slot": 3,
+      "target_era": 3,
+      "level_id": "campaign:level-e3-03",
+      "focus": "archaeology_hero_system",
+      "focus_zh": "考古+英雄+系统新能力",
+      "_source": "T-117 E2→E3 扩展：v3.2 §4 L67 关 3 考古+英雄+系统新能力（托管级排期档）——逐值对齐 era3/levels.json slot 3 行"
     }
   ],
   "_units": {
     "levy.carried_share": "fraction_of_pool_amount",
     "levy.useless_fold_divisor": "old_resource_units_per_fund_unit",
-    "warehouse.level_gain_per_transition": "levels"
+    "warehouse.level_gain_per_transition": "levels",
+    "first_three_schedule.target_era": "era_index_of_jump_target"
   }
 }

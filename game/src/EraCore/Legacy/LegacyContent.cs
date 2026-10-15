@@ -183,17 +183,18 @@ public sealed record HeritageShopItem(
 /// <param name="Items">Shelf rows sorted by id (deterministic order, K-2 family).</param>
 public sealed record HeritageShopTable(IReadOnlyList<HeritageShopItem> Items);
 
-/// <summary>One first-three schedule row of the target era (v3.2 §4: 关 1 新能源/关 2 新物流/关 3 考古+英雄+系统新能力).</summary>
+/// <summary>One first-three schedule row of one target era (v3.2 §4: 关 1 新能源/关 2 新物流/关 3 考古+英雄+系统新能力).</summary>
 /// <param name="Slot">1-based slot inside the new era.</param>
+/// <param name="TargetEra">Era index the schedule belongs to — the jump's TARGET era (2 for the E1→E2 rows, 3 for the E2→E3 rows, T-117).</param>
 /// <param name="LevelId">Campaign level id of the slot.</param>
 /// <param name="Focus">Focus key (<c>new_energy</c>/<c>new_logistics</c>/<c>archaeology_hero_system</c>).</param>
-public sealed record EraFirstThreeSlot(int Slot, string LevelId, string Focus);
+public sealed record EraFirstThreeSlot(int Slot, int TargetEra, string LevelId, string Focus);
 
 /// <summary>
-/// The era-transition parameter table (T-074, F-003/F-011): hard
-/// preconditions, the 30% levy with the 3:1 useless-resource fold, the
-/// warehouse-level gain, the per-era final-level ids and the first-three
-/// schedule of the new era.
+/// The era-transition parameter table (T-074, F-003/F-011; E2→E3 rows =
+/// T-117): hard preconditions, the 30% levy with the 3:1 useless-resource
+/// fold, the warehouse-level gain, the per-era final-level ids and the
+/// first-three schedules keyed by the jump's TARGET era.
 /// </summary>
 /// <param name="RequiresFinalLevel">终局关 captured is a hard precondition.</param>
 /// <param name="RequiresWonder">Era wonder built is a hard precondition (附录 F.3).</param>
@@ -201,8 +202,8 @@ public sealed record EraFirstThreeSlot(int Slot, string LevelId, string Focus);
 /// <param name="UselessFoldDivisor">Old-resource units per civilization-fund unit (3:1).</param>
 /// <param name="WarehouseLevelGain">Warehouse levels gained per transition (v3.2 §5 自动 +1).</param>
 /// <param name="PyramidBonusCarriesOver">Whether the pyramid +20% cap term survives the jump (relic city keeps the wonder standing).</param>
-/// <param name="FinalLevels">Final-level id per era index (终局关).</param>
-/// <param name="FirstThreeSchedule">Schedule rows of the NEXT era's first three levels.</param>
+/// <param name="FinalLevels">Final-level id per era index (终局关; key = the era being LEFT).</param>
+/// <param name="FirstThreeSchedule">Schedule rows of EVERY reachable target era's first three levels (rows carry <see cref="EraFirstThreeSlot.TargetEra"/>).</param>
 public sealed record EraTransitionSpec(
     bool RequiresFinalLevel,
     bool RequiresWonder,
@@ -211,7 +212,19 @@ public sealed record EraTransitionSpec(
     int WarehouseLevelGain,
     bool PyramidBonusCarriesOver,
     IReadOnlyDictionary<int, string> FinalLevels,
-    IReadOnlyList<EraFirstThreeSlot> FirstThreeSchedule);
+    IReadOnlyList<EraFirstThreeSlot> FirstThreeSchedule)
+{
+    /// <summary>
+    /// The schedule rows of one jump's target era, slot-ordered (T-117): the
+    /// rows whose <see cref="EraFirstThreeSlot.TargetEra"/> equals
+    /// <paramref name="targetEraIndex"/>. Empty when the table declares no
+    /// rows for that era (the E3→E4+ rows are future content).
+    /// </summary>
+    public IReadOnlyList<EraFirstThreeSlot> ScheduleFor(int targetEraIndex) =>
+        FirstThreeSchedule.Where(slot => slot.TargetEra == targetEraIndex)
+            .OrderBy(slot => slot.Slot)
+            .ToList();
+}
 
 /// <summary>
 /// Strict loader of the C-20 legacy content files (T-074): parses and
@@ -542,13 +555,31 @@ public static class LegacyDataLoader
         {
             schedule.Add(new EraFirstThreeSlot(
                 IntOf(row, "slot", min: 1, max: 3),
+                IntOf(row, "target_era", min: 2, max: 6),
                 StringOf(row, "level_id"),
                 StringOf(row, "focus")));
         }
 
-        if (schedule.Select(slot => slot.Slot).Distinct().Count() != schedule.Count || schedule.Count == 0)
+        if (schedule.Count == 0)
         {
-            throw new InvalidOperationException("first_three_schedule slots must be distinct (v3.2 §4 前三关).");
+            throw new InvalidOperationException("first_three_schedule carries no rows (v3.2 §4 前三关).");
+        }
+
+        // 槽位在 (target_era, slot) 上互异：同一目标时代的排期槽不得重复。
+        if (schedule.Select(slot => (slot.TargetEra, slot.Slot)).Distinct().Count() != schedule.Count)
+        {
+            throw new InvalidOperationException("first_three_schedule (target_era, slot) pairs must be distinct (v3.2 §4 前三关).");
+        }
+
+        // 声明了排期的目标时代必须恰含槽 1..3（前三关=完整三行，防半截扩展）。
+        foreach (int targetEra in schedule.Select(slot => slot.TargetEra).Distinct())
+        {
+            var slots = schedule.Where(slot => slot.TargetEra == targetEra).Select(slot => slot.Slot).OrderBy(s => s).ToList();
+            if (!slots.SequenceEqual(new[] { 1, 2, 3 }))
+            {
+                throw new InvalidOperationException(
+                    $"first_three_schedule of target era {targetEra} must be exactly slots 1..3 (got {string.Join(',', slots)}).");
+            }
         }
 
         return new EraTransitionSpec(

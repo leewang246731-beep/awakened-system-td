@@ -16,28 +16,12 @@ namespace EraCore.Tests.Legacy;
 // 马匹/中间锭/旧弹药）、弹链本代化裁定（E3 塔弹全=本代配方输出，
 // era2:ammo-* 无 E3 消费者→自动退役入折算）。
 //
-// 已知内容缺口（T-117 范围，审计报告 40-t115 §3）：era_transition.json
-// final_levels 尚无 "2" 行、first_three_schedule 仍指 E2——本套件以
-// 仅补 final_levels 的 spec 副本走 levy 通道（其余字段原值复用），
-// 并用一条 negative 测试钉死该缺口本身。
+// 内容缺口已闭合（T-117）：era_transition.json 现携带 final_levels["2"]
+// 行——T-115 的 negative 守卫（未补丁真表 2→3 硬拒）已翻转为内容回归
+// （真表直接放行，见 illegal 节翻转行）；其余字段原值复用。
 public class CrossEraE2ToE3LevyTests : SqliteSavePortTestBase
 {
-    private const string E2Final = "test:level-e2-final";
-
     private static ResourceKey Res(string id) => new(id);
-
-    /// <summary>
-    /// The real era-transition table with ONLY the era-2 final-level row
-    /// added (the T-117 content gap the audit reports); every other
-    /// field — 30% carried / 3:1 fold / warehouse +1 / preconditions —
-    /// is the frozen T-074 content verbatim.
-    /// </summary>
-    private static EraTransitionSpec PatchedTransition()
-    {
-        EraTransitionSpec real = Transition();
-        var finals = new Dictionary<int, string>(real.FinalLevels) { [2] = E2Final };
-        return real with { FinalLevels = finals };
-    }
 
     /// <summary>An E2-era campaign pool: all six audit rows + ingots + old ammo.</summary>
     private static ResourceStock E2Pool(int wood, int stone, int grain, int horse, int copper, int iron)
@@ -58,8 +42,7 @@ public class CrossEraE2ToE3LevyTests : SqliteSavePortTestBase
 
     private static EraTransitionResult RunTransition(ResourceStock pool, EraTransitionSpec spec, CountingSavePort port)
     {
-        // 未声明 "2" 终局关行的真内容表：树侧以替身 id 注册占领——事务的
-        // Precheck 仍以 FinalLevels.TryGetValue 为准并硬拒（见 illegal 行）。
+        // 真内容表（T-117 起含 "2" 终局关行）：树侧以声明 id 注册占领。
         string finalId = spec.FinalLevels.TryGetValue(2, out string? declared) ? declared : "test:level-e2-final-undeclared";
         var tech = Tree(2, finalId);
         var ledger = new LegacyLedger(Archaeology(), Shop());
@@ -98,7 +81,7 @@ public class CrossEraE2ToE3LevyTests : SqliteSavePortTestBase
         double ironBefore = pool.AmountOf(Res("era2:res-iron"));
         var counting = new CountingSavePort(CreatePort());
 
-        EraTransitionResult result = RunTransition(pool, PatchedTransition(), counting);
+        EraTransitionResult result = RunTransition(pool, Transition(), counting);
 
         // 逐资源守恒：旧存量 = 带走 + 留存（十行全覆盖）
         Assert.Equal(10, result.Levy.Count);
@@ -208,7 +191,7 @@ public class CrossEraE2ToE3LevyTests : SqliteSavePortTestBase
 
         var counting = new CountingSavePort(CreatePort());
 
-        EraTransitionResult result = RunTransition(pool, PatchedTransition(), counting);
+        EraTransitionResult result = RunTransition(pool, Transition(), counting);
 
         Assert.Equal(6, result.Levy.Count);
         Assert.All(result.Levy, line =>
@@ -222,16 +205,45 @@ public class CrossEraE2ToE3LevyTests : SqliteSavePortTestBase
         Assert.Equal(1, counting.CampaignWrites); // 零带走仍完整成事务
     }
 
-    // ---- illegal -------------------------------------------------------------
+    // ---- G3 守卫翻转 + illegal ------------------------------------------------
 
-    [Fact] // [F-011] illegal — 真内容缺口钉死：未打补丁的 era_transition.json 无 "2" 终局关行
-            // → 2→3 跳代被硬拒（T-117 落位 final_levels["2"] 后本行应改为断言放行）
-    public void Unpatched_real_transition_table_refuses_the_E2_to_E3_jump()
+    [Fact] // [F-011] legal（G3 守卫翻转，T-117）——真内容表现在携带 "2" 终局关行：
+            // 未打补丁的 era_transition.json 直接放行 2→3 跳代（T-115 期此行硬拒
+            // "no final level for era 2"——行 id 与 E1 行同款约定 campaign:level-e2-final）
+    public void Real_transition_table_now_carries_the_E2_final_level_row()
     {
         var pool = E2Pool(wood: 60, stone: 30, grain: 90, horse: 15, copper: 50, iron: 80);
+        var counting = new CountingSavePort(CreatePort());
 
-        var ex = Assert.Throws<EraTransitionRejectedException>(
-            () => RunTransition(pool, Transition(), new CountingSavePort(CreatePort())));
-        Assert.Contains("no final level for era 2", ex.Message, StringComparison.Ordinal);
+        EraTransitionResult result = RunTransition(pool, Transition(), counting);
+
+        Assert.Equal(2, result.FromEraIndex);
+        Assert.Equal(3, result.ToEraIndex);
+        Assert.Equal(1, counting.CampaignWrites);
+        Assert.Equal("campaign:level-e2-final", Transition().FinalLevels[2]);
+        // E2→E3 排期=e3-01..03（target_era=3 行，非 E1→E2 的 e2 行）
+        Assert.Equal(
+            new[] { "campaign:level-e3-01", "campaign:level-e3-02", "campaign:level-e3-03" },
+            result.Schedule.Select(slot => slot.LevelId).ToArray());
+    }
+
+    [Fact] // [F-011] illegal — 终局关未占领仍硬拒（E2→E3 行落地后的持续守卫：
+            // 有行但树未占领 → Precheck 拒绝且零写入）
+    public void E2_to_E3_jump_still_refuses_when_the_final_level_is_not_captured()
+    {
+        var pool = E2Pool(wood: 60, stone: 30, grain: 90, horse: 15, copper: 50, iron: 80);
+        var tech = Tree(2, "test:some-other-level"); // 未占领声明终局关
+        var ledger = new LegacyLedger(Archaeology(), Shop());
+        ledger.MarkWonderBuilt(Wonders().Single(w => w.EraIndex == 2).Id);
+        var request = new EraTransitionRequest(
+            Seed, FromEraIndex: 2, pool, tech, ledger,
+            CityFacts(11, 30, 9, Mapping().Orientations), Anchor,
+            CrossEraResourcePolicy.Parse(File.ReadAllText(Path.Combine(EraDir("era3"), "era.json"))).NewEraResources,
+            new SimClock(), new LcgRng(Seed + 3), new CountingSavePort(CreatePort()),
+            EmptyMeta(Seed, 2), Mapping(), Transition(), Wonders());
+
+        EraTransitionRejectedException ex = Assert.Throws<EraTransitionRejectedException>(
+            () => new EraTransitionService().Execute(request));
+        Assert.Contains("campaign:level-e2-final", ex.Message, StringComparison.Ordinal);
     }
 }

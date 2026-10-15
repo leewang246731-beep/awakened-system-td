@@ -153,9 +153,9 @@ public sealed class EraTransitionRejectedException : InvalidOperationException
 }
 
 /// <summary>
-/// The atomic E1→E2 era transition (T-074, C-20, F-003): one journal-guarded
-/// transaction across [前置校验 → 30% levy → 跃迁快照 → 新大陆 → 遗迹映射回放
-/// → 科技时代根切换 → 前三关排期 → campaign 域一次写]. The ONLY persistent
+/// The atomic era transition (T-074, C-20, F-003; E2→E3 rows = T-117): one
+/// journal-guarded transaction across [前置校验 → 30% levy → 跃迁快照 → 新大陆 →
+/// 遗迹映射回放 → 科技时代根切换 → 前三关排期 → campaign 域一次写]. The ONLY persistent
 /// effect is the single <see cref="ISavePort.WriteCampaign"/> of the last
 /// step — every earlier failure leaves the store byte-identical and the
 /// journal restores every in-memory input (pool amounts, tech era root,
@@ -263,9 +263,8 @@ public sealed class EraTransitionService
             Probe(request, EraTransitionStep.TechRootSwitch);
 
             // ================= 7 前三关排期元数据 (v3.2 §4: 新能源/新物流/考古+英雄+系统)
-            IReadOnlyList<EraFirstThreeSlot> schedule = request.Transition.FirstThreeSchedule
-                .OrderBy(slot => slot.Slot)
-                .ToList();
+            // T-117: 排期行携带 target_era——本事务只取 toEra 的行（E1→E2 与 E2→E3 同表共存）。
+            IReadOnlyList<EraFirstThreeSlot> schedule = request.Transition.ScheduleFor(toEra);
             Probe(request, EraTransitionStep.ScheduleBuild);
 
             // ================= 8 campaign 域一次写 (the ONLY persistent effect)

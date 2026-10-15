@@ -95,13 +95,46 @@ public sealed record TransportTier(
     /// <summary>
     /// Formula throughput at <paramref name="oneWayDistancePx"/>: capacity
     /// ÷ (round-trip period ÷ 30). Valid for trip forms; the belt form
-    /// realizes it as surface speed ÷ cell size × per-cell items (no
-    /// windows); the teleport form is unbounded (∞).
+    /// realizes its length-independent surface flow as the design anchor
+    /// (surface speed ÷ cell size × per-cell items); the teleport form is
+    /// unbounded (∞).
     /// </summary>
     public double ThroughputItemsPerSecondAt(double oneWayDistancePx) =>
-        Form == TransportForm.Teleport
-            ? double.PositiveInfinity
-            : CapacityItems / (RoundTripTicks(oneWayDistancePx) / Carrier.TicksPerSecond);
+        ThroughputItemsPerSecondAt(oneWayDistancePx, throughputMultiplier: 1.0);
+
+    /// <summary>
+    /// Formula throughput with the GLOBAL logistics multiplier channel
+    /// (T-117, F-060 世博会=物流吞吐 +25%): every form's throughput scales by
+    /// <paramref name="throughputMultiplier"/> (1.0 = no bonus; the value is
+    /// derived from content by <c>Legacy.WonderThroughputBoard</c> — the tier
+    /// table itself stays wonder-agnostic). Teleport stays ∞ — a multiplier
+    /// of ∞ is ∞. Belt scales its surface-flow anchor; trip forms scale the
+    /// capacity ÷ period formula.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// throughputMultiplier is not finite or below 1 (the channel only boosts, F.3).
+    /// </exception>
+    public double ThroughputItemsPerSecondAt(double oneWayDistancePx, double throughputMultiplier)
+    {
+        if (!double.IsFinite(throughputMultiplier) || throughputMultiplier < 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(throughputMultiplier), throughputMultiplier,
+                "The global logistics throughput multiplier must be finite and >= 1 (F.3: only boosts).");
+        }
+
+        if (Form == TransportForm.Teleport)
+        {
+            return double.PositiveInfinity;
+        }
+
+        if (Form == TransportForm.BeltFlow)
+        {
+            return ThroughputAnchorItemsPerSecond * throughputMultiplier;
+        }
+
+        return CapacityItems / (RoundTripTicks(oneWayDistancePx) / Carrier.TicksPerSecond) * throughputMultiplier;
+    }
 }
 
 /// <summary>

@@ -37,7 +37,7 @@
       "aliases": ["世博会", "E3 奇观"],
       "bonus_kind": "logistics_throughput",
       "bonus_value": 0.25,
-      "_source": "附录 F.3：世界博览会（E3，物流吞吐 +25%）；E2→E3 跃迁=T-117 扩展位"
+      "_source": "附录 F.3：世界博览会（E3，物流吞吐 +25%）；消费通道=Legacy.WonderThroughputBoard（T-117）——Π(1+0.25)=1.25 全局乘数接入 Logistics.TransportTier 吞吐公式；E2→E3 跃迁行=legacy/era_transition.json final_levels[\"2\"]（T-117 落位）"
     },
     {
       "id": "campaign:wonder-internet",
