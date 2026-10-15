@@ -342,7 +342,14 @@ public sealed class Simulation
         // row-major — GridWorld contract).
         _world = new GridWorld(config.Width, config.Height, rng, config.ForestRatio, config.RockRatio, config.WaterRatio);
         _stock = new ResourceStock(_clock, config.WarehouseLevel); // T-067: 仓库等级经配置（E1 缺省=1 不变；era2 关卡挂 2 级池）
-        _ledger = new EnergyLedger(_clock);
+        // T-113 (F-010): SP-4 能源风险参数表经配置注入——E1/E2（era.json
+        // risk_events=false）传 null，账本行为与哈希同前；E3+ 关卡把
+        // data/eras/{era}.json 的阈值行装成 EnergyRiskTuning 挂进来，风险
+        // tick 在每步第 (2) 段的 Settle 内推进（过热/熔毁/降载/损毁全在
+        // 账本域内结算，AOE/辐射区负载经 RiskEvents 交世界层）。
+        _ledger = new EnergyLedger(
+            _clock,
+            risk: config.EnergyRisk is null ? null : new EnergyRiskEngine(config.EnergyRisk));
         _registry = new BuildingRegistry(_world);
         _registry.AttachToWorld();
         _flowGrid = new SimFlowGrid(_registry, _world);
@@ -540,7 +547,11 @@ public sealed class Simulation
         ApplyDueCommands(tick);
 
         // (2) Terrain/energy settle: pool satisfaction for this tick (granary
-        //     stays unattached in the E1 thin level). Teleporter lanes read
+        //     stays unattached in the E1 thin level) and — when the level
+        //     carries an SP-4 risk table (T-113) — one risk tick of the
+        //     overheat/meltdown channels (满足度历史窗口→负载率驱动；后果：
+        //     肇事机停机/降载/注销在账本内生效，AOE/辐射区负载入
+        //     Ledger.RiskEvents 供世界层应用). Teleporter lanes read
         //     the settled satisfaction in phase (4).
         _ledger.Settle();
 

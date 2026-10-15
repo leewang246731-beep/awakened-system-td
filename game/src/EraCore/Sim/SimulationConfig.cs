@@ -1,6 +1,7 @@
 using EraCore.Combat;
 using EraCore.Contracts.Foundation;
 using EraCore.Economy;
+using EraCore.Energy;
 using EraCore.Pathfinding;
 using EraCore.Units;
 using EraCore.World;
@@ -87,6 +88,13 @@ public sealed record BuildCostPolicy(
 /// prices (fire-oil 2430, F.5) clear the cap; default 1 keeps every E1
 /// caller identical.
 /// </param>
+/// <param name="EnergyRisk">
+/// SP-4 energy risk parameter table of the era (T-113, F-010; the E3
+/// overheat/E4 meltdown thresholds and consequence magnitudes — data-side
+/// = data/eras/{era}.json, RL7). Null (default) = the era has no
+/// load-rate ladder risks (E1/E2: era.json risk_events=false) and the
+/// energy ledger is constructed exactly as before (bit-identical hashes).
+/// </param>
 public sealed record SimulationConfig(
     int Width,
     int Height,
@@ -108,4 +116,5 @@ public sealed record SimulationConfig(
     CellCoord? HeroCell = null,
     double RuinRepairCostFraction = 0.30,
     bool ProjectileTwinsEnabled = false,
-    int WarehouseLevel = 1);
+    int WarehouseLevel = 1,
+    EnergyRiskTuning? EnergyRisk = null);

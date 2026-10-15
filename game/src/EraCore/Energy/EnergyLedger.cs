@@ -18,6 +18,19 @@ namespace EraCore.Energy;
 /// <see cref="GranaryOverflowEvent"/> (CS-1.4); same seed + same tick
 /// sequence ⇒ identical <see cref="ComputeStateHash"/> (03-decomposition
 /// §1.2 replay requirement).
+/// <para>
+/// T-113 (F-010): an optional <see cref="EnergyRiskEngine"/> attaches the
+/// SP-4 load-rate ladder risks. Each settle then ALSO feeds the raw load
+/// ratio (需求÷有效发电, SP-4 L142 — effective output already reflects E3
+/// explosion downtime/derate windows) into the engine and applies its
+/// in-domain outcomes: an E3 overheat explosion parks the culprit producer
+/// at 0 output for the downtime and at the derate fraction afterwards
+/// (肇事发电机停机→降功率), an E4 meltdown unregisters the culprit
+/// (永久损毁成残骸 — the wreck itself is world-layer payload). The engine
+/// draws no randomness, so the determinism contract is unchanged; E1/E2
+/// ledgers (risk_events=false, era.json) attach no engine and hash
+/// bit-identically to the pre-T-113 ledger.
+/// </para>
 /// </summary>
 public sealed class EnergyLedger
 {
@@ -33,8 +46,11 @@ public sealed class EnergyLedger
 
     private readonly IClock _clock;
     private readonly GranaryOverflowEvent? _granary;
+    private readonly EnergyRiskEngine? _risk;
     private readonly List<Node> _nodes = new();
     private readonly Dictionary<EnergyNodeId, Node> _byId = new();
+    private readonly Dictionary<EnergyNodeId, DerateWindow> _derates = new();
+    private readonly List<EnergyRiskOutcome> _riskEvents = new();
 
     private ResourceKey? _granaryResource;
     private double _granaryCapacity;
@@ -48,6 +64,8 @@ public sealed class EnergyLedger
     private double _satisfaction = 1.0;
     private double _cumulativeDelivered;
     private double _cumulativeSurplus;
+    private double _loadRatio;
+    private bool _coolantSupplied = true;
 
     /// <summary>
     /// Creates an empty ledger. The E1 ladder band [3,5] is asserted here
@@ -60,13 +78,19 @@ public sealed class EnergyLedger
     /// settle. Its seeded <see cref="IRng"/> is the only randomness the
     /// ledger ever touches.
     /// </param>
-    public EnergyLedger(IClock clock, GranaryOverflowEvent? granary = null)
+    /// <param name="risk">
+    /// Optional SP-4 energy risk engine (T-113, F-010); null = this era has
+    /// no load-rate ladder risks (E1/E2: era.json risk_events=false) and
+    /// the ledger behaves exactly like the pre-T-113 version.
+    /// </param>
+    public EnergyLedger(IClock clock, GranaryOverflowEvent? granary = null, EnergyRiskEngine? risk = null)
     {
         ArgumentNullException.ThrowIfNull(clock);
         E1EnergyAnchors.EnsureLadderInBand();
 
         _clock = clock;
         _granary = granary;
+        _risk = risk;
     }
 
     private sealed record Node(
@@ -76,20 +100,58 @@ public sealed class EnergyLedger
         double RatePerSecond,
         ResourceKey? Supplies);
 
+    /// <summary>
+    /// One culprit producer's post-explosion output window (E3 consequence,
+    /// SP-4 L146「肇事发电机停机 60 s 后以 50% 功率运行 30 s」): output 0 for
+    /// <c>DowntimeTicks</c> after the fire tick, then
+    /// <c>Rate × DerateFraction</c> for <c>DerateTicks</c>, then full again.
+    /// The fire tick itself still produces (consequences begin with the
+    /// NEXT settle — the explosion happens after that tick's satisfaction
+    /// was computed).
+    /// </summary>
+    private sealed record DerateWindow(long FireTick, long DowntimeTicks, long DerateTicks, double DerateFraction);
+
     /// <summary>Last settle's pool satisfaction in [0,1]; 1 before the first settle.</summary>
     public double Satisfaction => _satisfaction;
 
-    /// <summary>Total producer output in energy points per second (registration order sum).</summary>
+    /// <summary>
+    /// Last settle's raw grid load ratio 需求功率÷发电功率 (SP-4 L142) — the
+    /// quantity the SP-4 risk thresholds compare against, unclamped and
+    /// above 1 under overload. 0 before the first settle and whenever the
+    /// grid has no producers (an empty grid cannot overheat).
+    /// </summary>
+    public double LoadRatio => _loadRatio;
+
+    /// <summary>
+    /// The attached SP-4 risk engine, null when this era has no load-rate
+    /// ladder risks (T-113; era.json risk_events=false).
+    /// </summary>
+    public EnergyRiskEngine? Risk => _risk;
+
+    /// <summary>
+    /// Every fired energy risk event so far, in fire order (T-113
+    /// observability; folded into the state hash). World-layer AOE/radiation
+    /// payloads are consumed from here by the host.
+    /// </summary>
+    public IReadOnlyList<EnergyRiskOutcome> RiskEvents => _riskEvents;
+
+    /// <summary>
+    /// Total EFFECTIVE producer output in energy points per second — base
+    /// rates minus live downtime/derate windows of explosion culprits
+    /// (registration order sum). Equals the pre-T-113 sum when no risk
+    /// engine is attached.
+    /// </summary>
     public double TotalOutputPerSecond
     {
         get
         {
             double sum = 0;
+            long tick = _clock.Tick;
             foreach (Node node in _nodes)
             {
                 if (node.IsProducer)
                 {
-                    sum += node.RatePerSecond;
+                    sum += EffectiveOutput(node, tick);
                 }
             }
 
@@ -150,6 +212,15 @@ public sealed class EnergyLedger
 
     /// <summary>Total food points destroyed by granary overflow since attachment.</summary>
     public double CumulativeGranaryLoss => _cumulativeGranaryLoss;
+
+    /// <summary>
+    /// Sets the coolant supply state of the era's generators (E4 断冷
+    /// channel, T-113 task card「E4 核电[断冷→熔毁]」). Default true; read by
+    /// the risk engine at each settle when a meltdown row exists — losing
+    /// the supply starts the countdown, restoring it interrupts a
+    /// coolant-started countdown (对策：冷却液供给可避免).
+    /// </summary>
+    public void SetCoolantSupplied(bool supplied) => _coolantSupplied = supplied;
 
     /// <summary>
     /// Registers a producer node. The output is pinned by the era anchor
@@ -295,13 +366,14 @@ public sealed class EnergyLedger
 
     /// <summary>
     /// Runs one settlement for the current <see cref="IClock.Tick"/>:
-    /// recomputes the pool satisfaction from the registered rates,
-    /// accumulates delivered/surplus energy over the elapsed ticks, and —
-    /// with an attached granary — runs one spoilage check and applies any
-    /// loss to the tracked stock. Rejects re-settling a tick already
-    /// settled and non-monotonic clocks with
-    /// <see cref="InvalidOperationException"/> (each tick settles exactly
-    /// once; that is the determinism contract).
+    /// recomputes the pool satisfaction from the registered (effective)
+    /// rates, accumulates delivered/surplus energy over the elapsed ticks,
+    /// runs one granary spoilage check when attached, and — with an
+    /// attached risk engine — feeds the load ratio into the SP-4 channels
+    /// and applies any fired outcome (E3: culprit derate window; E4:
+    /// culprit unregister). Rejects re-settling a tick already settled and
+    /// non-monotonic clocks with <see cref="InvalidOperationException"/>
+    /// (each tick settles exactly once; that is the determinism contract).
     /// </summary>
     public void Settle()
     {
@@ -329,7 +401,7 @@ public sealed class EnergyLedger
         {
             if (node.IsProducer)
             {
-                output += node.RatePerSecond;
+                output += EffectiveOutput(node, tick);
             }
             else
             {
@@ -340,6 +412,10 @@ public sealed class EnergyLedger
         // v3.2 §5 L75: 效率=min(供给率)，需求≤0 恒 1 — the pool has no
         // demand to starve, so it is fully satisfied.
         _satisfaction = demand <= 0 ? 1.0 : Math.Clamp(output / demand, 0.0, 1.0);
+
+        // SP-4 L142: 电网负载率=当前需求功率÷当前发电功率 — raw and unclamped;
+        // a producer-less grid has no generator to overheat, so it reads 0.
+        _loadRatio = output > 0 ? demand / output : 0.0;
 
         double seconds = dt / TicksPerSecond;
         _cumulativeDelivered += Math.Min(output, demand) * seconds;
@@ -356,10 +432,123 @@ public sealed class EnergyLedger
             }
         }
 
+        if (_risk is not null)
+        {
+            foreach (EnergyRiskOutcome outcome in _risk.OnSettle(
+                         tick, dt, _loadRatio, _coolantSupplied, LargestProducerId()))
+            {
+                _riskEvents.Add(outcome);
+                ApplyRiskOutcome(tick, outcome);
+            }
+
+            PruneExpiredDerates(tick);
+        }
+
         _lastTick = tick;
         _settledTicks++;
         _hasSettled = true;
     }
+
+    /// <summary>
+    /// Applies one fired outcome's in-domain consequence: the E3 culprit
+    /// producer gets its downtime/derate window (consequences visible from
+    /// the NEXT settle); the E4 culprit producer is unregistered outright
+    /// (永久损毁 — the wreck, its repair-recovery cost and the radiation
+    /// zone are world-layer payloads carried by the outcome record).
+    /// </summary>
+    private void ApplyRiskOutcome(long tick, EnergyRiskOutcome outcome)
+    {
+        if (outcome.Kind == EnergyRiskEventKind.OverheatExplosion)
+        {
+            _derates[outcome.Culprit] = new DerateWindow(
+                tick,
+                SecondsToTicks(outcome.GeneratorDowntimeSeconds),
+                SecondsToTicks(outcome.GeneratorDerateSeconds),
+                outcome.GeneratorDerateFraction);
+        }
+        else
+        {
+            _ = Unregister(outcome.Culprit);
+        }
+    }
+
+    /// <summary>
+    /// Effective output of one node at <paramref name="tick"/>: producers
+    /// inside a live derate window read 0 (downtime) or
+    /// <c>rate × fraction</c> (derate); everything else reads its base rate.
+    /// Pure — expired windows are pruned once per settle by
+    /// <see cref="PruneExpiredDerates"/>, never here.
+    /// </summary>
+    private double EffectiveOutput(Node node, long tick)
+    {
+        if (!node.IsProducer || !_derates.TryGetValue(node.Id, out DerateWindow? window))
+        {
+            return node.RatePerSecond;
+        }
+
+        long elapsed = tick - window.FireTick;
+        if (elapsed <= 0)
+        {
+            return node.RatePerSecond;
+        }
+
+        if (elapsed <= window.DowntimeTicks)
+        {
+            return 0.0;
+        }
+
+        return elapsed <= window.DowntimeTicks + window.DerateTicks
+            ? node.RatePerSecond * window.DerateFraction
+            : node.RatePerSecond;
+    }
+
+    /// <summary>
+    /// The deterministic culprit candidate handed to the risk engine: the
+    /// largest-output producer (ties resolved by registration order —
+    /// [NEW-T-113]: SP-4 names only「肇事发电机」; the biggest boiler bears
+    /// the risk). Null when the grid has no producers.
+    /// </summary>
+    private EnergyNodeId? LargestProducerId()
+    {
+        Node? largest = null;
+        foreach (Node node in _nodes)
+        {
+            if (node.IsProducer && (largest is null || node.RatePerSecond > largest.RatePerSecond))
+            {
+                largest = node;
+            }
+        }
+
+        return largest?.Id;
+    }
+
+    private void PruneExpiredDerates(long tick)
+    {
+        if (_derates.Count == 0)
+        {
+            return;
+        }
+
+        List<EnergyNodeId>? expired = null;
+        foreach (KeyValuePair<EnergyNodeId, DerateWindow> pair in _derates)
+        {
+            long elapsed = tick - pair.Value.FireTick;
+            if (elapsed > pair.Value.DowntimeTicks + pair.Value.DerateTicks)
+            {
+                (expired ??= new List<EnergyNodeId>()).Add(pair.Key);
+            }
+        }
+
+        if (expired is not null)
+        {
+            foreach (EnergyNodeId id in expired)
+            {
+                _derates.Remove(id);
+            }
+        }
+    }
+
+    private static long SecondsToTicks(double seconds) => (long)Math.Ceiling(seconds * TicksPerSecond);
 
     /// <summary>
     /// FNV-1a hash over the full observable ledger state (settled ticks,
@@ -403,6 +592,36 @@ public sealed class EnergyLedger
                 hash = Mix(hash, (ulong)_lastGranaryLoss.Tick);
                 hash = Mix(hash, (ulong)_lastGranaryLoss.LossKind);
                 hash = Mix(hash, BitConverter.DoubleToUInt64Bits(_lastGranaryLoss.Amount));
+            }
+        }
+
+        // T-113: risk state folds in ONLY when an engine is attached — an
+        // E1/E2 ledger (risk_events=false) contributes nothing and keeps
+        // its pre-T-113 hash bit-for-bit (golden stability).
+        if (_risk is not null)
+        {
+            hash = Mix(hash, (ulong)_risk.ComputeStateHash());
+            hash = Mix(hash, _coolantSupplied ? 1UL : 0UL);
+            hash = Mix(hash, BitConverter.DoubleToUInt64Bits(_loadRatio));
+            hash = Mix(hash, (ulong)_derates.Count);
+            foreach (Node node in _nodes)
+            {
+                if (_derates.TryGetValue(node.Id, out DerateWindow? window))
+                {
+                    hash = Mix(hash, (ulong)node.Id.Value);
+                    hash = Mix(hash, (ulong)window.FireTick);
+                    hash = Mix(hash, (ulong)window.DowntimeTicks);
+                    hash = Mix(hash, (ulong)window.DerateTicks);
+                    hash = Mix(hash, BitConverter.DoubleToUInt64Bits(window.DerateFraction));
+                }
+            }
+
+            hash = Mix(hash, (ulong)_riskEvents.Count);
+            foreach (EnergyRiskOutcome outcome in _riskEvents)
+            {
+                hash = Mix(hash, (ulong)outcome.Tick);
+                hash = Mix(hash, (ulong)outcome.Kind);
+                hash = Mix(hash, (ulong)outcome.Culprit.Value);
             }
         }
 
