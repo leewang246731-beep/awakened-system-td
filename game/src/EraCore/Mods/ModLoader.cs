@@ -36,6 +36,13 @@ public enum ModErrorKind
 
     /// <summary><c>patch:true</c> item whose target id is not loaded.</summary>
     PatchTargetMissing,
+
+    /// <summary>
+    /// UGC content-filter hit (T-105, F-149): mod text failed the game-side
+    /// content safety filter — the field/item/package was refused or the
+    /// offending field stripped (分级处置, player-visible, never silent).
+    /// </summary>
+    Ugc,
 }
 
 /// <summary>
@@ -97,11 +104,13 @@ public sealed record ModPackage(
 /// <param name="Items">Final overlay items sorted by (kind, id).</param>
 /// <param name="Errors">Every collected error, processing order (deterministic).</param>
 /// <param name="Reports">Patch overlay events, processing order.</param>
+/// <param name="UgcHits">Structured UGC filter hits (T-105, F-149): mod id / item id / field pointer / rule id / severity — UI 结构化展示用；同一命中也以 <see cref="ModErrorKind.Ugc"/> 错误行进 Errors（非静默）。</param>
 public sealed record ModLoadResult(
     IReadOnlyList<ModPackage> Packages,
     IReadOnlyList<JsonContentItem> Items,
     IReadOnlyList<ModLoadError> Errors,
-    IReadOnlyList<ModOverlayReport> Reports)
+    IReadOnlyList<ModOverlayReport> Reports,
+    IReadOnlyList<UgcHit> UgcHits)
 {
     /// <summary>True when no errors were collected (mods that failed are absent from <see cref="Packages"/>).</summary>
     public bool Ok => Errors.Count == 0;
@@ -122,6 +131,16 @@ public sealed record ModLoadResult(
 /// cross-namespace ids, cycles, unknown dependencies and schema/DSL
 /// violations are collected as <see cref="ModLoadError"/>s with file+line
 /// — the loader never throws for bad content and keeps loading the rest.
+/// </para>
+/// <para>
+/// UGC content filter (T-105, F-149, 设计 §16.3 游戏侧过滤入口): mod
+/// text fields (模组名/条目名/别名/描述/台词——L1 别名词典与军师 prompt
+/// 的注入面) pass <see cref="UgcFilter"/> BEFORE entering the overlay —
+/// 通过才入 Registry. Verdicts are graded (剔除字段/拒绝条目/拒绝整模组
+/// 带原因), surfaced as <see cref="ModErrorKind.Ugc"/> errors plus the
+/// structured <see cref="ModLoadResult.UgcHits"/> list; a package-level
+/// rejection rolls back every overlay write it made. First-party content
+/// (shipped and auditable) does not pass this layer.
 /// </para>
 /// </summary>
 public sealed class ModLoader
@@ -153,21 +172,27 @@ public sealed class ModLoader
         var reports = new List<ModOverlayReport>();
         var overlay = new Dictionary<(ContentType Type, string Id), JsonContentItem>();
 
-        // ---- stage 1: first-party base (same schema matrix as mods, CS-2.5)
+        // ---- stage 1: first-party base (same schema matrix as mods, CS-2.5;
+        // [T-105] 首方内容随包发行可审计，不过 UGC 层——过滤面=第三方模组)
         foreach (string file in firstPartyFiles)
         {
-            LoadContentDocument(file, mod: null, overlay, errors, reports);
+            LoadContentDocument(file, mod: null, overlay, errors, reports, ugc: null);
         }
 
         // ---- stage 2: discover + parse mod manifests
         var packages = new List<ModPackage>();
         var byId = new Dictionary<string, ModPackage>(StringComparer.Ordinal);
+        var ugcHits = new List<UgcHit>();
         if (modsRoot is not null && Directory.Exists(modsRoot))
         {
             foreach (string single in SortedFiles(modsRoot))
             {
                 var package = ParseSingleFileManifest(single, errors);
-                if (package is not null && ClaimId(package, byId, errors))
+                // [T-105/F-149] UGC 过滤挂点①：manifest 玩家可见名（模组列表
+                // 直出文本）装载期过滤——命中=整模组拒载带原因（坏模组弹错
+                // 不崩），不占 mod id（后续同 id 干净包仍可装载）。
+                if (package is not null && AdmitUgcManifest(package, Path.GetFileName(single), errors, ugcHits)
+                    && ClaimId(package, byId, errors))
                 {
                     packages.Add(package);
                 }
@@ -176,7 +201,12 @@ public sealed class ModLoader
             foreach (string dir in SortedDirectories(modsRoot))
             {
                 var package = ParseDirectoryManifest(dir, errors);
-                if (package is not null && ClaimId(package, byId, errors))
+                // [T-105/F-149] UGC 过滤挂点①（目录包同口径）。
+                if (package is not null
+                    && AdmitUgcManifest(
+                        package, $"{Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))}/{ManifestFileName}",
+                        errors, ugcHits)
+                    && ClaimId(package, byId, errors))
                 {
                     packages.Add(package);
                 }
@@ -187,19 +217,52 @@ public sealed class ModLoader
         List<ModPackage> ordered = ResolveLoadOrder(packages, byId, errors);
 
         // ---- stage 4: content overlay in load order
+        // [T-105/F-149] UGC 过滤挂点②：模组内容条目在 LoadItem 内 overlay
+        // 变更前过 UgcFilter——通过才入 overlay（=通过才入 Registry）。整包
+        // 拒绝级命中时回滚本包已写入 overlay 的全部新增与胜出补丁（journal
+        // 记录每次写入的前值，逆序恢复）并裁掉本包补丁报告；其余模组不受
+        // 影响（越滤=拒载带原因，同 T-104 越带=装载错误先例）。
+        var rejectedMods = new HashSet<string>(StringComparer.Ordinal);
         foreach (ModPackage package in ordered)
         {
+            var ugc = new UgcPackageState(package.ModId, ugcHits);
+            int reportWatermark = reports.Count;
             foreach (string file in ContentFilesOf(package))
             {
-                LoadContentDocument(file, package, overlay, errors, reports);
+                LoadContentDocument(file, package, overlay, errors, reports, ugc);
+                if (ugc.Rejected)
+                {
+                    break;
+                }
+            }
+
+            if (ugc.Rejected)
+            {
+                for (int entry = ugc.Journal.Count - 1; entry >= 0; entry--)
+                {
+                    var (key, previous) = ugc.Journal[entry];
+                    if (previous is null)
+                    {
+                        overlay.Remove(key);
+                    }
+                    else
+                    {
+                        overlay[key] = previous;
+                    }
+                }
+
+                reports.RemoveRange(reportWatermark, reports.Count - reportWatermark);
+                rejectedMods.Add(package.ModId);
             }
         }
+
+        ordered.RemoveAll(p => rejectedMods.Contains(p.ModId));
 
         var items = overlay.Values
             .OrderBy(i => i.ContentType)
             .ThenBy(i => i.Id, StringComparer.Ordinal)
             .ToList();
-        return new ModLoadResult(ordered, items, errors, reports);
+        return new ModLoadResult(ordered, items, errors, reports, ugcHits);
     }
 
     /// <summary>
@@ -245,6 +308,49 @@ public sealed class ModLoader
 
         byId.Add(package.ModId, package);
         return true;
+    }
+
+    /// <summary>
+    /// [T-105/F-149] manifest UGC 门：模组名（name_zh/name_en）扫描，任何命中
+    /// （规则或超长）= 整模组拒载（名是必填字段，无法剔除），结构化命中 +
+    /// Kind=Ugc 错误行（玩家可见"该模组包含不安全内容[规则名]"，非静默）。
+    /// </summary>
+    private static bool AdmitUgcManifest(
+        ModPackage package, string display, List<ModLoadError> errors, List<UgcHit> ugcHits)
+    {
+        IReadOnlyList<UgcHit> hits = UgcFilter.ScanManifestNames(package.ModId, package.NameZh, package.NameEn);
+        foreach (UgcHit hit in hits)
+        {
+            ugcHits.Add(hit);
+            errors.Add(new ModLoadError(
+                package.ModId, display, 1, "/" + hit.Field, ModErrorKind.Ugc, hit.PlayerMessage));
+        }
+
+        return hits.Count == 0;
+    }
+
+    /// <summary>
+    /// [T-105] 一个模组包装载期的 UGC 过滤上下文：结构化命中收集 + overlay
+    /// 写入 journal（(key, 前值)——前值 null 表示本包新增）+ 整包拒绝旗标
+    /// （拒绝后本包剩余文件不再装载，Compose 端按 journal 逆序回滚）。
+    /// </summary>
+    private sealed class UgcPackageState
+    {
+        public UgcPackageState(string modId, List<UgcHit> hits)
+        {
+            ModId = modId;
+            Hits = hits;
+        }
+
+        public string ModId { get; }
+
+        public List<UgcHit> Hits { get; }
+
+        public List<((ContentType Type, string Id) Key, JsonContentItem? Previous)> Journal { get; } = new();
+
+        public bool Rejected { get; private set; }
+
+        public void Reject() => Rejected = true;
     }
 
     private static ModPackage? ParseSingleFileManifest(string file, List<ModLoadError> errors)
@@ -522,7 +628,8 @@ public sealed class ModLoader
         ModPackage? mod,
         Dictionary<(ContentType Type, string Id), JsonContentItem> overlay,
         List<ModLoadError> errors,
-        List<ModOverlayReport> reports)
+        List<ModOverlayReport> reports,
+        UgcPackageState? ugc)
     {
         string display = mod is null
             ? file
@@ -567,7 +674,7 @@ public sealed class ModLoader
             {
                 string pointer = "/items/" + index;
                 int line = ModJsonLineMap.LineOf(lines, pointer);
-                LoadItem(type, item, pointer, line, display, mod, overlay, errors, reports, lines);
+                LoadItem(type, item, pointer, line, display, mod, overlay, errors, reports, lines, ugc);
                 index++;
             }
         }
@@ -583,7 +690,8 @@ public sealed class ModLoader
         Dictionary<(ContentType Type, string Id), JsonContentItem> overlay,
         List<ModLoadError> errors,
         List<ModOverlayReport> reports,
-        IReadOnlyDictionary<string, int> lines)
+        IReadOnlyDictionary<string, int> lines,
+        UgcPackageState? ugc)
     {
         string modId = mod?.ModId ?? string.Empty;
 
@@ -634,6 +742,34 @@ public sealed class ModLoader
             return;
         }
 
+        // [T-105/F-149] UGC 过滤挂点③：模组条目文本字段（名称/别名/描述/
+        // 台词——L1 别名词典与军师 prompt 的注入面）在触碰 overlay 前过滤。
+        // 分级处置：剔除字段（rawJson 重写，被剔别名随之不进词典）/ 拒绝
+        // 条目（同模组其余条目继续）/ 拒绝整包（Compose 回滚）。
+        UgcItemVerdict verdict = UgcFilter.ScanItem(mod.ModId, id, item);
+        foreach (UgcHit hit in verdict.Hits)
+        {
+            ugc!.Hits.Add(hit);
+            int fieldLine = ModJsonLineMap.LineOf(lines, pointer + hit.Field);
+            Error(pointer + hit.Field, fieldLine > 0 ? fieldLine : line, ModErrorKind.Ugc, hit.PlayerMessage);
+        }
+
+        if (ugc!.Rejected || verdict.RejectMod)
+        {
+            ugc.Reject();
+            return;
+        }
+
+        if (verdict.RejectItem)
+        {
+            return;
+        }
+
+        if (verdict.HasStrips)
+        {
+            rawJson = UgcFilter.RewriteTextFields(rawJson, verdict);
+        }
+
         int colon = id.IndexOf(':', StringComparison.Ordinal);
         if (patch)
         {
@@ -652,6 +788,8 @@ public sealed class ModLoader
             }
 
             string? superseded = target.Patched ? target.SourceModId : null;
+            // [T-105] journal：本包补丁写入前记前值（整包 UGC 拒绝时逆序回滚）。
+            ugc.Journal.Add(((type, id), target));
             overlay[(type, id)] = Item(id, type, rawJson, display, line, mod.ModId, patched: true);
             reports.Add(new ModOverlayReport(id, type, mod.ModId, superseded, display, line));
             return;
@@ -694,8 +832,11 @@ public sealed class ModLoader
             }
         }
 
+        // [T-105] journal：本包新增写入前记"无前值"（整包 UGC 拒绝时移除）。
+        ugc.Journal.Add(((type, fullId), null));
         if (!overlay.TryAdd((type, fullId), Item(fullId, type, rawJson, display, line, mod.ModId, patched: false)))
         {
+            ugc.Journal.RemoveAt(ugc.Journal.Count - 1); // TryAdd 失败未写入，撤销记账
             Error(pointer + "/id", line, ModErrorKind.Duplicate,
                 $"duplicate id '{fullId}' under {type} (already loaded; use patch:true to override).");
         }
