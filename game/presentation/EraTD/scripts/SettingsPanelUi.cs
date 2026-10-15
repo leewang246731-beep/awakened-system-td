@@ -63,6 +63,8 @@ public sealed partial class SettingsPanelUi : Control
     // T-106 (F-164): the platform tier row (Web ⇒ L3 off ⇒ BYOK surfaces
     // hidden + gateway platform gate). Sourced ONCE from WebConstraints —
     // the panel never branches on OS.HasFeature itself (能力表驱动).
+    // T-110: SetAgentTiers re-applies the surfaces (feature 模拟冒烟与
+    // Web 启用日共用同一镜像路径).
     private AgentTierAvailability _tiers = WebConstraints.Availability(isWeb: false);
 
     // True while ApplyFieldsToUi mirrors form state into the controls —
@@ -118,6 +120,17 @@ public sealed partial class SettingsPanelUi : Control
 
     /// <summary>The pure form state (EraCore, tested) — smoke/assert access.</summary>
     internal SettingsFormState Form => _form;
+
+    /// <summary>One form row's visibility (T-110 smoke probe: Web surface matrix).</summary>
+    internal bool IsFormRowVisible(string rowName) =>
+        GetNode<Control>($"Scroll/Form/{rowName}").Visible;
+
+    /// <summary>Constraint notice present right now (T-110 smoke probe).</summary>
+    internal bool WebTierNoticeVisible =>
+        GetNodeOrNull<Label>("Scroll/Form/WebTierNotice") is { Visible: true };
+
+    /// <summary>Compare-bar L3 row text (T-110 smoke probe: Web 行文案由 DataFlowCompareBar 供给).</summary>
+    internal string CompareL3RowText => _l3Row.Text;
 
     /// <summary>The persisted config baseline this panel saves against.</summary>
     internal LlmConfig Config => _config;
@@ -372,44 +385,80 @@ public sealed partial class SettingsPanelUi : Control
         // T-106 (F-164): platform tier constraints apply last — the Web
         // export hides every BYOK (L3) surface and keeps only the render
         // tier row; the probe/fetch paths get the gateway platform gate.
-        ApplyWebTierConstraints();
+        ApplyTierSurfaces();
     }
 
     /// <summary>
-    /// T-106 (F-164 Web 版约束): on the Web export every BYOK (L3) form row
-    /// hides (key entry included — nothing to configure when the tier is
-    /// platform-disabled) and a notice states the constraint; the render
-    /// tier row stays (a Web-relevant setting, not a BYOK field). Desktop is
-    /// untouched. The L3 enforcement itself lives in the gateway gate + the
-    /// <see cref="ProbeAsync"/>/<see cref="FetchModelsAsync"/> guards below.
-    /// T-109: the AI-asset labeling row is exempt too — a disclosure is not
-    /// a BYOK field and must stay visible on every platform.
+    /// T-110 (F-164): re-binds the platform tier row and re-mirrors the
+    /// surface matrix from <see cref="WebUiSurfaces.Surfaces"/> — the same
+    /// path serves the real Web export and the headless feature simulation
+    /// (D-34 桌面口径：改动随桌面包发+Web 启用日生效，测试走 feature 模拟).
+    /// Restore-to-desktop unhides every row (idempotent re-apply).
     /// </summary>
-    private void ApplyWebTierConstraints()
+    internal void SetAgentTiers(AgentTierAvailability tiers)
     {
-        if (_tiers.L3CloudByok)
+        ArgumentNullException.ThrowIfNull(tiers);
+        _tiers = tiers;
+        ApplyTierSurfaces();
+    }
+
+    /// <summary>
+    /// T-106/T-110 (F-164 Web 版约束): under an L3-disabled tier row every
+    /// BYOK form row hides (key entry included — nothing to configure when
+    /// the tier is platform-disabled) and a notice states the constraint;
+    /// the render tier row stays (a Web-relevant setting, not a BYOK field).
+    /// T-110: the decision is the frozen <see cref="WebUiSurfaces"/> matrix —
+    /// the T-109 compare bar (你的话发给谁) and the AI-asset label are
+    /// DISCLOSURES and stay visible on every platform (the Web row copy
+    /// lives in <see cref="DataFlowCompareBar"/>), and the panel title
+    /// survives so the page still reads as the settings page. Desktop
+    /// restores every row. The L3 enforcement itself lives in the gateway
+    /// gate + the <see cref="LlmModelList"/> platform gate.
+    /// </summary>
+    private void ApplyTierSurfaces()
+    {
+        WebUiSurfacesRow surfaces = WebUiSurfaces.Surfaces(_tiers);
+        var form = GetNode<Control>("Scroll/Form");
+
+        // Re-apply is idempotent: drop a previous constraint notice first.
+        Node? previousNotice = form.GetNodeOrNull("WebTierNotice");
+        if (previousNotice is not null)
         {
-            return; // 桌面：完整 BYOK 表单（现行行为不变）
+            form.RemoveChild(previousNotice);
+            previousNotice.QueueFree();
         }
 
-        var form = GetNode<Control>("Scroll/Form");
         foreach (Node child in form.GetChildren())
         {
-            if (child is Control control
-                && child.Name != "RenderTierRow"
-                && child.Name != "AiAssetLabel")
+            if (child is not Control control)
             {
-                control.Visible = false;
+                continue;
             }
+
+            bool visible = child.Name.ToString() switch
+            {
+                "Title" => true,                  // page title is not a BYOK field
+                "RenderTierRow" => true,          // Web-relevant setting (T-102)
+                "AiAssetLabel" => true,           // disclosure (F-153, T-109)
+                "CompareHeading" or "L1Row" or "L2Row" or "L3Row"
+                    => surfaces.CompareBarVisible, // disclosure (F-153, T-109/T-110)
+                _ => surfaces.ByokFormVisible,
+            };
+            control.Visible = visible;
         }
 
-        form.AddChild(new Label
+        if (!surfaces.ByokFormVisible)
         {
-            Name = "WebTierNotice",
-            Text = WebTierNoticeZh,
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            CustomMinimumSize = new Vector2(0, 64),
-        });
+            form.AddChild(new Label
+            {
+                Name = "WebTierNotice",
+                Text = WebTierNoticeZh,
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                CustomMinimumSize = new Vector2(0, 64),
+            });
+        }
+
+        RefreshCompareBar(); // rows re-resolve under the active tier row (Web 行文案)
     }
 
     private void LoadFromDisk()
@@ -725,18 +774,6 @@ public sealed partial class SettingsPanelUi : Control
         _fetchResult.Text = "拉取中…";
         try
         {
-            // T-106 (F-164): /models bypasses the gateway (raw port call) —
-            // the platform gate is enforced HERE instead: on Web the fetch
-            // refuses with the same classified key, zero wire calls.
-            if (!_tiers.L3CloudByok)
-            {
-                LlmErrorCatalog.TryGetCopy(LlmErrorKeys.WebTierDisabled, out string zh, out string en);
-                var refused = new LlmModelListResult(
-                    false, [], LlmErrorKeys.WebTierDisabled, zh, en);
-                _fetchResult.Text = $"{zh}\n{en}";
-                return refused;
-            }
-
             var candidate = _form.BuildConfig(_config);
             var row = candidate.FindProvider(providerId);
             if (row is null)
@@ -747,9 +784,14 @@ public sealed partial class SettingsPanelUi : Control
                 return missing;
             }
 
+            // T-106/T-110 (F-164): the platform gate rides the fetch itself
+            // (LlmModelList refuses web-tier-disabled with zero wire calls
+            // before enable/whitelist/key) — the presenter only passes the
+            // tier row, no second enforcement copy here.
             var result = await LlmModelList.FetchAsync(
                 row, _port, _secrets,
-                LlmDomainWhitelist.FromProviders(candidate.Providers)).ConfigureAwait(true);
+                LlmDomainWhitelist.FromProviders(candidate.Providers),
+                cloudTierEnabled: _tiers.L3CloudByok).ConfigureAwait(true);
             _fetchResult.Text = $"{result.MessageZh}\n{result.MessageEn}";
             if (result.Ok && result.ModelIds.Count > 0)
             {

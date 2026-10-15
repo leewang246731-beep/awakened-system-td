@@ -20,6 +20,12 @@ namespace EraTD;
 // defense-line alarm renders through OffModeDowngrade in BOTH switch
 // positions (§10.7 警报不缺失), and the off-switch position persists across
 // runs (PanelSettingsStore, F-097).
+//
+// T-110 (F-164 Web UI 禁用适配): the order box carries the「AI 高级语法」
+// hint (L3-suggestive affordance, copy from WebUiSurfaces) whose visibility
+// mirrors <see cref="WebUiSurfaces.Surfaces"/> — desktop shows it, the Web
+// tier row hides it. Main supplies the platform row once
+// (SetAgentTiers 能力表驱动——本节点不读 OS.HasFeature).
 
 /// <summary>
 /// The C-22 panel control. Input path: LineEdit.TextSubmitted (Enter) and
@@ -55,6 +61,11 @@ public sealed partial class SystemPanel : Control
     private TrustBadgeTracker _trustTracker = new(TrustBadge.Trustworthy); // era reset = score 50
     private bool _alarmAnnounced;
 
+    // T-110 (F-164): platform tier row (Web ⇒ L3 off ⇒ AI 高级语法 hint
+    // hidden). Desktop default until the host binds the real platform fact
+    // (Main.SetAgentTiers 一次供给——能力表驱动).
+    private AgentTierAvailability _tiers = WebConstraints.Availability(isWeb: false);
+
     private PanelContainer _hudBar = null!;
     private Label _waveField = null!;
     private Label _rateField = null!;
@@ -69,6 +80,7 @@ public sealed partial class SystemPanel : Control
     private TextureRect _scanlineOverlay = null!; // T-102: tier-gated scanline pass (§13.4)
     private LineEdit _orderInput = null!;
     private Label _ghostHint = null!;
+    private Label _aiSyntaxHint = null!; // T-110: L3-suggestive entry, Web tier hides it
     private CheckBox _offSwitch = null!;
     private Label _reportText = null!;
     private TextureRect _avatar = null!;
@@ -141,6 +153,7 @@ public sealed partial class SystemPanel : Control
         Layout();
         ApplyState();
         UpdateBadgeUi();
+        SetAgentTiers(_tiers); // T-110: mirror the default (desktop) row once
         RefreshHud(new HudSnapshot(0, 0d, 1d, 0));
     }
 
@@ -274,6 +287,18 @@ public sealed partial class SystemPanel : Control
         _ghostHint.AddThemeFontSizeOverride("font_size", 10);
         _ghostHint.AddThemeColorOverride("font_color", new Color(HoloSkin.TextDimCyan, 0.6f));
 
+        // T-110 (F-110 ①): 「AI 高级语法」入口——L3 暗示性提示行（指向设置页
+        // BYOK 可选档；措辞锚 §11.5 L3 行，WebUiSurfaces 单源）。可见性镜像
+        // WebUiSurfaces.Surfaces：桌面可见、Web 档位行隐藏。
+        _aiSyntaxHint = new Label
+        {
+            Text = WebUiSurfaces.AiAdvancedSyntaxHintZh,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _aiSyntaxHint.AddThemeFontSizeOverride("font_size", 10);
+        _aiSyntaxHint.AddThemeColorOverride("font_color", new Color(1.00f, 0.84f, 0.40f, 0.9f));
+        _aiSyntaxHint.TooltipText = WebUiSurfaces.AiAdvancedSyntaxHintEn;
+
         var wheelRow = Separation(new HBoxContainer(), 4);
         foreach (string order in WheelOrders)
         {
@@ -331,6 +356,7 @@ public sealed partial class SystemPanel : Control
         body.AddChild(titleRow);
         body.AddChild(orderRow);
         body.AddChild(_ghostHint);
+        body.AddChild(_aiSyntaxHint);
         body.AddChild(wheelRow);
         body.AddChild(reportRow);
         bevel.AddChild(body);
@@ -435,6 +461,26 @@ public sealed partial class SystemPanel : Control
             _scanlineOverlay.Visible = enabled;
         }
     }
+
+    /// <summary>
+    /// T-110 (F-164): re-binds the platform tier row and re-mirrors the
+    /// AI-advanced-syntax hint visibility from
+    /// <see cref="WebUiSurfaces.Surfaces"/> (能力表驱动——Web 档位行隐藏该
+    /// 入口，桌面行显示；Main 供真实平台事实，headless 冒烟以 Web 行做
+    /// feature 模拟，D-34 桌面口径).
+    /// </summary>
+    internal void SetAgentTiers(AgentTierAvailability tiers)
+    {
+        ArgumentNullException.ThrowIfNull(tiers);
+        _tiers = tiers;
+        if (_aiSyntaxHint is not null)
+        {
+            _aiSyntaxHint.Visible = WebUiSurfaces.Surfaces(_tiers).AiAdvancedSyntaxHintVisible;
+        }
+    }
+
+    /// <summary>AI-advanced-syntax hint visible right now (T-110 smoke probe).</summary>
+    internal bool AiSyntaxHintVisible => _aiSyntaxHint is { Visible: true };
 
     private void OnReenablePressed() => SetSystemEnabled(true);
 

@@ -16,6 +16,11 @@ namespace EraCore.Presentation;
 /// <param name="DefEn">English definition.</param>
 /// <param name="Aliases">Search aliases (zh/en mixed).</param>
 /// <param name="Related">Ids of related entries the panel can jump to.</param>
+/// <param name="DesktopOnly">
+/// T-110 (F-164): true for entries describing desktop-only features (L2/L3
+/// tiers) — the F1 panel annotates them「桌面版功能」while the platform tier
+/// row has L3 off (<see cref="WebUiSurfaces.AnnotateDesktopOnly"/>).
+/// </param>
 public sealed record GlossaryEntry(
     string Id,
     string TermZh,
@@ -23,7 +28,8 @@ public sealed record GlossaryEntry(
     string DefZh,
     string DefEn,
     IReadOnlyList<string> Aliases,
-    IReadOnlyList<string> Related);
+    IReadOnlyList<string> Related,
+    bool DesktopOnly = false);
 
 /// <summary>
 /// Read-only glossary catalog parsed from one glossary.json document
@@ -105,7 +111,8 @@ public sealed class Glossary
             ordered.Add(new GlossaryEntry(
                 id, termZh, termEn, defZh, defEn,
                 item.Aliases ?? Array.Empty<string>(),
-                item.Related ?? Array.Empty<string>()));
+                item.Related ?? Array.Empty<string>(),
+                item.DesktopOnly == true));
         }
 
         // Cross-link integrity: every related id must resolve (互链无悬空).
@@ -192,7 +199,8 @@ internal sealed record GlossaryEntryJson(
     string? DefZh,
     string? DefEn,
     string[]? Aliases,
-    string[]? Related);
+    string[]? Related,
+    bool? DesktopOnly);
 
 /// <summary>
 /// System.Text.Json source-generation context for the T-093 UI content

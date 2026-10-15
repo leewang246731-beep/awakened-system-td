@@ -47,6 +47,21 @@ public class UiContentFilesTests
         Assert.Single(glossary.Search("trust"));
     }
 
+    [Fact] // legal — T-110 desktop_only 词条真文件在册：BYOK 词条带 desktop_only（Web 下标注「桌面版功能」）
+    public void Real_glossary_carries_the_desktop_only_byok_term()
+    {
+        Glossary glossary = Glossary.Parse(ReadUi("glossary.json"), "ui/glossary.json");
+
+        Assert.True(glossary.TryGet("byok", out GlossaryEntry byok), "missing byok term (T-110)");
+        Assert.True(byok.DesktopOnly, "byok 词条应标 desktop_only（§17 条 15 Web 版禁用）");
+
+        // WebUiSurfaces 决策单源：该词条在 Web 档位行下命中标注、桌面行不标
+        Assert.True(WebUiSurfaces.AnnotateDesktopOnly(
+            WebConstraints.Availability(isWeb: true), byok.DesktopOnly));
+        Assert.False(WebUiSurfaces.AnnotateDesktopOnly(
+            WebConstraints.Availability(isWeb: false), byok.DesktopOnly));
+    }
+
     [Fact] // legal — 提示库真文件：谓词全覆盖（8 类谓词各有行）+ term 全可解析（互链完备）
     public void Real_hints_cover_every_predicate_and_link_terms_resolvably()
     {

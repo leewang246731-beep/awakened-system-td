@@ -51,6 +51,8 @@ public sealed partial class Main : Control
     private Label _debugLabel = null!;
     private Camera2D _camera = null!;
     private SystemPanel _panel = null!;
+    private SettingsPanelUi _settingsUi = null!;
+    private InfoLayersUi _infoUi = null!;
 
     // T-102 (C-21 渲染三档): capability row + current plan the render loop
     // consumes (能力矩阵驱动——renderers never branch on the tier enum).
@@ -100,6 +102,12 @@ public sealed partial class Main : Control
             chunkCells: _renderCaps.DirtyChunkCells);
         _panel.Bind(_host);
         _panel.SetScanlineEnabled(_renderPlan.ScanlinePass);
+
+        // T-110 (F-164 能力表驱动): the host supplies the single platform
+        // fact once — the order box「AI 高级语法」entry mirrors the tier row
+        // (desktop shows it, Web hides it). InfoLayersUi/SettingsPanelUi read
+        // the same fact inside their own Instantiate entry points.
+        _panel.SetAgentTiers(WebConstraints.Availability(OS.HasFeature("web")));
 
         int mapWidth = _host.Framebuffer.WidthCells;
         int mapHeight = _host.Framebuffer.HeightCells;
@@ -181,7 +189,7 @@ public sealed partial class Main : Control
         // 设置页场景挂载（settings_panel.tscn）：headless 下脚本内自带冒烟
         // 序列并打印 SETTINGS_OK providers=4 mask=on declare=on——smoke 设置
         // 段判据。（并行纪律：本文件的接线冲突由后提交者 rebase。）
-        SettingsPanelUi.Instantiate(this);
+        _settingsUi = SettingsPanelUi.Instantiate(this);
 
         // ---- 5d) T-086 cinematics (C-24, F-113/F-114) -----------------------
         // 演出导演挂载（cinematics/CinematicDirector.cs）：E1 啊哈+E2 觉醒
@@ -212,7 +220,7 @@ public sealed partial class Main : Control
         // 持久化）；headless 下自带冒烟并打印 UI_OK layers=3——smoke 信息层
         // 判据，另存关键 UI 状态截图（D-03 根 ui-snapshots/，口径见 SNAP 行）。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        InfoLayersUi.Instantiate(this, _host);
+        _infoUi = InfoLayersUi.Instantiate(this, _host);
 
         // ---- 5h) T-152 visual expansion (31 号 v2.0 插入点接线) ------------
         // 视觉扩充总装（expand/VisualExpansionDirector.cs）：素材目录装载
@@ -667,7 +675,12 @@ public sealed partial class Main : Control
     /// domain) with the <c>web-tier-disabled</c> key, zero network, through
     /// the real <see cref="LlmConnectionProbe"/> copy chain; (3) the T-100
     /// save probe under the Web fact (e_sqlite3 unavailable) falling back to
-    /// <see cref="JsonFileSavePort"/> with a Warn record. The desktop real
+    /// <see cref="JsonFileSavePort"/> with a Warn record; (4) the T-110 UI
+    /// adaptation feature simulation (D-34 桌面口径) — the three real panels
+    /// re-bind the Web tier row through <see cref="WebUiSurfaces"/> and the
+    /// surfaces mirror: 军令框 AI 高级语法入口隐藏, 设置页 BYOK 表单隐藏+
+    /// 对比条/画质档/AI 标注保留+Web 行文案, 词汇表 desktop_only 词条标注,
+    /// then the desktop row restores with zero residue. The desktop real
     /// probe outcome is printed for observability but NOT gated (its native
     /// resolution inside the Godot mono host is environment-dependent).
     /// Prints WEB_OK / WEB_FAIL; a failure quits non-zero BEFORE SMOKE_OK.
@@ -738,11 +751,83 @@ public sealed partial class Main : Control
         ISavePort liveSave = SavePortFactory.Create(gateFiles, saveLog);
         string liveBackend = liveSave is JsonFileSavePort ? "json" : "sqlite";
 
+        // (4) T-110 UI 禁用适配（feature 模拟，D-34 桌面口径——引擎侧 Web 导出
+        // 被阻断，断言走与真实 Web 导出同一条 SetAgentTiers/WebUiSurfaces 镜像
+        // 路径，Web 启用日同代码生效）：①军令框「AI 高级语法」入口 Web 隐藏；
+        // ②设置页 BYOK 表单隐藏+T-109 对比条/画质档/AI 标注保留+Web 行文案；
+        // ③词汇表 desktop_only 词条 Web 下标注「桌面版功能」；④桌面行恢复无残留。
+        bool desktopAiHint = _panel.AiSyntaxHintVisible;
+        _panel.SetAgentTiers(webRow);
+        bool webAiHintHidden = !_panel.AiSyntaxHintVisible;
+
+        bool desktopByokVisible = _settingsUi.IsFormRowVisible("KeyRow");
+        _settingsUi.SetAgentTiers(webRow);
+        bool webByokHidden = !_settingsUi.IsFormRowVisible("KeyRow")
+            && !_settingsUi.IsFormRowVisible("ActionRow")
+            && !_settingsUi.IsFormRowVisible("TemplateRow");
+        bool webDisclosuresKept = _settingsUi.IsFormRowVisible("CompareHeading")
+            && _settingsUi.IsFormRowVisible("L1Row")
+            && _settingsUi.IsFormRowVisible("L2Row")
+            && _settingsUi.IsFormRowVisible("L3Row")
+            && _settingsUi.IsFormRowVisible("RenderTierRow")
+            && _settingsUi.IsFormRowVisible("AiAssetLabel");
+        bool webNoticeShown = _settingsUi.WebTierNoticeVisible;
+        string webL3Copy = _settingsUi.CompareL3RowText;
+        bool webL3CopyOk = webL3Copy.Contains("Web 版禁用", StringComparison.Ordinal)
+            && webL3Copy.Contains("不发送任何数据", StringComparison.Ordinal);
+
+        bool desktopNoAnnotation = !_infoUi.HelpRowTexts()
+            .Any(text => text.Contains(WebUiSurfaces.DesktopOnlySuffixZh, StringComparison.Ordinal));
+        _infoUi.SetAgentTiers(webRow);
+        IReadOnlyList<string> webTermRows = _infoUi.HelpRowTexts();
+        bool byokRowAnnotated = webTermRows.Any(text =>
+            text.Contains("BYOK", StringComparison.Ordinal)
+            && text.Contains(WebUiSurfaces.DesktopOnlySuffixZh, StringComparison.Ordinal));
+        GlossaryEntry? byokTerm = _infoUi.ShowTerm("byok");
+        bool byokDefAnnotated = byokTerm is not null
+            && _infoUi.HelpDefinitionText.Contains(WebUiSurfaces.DesktopOnlySuffixZh, StringComparison.Ordinal)
+            && _infoUi.HelpDefinitionText.Contains(WebUiSurfaces.DesktopOnlySuffixEn, StringComparison.Ordinal);
+
+        if (!desktopAiHint || !webAiHintHidden)
+        {
+            problems.Add("军令框「AI 高级语法」入口未按 Web 档位行隐藏");
+        }
+
+        if (!desktopByokVisible || !webByokHidden || !webDisclosuresKept || !webNoticeShown)
+        {
+            problems.Add("设置页 Web 表面矩阵未按预期（BYOK 隐藏/披露保留/提示在位）");
+        }
+
+        if (!webL3CopyOk)
+        {
+            problems.Add($"对比条 Web 行文案缺失：{webL3Copy}");
+        }
+
+        if (!desktopNoAnnotation || !byokRowAnnotated || !byokDefAnnotated)
+        {
+            problems.Add("词汇表 desktop_only 标注未按 Web 档位行激活");
+        }
+
+        // 桌面行恢复（feature 模拟不得污染后续段/真桌面行为）
+        _panel.SetAgentTiers(desktopRow);
+        _settingsUi.SetAgentTiers(desktopRow);
+        _infoUi.SetAgentTiers(desktopRow);
+        bool desktopRestored = _panel.AiSyntaxHintVisible
+            && _settingsUi.IsFormRowVisible("KeyRow")
+            && !_settingsUi.WebTierNoticeVisible
+            && !_infoUi.HelpRowTexts()
+                .Any(text => text.Contains(WebUiSurfaces.DesktopOnlySuffixZh, StringComparison.Ordinal));
+        if (!desktopRestored)
+        {
+            problems.Add("桌面档位行恢复失败（feature 模拟残留）");
+        }
+
         if (problems.Count == 0)
         {
             GD.Print(
                 "WEB_OK tier-table=l1-only-on-web l3-gate=" + LlmErrorKeys.WebTierDisabled +
-                " save-web-fallback=json warn=logged live_save_probe=" + liveBackend +
+                " models-gate=code-path(T-110) save-web-fallback=json warn=logged live_save_probe=" + liveBackend +
+                " ui-adaptation=order-ai-syntax-hidden+byok-form-hidden+compare-bar-kept+glossary-desktop-only" +
                 " render-tier-web=auto-L(T-102) coep=not-required(threads-off)");
         }
         else

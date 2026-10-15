@@ -115,4 +115,51 @@ public class GlossaryTests
     {
         Assert.Throws<ArgumentNullException>(() => Glossary.Parse(null!, "x"));
     }
+
+    // ---- T-110 desktop_only（F-164 Web UI 禁用适配） ------------------------
+
+    [Fact] // legal — desktop_only 解析：true 落位、缺省/显式 false 均 false
+    public void Desktop_only_flag_parses_with_false_default()
+    {
+        const string doc =
+            """
+            {
+              "content_type": "Glossary",
+              "items": [
+                { "id": "a", "term_zh": "甲", "term_en": "A", "def_zh": "d", "def_en": "d",
+                  "desktop_only": true },
+                { "id": "b", "term_zh": "乙", "term_en": "B", "def_zh": "d", "def_en": "d",
+                  "desktop_only": false },
+                { "id": "c", "term_zh": "丙", "term_en": "C", "def_zh": "d", "def_en": "d" }
+              ]
+            }
+            """;
+
+        Glossary glossary = Glossary.Parse(doc, "test-glossary");
+
+        Assert.True(glossary.Entries[0].DesktopOnly);
+        Assert.False(glossary.Entries[1].DesktopOnly);
+        Assert.False(glossary.Entries[2].DesktopOnly);
+    }
+
+    [Fact] // boundary — desktop_only 不改变搜索/互链行为（只影响 Web 标注面）
+    public void Desktop_only_flag_does_not_affect_search_or_links()
+    {
+        const string doc =
+            """
+            {
+              "content_type": "Glossary",
+              "items": [
+                { "id": "a", "term_zh": "甲", "term_en": "A", "def_zh": "d", "def_en": "d",
+                  "aliases": ["byok"], "related": ["b"], "desktop_only": true },
+                { "id": "b", "term_zh": "乙", "term_en": "B", "def_zh": "d", "def_en": "d" }
+              ]
+            }
+            """;
+
+        Glossary glossary = Glossary.Parse(doc, "test-glossary");
+
+        Assert.Single(glossary.Search("byok"));
+        Assert.Contains("b", glossary.Entries[0].Related); // 互链解析不因新字段变化
+    }
 }

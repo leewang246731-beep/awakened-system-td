@@ -29,12 +29,15 @@ public sealed record LlmModelListResult(
 /// {base}/v1/models (anthropic protocol) through the injected
 /// <see cref="IHttpPort"/> — EraCore itself never touches networking
 /// (CS-1.3). Enforcement mirrors <see cref="LlmGateway.RouteAsync"/>: the
-/// call is refused with ZERO network unless the provider is enabled, its
-/// endpoint authority passes the supplied <see cref="LlmDomainWhitelist"/>
-/// (the settings page passes the gateway's own frozen whitelist), and a
-/// key exists in <see cref="ISecretStore"/>; auth headers come from the
-/// same protocol adapters, so key material never leaves the headers path
-/// (RL5).
+/// call is refused with ZERO network unless the platform tier is enabled
+/// (T-110 code-path gate: <c>web-tier-disabled</c> before everything —
+/// the fetch is the one L3 path that bypasses the gateway, so the gate
+/// lives here at the EraCore seam, not only in the settings presenter),
+/// the provider is enabled, its endpoint authority passes the supplied
+/// <see cref="LlmDomainWhitelist"/> (the settings page passes the
+/// gateway's own frozen whitelist), and a key exists in
+/// <see cref="ISecretStore"/>; auth headers come from the same protocol
+/// adapters, so key material never leaves the headers path (RL5).
 /// </summary>
 public static class LlmModelList
 {
@@ -47,16 +50,31 @@ public static class LlmModelList
     /// settings page passes the gateway whitelist so the fetch obeys exactly
     /// the domains the player configured.
     /// </param>
+    /// <param name="cloudTierEnabled">
+    /// L3 platform switch (T-110, F-164): the Web host passes
+    /// <c>WebConstraints.Availability(isWeb:true).L3CloudByok</c> (false) and
+    /// the fetch refuses with <see cref="LlmErrorKeys.WebTierDisabled"/>
+    /// before any other check — zero wire calls, zero key access. Default
+    /// true keeps desktop behaviour byte-identical (gateway 参数先例).
+    /// </param>
     public static async Task<LlmModelListResult> FetchAsync(
         LlmProviderConfig provider,
         IHttpPort port,
         ISecretStore secrets,
         LlmDomainWhitelist? whitelist = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool cloudTierEnabled = true)
     {
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(port);
         ArgumentNullException.ThrowIfNull(secrets);
+
+        // T-110 (F-164): platform gate first — before enable, before the
+        // endpoint, before key access (mirror of the gateway gate order).
+        if (!cloudTierEnabled)
+        {
+            return Refused(LlmErrorKeys.WebTierDisabled);
+        }
 
         if (!provider.Enable)
         {

@@ -52,6 +52,10 @@ public sealed partial class InfoLayersUi : Control
     private HintQueue _hintQueue = null!;
     private IFileStore _store = null!;
 
+    // T-110 (F-164): platform tier row — desktop_only 词条标注镜像
+    // WebUiSurfaces.AnnotateDesktopOnly（Web 行激活「桌面版功能」注记）。
+    private AgentTierAvailability _tiers = WebConstraints.Availability(isWeb: false);
+
     private BottleneckHighlightBoard _board = null!;
     private BottleneckDetector? _liveDetector;       // 真事件驱动（live 挂真 monitor）
     private long _liveDetectorLastTick = -1;
@@ -85,7 +89,14 @@ public sealed partial class InfoLayersUi : Control
     /// <summary>Scene entry (Main.cs single-line wiring, same lane as the other HUDs).</summary>
     internal static InfoLayersUi Instantiate(Main main, SimHost host)
     {
-        var ui = new InfoLayersUi { _main = main, _host = host };
+        var ui = new InfoLayersUi
+        {
+            _main = main,
+            _host = host,
+            // T-110: host supplies the single platform fact (SettingsPanelUi
+            // 先例) — every consumer derives from the WebConstraints table.
+            _tiers = WebConstraints.Availability(OS.HasFeature("web")),
+        };
         main.AddChild(ui); // _Ready builds every surface (and smokes headless)
         return ui;
     }
@@ -497,9 +508,14 @@ public sealed partial class InfoLayersUi : Control
         System.Collections.Generic.IReadOnlyList<GlossaryEntry> hits = _glossary.Search(_helpSearch.Text);
         foreach (GlossaryEntry entry in hits)
         {
+            // T-110 (F-164): desktop_only 词条在 Web 档位行下追加「桌面版
+            // 功能」标注（决策在 WebUiSurfaces，本处只镜像）。
+            string annotation = WebUiSurfaces.AnnotateDesktopOnly(_tiers, entry.DesktopOnly)
+                ? WebUiSurfaces.DesktopOnlySuffixZh
+                : string.Empty;
             var row = new Button
             {
-                Text = $"{entry.TermZh} · {entry.TermEn}",
+                Text = $"{entry.TermZh} · {entry.TermEn}{annotation}",
                 Flat = true,
                 FocusMode = FocusModeEnum.None,
             };
@@ -521,7 +537,11 @@ public sealed partial class InfoLayersUi : Control
         string related = entry.Related.Count == 0
             ? string.Empty
             : "\n相关：" + string.Join("、", entry.Related);
-        _helpDef.Text = $"{entry.TermZh}（{entry.TermEn}）\n{entry.DefZh}\n{entry.DefEn}{related}";
+        // T-110 (F-164): desktop_only 词条的释义尾注（Web 行激活——双语后缀）。
+        string annotation = WebUiSurfaces.AnnotateDesktopOnly(_tiers, entry.DesktopOnly)
+            ? $"\n{WebUiSurfaces.DesktopOnlySuffixZh} {WebUiSurfaces.DesktopOnlySuffixEn}"
+            : string.Empty;
+        _helpDef.Text = $"{entry.TermZh}（{entry.TermEn}）\n{entry.DefZh}\n{entry.DefEn}{related}{annotation}";
         _selectedTermId = entry.Id;
         return entry;
     }
@@ -530,6 +550,40 @@ public sealed partial class InfoLayersUi : Control
 
     /// <summary>当前选中词条 id（smoke 探针）。</summary>
     internal string? SelectedTermId => _selectedTermId;
+
+    /// <summary>当前词条释义渲染文本（T-110 冒烟探针：desktop_only 尾注）。</summary>
+    internal string HelpDefinitionText => _helpDef.Text;
+
+    /// <summary>词条列表每行的渲染文本（T-110 冒烟探针：desktop_only 行标注）。</summary>
+    internal IReadOnlyList<string> HelpRowTexts()
+    {
+        var texts = new List<string>();
+        foreach (Node child in _helpList.GetChildren())
+        {
+            if (child is Button button)
+            {
+                texts.Add(button.Text);
+            }
+        }
+
+        return texts;
+    }
+
+    /// <summary>
+    /// T-110 (F-164): re-binds the platform tier row and re-renders the
+    /// glossary surfaces (list rows + the open definition) — the Web feature
+    /// simulation and the real Web export share this one path.
+    /// </summary>
+    internal void SetAgentTiers(AgentTierAvailability tiers)
+    {
+        ArgumentNullException.ThrowIfNull(tiers);
+        _tiers = tiers;
+        RefreshHelpList();
+        if (_selectedTermId is { } id)
+        {
+            _ = ShowTerm(id); // 重新渲染已选词条（尾注随档位行切换）
+        }
+    }
 
     /// <summary>F1 开关帮助面板（可从提示气泡的术语链打开）。</summary>
     internal void ToggleHelp()

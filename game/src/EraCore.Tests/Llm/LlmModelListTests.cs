@@ -205,4 +205,83 @@ public class LlmModelListTests
         var timeout = await LlmModelList.FetchAsync(Provider(), port, secrets);
         Assert.Equal(LlmErrorKeys.TimeoutFirstByte, timeout.ErrorKey);
     }
+
+    // ---------------------------------------------- T-110 平台门（代码路径级）
+
+    [Fact]
+    public async Task Web_disabled_fetch_refuses_with_zero_network_and_zero_key_access()
+    {
+        // illegal: cloudTierEnabled=false（Web 档位行）⇒ web-tier-disabled——
+        // 最强场景（启用行+Key 在库+域名在白名单）也在一切常规门之前被拒，
+        // wire 端口零调用、密钥存储零读取（/models 绕过网关，门在 LlmModelList 本体）
+        var port = new FakeWirePort();
+        var secrets = new AccessCountingStore();
+        secrets.Store("list-provider", "synthetic-key-000");
+
+        var result = await LlmModelList.FetchAsync(
+            Provider(), port, secrets, cloudTierEnabled: false);
+
+        Assert.False(result.Ok);
+        Assert.Equal(LlmErrorKeys.WebTierDisabled, result.ErrorKey);
+        Assert.Empty(result.ModelIds);
+        Assert.Equal(0, port.CallCount);
+        Assert.Equal(0, secrets.RetrieveCalls); // 平台拒绝不触碰密钥存储
+        Assert.False(string.IsNullOrEmpty(result.MessageZh)); // 分类文案链照常供给
+        Assert.False(string.IsNullOrEmpty(result.MessageEn));
+    }
+
+    [Fact]
+    public async Task Web_disabled_fetch_gate_precedes_the_disabled_provider_check()
+    {
+        // boundary: 平台门先于 enable 门——禁用行+Web 档位行双叠时以平台键拒绝
+        var (port, secrets) = Wire();
+
+        var result = await LlmModelList.FetchAsync(
+            Provider(enable: false), port, secrets, cloudTierEnabled: false);
+
+        Assert.Equal(LlmErrorKeys.WebTierDisabled, result.ErrorKey);
+        Assert.NotEqual(LlmErrorKeys.Disabled, result.ErrorKey);
+        Assert.Equal(0, port.CallCount);
+    }
+
+    [Fact]
+    public async Task Desktop_default_fetch_is_untouched_by_the_platform_gate()
+    {
+        // boundary: 默认 cloudTierEnabled=true——门不存在，常规拒绝链照旧
+        // （此处禁用行走 Disabled 键，与 T-106 前行为逐字节一致）
+        var (port, secrets) = Wire();
+
+        var result = await LlmModelList.FetchAsync(Provider(enable: false), port, secrets);
+
+        Assert.Equal(LlmErrorKeys.Disabled, result.ErrorKey);
+        Assert.Equal(0, port.CallCount);
+    }
+
+    /// <summary>
+    /// ISecretStore 七端口 fake（CS-3.4 白名单）：Retrieve 计数——T-110 平台门
+    /// 的零 Key 访问证据（拒绝须发生在密钥存储被触碰之前）。
+    /// </summary>
+    private sealed class AccessCountingStore : ISecretStore
+    {
+        private readonly InMemorySecretStore _inner = new();
+
+        public int RetrieveCalls { get; private set; }
+
+        public bool IsAvailable => _inner.IsAvailable;
+
+        public string Backend => _inner.Backend;
+
+        public void Store(string providerId, string? secretValue) =>
+            _inner.Store(providerId, secretValue);
+
+        public string Retrieve(string providerId)
+        {
+            RetrieveCalls++;
+            return _inner.Retrieve(providerId);
+        }
+
+        public void Clear(string providerId) => _inner.Clear(providerId);
+
+        public void ClearAll() => _inner.ClearAll();
+    }
 }

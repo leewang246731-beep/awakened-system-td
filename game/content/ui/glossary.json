@@ -142,6 +142,17 @@
       "aliases": ["塔类", "tower class", "class"],
       "related": ["counter"],
       "_source": "SP-1a/SP-1b（07 修正表 #24 六类枚举冻结）"
+    },
+    {
+      "id": "byok",
+      "term_zh": "BYOK 云模型",
+      "term_en": "BYOK Cloud Model",
+      "def_zh": "军师的 L3 可选档位：玩家自配任意 OpenAI/Anthropic 兼容端点与密钥（默认模板=智谱 GLM），对话内容只发送到你配置的服务；默认关闭、不收费、不代收、不抽成，密钥仅存本机。",
+      "def_en": "The advisor's optional L3 tier: bring your own OpenAI/Anthropic-compatible endpoint and key (default template = Zhipu GLM); your conversation is sent only to the service you configure. Off by default; no fees, no proxy billing; the key stays on this machine.",
+      "aliases": ["BYOK", "云模型", "byok", "密钥", "api key"],
+      "related": ["advisor_order"],
+      "desktop_only": true,
+      "_source": "v3.2 §11.5 L3 行+§11.6 BYOK 配置；§17 条 15 Web 版禁用→T-110 desktop_only 标注（Web 下帮助面板注记「桌面版功能」）"
     }
   ]
 }
