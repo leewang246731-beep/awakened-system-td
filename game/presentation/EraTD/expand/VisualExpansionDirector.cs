@@ -18,8 +18,9 @@ namespace EraTD.Expand;
 //   3) 收藏链：记忆档案页（D-01~08 逐段收藏）→ 集齐 8 段解锁《零的真相》
 //      （MemoryArchiveStore，解锁只写 global 域——P5 同 seed 战报等价断言口径）；
 //   4) 冒烟：headless 打印 CINE_V2 verbs/assets/ogv/strips/icons 计数+至少一条
-//      真实 VideoStreamTheora 播放验证+记忆链全程+外部轨/降级计数（EXPAND_OK）。
-// 缺素材自动降级：外部轨（U 盘插画）缺图→纯文本/降级底色，永不阻断（D21-5）。
+//      真实 VideoStreamTheora 播放验证+记忆链全程+插画双轨解析计数（T-096-v02
+//      起 49 图内置仓=硬判据 images_resolved==49）+皮肤九宫真应用（EXPAND_OK）。
+// 缺素材自动降级：未登记键/聚合轨亦缺→纯文本/降级底色，永不阻断（D21-5）。
 // 并行纪律：Main.cs 只追加一行 Instantiate（冲突由后提交者 rebase）。
 
 /// <summary>
@@ -279,14 +280,28 @@ public sealed partial class VisualExpansionDirector : Control
     }
 
     /// <summary>
-    /// 时代皮肤应用（骨架恒定纪律 §10.2）：把传入面板的边框主色换成时代主色
-    /// ——信息结构零改动。palette_shift 演出（CinematicDirector）与本 API
-    /// 共用 EraColor 作为渐变端点。
+    /// 时代皮肤应用（骨架恒定纪律 §10.2）：优先 P4 皮肤底纹（T-096-v02 发布
+    /// 聚合轨）作 StyleBoxTexture 九宫拉伸（单贴图+边距=纹理 1/8——边角不变形、
+    /// 中心可伸缩；"切九宫格"的引擎原生形态，不切文件）；缺图回退色相 HoloBox
+    /// （仅换边框主色）。信息结构零改动。palette_shift 演出（CinematicDirector）
+    /// 与本 API 共用 EraColor 作为渐变端点。
     /// </summary>
-    internal void ApplyEraSkin(PanelContainer panel, string eraKey)
+    internal bool ApplyEraSkin(PanelContainer panel, string eraKey)
     {
-        var box = HoloSkin.BuildHoloBox(EraColor(eraKey));
-        panel.AddThemeStyleboxOverride("panel", box);
+        Godot.ImageTexture? texture = ExpandAssetPaths.LoadPng(
+            ExpandAssetPaths.ExternalImagePath(_catalog, $"skin-{eraKey}"));
+        if (texture is not null)
+        {
+            int margin = Math.Max(1, Math.Min(texture.GetWidth(), texture.GetHeight()) / 8);
+            var box = new StyleBoxTexture { Texture = texture };
+            box.SetTextureMarginAll(margin);
+            panel.AddThemeStyleboxOverride("panel", box);
+            return true;
+        }
+
+        var flat = HoloSkin.BuildHoloBox(EraColor(eraKey));
+        panel.AddThemeStyleboxOverride("panel", flat);
+        return false;
     }
 
     /// <summary>时代色域薄纱（加载屏/档案页氛围层：低透明主色全屏）。</summary>
@@ -557,23 +572,38 @@ public sealed partial class VisualExpansionDirector : Control
             && _catalog.VideoById("D-01") is { Usage: MemoryUsage };
         CloseArchive();
 
-        // 6) 外部轨/降级计数（U 盘在机=external；CI 无盘=degraded——两者皆合法）
-        int bannersLoaded = 0;
-        int bannersDegraded = 0;
-        foreach (VisualImageAsset banner in _catalog.Batch("banners"))
+        // 6) 插画双轨解析计数（D21-5：开发轨=U 盘/发布轨=repo 聚合[T-096-v02]，
+        //    任一命中即 resolved；49 图 T-096-v02 起全部内置仓，缺任一=聚合
+        //    管线断裂——与 ogvMissing 同级硬判据）
+        string[] imageBatches = { "banners", "story", "hooks", "easter", "skins", "loading", "personas" };
+        int imagesResolved = 0;
+        int imagesMissing = 0;
+        foreach (string batch in imageBatches)
         {
-            if (ExpandAssetPaths.ExternalImagePath(_catalog, banner.Id) is null)
+            foreach (VisualImageAsset image in _catalog.Batch(batch))
             {
-                bannersDegraded++;
-            }
-            else
-            {
-                bannersLoaded++;
+                if (ExpandAssetPaths.ExternalImagePath(_catalog, image.Id) is null)
+                {
+                    imagesMissing++;
+                    GD.PushError($"expand: 插画缺失 {image.Id}（双轨均未命中）");
+                }
+                else
+                {
+                    imagesResolved++;
+                }
             }
         }
 
         bool loadingShown = ShowLoadingScreen("e1");
         HideLoadingScreen();
+
+        // 6b) 皮肤九宫：StyleBoxTexture 轨真应用（缺图回退色相轨=T-096-v02 前
+        //     行为；面板骨架零改动——scratch 仅挂 stylebox）
+        var scratchPanel = new PanelContainer();
+        AddChild(scratchPanel);
+        bool skinNineSlice = ApplyEraSkin(scratchPanel, "e1");
+        RemoveChild(scratchPanel);
+        scratchPanel.QueueFree();
 
         // 7) 内置轨成就图标（24 张全在 repo）
         int iconsResolved = _catalog.Achievements.Count(
@@ -593,8 +623,8 @@ public sealed partial class VisualExpansionDirector : Control
             $"boss_strip=e1-death:{(bossStarted ? $"{bossPumped}frames" : "FAILED")} " +
             $"memory={chainBefore}->8 unlock_on_8={unlockOn8} held_locked_at_7={stillLockedAfter7} " +
             $"persisted_reload={reloaded.ZeroTruthUnlocked} zero_truth_playable={compositePlayable} " +
-            $"banner_track=external:{bannersLoaded}/degraded:{bannersDegraded} loading_e1={(loadingShown ? "image" : "degraded")} " +
-            $"palettes={_catalog.Palettes.Count}/6");
+            $"image_track=resolved:{imagesResolved}/missing:{imagesMissing} skin_nineslice={(skinNineSlice ? "texture" : "fallback")} " +
+            $"loading_e1={(loadingShown ? "image" : "degraded")} palettes={_catalog.Palettes.Count}/6");
 
         bool ok = verbs == 16
             && ogvMissing == 0 && ogvPresent == _catalog.Videos.Count
@@ -604,7 +634,7 @@ public sealed partial class VisualExpansionDirector : Control
             && bossStarted && bossPumped == 35 // 首帧在 Play 内显示，pump 推进余下 35 帧
             && chainBefore == 0 && !unlockedBefore && stillLockedAfter7
             && unlockOn8 && compositePlayable && palettesComplete
-            && bannersLoaded + bannersDegraded == 7;
+            && imagesResolved == 49 && imagesMissing == 0 && skinNineSlice;
         if (!ok)
         {
             GD.PushError(
@@ -612,13 +642,14 @@ public sealed partial class VisualExpansionDirector : Control
                 $"verbs={verbs} ogv={ogvPresent}/{_catalog.Videos.Count}(miss{ogvMissing}) " +
                 $"images={images} icons={iconsResolved} composite={compositePresent} " +
                 $"menu={menuLoopPlayed}/{menuLoopReady} boss={bossStarted}/{bossPumped} " +
-                $"unlock={unlockOn8}/held7={stillLockedAfter7}/replayable={compositePlayable}");
+                $"unlock={unlockOn8}/held7={stillLockedAfter7}/replayable={compositePlayable} " +
+                $"imageTrack={imagesResolved}/49(miss{imagesMissing}) skinNineSlice={skinNineSlice}");
             GD.Print("CINE_FAIL expand");
             GetTree().Quit(1);
             return;
         }
 
-        GD.Print("EXPAND_OK verbs=16 assets_inku=52ogv+8strips images_wired=73(degraded_ok)");
+        GD.Print("EXPAND_OK verbs=16 assets_inku=52ogv+8strips images_inku=73(49aggregated+24icons)");
     }
 
     // ---- helpers ----------------------------------------------------------------

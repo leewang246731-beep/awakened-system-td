@@ -18,6 +18,10 @@ test_asset_validator.py — asset_validator.py 自测（任务 T-046；零三方
                           game/assets/cinematics/ 下 PNG 尺寸/色板降 INFO
                           （消息带豁免注记）；结构/命名仍拒；豁免区外同规格
                           照常拒；仓内 8 张真实 1440x810 Atlas 零拒
+  7b. expand_exemption   T-096-v02 显式豁免②（Q16A 分层红线）：expand-v1
+                          插画聚合件（P1/P3/P4 非图标）尺寸/色板降 INFO；
+                          P4/achievements/ B 档严管子树不豁免照常拒；
+                          结构/命名仍拒；仓内 73 件聚合树零拒
   8. cli_semantics        CLI 端到端：退出码 0/1、--json 报告结构、
                           非 PNG 目录（game/content/ 纯 JSON）0 文件通过
 样例均在系统临时目录创建、用后删除。
@@ -338,6 +342,70 @@ def test_cinematics_exemption() -> None:
               "仓内序列帧全部 1440x810（36 帧@240x135）")
 
 
+def test_expand_illustration_exemption() -> None:
+    """T-096-v02 显式豁免②（Q16A A 档直用分层红线）：expand-v1 插画聚合件
+    （非 achievements 子树）尺寸/色板降 INFO；P4/achievements/ B 档严管
+    子树不豁免；结构/命名红线不豁免；豁免区外照常拒。"""
+    root = tempfile.mkdtemp(prefix="av_expand_")
+    try:
+        p1 = os.path.join(root, "game", "assets", "expand-v1", "P1", "banners")
+        os.makedirs(p1)
+        # 20x20 + >64 色：豁免面应双 INFO（尺寸+色板）
+        rows = rgba_rows(20, 20, lambda x, y: ((y * 20 + x) % 256, 0, 0, 255))
+        write(p1, "banner-e1-l1-x.png", png_bytes(20, 20, 8, 6, pixels=rows))
+        # 严管子树：P4/achievements/ 同规格照常双 REJECT（豁免不外溢）
+        achv = os.path.join(root, "game", "assets", "expand-v1", "P4", "achievements")
+        os.makedirs(achv)
+        write(achv, "achv-x.png", png_bytes(20, 20, 8, 6, pixels=rows))
+        # 豁免区内仍拒：结构损坏 / 非 kebab 命名
+        skins = os.path.join(root, "game", "assets", "expand-v1", "P4", "skins")
+        os.makedirs(skins)
+        write(skins, "broken.png", png_bytes(16, 16, 8, 2)[:30])
+        write(skins, "BadName.PNG", png_bytes(16, 16, 8, 2))
+        # 豁免区外同规格：照常拒
+        outside = os.path.join(root, "game", "assets", "era2")
+        os.makedirs(outside)
+        write(outside, "big-art.png", png_bytes(20, 20, 8, 6, pixels=rows))
+
+        report = av.run([root], av.DEFAULT_ALLOWED_SIZES, 64, False)
+        by_path = {
+            os.path.relpath(r["path"], root).replace(os.sep, "/"): r
+            for r in report["results"]
+        }
+        banner = by_path["game/assets/expand-v1/P1/banners/banner-e1-l1-x.png"]
+        check(severity_of(banner, "SIZE-ALLOWLIST") == "INFO"
+              and severity_of(banner, "PALETTE-COUNT") == "INFO"
+              and "expand-v1 插画聚合豁免" in next(
+                  f["message"] for f in banner["findings"]
+                  if f["rule"] == "SIZE-ALLOWLIST"),
+              "expand-v1 插画豁免：尺寸/色板降 INFO 且消息带豁免注记")
+        icon = by_path["game/assets/expand-v1/P4/achievements/achv-x.png"]
+        check(severity_of(icon, "SIZE-ALLOWLIST") == "REJECT"
+              and severity_of(icon, "PALETTE-COUNT") == "REJECT",
+              "P4/achievements B 档严管子树不豁免（尺寸/色板照常拒）")
+        check(severity_of(by_path["game/assets/expand-v1/P4/skins/broken.png"],
+                          "PNG-STRUCTURE") == "REJECT", "豁免区结构损坏仍拒")
+        check(severity_of(by_path["game/assets/expand-v1/P4/skins/BadName.PNG"],
+                          "FILENAME-KEBAB") == "REJECT", "豁免区命名不豁免")
+        check(severity_of(by_path["game/assets/era2/big-art.png"],
+                          "SIZE-ALLOWLIST") == "REJECT", "豁免区外同尺寸照常拒")
+        check(report["rejected"] == 4,
+              "豁免用例汇总 4 拒（严管子树 1+结构 1+命名 1+区外 1）")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    # 仓内真实聚合树（T-096-v02 聚合后）：49 插画+24 图标全零拒
+    expand_dir = os.path.join(REPO_ROOT, "game", "assets", "expand-v1")
+    if os.path.isdir(expand_dir):
+        report = av.run([expand_dir], av.DEFAULT_ALLOWED_SIZES, 64, False)
+        pngs = [r for r in report["results"] if r["path"].endswith(".png")]
+        check(report["rejected"] == 0, f"仓内 expand-v1 聚合树零拒（{len(pngs)} PNG）")
+        achv_pngs = [r for r in pngs if "/P4/achievements/" in r["path"]]
+        check(len(achv_pngs) == 24 and all(
+            r["width"] == 64 and r["height"] == 64 for r in achv_pngs),
+            "仓内成就图标 24 枚全 64x64（严管面真过门禁）")
+
+
 def test_cli_semantics() -> None:
     """CLI 端到端（子进程真实退出码）：正例 0、反例 1、--json 结构、
     非 PNG 目录（game/content/ 纯 JSON）0 文件通过。"""
@@ -418,6 +486,7 @@ def main() -> int:
     test_filename_rules()
     test_structure_rules()
     test_cinematics_exemption()
+    test_expand_illustration_exemption()
     test_cli_semantics()
     print("-" * 60)
     print(f"selftest summary: {PASS} passed, {FAIL} failed")

@@ -4,9 +4,12 @@ namespace EraTD.Expand;
 
 /// <summary>
 /// T-152 素材路径解析（表现层共享）：ogv/序列帧/成就图标=repo 内置轨
-/// （RL9-safe：相对探测 repo 走 walk-up，绝不硬编码盘符）；插画各批=外部轨
-/// （D21-5 双轨：开发期 U 盘目录来自素材目录内容数据，发布期聚合拷入 res://）。
-/// 全部方法失败返回 null——缺素材自动降级（缺图纯文本/静帧），永不抛异常阻断。
+/// （RL9-safe：相对探测 repo 走 walk-up，绝不硬编码盘符）；插画各批=双轨
+/// （D21-5：开发轨=U 盘绝对路径[素材目录内容数据]优先，发布轨=repo/发布包
+/// game/assets/expand-v1 聚合件回退[T-096-v02]——res:// 直放 PNG 源在导出
+/// PCK 内会被导入器重映射吞掉，REV-20261015-T096 CC0 OGG 先例，故走 exe 旁
+/// 松散文件轨）。全部方法失败返回 null——缺素材自动降级（缺图纯文本/静帧），
+/// 永不抛异常阻断。
 /// </summary>
 internal static class ExpandAssetPaths
 {
@@ -95,8 +98,10 @@ internal static class ExpandAssetPaths
     }
 
     /// <summary>
-    /// 插画绝对路径（外部轨 D21-5：目录 external_image_root 来自内容数据，
-    /// 本机无 U 盘时返回 null→缺图降级）。
+    /// 插画绝对路径（外部轨 D21-5 双轨）：① 开发轨=目录 external_image_root
+    /// （U 盘绝对路径，内容数据）；② 发布轨=repo/发布包内 game/assets/expand-v1
+    /// 聚合拷贝（T-096-v02：tools/art/expand_aggregate_images.py 2×BOX 降采样
+    /// 入库，build_v020.sh 装配到 exe 旁）。两轨均未命中返回 null→缺图降级。
     /// </summary>
     internal static string? ExternalImagePath(VisualAssetCatalog catalog, string imageKey)
     {
@@ -106,9 +111,24 @@ internal static class ExpandAssetPaths
             return null;
         }
 
-        string path = System.IO.Path.Combine(catalog.ExternalImageRoot,
-            image.File.Replace('/', System.IO.Path.DirectorySeparatorChar));
-        return System.IO.File.Exists(path) ? path : null;
+        string relative = image.File.Replace('/', System.IO.Path.DirectorySeparatorChar);
+        string external = System.IO.Path.Combine(catalog.ExternalImageRoot, relative);
+        if (System.IO.File.Exists(external))
+        {
+            return external;
+        }
+
+        if (RepoRoot() is { } root)
+        {
+            string bundled = System.IO.Path.Combine(
+                root, "game", "assets", "expand-v1", relative);
+            if (System.IO.File.Exists(bundled))
+            {
+                return bundled;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>外部 PNG→贴图（18 号 C6：FileAccess buffer 版，可拿错误）；失败 null。</summary>

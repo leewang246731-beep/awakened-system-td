@@ -1,6 +1,6 @@
 ---
 title: 我在游戏觉醒系统 EraTD
-description: 生产链塔防 × 六时代战役 × 游戏内智能体——永久免费开源（v0.1.0-alpha）
+description: 生产链塔防 × 六时代战役 × 游戏内智能体——永久免费开源（v0.2.0-alpha 视觉扩充版）
 ---
 
 # 我在游戏觉醒系统 · EraTD
@@ -19,7 +19,7 @@ description: 生产链塔防 × 六时代战役 × 游戏内智能体——永�
 
 → [GitHub Releases 下载页](https://github.com/leewang246731-beep/awakened-system-td/releases)
 
-当前版本 **v0.1.0-alpha**（首发两章：E1 远古 + E2 古典）。解压后双击 `start-game.bat` 即玩。
+当前版本 **v0.2.0-alpha（视觉扩充版）**：首发两章（E1 远古 + E2 古典）+ 五层 51 条过场视频、记忆图鉴与隐藏篇《零的真相》、六时代皮肤/加载图/立绘/成就图标。解压后双击 `start-game.bat` 即玩；Release 页另附 480p 视频母片合集（可选下载）。
 
 ## 更多
 

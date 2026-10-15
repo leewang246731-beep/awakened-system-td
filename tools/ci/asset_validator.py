@@ -31,6 +31,12 @@ Kenney Tiny Dungeon 为 16×16 CC0 tile 包（14 §1.1 A1），进 32px 网格�
 红线不放松）。ogv 非 PNG 不在扫描面（转码产物由
 tools/art/expand_transcode.py --verify 把关：OggS 魔数/时长/零 mp4 残留）。
 
+显式豁免②（T-096-v02，31 号 §五.5/Q16A 分层红线）：`game/assets/expand-v1/`
+下的插画聚合件（P1 题图/插画/钩子+P3 彩蛋+P4 皮肤/加载图/立绘，2×BOX 降
+采样入库的 A 档直用件）SIZE-ALLOWLIST/PALETTE-COUNT 同样降 INFO；其中
+`P4/achievements/` 子树（B 档程序合成→人工重绘红线件，T-151 验收"成就
+图标全过 asset_validator"）**不豁免**——严管维持，豁免不外溢到 sprite 面。
+
 实现说明：
   - 像素尺寸与颜色统计直接解析 PNG 二进制：IHDR 头（宽/高/位深/颜色类型/
     隔行标志）+ 分块 CRC 校验（zlib.crc32）+ IDAT zlib 解压 + 逐行反滤波
@@ -77,6 +83,25 @@ DEFAULT_MAX_PALETTE = 64
 # 结构/命名门禁不豁免。ogv 非 PNG 不在扫描面（转码产物由
 # tools/art/expand_transcode.py --verify 把关）。
 CINEMATICS_EXEMPT_PREFIX = "game/assets/cinematics/"
+
+# T-096-v02 显式豁免区②（31 号 §五.5 发布聚合 + Q16A A 档直用分层红线）：
+# expand-v1 插画聚合件（P1/P3/P4 题图/插画/钩子/彩蛋/皮肤/加载图/立绘）
+# SIZE/PALETTE 降 INFO；P4/achievements/（B 档严管面）不豁免。
+EXPAND_ILLUSTRATION_EXEMPT_PREFIX = "game/assets/expand-v1/"
+EXPAND_STRICT_SUBTREE = "game/assets/expand-v1/P4/achievements/"
+
+
+def _exemption(rel: str) -> str:
+    """豁免判定：返回豁免注记文案（空串=不豁免）。
+
+    cinematics：T-152 序列帧 Atlas；expand-v1：T-096-v02 插画聚合件（achievements
+    子树除外——B 档 sprite 红线面维持严管，豁免按路径精确界定不外溢）。
+    """
+    if CINEMATICS_EXEMPT_PREFIX in rel:
+        return "cinematics 序列帧豁免（T-152，31 号 §三 C 层抽帧 Atlas——A 档直用不进 sprite 管线，显式豁免注明）"
+    if EXPAND_ILLUSTRATION_EXEMPT_PREFIX in rel and EXPAND_STRICT_SUBTREE not in rel:
+        return "expand-v1 插画聚合豁免（T-096-v02，Q16A A 档直用分层红线——插画面放行；P4/achievements B 档严管面不豁免）"
+    return ""
 
 KEBAB_RE_OK = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\.png$")
 
@@ -298,11 +323,11 @@ def validate_file(path: str, allowed_sizes, max_palette: int,
     allow_oversized_palette：调色板超限降为 WARN（美术特批逃生阀，
     审批留痕须走审查记录）。expect_frames：None=自动帧探测仅 INFO；
     给定 N=探测帧数≠N（含非横条图无法给出帧数）→ REJECT。
-    cinematics 豁免区（CINEMATICS_EXEMPT_PREFIX 命中）：T-152 序列帧
-    Atlas 的尺寸/色板门禁降为 INFO（显式豁免注明）；结构/命名仍 REJECT。
+    豁免区（_exemption 命中，T-152 序列帧 / T-096-v02 插画聚合）：尺寸/
+    色板门禁降为 INFO（显式豁免注明）；结构/命名仍 REJECT。
     """
     rel = path.replace(os.sep, "/")
-    exempt = CINEMATICS_EXEMPT_PREFIX in rel
+    exempt = _exemption(rel)
     findings = []
     result = {
         "path": rel,
@@ -343,8 +368,7 @@ def validate_file(path: str, allowed_sizes, max_palette: int,
             "severity": "INFO" if exempt else "REJECT",
             "message": (f"尺寸 {info['width']}x{info['height']} 不在允许清单 "
                         f"{sorted(allowed_sizes)}"
-                        + ("；cinematics 序列帧豁免（T-152，31 号 §三 C 层抽帧 Atlas"
-                           "——A 档直用不进 sprite 管线，显式豁免注明）" if exempt else
+                        + (f"；{exempt}" if exempt else
                            "（14 §3 首版=Kenney Tiny Dungeon 16×16 整数放大；非清单尺寸拒绝入库）")),
         })
 
@@ -362,7 +386,7 @@ def validate_file(path: str, allowed_sizes, max_palette: int,
                 findings.append({
                     "rule": "PALETTE-COUNT", "severity": "INFO",
                     "message": (f"实际使用颜色 {ncolors} > master 上限 {max_palette}"
-                                "；cinematics 序列帧豁免（T-152 显式豁免注明）"),
+                                f"；{exempt}"),
                 })
             else:
                 findings.append({

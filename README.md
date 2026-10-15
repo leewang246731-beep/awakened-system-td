@@ -8,7 +8,7 @@
 
 **生产链塔防 × 六时代战役 × 游戏内智能体（AI 军师，可选 BYOK）**。Godot 4.7 + C# 制作，代码 MIT / 美术音频资产 CC BY-NC，**永久免费，无任何付费项**。
 
-> 当前版本 **v0.1.0-alpha**：首发两章（E1 远古 / E2 古典）可玩。后续章节、Web 版与模组管线开发中。
+> 当前版本 **v0.2.0-alpha（视觉扩充版）**：首发两章（E1 远古 / E2 古典）可玩 + 五层 51 条过场视频、记忆图鉴与隐藏篇《零的真相》、六时代皮肤/加载图/立绘/成就图标。后续章节、Web 版与模组管线开发中。
 
 ## 特性
 
@@ -27,7 +27,7 @@
 
 ## 快速开始（玩家）
 
-1. 到 [Releases](https://github.com/leewang246731-beep/awakened-system-td/releases) 下载最新 `EraTD-v0.1.0-alpha-win64.zip`（免登录，直接点即下）。
+1. 到 [Releases](https://github.com/leewang246731-beep/awakened-system-td/releases) 下载最新 `EraTD-v0.2.0-alpha-win64.zip`（免登录，直接点即下；另附可选的 480p 视频母片合集）。
 2. 解压到任意可写目录（不要放进 `Program Files`）。
 3. 双击 `EraTD.exe` 运行。存档与战报写在 exe 旁的 `saves\` 目录，卸载=删目录。
 4. 玩不动了？游戏内按帮助（`F1`）看三层信息层；对系统下一句"守住东门"试试。
@@ -48,8 +48,8 @@ dotnet build game/EraTD.sln -c Release
 # 一键质量门禁：红线扫描 → 资产校验 → 全量测试 → 构建 → Godot headless 冒烟
 bash tools/ci/run_all.sh
 
-# 打 v0.1 Windows 包（导出模板就位后）
-bash tools/release/build_v010.sh
+# 打 v0.2 Windows 包（视觉扩充版；导出模板就位、图片聚合已入库后）
+bash tools/release/build_v020.sh
 ```
 
 架构要点：`game/src/EraCore`（纯逻辑库，零 Godot 依赖）+ `game/presentation/EraTD`（唯一 res:// 根）+ `game/content`（JSON 数值注册表）。规范见 [`docs/CODE_STANDARDS.md`](docs/CODE_STANDARDS.md)。
@@ -66,4 +66,5 @@ bash tools/release/build_v010.sh
 - 本游戏**永久免费、无任何付费项、无内购无广告**；AI 对话档的服务器费用由玩家自担（BYOK——Bring Your Own Key，自带按量 API Key）。
 - **Coding Plan 白名单限制**：智谱等厂商的"Coding Plan / 套餐包月"密钥只能在其官方编程工具内使用，**不能**调用本游戏的对话接口——会收到 HTTP 429 + 错误码 1315。请使用**按量计费 API Key**。本提示同时写在游戏设置页与 429-1315 错误文案里。
 - AI 档完全可选：关闭系统可全通关、全成就，警报与军令语法档不缺失。
-- v0.1.0-alpha 已知问题：①内容量为首发两章（E1+E2）；②界面双语混排（中文为主，部分文案仍为英文），完整本地化随后续版本收口；③ AI 档需自配 Key（见上）。
+- v0.2.0-alpha 已知问题：①内容量为首发两章（E1+E2）；②界面双语混排（中文为主，部分文案仍为英文），完整本地化随后续版本收口；③ AI 档需自配 Key（见上）；④ Boss/奇观等部分视频触发位待后续系统任务接线（素材与播放接口已内置）。
+- 视觉扩充素材（插画/视频）由 AI 生成：披露口径与逐条台账见 `game/assets/expand-v1/` 下各 manifest（随包分发）。
