@@ -102,6 +102,10 @@ internal static class UnitsContent
     public static EnemySpecCatalog LoadEra2EnemyCatalog() =>
         EnemySpecCatalog.Parse(ReadContentFile("era2", "enemies.json"));
 
+    /// <summary>Parses the real era3 enemies.json into the production catalog (T-112 rows).</summary>
+    public static EnemySpecCatalog LoadEra3EnemyCatalog() =>
+        EnemySpecCatalog.Parse(ReadContentFile("era3", "enemies.json"));
+
     /// <summary>Parses the real heroes.json (SP-6 E1+E2 pair in one file) into the production catalog.</summary>
     public static HeroSpecCatalog LoadHeroCatalog() =>
         HeroSpecCatalog.Parse(ReadContentFile("era2", "heroes.json"));
@@ -117,34 +121,60 @@ internal static class UnitsContent
     /// </summary>
     public sealed record TowerStats(int DamagePerShot, int ReloadTicks, double RangeCells, int Hp, int CellSizePx);
 
-    public static TowerStats LoadWoodArrowTower() => LoadTower("era1:tower-wood-arrow");
+    public static TowerStats LoadWoodArrowTower() => LoadTower("era1", "era1:tower-wood-arrow");
 
     /// <summary>
     /// Rockfall tower constants (era1:tower-rockfall) — the E2 boss-battle
     /// harness fires these because era2 towers.json is another task's
     /// deliverable (T-065); values still come from data JSON (CS-4.4).
     /// </summary>
-    public static TowerStats LoadRockfallTower() => LoadTower("era1:tower-rockfall");
+    public static TowerStats LoadRockfallTower() => LoadTower("era1", "era1:tower-rockfall");
 
-    private static TowerStats LoadTower(string towerId)
+    /// <summary>
+    /// E3 gatling constants (era3:tower-gatling, T-112 rows) — the T-114
+    /// fortress-battle harness fires these (d=16/reload 2/range 8).
+    /// </summary>
+    public static TowerStats LoadGatlingTower() => LoadTower("era3", "era3:tower-gatling");
+
+    /// <summary>
+    /// E3 mortar constants (era3:tower-mortar, T-112 rows) — the T-114
+    /// fortress-battle body-killer line (d=480/reload 30/range 11).
+    /// </summary>
+    public static TowerStats LoadMortarTower() => LoadTower("era3", "era3:tower-mortar");
+
+    /// <summary>
+    /// E3 ironclad-wall HP (era3:tower-ironclad-wall — support row, zero
+    /// damage, hp 1600): the fortress battle's pure trample sink. Only the
+    /// hp field exists for a non-firing row (reload/range are null in the
+    /// file), so this loader reads just that.
+    /// </summary>
+    public static int LoadIroncladWallHp()
     {
-        string path = Path.Combine(FindContentDir("era1").FullName, "towers.json");
-        Assert.True(File.Exists(path), "内容文件缺失：towers.json");
+        JsonElement item = FindTowerItem("era3", "era3:tower-ironclad-wall");
+        return item.GetProperty("hp").GetInt32();
+    }
+
+    private static JsonElement FindTowerItem(string era, string towerId)
+    {
+        string path = Path.Combine(FindContentDir(era).FullName, "towers.json");
+        Assert.True(File.Exists(path), $"内容文件缺失：{era}/towers.json");
         using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
-        JsonElement item = default;
         foreach (JsonElement e in doc.RootElement.GetProperty("items").EnumerateArray())
         {
             if (e.GetProperty("id").GetString() == towerId)
             {
-                item = e;
-                break;
+                return e.Clone();
             }
         }
 
-        Assert.True(item.ValueKind == JsonValueKind.Object, $"towers.json 缺 {towerId}");
-        int cellSize = doc.RootElement.TryGetProperty("cell_size_px", out JsonElement cs)
-            ? cs.GetInt32()
-            : 32;
+        Assert.Fail($"towers.json 缺 {towerId}");
+        throw new InvalidOperationException("unreachable");
+    }
+
+    private static TowerStats LoadTower(string era, string towerId)
+    {
+        JsonElement item = FindTowerItem(era, towerId);
+        int cellSize = 32; // K-1 cell size (era3 towers.json carries no root override)
         return new TowerStats(
             item.GetProperty("damage_per_shot").GetInt32(),
             item.GetProperty("reload_ticks").GetInt32(),
@@ -189,6 +219,13 @@ internal sealed class TestTower : ITrampleTarget
 
     public long NextFireTick { get; internal set; }
 
+    /// <summary>
+    /// Whether this tower's rounds carry the armorPen flag (the E4 energy
+    /// line's 穿甲标记 mechanic, SP-1a L28 — interrupts shield regeneration
+    /// for 3 s). The T-114 two-case comparison flips exactly this bit.
+    /// </summary>
+    public bool PierceRounds { get; internal set; }
+
     public int ShotsFired { get; private set; }
 
     public int DamageDealt { get; private set; }
@@ -230,7 +267,7 @@ internal sealed class TestTower : ITrampleTarget
             return;
         }
 
-        DamageDealt += best.ApplyDamage(_damagePerShot, tick, pierce);
+        DamageDealt += best.ApplyDamage(_damagePerShot, tick, pierce || PierceRounds);
         ShotsFired++;
         NextFireTick = tick + _reloadTicks;
     }

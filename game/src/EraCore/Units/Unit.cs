@@ -10,9 +10,9 @@ namespace EraCore.Units;
 /// (orchestration) can target units without owning their internals
 /// (03-decomposition §3.1). State beyond the contract: spawn/death ticks,
 /// arrival flag, the T-066 additions — the shield framework instance, the
-/// speed-effect channels (war-drum aura / hero slow / boss charge burst),
-/// the armor-reduction debuff, and the boss skill tuning (trample, war
-/// drums, charge).
+/// speed-effect channels (war-drum aura / hero slow / boss charge burst /
+/// T-114 war-cry buff), the armor-reduction debuff, and the boss skill
+/// tuning (trample, war drums, charge, war cry).
 /// <para>
 /// Damage settlement delegates to the single authoritative integer entry
 /// <see cref="Damage.DirectInt"/> (damage-formula unification, batch2 review
@@ -114,6 +114,13 @@ public sealed class Unit : IUnit, IMovableUnit
     /// <inheritdoc />
     public int Shield => _shield?.CurrentPoints ?? 0;
 
+    /// <summary>
+    /// Lifetime raw points this unit's shield has absorbed (T-114
+    /// observability; 0 without a shield). Damage accounting separates the
+    /// shield tax from the hp pool through this counter.
+    /// </summary>
+    public int ShieldAbsorbedTotal => _shield?.AbsorbedTotal ?? 0;
+
     /// <inheritdoc />
     public float SpeedPxPerTick { get; }
 
@@ -152,6 +159,27 @@ public sealed class Unit : IUnit, IMovableUnit
 
     /// <summary>War-drum aura speed bonus in percent (SP-3b L120: +15).</summary>
     public int WarDrumsSpeedBonusPercent { get; private set; }
+
+    /// <summary>War-cry (战吼) radius in px; 0 = the unit cries no cry (era3 boss trait).</summary>
+    public float WarCryRadiusPx { get; private set; }
+
+    /// <summary>War-cry ally speed bonus in percent (era3 boss trait: +15).</summary>
+    public int WarCrySpeedBonusPercent { get; private set; }
+
+    /// <summary>War-cry buff length in ticks (era3 boss trait: 180 = 6 s).</summary>
+    public int WarCryDurationTicks { get; private set; }
+
+    /// <summary>War-cry cooldown in ticks (era3 boss trait: 600 = 20 s).</summary>
+    public int WarCryCooldownTicks { get; private set; }
+
+    /// <summary>
+    /// Time-boxed war-cry buff percent folded into the resolved speed while
+    /// <c>tick &lt; CryUntilTick</c> (long.MinValue = no cry running).
+    /// </summary>
+    public int CrySpeedBonusPercent { get; private set; }
+
+    /// <summary>War-cry buff expiry stamp (long.MinValue = none applied).</summary>
+    public long CryUntilTick { get; private set; } = long.MinValue;
 
     /// <summary>Charge (冲撞) ram damage in points; 0 = no charge (SP-3b L121).</summary>
     public int ChargeDamage { get; private set; }
@@ -333,6 +361,53 @@ public sealed class Unit : IUnit, IMovableUnit
     }
 
     /// <summary>
+    /// Sets the war-cry (战吼) tuning from enemy content data at spawn time
+    /// (T-114; era3 boss trait: radius 3 cells, +15% allies, 180-tick buff,
+    /// 600-tick cooldown). Zero radius disables. Unlike the always-on
+    /// war-drum aura, the cry is an ACTIVE periodic pulse —
+    /// <see cref="UnitMovement.PulseWarCry"/> fires it on the cooldown grid
+    /// and grants allies a time-boxed buff.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// Negative members, or a positive radius without the full positive
+    /// bonus/duration/cooldown triple.
+    /// </exception>
+    public void SetWarCry(float radiusPx, int speedBonusPercent, int durationTicks, int cooldownTicks)
+    {
+        if (radiusPx < 0 || speedBonusPercent < 0 || durationTicks < 0 || cooldownTicks < 0
+            || (radiusPx > 0 && (speedBonusPercent <= 0 || durationTicks <= 0 || cooldownTicks <= 0)))
+        {
+            throw new ArgumentException(
+                $"War cry needs a non-negative quad with a positive triple when crying " +
+                $"(got {radiusPx}/{speedBonusPercent}/{durationTicks}/{cooldownTicks}).");
+        }
+
+        WarCryRadiusPx = radiusPx;
+        WarCrySpeedBonusPercent = speedBonusPercent;
+        WarCryDurationTicks = durationTicks;
+        WarCryCooldownTicks = cooldownTicks;
+    }
+
+    /// <summary>
+    /// Starts one war-cry buff window on this ally (engine seam, called by
+    /// <see cref="UnitMovement.PulseWarCry"/>). Re-application keeps the
+    /// stronger active buff and the later expiry — the deterministic fold
+    /// <see cref="ApplySlow"/> carries.
+    /// </summary>
+    public void BeginWarCryBurst(long untilTick, int speedBonusPercent)
+    {
+        if (CryUntilTick <= long.MinValue || speedBonusPercent > CrySpeedBonusPercent)
+        {
+            CrySpeedBonusPercent = speedBonusPercent;
+        }
+
+        if (untilTick > CryUntilTick)
+        {
+            CryUntilTick = untilTick;
+        }
+    }
+
+    /// <summary>
     /// Sets the charge (冲撞) tuning from enemy content data at spawn time
     /// (SP-3b L121: every 20 s; damage/reach/duration/bonus are
     /// [NEW-原型校准] columns of the same row). Zero interval disables.
@@ -416,15 +491,17 @@ public sealed class Unit : IUnit, IMovableUnit
     }
 
     /// <summary>
-    /// Folds the time-boxed channels (slow, charge) into the resolved bonus
-    /// alongside the aura channel. Called once per tick before movement;
-    /// pure function of the stored stamps, so replays are stable.
+    /// Folds the time-boxed channels (slow, charge, war-cry buff) into the
+    /// resolved bonus alongside the aura channel. Called once per tick
+    /// before movement; pure function of the stored stamps, so replays are
+    /// stable.
     /// </summary>
     public void ResolveSpeedEffects(long tick)
     {
         int slow = tick < SlowUntilTick ? -SlowPercent : 0;
         int charge = tick < ChargeUntilTick ? ChargeSpeedBonusPercent : 0;
-        ResolvedSpeedBonusPercent = slow + charge + AuraSpeedBonusPercent;
+        int cry = tick < CryUntilTick ? CrySpeedBonusPercent : 0;
+        ResolvedSpeedBonusPercent = slow + charge + cry + AuraSpeedBonusPercent;
     }
 
     /// <summary>

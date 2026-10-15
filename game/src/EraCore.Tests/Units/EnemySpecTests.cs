@@ -162,4 +162,51 @@ public class EnemySpecTests
         Assert.Throws<ArgumentException>(() => EnemySpecCatalog.Parse(""));
         Assert.Throws<ArgumentException>(() => EnemySpecCatalog.Parse("   "));
     }
+
+    // ---- 战吼 war_cry 解析（T-114；era3 Boss trait 四元组）-------------------
+
+    [Fact] // legal — 真实 era3 文件：堡垒号 war_cry 四元组经生产解析器装载
+    public void Era3_boss_war_cry_quad_loads_from_the_real_file()
+    {
+        EnemySpec boss = UnitsContent.LoadEra3EnemyCatalog().Get("era3:enemy-boss");
+
+        Assert.True(boss.IsBoss);
+        Assert.Equal(3.0, boss.WarCryRadiusCells, precision: 9); // war_cry.radius_cells
+        Assert.Equal(15, boss.WarCrySpeedBonusPercent);
+        Assert.Equal(180, boss.WarCryDurationTicks); // 6 s × 30 Hz
+        Assert.Equal(600, boss.WarCryCooldownTicks); // 20 s × 30 Hz
+        Assert.Equal(600, boss.ShieldPoints);        // 个体盾（叠加裁定对照位）
+    }
+
+    [Fact] // boundary — 无 war_cry 的行（era1/era2 全表）：四元组全零=trait 缺席
+    public void Rows_without_war_cry_parse_to_an_all_zero_quad()
+    {
+        EnemySpec e1 = UnitsContent.LoadEnemyCatalog().Get("era1:enemy-boss"); // 践踏位亦无战吼
+        Assert.Equal(0.0, e1.WarCryRadiusCells, precision: 9);
+        Assert.Equal(0, e1.WarCrySpeedBonusPercent);
+        Assert.Equal(0, e1.WarCryDurationTicks);
+        Assert.Equal(0, e1.WarCryCooldownTicks);
+
+        EnemySpec e2 = UnitsContent.LoadEra2EnemyCatalog().Get("era2:enemy-centurion"); // 战鼓位≠战吼位
+        Assert.Equal(0.0, e2.WarCryRadiusCells, precision: 9);
+        Assert.Equal(3.0, e2.WarDrumsRadiusCells, precision: 9); // 战鼓常驻光环不受影响
+    }
+
+    [Theory] // illegal — war_cry 违约各行确实被拒绝（负值/半径>0 而三元不全正）
+    [InlineData("\"speed_bonus_percent\": -15")] // 负加成
+    [InlineData("\"duration_ticks\": 0")]        // 半径>0 而时长非正
+    [InlineData("\"cooldown_ticks\": -600")]     // 负冷却
+    public void Parse_rejects_war_cry_violations(string cryMembers)
+    {
+        string item = """
+            {
+              "id": "era1:enemy-cry", "content_type": "Enemy", "sp_id": "e1_cry",
+              "name_zh": "吼者", "hp": 100, "speed_px_per_tick": 1.0,
+              "traits": { "war_cry": { "radius_cells": 3, %CRY% } }
+            }
+            """.Replace("%CRY%", cryMembers);
+
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => EnemySpecCatalog.Parse(WrapItems(item)));
+        Assert.False(string.IsNullOrWhiteSpace(ex.Message));
+    }
 }

@@ -44,8 +44,10 @@ public sealed record TrampleProfile(int Damage, int PeriodTicks);
 /// <param name="Trample">Trample tuning for specs carrying a trample radius; null disables trample.</param>
 /// <param name="ShieldStartWave">
 /// First wave of the shielded era for the wave-shield formula
-/// (<see cref="Shield.At"/>, v3.2 §6 护盾 E3 起); null = the era grants no
-/// wave shields (E1/E2). T-114 turns it on for E3.
+/// (<see cref="Shield.At"/>, v3.2 §6 护盾 E3 起; live since T-114 — E3
+/// content passes 31, the first E3 wave per the wave golden table); null =
+/// the era grants no wave shields (E1/E2). Stacking with individual spec
+/// points takes the maximum (see the CreateUnit rulings).
 /// </param>
 public sealed record WaveSpawnConfig(
     int BaseCount,
@@ -477,6 +479,19 @@ public sealed class WaveSpawner
                 spec.WarDrumsSpeedBonusPercent);
         }
 
+        // War cry (T-114; era3 boss trait war_cry): the active periodic ally
+        // buff — radius from the spec row, bonus/duration/cooldown from the
+        // same trait block. Consumed by UnitMovement.PulseWarCry on the
+        // cooldown grid (boss-battle seam).
+        if (spec.WarCryRadiusCells > 0)
+        {
+            unit.SetWarCry(
+                (float)(spec.WarCryRadiusCells * _cfg.CellSizePx),
+                spec.WarCrySpeedBonusPercent,
+                spec.WarCryDurationTicks,
+                spec.WarCryCooldownTicks);
+        }
+
         if (spec.ChargeIntervalTicks > 0)
         {
             double chargeMultiplier = batch.IsBoss ? _cfg.BossDamageMultiplier : 1.0;
@@ -488,10 +503,24 @@ public sealed class WaveSpawner
                 spec.ChargeSpeedBonusPercent);
         }
 
-        // Shield wiring (T-066 framework, F-032): the wave formula feeds
-        // E3+ waves (v3.2 §6 10+8×波); individual spec points are the
-        // per-row slot SP-3b leaves empty (all E2 rows carry 0). The larger
-        // of the two wins; eras without either stay unshielded.
+        // Shield wiring (T-066 framework, F-032; E3 live = T-114, v3.2 §6
+        // 护盾 E3 起). RULINGS the live turn-on freezes (documented so the
+        // wave-shield tests can pin them):
+        // (1) WAVE-START REFRESH SEMANTICS — a unit's shield is granted at
+        //     its own spawn moment, charged to its OWN wave's formula value
+        //     (Shield.At(wave, startWave)): "波开始时群体盾刷新" = the wave's
+        //     entrants materialize fully shielded. Later waves do NOT
+        //     retro-refresh earlier survivors — a unit's shield capacity is
+        //     frozen at its entry wave (a wave-31 survivor keeps 258 while
+        //     wave-32 entrants carry 266; survivors only recover through
+        //     their own regeneration clock).
+        // (2) INDIVIDUAL vs WAVE STACKING — take the MAXIMUM of the spec's
+        //     individual points and the wave formula, never the sum: both
+        //     slots describe the same design quantity (this unit's shield),
+        //     so adding them would double-count one shield. The fortress
+        //     keeps its 600 through waves whose formula value is below it;
+        //     every regular row without an individual value gets the pure
+        //     wave shield. Eras with neither stay unshielded.
         int waveShield = _cfg.ShieldStartWave is int startWave
             ? Shield.At(wave, startWave)
             : 0;

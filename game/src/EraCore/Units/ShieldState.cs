@@ -68,6 +68,15 @@ public sealed class ShieldState
     /// <summary>Current shield points; 0 while broken and awaiting regeneration.</summary>
     public int CurrentPoints { get; private set; }
 
+    /// <summary>
+    /// Lifetime raw points absorbed (T-114 observability): every point the
+    /// shield has eaten since spawn, including regenerated points re-absorbed
+    /// after a break. Damage accounting reads this to separate the shield
+    /// tax from the hp pool (initial charge + regeneration credits) without
+    /// inferring it from return values. Pure integer counter, replay-stable.
+    /// </summary>
+    public int AbsorbedTotal { get; private set; }
+
     /// <summary>Whether the shield was fully depleted and has not recharged a point yet.</summary>
     public bool IsBroken => CurrentPoints == 0;
 
@@ -99,6 +108,11 @@ public sealed class ShieldState
 
         int absorbed = Math.Min(CurrentPoints, incoming);
         CurrentPoints -= absorbed;
+        if (absorbed > 0)
+        {
+            AbsorbedTotal += absorbed;
+        }
+
         if (CurrentPoints == 0 && absorbed > 0)
         {
             _brokenAtTick = tick;

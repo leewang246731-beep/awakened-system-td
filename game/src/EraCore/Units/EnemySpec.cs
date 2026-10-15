@@ -12,7 +12,10 @@ namespace EraCore.Units;
 /// T-066 additions beyond the E1 thin set: the optional individual shield
 /// points (framework slot — SP-3b rows carry none, so E2 data keeps it 0),
 /// the building-damage multiplier, the war-drum aura pair (SP-3b L120) and
-/// the charge tuning (SP-3b L121). Zero values mean "trait absent".
+/// the charge tuning (SP-3b L121). T-114 adds the war-cry quad (era3 boss
+/// trait war_cry: radius/bonus/duration/cooldown — the active periodic
+/// ally buff the fortress fires in the boss battle). Zero values mean
+/// "trait absent".
 /// </para>
 /// </summary>
 /// <param name="Id">Content id, e.g. "era1:enemy-boss" (K-2 namespace).</param>
@@ -33,6 +36,10 @@ namespace EraCore.Units;
 /// <param name="ChargeReachCells">Charge ram reach in cells.</param>
 /// <param name="ChargeDurationTicks">Charge burst length in ticks.</param>
 /// <param name="ChargeSpeedBonusPercent">Charge burst speed bonus in percent.</param>
+/// <param name="WarCryRadiusCells">War-cry radius in cells; 0 = no cry (T-114, era3 boss trait).</param>
+/// <param name="WarCrySpeedBonusPercent">War-cry ally speed bonus in percent (era3 boss: +15).</param>
+/// <param name="WarCryDurationTicks">War-cry buff length in ticks (era3 boss: 180 = 6 s).</param>
+/// <param name="WarCryCooldownTicks">War-cry cooldown in ticks (era3 boss: 600 = 20 s).</param>
 public sealed record EnemySpec(
     string Id,
     string SpId,
@@ -51,7 +58,11 @@ public sealed record EnemySpec(
     int ChargeDamage = 0,
     double ChargeReachCells = 0,
     int ChargeDurationTicks = 0,
-    int ChargeSpeedBonusPercent = 0);
+    int ChargeSpeedBonusPercent = 0,
+    double WarCryRadiusCells = 0,
+    int WarCrySpeedBonusPercent = 0,
+    int WarCryDurationTicks = 0,
+    int WarCryCooldownTicks = 0);
 
 /// <summary>
 /// Read-only catalog of enemy definitions parsed from one enemies.json
@@ -182,6 +193,10 @@ public sealed class EnemySpecCatalog
         double chargeReach = 0;
         int chargeDuration = 0;
         int chargeBonus = 0;
+        double warCryRadius = 0;
+        int warCryBonus = 0;
+        int warCryDuration = 0;
+        int warCryCooldown = 0;
         if (item.TryGetProperty("traits", out JsonElement traits)
             && traits.ValueKind == JsonValueKind.Object)
         {
@@ -213,6 +228,15 @@ public sealed class EnemySpecCatalog
                 chargeReach = ReadTraitDouble(charge, "reach_cells");
                 chargeDuration = ReadTraitInt(charge, "duration_ticks");
                 chargeBonus = ReadTraitInt(charge, "speed_bonus_percent");
+            }
+
+            if (traits.TryGetProperty("war_cry", out JsonElement cry)
+                && cry.ValueKind == JsonValueKind.Object)
+            {
+                warCryRadius = ReadTraitDouble(cry, "radius_cells");
+                warCryBonus = ReadTraitInt(cry, "speed_bonus_percent");
+                warCryDuration = ReadTraitInt(cry, "duration_ticks");
+                warCryCooldown = ReadTraitInt(cry, "cooldown_ticks");
             }
         }
 
@@ -264,6 +288,21 @@ public sealed class EnemySpecCatalog
                 nameof(id));
         }
 
+        if (warCryRadius < 0 || warCryBonus < 0 || warCryDuration < 0 || warCryCooldown < 0)
+        {
+            throw new ArgumentException(
+                $"Enemy '{id}' must have non-negative war cry tuning (got {warCryRadius}/{warCryBonus}/{warCryDuration}/{warCryCooldown}).",
+                nameof(id));
+        }
+
+        if (warCryRadius > 0 && (warCryBonus <= 0 || warCryDuration <= 0 || warCryCooldown <= 0))
+        {
+            throw new ArgumentException(
+                $"Enemy '{id}' war cry needs a positive bonus/duration/cooldown when it has a radius " +
+                $"(got {warCryRadius}/{warCryBonus}/{warCryDuration}/{warCryCooldown}).",
+                nameof(id));
+        }
+
         return new EnemySpec(
             id,
             spId,
@@ -282,7 +321,11 @@ public sealed class EnemySpecCatalog
             chargeDamage,
             chargeReach,
             chargeDuration,
-            chargeBonus);
+            chargeBonus,
+            warCryRadius,
+            warCryBonus,
+            warCryDuration,
+            warCryCooldown);
     }
 
     private static int ReadTraitInt(JsonElement trait, string name) =>

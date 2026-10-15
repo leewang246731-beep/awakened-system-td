@@ -180,6 +180,34 @@ public class ShieldStateTests
         Assert.Equal(2, shield.CurrentPoints); // 门后 3 tick 恰 2 点（未被打断）
     }
 
+    [Fact] // legal — 吸收总账（T-114 观测位）：初始充能+再生重吸收逐点入账、纯观察不改行为
+    public void AbsorbedTotal_banks_every_absorbed_point_including_reabsorbed_regen()
+    {
+        var shield = new ShieldState(maxPoints: 100);
+        Assert.Equal(40, shield.Absorb(40, pierce: false, tick: 0)); // 返回=实吸收
+        Assert.Equal(60, shield.CurrentPoints);
+        Assert.Equal(40, shield.AbsorbedTotal);
+
+        for (long t = 1; t <= 45; t++)
+        {
+            shield.Tick(t); // 未破之盾持续 20/s：45 ticks → +30 点
+        }
+
+        Assert.Equal(90, shield.CurrentPoints);
+        Assert.Equal(90, shield.Absorb(90, pierce: false, tick: 46)); // 全额吸收并破盾
+        Assert.Equal(130, shield.AbsorbedTotal); // 40+90：再生回补的点再次入账
+
+        for (long t = 47; t <= 246; t++)
+        {
+            shield.Tick(t); // 破盾门 46+150=196 起至 246 共 51 ticks → floor(51×2/3)=34 点
+        }
+
+        Assert.Equal(34, shield.CurrentPoints);
+        Assert.Equal(30, shield.Absorb(30, pierce: true, tick: 250)); // 穿甲命中：只吸收不计门
+        Assert.Equal(160, shield.AbsorbedTotal); // 130+30：第三轮重吸收
+        Assert.Equal(4, shield.CurrentPoints);
+    }
+
     [Theory] // illegal — 非法构造与非正吸收确实被拒绝
     [InlineData(0)]
     [InlineData(-5)]

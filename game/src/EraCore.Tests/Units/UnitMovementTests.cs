@@ -8,7 +8,8 @@ namespace EraCore.Tests.Units;
 
 // [C-10] UnitMovement（T-039）：沿 FlowField.NextStep 梯度移动
 // （px/tick@30Hz，速度保距）+ [F-033] 踏群者践踏（半径 2 格周期伤害，
-// 周期/伤害 = TrampleProfile 注入的 [NEW-原型校准] 值）。
+// 周期/伤害 = TrampleProfile 注入的 [NEW-原型校准] 值）+ [F-033] 战吼
+// （T-114：era3 Boss trait war_cry 主动化周期脉冲，600-tick 冷却网格）。
 // 网格用真实 GridWorld（T-032，只读复用）+ 真实 FlowField（T-037）。
 public class UnitMovementTests
 {
@@ -305,5 +306,110 @@ public class UnitMovementTests
         // Boss 最终仍走完（薄版不因塔而停留）
         Assert.True(boss.ArrivedAtTarget);
         Assert.True(boss.Alive); // 单塔伤害远小于 3750
+    }
+
+    // ---- 战吼（T-114；era3 Boss trait war_cry：半径 3 格友军 +15%×180 ticks、
+    // 冷却 600 ticks——主动化周期脉冲，区别于战鼓常驻光环）--------------------
+
+    private static Unit NewCrier(float x, float y, long spawnTick = 0)
+    {
+        Unit crier = NewUnit(x, y, speed: 0.53f, spawnTick);
+        crier.SetWarCry(radiusPx: 96f, speedBonusPercent: 15, durationTicks: 180, cooldownTicks: 600);
+        return crier;
+    }
+
+    [Fact] // legal — 节拍+半径：600 网格开嗓、半径内（含边界）友军受鼓、界外与自身除外
+    public void War_cry_pulses_on_the_cooldown_grid_and_buffs_allies_inside_the_radius()
+    {
+        FlowField field = StraightField();
+        var movement = new UnitMovement(() => field, CellSize);
+        Unit crier = NewCrier(112f, 112f);
+        var near = NewUnit(112f + 32f, 112f, 1.0f);            // 距 32 px < 96
+        var onEdge = NewUnit(112f + 96f, 112f, 1.0f);          // 恰在半径边界（含）
+        var far = NewUnit(112f + 96.001f, 112f, 1.0f);         // 边界外（浮点外侧）
+        var allies = new List<Unit> { crier, near, onEdge, far };
+
+        Assert.Equal(2, movement.PulseWarCry(crier, allies, 600).Count); // 首拍：near+onEdge 双受鼓
+
+        near.ResolveSpeedEffects(601);
+        onEdge.ResolveSpeedEffects(601);
+        far.ResolveSpeedEffects(601);
+        crier.ResolveSpeedEffects(601);
+        Assert.Equal(15, near.ResolvedSpeedBonusPercent);   // 半径内 +15%
+        Assert.Equal(15, onEdge.ResolvedSpeedBonusPercent); // 边界含（≤）
+        Assert.Equal(0, far.ResolvedSpeedBonusPercent);     // 界外零受益
+        Assert.Equal(0, crier.ResolvedSpeedBonusPercent);   // 自身除外（战吼点友军）
+
+        // 窗口界：tick<600+180=780 内持续、780 起过期（严格界）
+        near.ResolveSpeedEffects(779);
+        Assert.Equal(15, near.ResolvedSpeedBonusPercent);
+        near.ResolveSpeedEffects(780);
+        Assert.Equal(0, near.ResolvedSpeedBonusPercent);
+    }
+
+    [Fact] // boundary — 相位边界：tick 0/599/601/1199 不触发，恰 600/1200 触发
+    public void War_cry_phase_boundaries()
+    {
+        FlowField field = StraightField();
+        var movement = new UnitMovement(() => field, CellSize);
+        Unit crier = NewCrier(112f, 112f);
+        var ally = NewUnit(112f, 112f + 32f, 1.0f);
+        var allies = new List<Unit> { crier, ally };
+
+        Assert.Empty(movement.PulseWarCry(crier, allies, 0));    // 相位 0 排除
+        Assert.Empty(movement.PulseWarCry(crier, allies, 599));
+        Assert.Single(movement.PulseWarCry(crier, allies, 600)); // 首拍
+        Assert.Empty(movement.PulseWarCry(crier, allies, 601));
+        Assert.Single(movement.PulseWarCry(crier, allies, 1200)); // 第二拍（20 s 冷却）
+    }
+
+    [Fact] // legal — 死亡吼者与未配置战吼的单位：永不脉冲；死者也不受鼓
+    public void Dead_or_uncried_units_never_pulse_and_dead_allies_are_skipped()
+    {
+        FlowField field = StraightField();
+        var movement = new UnitMovement(() => field, CellSize);
+        Unit dead = NewCrier(112f, 112f);
+        dead.ApplyDamage(9999, tick: 1);
+        Unit uncried = NewUnit(112f, 112f, 0.53f); // 无 war_cry 配置
+        var deadAlly = NewUnit(112f + 32f, 112f, 1.0f);
+        deadAlly.ApplyDamage(9999, tick: 1);
+        var allies = new List<Unit> { dead, uncried, deadAlly };
+
+        for (long tick = 1; tick <= 1200; tick++)
+        {
+            Assert.Empty(movement.PulseWarCry(dead, allies, tick));
+            Assert.Empty(movement.PulseWarCry(uncried, allies, tick));
+        }
+
+        Assert.Equal(long.MinValue, deadAlly.CryUntilTick); // 死者不受鼓
+    }
+
+    [Fact] // legal — 受鼓折算入移动速度：+15% 窗口内有效步速放大、过期回落
+    public void War_cry_buff_inflates_the_ally_stride()
+    {
+        FlowField field = StraightField();
+        var movement = new UnitMovement(() => field, CellSize);
+        Unit crier = NewCrier(96f, 96f);
+        var ally = NewUnit(96f, 96f + 32f, speed: 1.0f);
+        var allies = new List<Unit> { crier, ally };
+
+        _ = movement.PulseWarCry(crier, allies, 600);
+        ally.ResolveSpeedEffects(601);
+        Assert.Equal(1.0f * 1.15f, ally.EffectiveSpeedPxPerTick, 5); // +15% 折算（步幅=速度×系数）
+
+        ally.ResolveSpeedEffects(780);
+        Assert.Equal(1.0f, ally.EffectiveSpeedPxPerTick, 5); // 600+180 窗口外回落原速
+    }
+
+    [Theory] // illegal — SetWarCry 非法四元组确实被拒绝（半径>0 而三元不全正/负值）
+    [InlineData(-1, 15, 180, 600)]
+    [InlineData(96, 0, 180, 600)]
+    [InlineData(96, 15, 0, 600)]
+    [InlineData(96, 15, 180, 0)]
+    [InlineData(96, -15, 180, 600)]
+    public void SetWarCry_rejects_incomplete_or_negative_quads(float radius, int bonus, int duration, int cooldown)
+    {
+        Unit unit = NewUnit(112f, 112f, 0.53f);
+        Assert.Throws<ArgumentException>(() => unit.SetWarCry(radius, bonus, duration, cooldown));
     }
 }

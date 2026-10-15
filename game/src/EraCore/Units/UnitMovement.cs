@@ -299,4 +299,51 @@ public sealed class UnitMovement
 
         return hit;
     }
+
+    /// <summary>
+    /// Applies one war-cry (战吼) pulse if <paramref name="tick"/> is on the
+    /// crier's cooldown grid (tick − spawnTick divisible by the cooldown,
+    /// phase &gt; 0; T-114, era3 boss trait): every OTHER living ally whose
+    /// centre lies within the cry radius enters a timed +speed buff window
+    /// (<see cref="Unit.BeginWarCryBurst"/> — re-application keeps the
+    /// stronger active buff and the later expiry). The crier itself is
+    /// excluded (the cry rallies allies, mirroring the war-drum self-exclusion).
+    /// Returns the allies buffed by this pulse, in list order; empty when
+    /// nothing fires.
+    /// </summary>
+    public IReadOnlyList<Unit> PulseWarCry(Unit crier, IReadOnlyList<Unit> allies, long tick)
+    {
+        ArgumentNullException.ThrowIfNull(crier);
+        ArgumentNullException.ThrowIfNull(allies);
+        if (!crier.Alive || crier.WarCryCooldownTicks <= 0)
+        {
+            return Array.Empty<Unit>();
+        }
+
+        long phase = tick - crier.SpawnTick;
+        if (phase <= 0 || phase % crier.WarCryCooldownTicks != 0)
+        {
+            return Array.Empty<Unit>();
+        }
+
+        float radiusSquared = crier.WarCryRadiusPx * crier.WarCryRadiusPx;
+        var buffed = new List<Unit>();
+        foreach (Unit ally in allies)
+        {
+            if (!ally.Alive || ReferenceEquals(ally, crier))
+            {
+                continue;
+            }
+
+            float dx = ally.X - crier.X;
+            float dy = ally.Y - crier.Y;
+            if ((dx * dx) + (dy * dy) <= radiusSquared)
+            {
+                ally.BeginWarCryBurst(tick + crier.WarCryDurationTicks, crier.WarCrySpeedBonusPercent);
+                buffed.Add(ally);
+            }
+        }
+
+        return buffed;
+    }
 }
