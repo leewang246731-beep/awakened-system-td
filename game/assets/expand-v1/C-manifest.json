@@ -1,0 +1,604 @@
+{
+ "schema": "game-assets/1",
+ "batch": "P2-video-C",
+ "layer_id": "C",
+ "plan": "docs/engineering/31-visual-enrichment-master-plan.md（业主已批 v2.0 §二.2 C 层：17 条 124s=Boss 入场 4+败亡 4+关卡开场 7+首通 2）",
+ "produced_at": "2026-10-15",
+ "model_primary": "doubao-seedance-2-5-260628 (火山方舟)",
+ "api": "ark-video skill (scripts/arkvideo.mjs submit/poll/download；批驱动 tools/driver.mjs 交错提交)",
+ "spec": "480p / 16:9 / 6s×8+8s×7+10s×2=124.7s 实测 / generate_audio=false（C 层关音频，游戏内 BGM 覆盖）/ watermark=false（母片无 AI 水印，沿 A/D/B/E 层先例）",
+ "style_anchor": "Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements.",
+ "palette_anchors": {
+  "E0": "#C9915C 压暗 / #6B7A5A / #E07B39（序章=E1 色板压暗黎明前）",
+  "E1": "#C9915C / #6B7A5A / #E07B39 晨曦赭金",
+  "E2": "#4E8A6E / #B3593A / #E8E2D0 青铜苍",
+  "E3": "#A8503C / #2E2A28 / #C9C4BC 铆铁赭红",
+  "E4": "#3D7EA6 / #9A9A94 / #E3C14F 电网蓝",
+  "E5": "#3FC1C9 / #8A5FC9 / #DCE4E8 聚变青",
+  "E6": "#3E55C9 / #1D1B33 / #BFE8F2 星门靛蓝"
+ },
+ "boss_source": {
+  "E1 踏群者 Stomper": "game/content/era1/enemies.json era1:enemy-boss（HP2500/甲6/践踏半径 2 格/画布 96px）",
+  "E2 铁蹄 Ironhoof": "game/content/era2/enemies.json e2 铁蹄（HP4000/甲10/践踏+战鼓+冲撞/画布 96px）",
+  "E3 堡垒号 / E4 夜枭": "31 号 §二.2 注：C-01~08 取 E1~E4 四 Boss；E3/E4 Boss 内容随后续章节开发定稿，本批按 31 号表一句话方向（钢铁堡垒驶入烟囱喷吐/夜枭掠过城市灯火俯冲锁定）制作"
+ },
+ "counts": {
+  "deliverables": 17,
+  "boss_entrances": 4,
+  "boss_deaths": 4,
+  "level_openings": 7,
+  "first_clear": 2,
+  "generation_tasks_billed": 23,
+  "self_review_pass": 17,
+  "self_review_fail": 0,
+  "quality_regenerations": 6
+ },
+ "cost": {
+  "tokens_total": 1584830,
+  "unit_price_basis": "Seedance 2.5 ¥70/1M tokens 纯文生（17 号 §4 实测口径）；token/s≈9,674@480p",
+  "estimated_cost_cny": 110.94,
+  "generation_calls": 23,
+  "note": "23 次计费生成=17 首过+6 质量重拍（C-02×2/C-08×2/C-10×1/C-13×1）；C-02r1 下载 1 次瞬时网络失败手动重下成功（服务端已成功、未重复计费，usage 经 API 复核=58,045 tokens）；2 次 poll 瞬时抖动退避恢复"
+ },
+ "items": [
+  {
+   "id": "C-01",
+   "layer": "C 战斗",
+   "content_zh": "Boss 入场·踏群者（E1）：巨兽踏碎地平线，尘暴逼近",
+   "era": "E1",
+   "palette": "#C9915C / #6B7A5A / #E07B39 晨曦赭金",
+   "duration_s": 6.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015115021-k47mc",
+   "attempts": [
+    {
+     "key": "C-01",
+     "task_id": "cgt-20261015115021-k47mc",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-01.mp4",
+   "bytes": 2446788,
+   "md5": "649a08aafd3e8dcb0678ade98d275732",
+   "tokens": 58045,
+   "cost_cny": 4.06,
+   "prompt": "Ancient era boss entrance. In a dawn ochre-gold color field (#C9915C) with grey-green stone strata (#6B7A5A) and ember-orange glow (#E07B39), a colossal primeval beast the size of a hill strides out over the horizon and advances toward the camera: each massive hoof-footfall cracks the flat earth strata, a shockwave ring of dust bursts outward, and a rolling wall of dust storm rises and swells behind it as it grows huger frame by frame. In the foreground corner a lone spear-tip triangle silhouette stands embedded in the ground, dwarfed and unflinching. Low ground-level camera trembling with each step, heroic dread scale. Bold poster-like readable action beats with clear stepped key poses and strong black silhouette against glowing dust, composed for keyframe extraction. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-02",
+   "layer": "C 战斗",
+   "content_zh": "Boss 入场·铁蹄（E2）：铁蹄撞击声中城墙轮廓压来",
+   "era": "E2",
+   "palette": "#4E8A6E / #B3593A / #E8E2D0 青铜苍",
+   "duration_s": 6.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015122058-8mqcf",
+   "attempts": [
+    {
+     "key": "C-02",
+     "task_id": "cgt-20261015115021-v2bhu",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    },
+    {
+     "key": "C-02r1",
+     "task_id": "cgt-20261015121342-8whq1",
+     "status": "done",
+     "tokens": 58045,
+     "error": "Command failed: node C:\\Users\\hydsoft\\.zcode\\skills\\ark-video\\scripts\\arkvideo.mjs download --task cgt-20261015121342-8whq1 --label C-02r1 --out-dir E:\\game-videos\\expand-v1\\C\nERROR: fetch failed\n",
+     "note": "usage via API re-poll"
+    },
+    {
+     "key": "C-02r2",
+     "task_id": "cgt-20261015122058-8mqcf",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    }
+   ],
+   "quality_retries": 2,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-02r2.mp4",
+   "bytes": 1745700,
+   "md5": "8fe4eb65d50a3d5bfc50a7b4aff38248",
+   "tokens": 58045,
+   "cost_cny": 4.06,
+   "prompt": "Classical era boss entrance, seen from atop the great city wall itself. In a bronze-green color field (#4E8A6E) with terracotta red (#B3593A) and marble white (#E8E2D0), the camera stands on the battlements of the fortified city wall: the wall's own crenellations and a temple pediment gate frame the foreground edges in every frame, while beyond them the armored war-beast chieftain of the iron hooves charges toward the camera across the stone plain, growing larger and closer with every beat — bronze armor plates catching marble-white light, iron hooves striking thunderous blows, each hooffall spreading clearly visible concentric war-drum ripple rings through the dust, war banners streaming behind its helm. The wall parapet in the immediate foreground never leaves the frame; the beast's charge presses ever closer over it. Marble-white light glints along the parapet crenellations. Low tracking camera, relentless forward pressure. Bold poster-like readable action beats with clear stepped key poses and strong silhouette, composed for keyframe extraction. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-03",
+   "layer": "C 战斗",
+   "content_zh": "Boss 入场·堡垒号（E3）：钢铁堡垒驶入，烟囱喷吐",
+   "era": "E3",
+   "palette": "#A8503C / #2E2A28 / #C9C4BC 铆铁赭红",
+   "duration_s": 6.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015115247-24ndr",
+   "attempts": [
+    {
+     "key": "C-03",
+     "task_id": "cgt-20261015115247-24ndr",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-03.mp4",
+   "bytes": 4227800,
+   "md5": "173104c37cfe5ec31b4dc243794e3a48",
+   "tokens": 58045,
+   "cost_cny": 4.06,
+   "prompt": "Industrial era boss entrance. In a riveted iron rust-red field (#A8503C) with coal black (#2E2A28) and steam off-white (#C9C4BC), a rolling steel fortress the size of a city block grinds into frame and advances: a land ironclad of truss lattice armor plates and rivet studs, rolling on grinding gear wheels, chimney stacks belching fat flat plumes of steam and smoke that layer into the sky, deck lamps and portholes igniting one by one as its bow shadow swallows the ground before it. A truss-triangle with one large slowly turning gear glows at its prow. Slow low-angle push-in, ironclad dread scale. Bold poster-like readable action beats with clear stepped key poses and strong silhouette, composed for keyframe extraction. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-04",
+   "layer": "C 战斗",
+   "content_zh": "Boss 入场·夜枭（E4）：夜枭掠过城市灯火，俯冲锁定",
+   "era": "E4",
+   "palette": "#3D7EA6 / #9A9A94 / #E3C14F 电网蓝",
+   "duration_s": 6.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015115250-9oq9o",
+   "attempts": [
+    {
+     "key": "C-04",
+     "task_id": "cgt-20261015115250-9oq9o",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-04.mp4",
+   "bytes": 4081427,
+   "md5": "67afddbc032180a3f3abb6f4235d28b8",
+   "tokens": 58045,
+   "cost_cny": 4.06,
+   "prompt": "Modern era boss entrance. Over a night electric grid-blue field (#3D7EA6) with concrete grey (#9A9A94) and warning yellow (#E3C14F), a giant night-owl-shaped stealth flying wing glides silently above a city skyline of scattered window lights: its angular owl-faced silhouette with spread wing edges blots out glowing windows as it passes, a radar sweep fan rotates beneath its chin, and small warning-yellow targeting brackets blink consecutively across its eyes as it locks on; then it banks hard and dives toward the camera, wing edges biting the light. City reflections slide along its dark hull. Slow chase camera then dive whip. Bold poster-like readable action beats with clear stepped key poses and strong silhouette, composed for keyframe extraction. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-05",
+   "layer": "C 战斗",
+   "content_zh": "Boss 败亡·踏群者：巨兽轰然倒地化作记忆光尘",
+   "era": "E1",
+   "palette": "#C9915C / #6B7A5A / #E07B39 晨曦赭金",
+   "duration_s": 6.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015115516-40w36",
+   "attempts": [
+    {
+     "key": "C-05",
+     "task_id": "cgt-20261015115516-40w36",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-05.mp4",
+   "bytes": 2081372,
+   "md5": "76dabc1493f8538566f598015f0d5ba1",
+   "tokens": 58045,
+   "cost_cny": 4.06,
+   "prompt": "Ancient era boss defeat. In a dusk ochre-gold color field (#C9915C) with grey-green stone strata (#6B7A5A) and ember-orange glow (#E07B39), the colossal primeval beast staggers mid-stride, its legs buckle, and it falls in one thunderous slow collapse: the impact raises a single vast flat dust ring that rolls outward and settles; as the dust thins, the whole dark silhouette loosens from the edges into rising streams of golden memory light-dust that drift upward, disperse and fade, leaving the cracked plain and the lone spear-tip triangle silhouette standing quietly in the foreground. Slow solemn wide shot. Bold poster-like readable action beats with clear stepped key poses, strong silhouette readable at every stage, composed for keyframe extraction. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-06",
+   "layer": "C 战斗",
+   "content_zh": "Boss 败亡·铁蹄：铁蹄跪折，金属裂纹蔓延后崩解",
+   "era": "E2",
+   "palette": "#4E8A6E / #B3593A / #E8E2D0 青铜苍",
+   "duration_s": 6.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015115520-9yask",
+   "attempts": [
+    {
+     "key": "C-06",
+     "task_id": "cgt-20261015115520-9yask",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-06.mp4",
+   "bytes": 4136246,
+   "md5": "9ccf81febae23571cc99aa573ea4ff64",
+   "tokens": 58045,
+   "cost_cny": 4.06,
+   "prompt": "Classical era boss defeat. In a bronze-green color field (#4E8A6E) with terracotta red (#B3593A) and marble white (#E8E2D0), the armored war-beast chieftain slows, its forelegs fold and it kneels under its own weight: bronze armor plates shear and slip, marble-white glowing crack lines creep and branch across the iron of its hooves and helm, war banners droop and fall; when the fractures meet, the whole silhouette breaks apart in a descending cascade of flat armor shards that thin into drifting light grains. The city wall with temple pediment stands quiet behind. Low mourning angle, slow and final. Bold poster-like readable action beats with clear stepped key poses, strong silhouette readable at every stage, composed for keyframe extraction. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-07",
+   "layer": "C 战斗",
+   "content_zh": "Boss 败亡·堡垒号：锅炉熄火，逐舱爆断",
+   "era": "E3",
+   "palette": "#A8503C / #2E2A28 / #C9C4BC 铆铁赭红",
+   "duration_s": 6.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015115735-de1d2",
+   "attempts": [
+    {
+     "key": "C-07",
+     "task_id": "cgt-20261015115735-de1d2",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-07.mp4",
+   "bytes": 1856647,
+   "md5": "81ef80d546c4df5ea9f269a59672fd5d",
+   "tokens": 58045,
+   "cost_cny": 4.06,
+   "prompt": "Industrial era boss defeat. In a riveted iron rust-red field (#A8503C) with coal black (#2E2A28) and steam off-white (#C9C4BC), the rolling steel fortress grinds to a halt: boiler fires gutter out one by one, porthole lights dying in sequence, the chimney plumes thin into wavering wisps and stop; then compartment after compartment bursts in a slow deliberate chain of muffled flat flashes from stern to bow, each burst shedding one dark armor slab that topples into the dust, until the last section sags and the great gear at its prow stops turning. Static wide witness shot, dying juggernaut. Bold poster-like readable action beats with clear stepped key poses, strong silhouette readable at every stage, composed for keyframe extraction. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-08",
+   "layer": "C 战斗",
+   "content_zh": "Boss 败亡·夜枭：坠羽，玻璃幕墙倒影破碎",
+   "era": "E4",
+   "palette": "#3D7EA6 / #9A9A94 / #E3C14F 电网蓝",
+   "duration_s": 6.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015122059-6kpxk",
+   "attempts": [
+    {
+     "key": "C-08",
+     "task_id": "cgt-20261015115739-3ymbc",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    },
+    {
+     "key": "C-08r1",
+     "task_id": "cgt-20261015121344-4c69x",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    },
+    {
+     "key": "C-08r2",
+     "task_id": "cgt-20261015122059-6kpxk",
+     "status": "done",
+     "tokens": 58045,
+     "error": null
+    }
+   ],
+   "quality_retries": 2,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-08r2.mp4",
+   "bytes": 3170405,
+   "md5": "03ec457bfb1d546c50b20ddb0a73c018",
+   "tokens": 58045,
+   "cost_cny": 4.06,
+   "prompt": "Modern era boss defeat. Over a night electric grid-blue field (#3D7EA6) with concrete grey (#9A9A94) and warning yellow (#E3C14F), the single night-owl stealth wing falters mid-glide and tips into a slow sinking fall, with wing debris visible in every single frame: from the very first moments, loose dark feather-shaped panel fragments continuously peel away from its wing edges and flutter down through the foreground like slow falling feathers, drifting past a glass curtain-wall tower whose mirrored face shows a spreading web of fracture lines. The lone owl silhouette sinks lower frame by frame until it slides below the skyline edge, its warning-yellow radar sweep fan beneath the chin spinning down and stopping, while the last feather-fragments settle through the air. Falling follow shot, elegiac. Bold poster-like readable action beats with clear stepped key poses, strong silhouette readable at every stage, composed for keyframe extraction. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-09",
+   "layer": "C 战斗",
+   "content_zh": "关卡开场·序章：黎明前的荒原，第一杆矛立起",
+   "era": "E0",
+   "palette": "#C9915C 压暗 / #6B7A5A / #E07B39（序章=E1 色板压暗黎明前）",
+   "duration_s": 8.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015120005-mzb5w",
+   "attempts": [
+    {
+     "key": "C-09",
+     "task_id": "cgt-20261015120005-mzb5w",
+     "status": "done",
+     "tokens": 77260,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-09.mp4",
+   "bytes": 2729412,
+   "md5": "682a86f42e94ffe0f4c26a5af2157157",
+   "tokens": 77260,
+   "cost_cny": 5.41,
+   "prompt": "Prologue stage opening. In the deep pre-dawn half-dark of a subdued ochre-gold wasteland (#C9915C darkened, near-grey), with grey-green plain strata (#6B7A5A) and one ember-orange seam (#E07B39) glowing low on the horizon, an empty wind-scoured flatland stretches wide: a single lone figure silhouette walks to center frame and plants the very first spear upright into the cracked earth; the planted spear-tip triangle holds as the ember seam slowly brightens behind it, thin mist unrolling across the plain, first light gathering one flat layer at a time. Wide still tableau slowly waking, quiet beginning-of-everything mood. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-10",
+   "layer": "C 战斗",
+   "content_zh": "关卡开场·E1：远古营地晨雾，木望楼哨位点亮",
+   "era": "E1",
+   "palette": "#C9915C / #6B7A5A / #E07B39 晨曦赭金",
+   "duration_s": 8.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015121610-reaaw",
+   "attempts": [
+    {
+     "key": "C-10",
+     "task_id": "cgt-20261015120010-lkaoy",
+     "status": "done",
+     "tokens": 77260,
+     "error": null
+    },
+    {
+     "key": "C-10r1",
+     "task_id": "cgt-20261015121610-reaaw",
+     "status": "done",
+     "tokens": 77260,
+     "error": null
+    }
+   ],
+   "quality_retries": 1,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-10r1.mp4",
+   "bytes": 3106215,
+   "md5": "9041342d422c31d8bad8ad8a81c0184e",
+   "tokens": 77260,
+   "cost_cny": 5.41,
+   "prompt": "Ancient era level opening. In a fresh dawn ochre-gold color field (#C9915C) with grey-green morning strata (#6B7A5A) and ember-orange fire glow (#E07B39), soft morning mist drifts through an ancient camp of hide tents and low wood fences, with the three-tier wooden watchtower with thatched eaves, the era motif, standing fully visible as a dark silhouette at the heart of the camp from the very first frame: as the mist parts, the sentry brazier at its top ignites, one warm ember light that spreads down tier by tier, waking smoke threads from campfires one by one across the camp, tiny figures stirring. The wooden watchtower silhouette stays in frame throughout, never out of view. The tower's spear-tip triangle shadow stretches long across the mist. Slow gentle crane rise, calm before the day. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-11",
+   "layer": "C 战斗",
+   "content_zh": "关卡开场·E2：古典城邦柱廊间晨钟荡开",
+   "era": "E2",
+   "palette": "#4E8A6E / #B3593A / #E8E2D0 青铜苍",
+   "duration_s": 8.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015120227-34rww",
+   "attempts": [
+    {
+     "key": "C-11",
+     "task_id": "cgt-20261015120227-34rww",
+     "status": "done",
+     "tokens": 77260,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-11.mp4",
+   "bytes": 4345677,
+   "md5": "0597b893a5d9ee7f2ae6ddb5f8695f1e",
+   "tokens": 77260,
+   "cost_cny": 5.41,
+   "prompt": "Classical era level opening. In a bronze-green morning color field (#4E8A6E) with terracotta red rooftops (#B3593A) and marble white light (#E8E2D0), low sun slants between the marble colonnades of a classical city-state: a great bronze morning bell swings once in the pediment gateway, and visible concentric sound rings ripple outward through the colonnade aisles and hanging mist; wherever the rings pass, the city wakes in sequence, shutter-shaped patches of light opening along walls, fountains starting, tiny figures crossing the agora, the temple pediment triangle crowning the far hill. Slow lateral dolly down the colonnade, ordered civic morning. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-12",
+   "layer": "C 战斗",
+   "content_zh": "关卡开场·E3：工业码头汽笛，桁架桥合龙",
+   "era": "E3",
+   "palette": "#A8503C / #2E2A28 / #C9C4BC 铆铁赭红",
+   "duration_s": 8.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015120233-aof5b",
+   "attempts": [
+    {
+     "key": "C-12",
+     "task_id": "cgt-20261015120233-aof5b",
+     "status": "done",
+     "tokens": 77260,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-12.mp4",
+   "bytes": 3274230,
+   "md5": "045bef36214dc348d35bcbbab519f931",
+   "tokens": 77260,
+   "cost_cny": 5.41,
+   "prompt": "Industrial era level opening. In a riveted iron rust-red morning field (#A8503C) with coal black silhouettes (#2E2A28) and steam off-white (#C9C4BC), an industrial harbor wakes: a steam whistle atop a riveted stack releases one long flat plume of white steam that rolls across the docks; below it, the two truss cantilever arms of a bascule bridge rotate down and close over the water, gear teeth meshing and rivet lines catching light as the span locks; moored freight silhouettes shift, dock lamps blink on in rows along the piers, and one truss-triangle with a turning gear glows at the bridge apex. Wide harbor shot craning along the closing span, mechanical morning. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-13",
+   "layer": "C 战斗",
+   "content_zh": "关卡开场·E4：现代都市电网逐格亮起",
+   "era": "E4",
+   "palette": "#3D7EA6 / #9A9A94 / #E3C14F 电网蓝",
+   "duration_s": 8.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015121620-ergu7",
+   "attempts": [
+    {
+     "key": "C-13",
+     "task_id": "cgt-20261015120450-ysbbv",
+     "status": "done",
+     "tokens": 77260,
+     "error": null
+    },
+    {
+     "key": "C-13r1",
+     "task_id": "cgt-20261015121620-ergu7",
+     "status": "done",
+     "tokens": 77260,
+     "error": null
+    }
+   ],
+   "quality_retries": 1,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-13r1.mp4",
+   "bytes": 4386225,
+   "md5": "065488020152ddbcecd885768452f65b",
+   "tokens": 77260,
+   "cost_cny": 5.41,
+   "prompt": "Modern era level opening. Over a pre-dawn electric grid-blue field (#3D7EA6) with concrete grey blocks (#9A9A94) and warning yellow accents (#E3C14F), a modern metropolis sleeps as one completely dark geometric grid seen from high above — the very first frames show the whole city unlit in deep blue darkness with only faint district outlines: then from a single substation node a pulse of light escapes and the power grid lights up cell by cell, blocks and avenues igniting in clean geometric squares, threads of light racing down the avenues, small triangular play-button motifs blinking on in sequence across the districts, until the whole city grid glimmers as one luminous circuit under the fading night. Strictly start fully dark, no window lights before the pulse. Slow top-down aerial drift, orderly electrifying calm. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-14",
+   "layer": "C 战斗",
+   "content_zh": "关卡开场·E5：未来能量环悬浮校准",
+   "era": "E5",
+   "palette": "#3FC1C9 / #8A5FC9 / #DCE4E8 聚变青",
+   "duration_s": 8.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015120504-yekba",
+   "attempts": [
+    {
+     "key": "C-14",
+     "task_id": "cgt-20261015120504-yekba",
+     "status": "done",
+     "tokens": 77260,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-14.mp4",
+   "bytes": 4100960,
+   "md5": "17a79ab268bde62cf5f7821b463ed2e7",
+   "tokens": 77260,
+   "cost_cny": 5.41,
+   "prompt": "Future era level opening. In a fusion-cyan field (#3FC1C9) with fusion violet (#8A5FC9) and nano silver-white (#DCE4E8), a colossal circular energy ring hovers above a calm calibration array on a white plain: the great ring tilts slowly through alignment checks, fine light-lines flickering across its face, while fields of hexagon lattice tiles ripple outward beneath it and lock one patch at a time; smaller hover-rings drift into orbit around it, calibration beams sweeping in brief arcs, silver dust rising in flat layers. Precise serene machine ritual, slow orbital camera. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-15",
+   "layer": "C 战斗",
+   "content_zh": "关卡开场·终章：星门引力透镜下舰队列阵",
+   "era": "E6",
+   "palette": "#3E55C9 / #1D1B33 / #BFE8F2 星门靛蓝",
+   "duration_s": 8.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015120715-ywp3v",
+   "attempts": [
+    {
+     "key": "C-15",
+     "task_id": "cgt-20261015120715-ywp3v",
+     "status": "done",
+     "tokens": 77260,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-15.mp4",
+   "bytes": 4791427,
+   "md5": "8057f3d2b3d0fa3f5c57c98b163adc3e",
+   "tokens": 77260,
+   "cost_cny": 5.41,
+   "prompt": "Finale-era level opening. In a stargate indigo field (#3E55C9) with dark-matter violet-black (#1D1B33) and zero-point white-cyan (#BFE8F2), an immense stargate ring hangs in deep space, its gravity lens bending the starlight into clean luminous arcs around its voided center; beneath the lens a fleet of slender ship silhouettes glides out in echelon and assembles into a precise geometric formation, running lights kindling one by one down the line as memory light-dust streams gently past like snow. Vast solemn scale, slow stately pull-back revealing the whole formation. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-16",
+   "layer": "C 战斗",
+   "content_zh": "首通纪念·E1：第一章首通，守望塔剪影铸上第一枚徽章",
+   "era": "E1",
+   "palette": "#C9915C / #6B7A5A / #E07B39 晨曦赭金",
+   "duration_s": 10.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015120719-blrwe",
+   "attempts": [
+    {
+     "key": "C-16",
+     "task_id": "cgt-20261015120719-blrwe",
+     "status": "done",
+     "tokens": 96475,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-16.mp4",
+   "bytes": 2630636,
+   "md5": "905860c1ea34e39a9b008cd594392e76",
+   "tokens": 96475,
+   "cost_cny": 6.75,
+   "prompt": "First-clear commemoration, chapter one. In a triumphant dawn ochre-gold color field (#C9915C) with grey-green stone strata (#6B7A5A) and ember-orange forge glow (#E07B39), the wooden watchtower silhouette stands on a pedestal of layered strata under drifting banner-streams of light: a first circular badge medallion is forged before it, molten ember light flowing into a floating disc, cooling and stamping the watchtower emblem in bas-relief; then a single base layer of warm glow settles over the badge as one light seal, one quiet ring of light expanding outward to mark the first chapter complete. Reverent slow push-in on the sealed badge. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  },
+  {
+   "id": "C-17",
+   "layer": "C 战斗",
+   "content_zh": "首通纪念·E2：第二章首通，石堡徽章与矛尖同框铸印",
+   "era": "E2",
+   "palette": "#4E8A6E / #B3593A / #E8E2D0 青铜苍",
+   "duration_s": 10.041667,
+   "resolution": "854x480 (480p)",
+   "ratio": "16:9",
+   "generate_audio": false,
+   "watermark": false,
+   "task_id": "cgt-20261015120926-vu5eq",
+   "attempts": [
+    {
+     "key": "C-17",
+     "task_id": "cgt-20261015120926-vu5eq",
+     "status": "done",
+     "tokens": 96475,
+     "error": null
+    }
+   ],
+   "quality_retries": 0,
+   "file": "E:\\game-videos\\expand-v1\\C\\2026-10-15_C-17.mp4",
+   "bytes": 3163894,
+   "md5": "39b8069c191b1b6411fc0266acddb75c",
+   "tokens": 96475,
+   "cost_cny": 6.75,
+   "prompt": "First-clear commemoration, chapter two. In a triumphant bronze-green color field (#4E8A6E) with terracotta red (#B3593A) and marble white forge light (#E8E2D0), the stone-keep watchtower silhouette stands beside the upright spear-tip triangle, both framed together on a pedestal of layered strata: a second, larger badge medallion is forged in mid-air, marble-white molten light flowing into the floating disc and stamping the stone fortress with pediment emblem in bas-relief beside the spear-tip mark; this time the glow settles in two distinct layered rings, an inner core glow plus an outer halo layer, one full layer more than the first badge, the two light layers breathing once together in quiet triumph. Slow ceremonial orbit of the twin-sealed badge. Abstract game cutscene aesthetic, layered color strata composition: broad flat color-field base layer, mid-layer silhouette subject, front layer of glowing memory-fragment particles. Pixel-adjacent clean flat shapes, cinematic ambient mood. No text, no letters, no numbers, no watermark, no logo, no readable interface elements."
+  }
+ ],
+ "spec_deviations": [],
+ "notes": [
+  "C 层关音频：generate_audio=false 全部执行（31 号 §二.2 音频列；游戏内 BGM 覆盖，ogv 无音轨）",
+  "时长与 31 号表逐条一致：6s×8+8s×7+10s×2=124s（实测 124.7s）",
+  "C-01~08 Boss 八条 prompt 加 bold poster-like readable action beats with clear stepped key poses, composed for keyframe extraction——为 31 号 §四.3 抽帧管线（8~12 关键帧→序列帧）预设；抽帧本批不做，归 T-152",
+  "E3 堡垒号/E4 夜枭按 31 号表一句话方向制作（钢铁堡垒驶入烟囱喷吐/夜枭掠过城市灯火俯冲锁定）；E3/E4 Boss 具体数值随后续章节内容定稿（31 号 §二.2 注）",
+  "C-16/C-17 首通纪念按 31 号表铸徽章内容制作；任务指令中青铜→黄金宝箱开箱不在 31 号表内——按表执行，T-087 结算演出分层口径以 C-17 光效比 C-16 多一层呼应（C-16 单层辉光封印、C-17 内核+外环双层，31 号表内容兼容）",
+  "任务指令中关卡开场 7=L1-1~L2-3 每关 3~4s 地标掠影与 31 号表序章/E1~E5/终章 7 条×8s 不一致——以 31 号表为准执行（表为业主批准口径）",
+  "watermark=false 沿 A/D/B/E 层先例（母片无 AI 水印，F-147 标注走 manifest；31 号 §4.3 watermark=true 行建议下版修订）",
+  "交错纪律：滚动窗口在途 ≤2（submit 下一条后立即 poll 前一条），与并行 P4 图代理不同 API 无冲突；全程未遇 429",
+  "否决样归档：6 条被淘汰 take（C-02 首拍+r1、C-08 首拍+r1、C-10 首拍、C-13 首拍）及其审查拼图移入 E:/game-videos/expand-v1/C/_attempts/ 留档（失败也入账，沿 D 层先例）；根目录=17 条交付成品"
+ ],
+ "review": {
+  "method": "每 take ffmpeg 抽 3 帧（0.5s/mid/end-0.8s）拼 _att_*_sheet.jpg → mcp__4_5v_mcp__analyze_image 视觉模型逐张审查（23 次审计 69 帧，全部真实执行非抽样）",
+  "criteria": "31 号表内容命中 / 时代色板 hex 命中 / 无文字无水印无 UI / 无明显 AI 痕迹",
+  "verdict": "17/17 PASS（13 首过 + 4 重拍后过；重试上限 ≤2/条，实际最多 2 次）",
+  "fails_first_pass": {
+   "C-02": "尾帧城墙消失（r1 仍弱）→ r2 改城墙上视角前景雉堞锚定后 3/3 过",
+   "C-08": "镜像鸮被读成第二只活鸟（r1 碎屑缺失）→ r2 碎屑逐帧在场+单鸮下沉后 3/3 过",
+   "C-10": "首帧无木望楼 → r1 塔剪影首帧即在场后 3/3 过",
+   "C-13": "首帧已亮（缺全黑起步）→ r1 严格暗起步后 3/3 过"
+  }
+ }
+}
