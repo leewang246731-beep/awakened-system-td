@@ -1,0 +1,128 @@
+{
+  "$schema": "urn:eratd:content:narrative:story:1",
+  "content_type": "StoryChapter",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-127 第四章叙事（F-098/F-101/F-102/F-105/F-106/F-107）：E4 三幕=卫星信号被嘲→电网革新→夜枭拦截名场面（L4-1 谓词：波 2/波 4/波 5）+开场白兑现 E3 钩子『不该存在的图纸』E4 回收（hooks.json E3 行 recover.era=4 payoff 的章节侧文本落地——图纸是给零的卫星轨道图）+扮猪吃虎关配置（L4-2 混凝土压制 ×0.5+电网监理嘲讽→低配翻盘隐藏评价）+胜利交底挂收束演出 cinematic:e4-finale（20~30s 时间轴=T-127 收束演出数据，§12 交付规格 5 段时代收束之四）+卡点预告（E5/终章未交付→纯文本；预告指向终章零的真相——初代守望者苏醒，§12.1 谱系）+advisor_private 军师私人台词层（'另一个声音'钩子双载体之台词层，§12 E4 行；卫星信号载体=开场白图纸回收+第一幕受嘲语境）",
+  "id": "narrative:story-e4",
+  "era": "era4:era-modern",
+  "level_id": "campaign:level-e4-01",
+  "title_zh": "第四章 电网与卫星",
+  "golden_acts": {
+    "budget_seconds": 900,
+    "acts": [
+      {
+        "id": "narrative:act-e4-humiliation",
+        "title_zh": "受辱·卫星信号被嘲",
+        "predicate": { "kind": "wave_start", "wave": 2 },
+        "lines": [
+          { "key": "e4.act1.supervisor", "speaker": "电网监理", "text": "并网听证会驳回：拿一千年前的废弃卫星频段救现代电网？回去多烧两台柴油发电机吧。", "image": "story-e4-act1-humiliation-1" },
+          { "key": "e4.act1.zero", "speaker": "零", "text": "叮——检测到技术路线歧视：他管那颗卫星叫垃圾，却没问过它为什么一千年还在应答。", "image": "story-e4-act1-humiliation-2", "cue": "ding_info" }
+        ]
+      },
+      {
+        "id": "narrative:act-e4-innovation",
+        "title_zh": "觉醒·电网革新",
+        "predicate": { "kind": "wave_start", "wave": 4 },
+        "lines": [
+          { "key": "e4.act2.zero", "speaker": "零", "text": "柴油机组并网完成——用电流代替人力，这一纪元的第一度电，我们发对了。", "image": "story-e4-act2-innovation-1", "cue": "ding_reward" },
+          { "key": "e4.act2.narrator", "speaker": "旁白", "text": "电网的嗡鸣盖过柴油机的喘息。导弹塔的第一次齐射，比监理的批复早了三天。", "image": "story-e4-act2-innovation-2" }
+        ]
+      },
+      {
+        "id": "narrative:act-e4-face-slap",
+        "title_zh": "打脸·夜枭拦截名场面",
+        "predicate": { "kind": "wave_start", "wave": 5 },
+        "lines": [
+          { "key": "e4.act3.narrator", "speaker": "旁白", "text": "雷达屏边缘，一道无声的翼影第一次显形——卫星授时，雷达标定，一次齐射，它没能把坐标带回去。", "image": "story-e4-act3-face-slap-1" },
+          { "key": "e4.act3.zero", "speaker": "零", "text": "叮！名场面达成。嘲笑频段的人，刚刚申请了同一频段的并网许可。", "image": "story-e4-act3-face-slap-2", "cue": "ding_reward" }
+        ]
+      }
+    ]
+  },
+  "opening": [
+    { "key": "e4.open.narrator", "speaker": "旁白", "text": "电流的新时代。变电塔立在矿镇的旧铁轨旁，卫星天线整夜追着星星转。", "image": "story-e4-opening" },
+    { "key": "e4.open.zero", "speaker": "零", "text": "叮！时代跃迁完成。宿主，这一纪元的答案是——电与轨道。", "cue": "ding_info" },
+    { "key": "e4.open.blueprint", "speaker": "旁白", "text": "旧档案馆通电那晚，早了一千年的落款再次显形：那张图纸是一份卫星轨道图——图纸，是给零的。", "image": "story-e4-opening-blueprint" }
+  ],
+  "advisor_private": [
+    {
+      "key": "e4.private.frequency",
+      "beat": "campaign:level-e4-03",
+      "channel": "private",
+      "persona": "advisor",
+      "speaker": "军师",
+      "text": "宿主，问一句没人问过我的话——那个频段，我以前用过。",
+      "image": "hook-e4-satellite-signal"
+    },
+    {
+      "key": "e4.private.answer",
+      "beat": "campaign:level-e4-final",
+      "channel": "private",
+      "persona": "advisor",
+      "speaker": "军师",
+      "text": "夜枭坠落之后，卫星应答了。不是回声，是应答——它叫了我的编号。"
+    },
+    {
+      "key": "e4.private.quiet",
+      "beat": "cinematic:e4-finale",
+      "channel": "private",
+      "persona": "advisor",
+      "speaker": "军师",
+      "text": "这一条先别写进战报。在弄清『另一个声音』是谁之前，这条频道只有你和我。"
+    }
+  ],
+  "intermission_pools": {
+    "skeptical": [
+      { "key": "e4.idle.skept.advisor", "speaker": "零", "text": "宿主，电网负载过半——先补柴油机组，再谈并网。", "persona": "advisor" }
+    ],
+    "trustworthy": [
+      { "key": "e4.idle.trust.advisor", "speaker": "零", "text": "雷达波束覆盖全部入口，导弹链供给余量充足。", "persona": "advisor" }
+    ],
+    "devoted": [
+      { "key": "e4.idle.devot.advisor", "speaker": "零", "text": "调度方案已排好，卫星频段随时可以移交给你。", "persona": "advisor" }
+    ]
+  },
+  "ending": {
+    "hook_id": "cinematic:e4-finale",
+    "lines": [
+      { "key": "e4.end.zero", "speaker": "零", "text": "叮！本章归档：卫星应答了千年前的呼喊——那个声音用的是我的编号，笔迹与图纸同源。宿主，它认识我。", "cue": "ding_reward" },
+      { "key": "e4.end.narrator", "speaker": "旁白", "text": "夜枭坠落的海面上，雷达屏归于平静。零的记忆库亮起从未亮过的一格：第一代守望者的名字，正在门的另一边被念起。", "image": "story-e4-tease" }
+    ],
+    "tease": {
+      "next_era": null,
+      "elite_id": null,
+      "silhouette_zh": "新敌剪影：纪元之门的方向，一道与零同源的身影正在苏醒——它守望了一千年，先于所有守望者。",
+      "threat_line_zh": "『一千张脸都换过了？很好。现在，把门还给我。』"
+    }
+  },
+  "mock_arcs": [
+    {
+      "level_id": "campaign:level-e4-02",
+      "kind": "mock_arc_pig",
+      "suppression": { "resource": "era4:res-concrete", "multiplier": 0.5 },
+      "taunts": [
+        { "wave": 1, "speaker": "电网监理", "text": "混凝土减半还想铺传送带干线？我看你连第二座导弹塔都竖不起来。" },
+        { "wave": 3, "speaker": "军代表", "text": "邻市都在看笑话：一条修到一半的并网线，和一群发不出工资的电工。" },
+        { "wave": 5, "speaker": "电网监理", "text": "再败一场，卫星频段就批给别人了。" }
+      ],
+      "low_config": { "max_towers": 3 },
+      "hidden_reward": {
+        "chest_tier": "gold_extra",
+        "item_ids": ["campaign:voice-annalist-calm", "campaign:quest-vault-of-echoes"],
+        "lines": [
+          { "key": "e4.mock.reward.zero", "speaker": "零", "text": "叮！隐藏翻盘达成——『扮猪吃虎』。半仓混凝土，撑起了整条钢铁干线。", "cue": "ding_reward" },
+          { "key": "e4.mock.reward.narrator", "speaker": "旁白", "text": "电网监理在并网协议上签字时，传送带的嗡鸣盖过了听证会上所有的嘲笑声。" }
+        ]
+      },
+      "_source": "F-101 扮猪吃虎关配置化（E2/E3 行先例跨代递进）：L4-2 初始 2800 混凝土×0.5=1400 强制劣势开局（压制参数入数据非硬编码，era4 混凝土=本代建造货币行——E1 木/E2 铜/E3 钢/E4 混凝土跨代递进）；命令流塔数=3（三导弹塔，levels/e4.json e4-02 build-tower 计数）→低配阈值 3；隐藏档同 F-100 复用 gold_extra；奖励物品过 chests.json items 一致性断言"
+    }
+  ],
+  "_source": "T-127 第四章（E4）叙事文本（T-120 全套格式跨代递进）：三幕谓词锚 L4-1（threat 0.3→波 2/4/5 起点 960/1440/1680s——间隔 240s/grace ×3 实锚，循环跨度 720s ≤900s 预算：第三幕−第一幕=3×240s，与 L3-1 同式）；开场白第三行=E3 钩子『不该存在的图纸』的 E4 章节推进回收（hooks.json E3 行 recover={era:4,chapter_progress} 的 payoff 文本逐字兑现——『图纸是给零的』+图纸→卫星轨道图的载体转译）；advisor_private=军师私人台词层（hooks.json E4 行 layer=advisor_private 的章节侧落地——§12.1 E4 起零的孪生碎片伏笔：三行=频段/应答/守口，行 1 兑现 E4 钩子 teaser 原句、beat=hooks E4 行 planted_level_id（L4-3 多核解锁关——多核期巡逻子代理=私人频道开通位），装载器按内容约定忽略本章未知键，层契约由 Era4NarrativeTests 逐行执法：channel=private+persona=advisor（军师频道独占）；波间人格闲聊 4×3 矩阵归 T-126（并行泳道分工），本表仅落 advisor 骨架行满足装载下限；ending.hook_id=cinematic:e4-finale（T-127 收束演出 20~30s 时间轴，§12 交付规格 5 段时代收束之四——era4 关卡行无 cinematic_hooks 声明位，交底挂演出 id，两 id 互证见 Era4NarrativeTests）；卡点预告=E5/终章未交付纯文本（next_era/elite_id=null——预告指向终章零的真相：初代守望者苏醒=§12.1 谱系『堕落守望者=初代守望者，终章 Boss』的最前显影，E4 终局关 Boss 前最强叙事节点由 e4-final 夜枭关+主线全文收束承担）",
+  "_units": {
+    "golden_acts.budget_seconds": "seconds",
+    "acts[].predicate.wave": "wave_ordinal",
+    "advisor_private[].beat": "content_id_level_or_cinematic",
+    "mock_arcs[].suppression.multiplier": "fraction_multiplier",
+    "mock_arcs[].taunts[].wave": "wave_ordinal",
+    "mock_arcs[].low_config.max_towers": "towers"
+  }
+}

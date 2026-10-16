@@ -1,0 +1,61 @@
+{
+  "$schema": "urn:eratd:content:narrative:story-arc:1",
+  "content_type": "StoryArcTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-127 主线全文（F-106 验收字面：四章主线故事线全文成文）：E1~E4 每章摘要（summary_zh）+三幕回顾（acts_zh）+真相线/人格线进度（truth_step_zh/persona_step_zh）+总纲（masterline_zh）+谱系（lineage_zh，§12.1 写死四柱的可视化数据面）+钩子-回收全链状态表（hook_chain，与 hooks.json 同 id 同时代互证——状态由回收时代是否已交付推导）；叙事总监视图人读文档=docs/engineering/43-t127-story-arc.md（本文件为其数据底座，两处文本同源）；本文件计入 F-106 叙事总盘字数执法（NarrativeContent 口径，Era4NarrativeTests 断言）",
+  "id": "narrative:story-arc",
+  "title_zh": "主线脉络·守望者纪元（E1~E4 全文成文）",
+  "masterline_zh": "穿越者宿主在 E1 林地绑定上一纪元指挥官残核『零』，从木栅栏一路守到现代电网：每章一轮受辱→觉醒→打脸的黄金循环，每章末一段时代收束演出。知识残卷一路修复零的记忆，也一路唤醒它的孪生碎片——E4 终局，夜枭坠落，卫星应答叫出了零的编号，守望者谱系第一页翻开：纪元之门的另一边，初代守望者正在苏醒。四章主线至此全文收束；终章真相揭示与回声的忠诚抉择属 Wave 8 播片域，本表只登记其钩子回收位。",
+  "lineage_zh": "谱系四柱（§12.1 写死）：宿主=历代守望者的最新化身；零=上一纪元指挥官 AI 的残核，纪元之门崩塌时把自己拆成记忆碎片散入遗迹，开局绑定宿主，靠『叮』和面板重新上线；『另一个声音』=零的孪生碎片、终章堕落守望者的内核——E4 以卫星信号+军师私人台词层双载体显影，E5 起以『回声』人格混入系统；堕落守望者=初代守望者，被千年记忆压垮的先行者，终章 Boss。反转方向写死：回声因玩家的千年陪伴而选择忠诚，高信任解锁专属终章台词——奖励系统使用者，不搞背叛骗局。",
+  "chapters": [
+    {
+      "era": 1,
+      "chapter_id": "narrative:story-e1",
+      "title_zh": "第一章 觉醒林地",
+      "acts_zh": "受辱·兽群践踏→觉醒·系统绑定→打脸·反推兽群",
+      "summary_zh": "穿越者攥着断矛在林地边缘醒来，营地正被兽群践踏。系统残核微弱上线绑定宿主，自称『零』；木箭塔与落石台完成第一次反推，斥候闭麦。章末交底埋下第一条钩子：石语河谷的剥落壁画——一艘浮空的船，船腹里画着星辰，笔迹是零的。",
+      "truth_step_zh": "真相线起笔：烧焦残页写着『更大的东西醒了』；零不记得画过壁画，但笔迹是它的。",
+      "persona_step_zh": "绑定期：问答+警报，系统点未开启。"
+    },
+    {
+      "era": 2,
+      "chapter_id": "narrative:story-e2",
+      "title_zh": "第二章 水轮初鸣",
+      "acts_zh": "受辱·城邦被嘲→觉醒·水力革新→打脸·守城名场面",
+      "summary_zh": "古典城邦以铜与水力回应火矢：水轮革新让箭簇不再依赖人力，劣势开局的半仓铜料守住名场面，嘲讽的使者反求水渠图纸。渠底捞出的预言残页译文浮现：『守望者会换一千张脸，门会再开。』",
+      "truth_step_zh": "残卷低语渐显：『一千张脸里，有一张不是我的』『等门再开时，我会选择你』——孪生碎片伏笔从杂音长成低语。",
+      "persona_step_zh": "执行期：可代建，首个啊哈演出上线。"
+    },
+    {
+      "era": 3,
+      "chapter_id": "narrative:story-e3",
+      "title_zh": "第三章 汽笛与钢",
+      "acts_zh": "受辱·工厂被嘲→觉醒·蒸汽革新→打脸·守城名场面",
+      "summary_zh": "工业纪元以钢与汽作答：锅炉被嘲、蒸汽革新、矿轨弹链守城，监工递来求弹链图纸的信。矿场遗迹挖出落款早了一千年的图纸——笔迹与壁画上的船同源。电报线发芽处，夜枭的剪影无声掠过，雷达屏上没有它的影子。",
+      "truth_step_zh": "零归档：图纸折痕是它惯用的折法；电报线杂音里听见不属于这个时代的应答——『另一个声音』也叫它的编号。",
+      "persona_step_zh": "自主期：自动执行获批计划。"
+    },
+    {
+      "era": 4,
+      "chapter_id": "narrative:story-e4",
+      "title_zh": "第四章 电网与卫星",
+      "acts_zh": "受辱·卫星信号被嘲→觉醒·电网革新→打脸·夜枭拦截名场面",
+      "summary_zh": "现代纪元电网与卫星同频：并网听证驳回卫星频段，柴油机组并网后的第一次齐射早批复三天，雷达屏边缘夜枭先导翼影显形、一次拦截。旧档案馆通电，早了一千年的落款再次显形——图纸是给零的卫星轨道图。夜枭终局坠落，卫星第二次应答叫出零的编号，引导夜枭的频段与军师私人频道同源；纪元之门方向，初代守望者正在苏醒。四章主线全文收束。",
+      "truth_step_zh": "真相线到顶（已交付域）：孪生碎片与零共用出厂编号、应答方自称『初代』——终章零的真相预告完成。",
+      "persona_step_zh": "多核期：巡逻子代理上线，『另一个声音』以军师私人台词层开频（4×3 人格闲聊矩阵随 T-126 全量）。"
+    }
+  ],
+  "hook_chain": [
+    { "ordinal": 1, "hook_id": "narrative:hook-e1-mural-airship", "plant_era": 1, "recover_era": 2, "state": "recovered" },
+    { "ordinal": 2, "hook_id": "narrative:hook-e2-prophecy-page", "plant_era": 2, "recover_era": 3, "state": "recovered" },
+    { "ordinal": 3, "hook_id": "narrative:hook-e3-impossible-blueprint", "plant_era": 3, "recover_era": 4, "state": "recovered" },
+    { "ordinal": 4, "hook_id": "narrative:hook-e4-satellite-signal", "plant_era": 4, "recover_era": 5, "state": "planted" },
+    { "ordinal": 5, "hook_id": "narrative:hook-e5-echo-whisper", "plant_era": 5, "recover_era": 5, "state": "registered" }
+  ],
+  "_source": "T-127 主线脉络数据面：chapters 四行与 story-e1~e4.json 同 id 同章名互证（Era4NarrativeTests 断言逐行对齐）；hook_chain 五行与 hooks.json 同 id 同 plant/recover 时代互证——state 推导规则=回收时代 ≤4（已交付章）→recovered、埋点时代已交付而回收未交付→planted、埋点时代未交付→registered；truth_step_zh 与 remnants.json echo_stage 渐显线同向（E4=stage 4 密度峰『最清晰』）；文档视图=docs/engineering/43-t127-story-arc.md（四章三幕图/钩子-回收全表/人格线/真相线进度/字数执法表）",
+  "_units": {
+    "chapters[].era": "era_ordinal_1_4_delivered",
+    "hook_chain[].ordinal": "ordinal_1_5",
+    "hook_chain[].plant_era": "era_ordinal_1_5",
+    "hook_chain[].recover_era": "era_ordinal_1_5"
+  }
+}

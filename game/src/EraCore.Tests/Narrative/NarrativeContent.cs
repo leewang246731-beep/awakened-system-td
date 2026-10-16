@@ -52,6 +52,10 @@ internal static class NarrativeContent
     public static EraCore.Narrative.StoryChapter StoryE3() =>
         EraCore.Narrative.StoryChapter.Parse(Read("story-e3.json"), "narrative/story-e3.json");
 
+    /// <summary>The E4 chapter straight out of content (T-127).</summary>
+    public static EraCore.Narrative.StoryChapter StoryE4() =>
+        EraCore.Narrative.StoryChapter.Parse(Read("story-e4.json"), "narrative/story-e4.json");
+
     /// <summary>The remnant catalog straight out of content.</summary>
     public static EraCore.Narrative.RemnantCatalog Remnants() =>
         EraCore.Narrative.RemnantCatalog.Parse(Read("remnants.json"), "narrative/remnants.json");
@@ -84,6 +88,9 @@ internal static class NarrativeContent
         "text", "speaker", "title_zh", "memory_zh", "echo_whisper_zh",
         "planted_anchor_zh", "teaser_zh", "payoff_zh", "silhouette_zh",
         "threat_line_zh",
+        // T-127 主线脉络数据面（story-arc.json）承载字段：叙事正文同口径计入
+        "summary_zh", "acts_zh", "truth_step_zh", "persona_step_zh",
+        "masterline_zh", "lineage_zh",
     };
 
     private static int CountElement(JsonElement element)

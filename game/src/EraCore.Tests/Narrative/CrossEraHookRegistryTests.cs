@@ -42,13 +42,15 @@ public class CrossEraHookRegistryTests
     }
 
     [Fact] // legal — 埋点对实锚：E1 壁画=L1-3 石语河谷（08 任务卡钉锚）；E2 残页=L2-2；
-    //        E3 图纸=L3-3 考古关（T-120 物化——dig_site 挖出位）；E4/E5 未交付只登记回收位
+    //        E3 图纸=L3-3 考古关（T-120 物化——dig_site 挖出位）；E4 卫星信号=L4-3 多核关
+    //        （T-127 物化——军师私人频道开通位）；E5 未交付只登记回收位
     public void Planted_levels_exist_in_the_level_files_at_the_pinned_anchors()
     {
         CrossEraHookRegistry registry = Hooks();
         IReadOnlyList<(string Id, string? NameZh)> e1 = LevelRows("e1");
         IReadOnlyList<(string Id, string? NameZh)> e2 = LevelRows("e2");
         IReadOnlyList<(string Id, string? NameZh)> e3 = LevelRows("e3");
+        IReadOnlyList<(string Id, string? NameZh)> e4 = LevelRows("e4");
 
         CrossEraHook mural = registry.Items[0];
         Assert.Equal("campaign:level-e1-03", mural.PlantedLevelId);
@@ -62,8 +64,11 @@ public class CrossEraHookRegistryTests
         CrossEraHook blueprint = registry.Items[2]; // T-120 物化：E3 已交付
         Assert.Equal("campaign:level-e3-03", blueprint.PlantedLevelId);
         Assert.Contains(e3, row => row.Id == blueprint.PlantedLevelId);
-        Assert.Null(registry.Items[3].PlantedLevelId); // E4/E5 未交付章只登记回收位
-        Assert.Null(registry.Items[4].PlantedLevelId);
+
+        CrossEraHook satellite = registry.Items[3]; // T-127 物化：E4 已交付（多核期=军师私人频道开通位）
+        Assert.Equal("campaign:level-e4-03", satellite.PlantedLevelId);
+        Assert.Contains(e4, row => row.Id == satellite.PlantedLevelId);
+        Assert.Null(registry.Items[4].PlantedLevelId); // E5 未交付章只登记回收位
     }
 
     [Fact] // legal — E3 图纸-考古链一致性（T-120 物化）：埋点关=考古关（dig_sites 物理挖出位+

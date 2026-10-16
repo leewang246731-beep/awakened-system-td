@@ -52,8 +52,8 @@ public sealed class RemnantCatalog
     /// <summary>Content type marker the loader requires.</summary>
     public const string ContentType = "RemnantTable";
 
-    /// <summary>Frozen table size (T-089 first batch 8 + T-120 E3 increment 3).</summary>
-    public const int RemnantCount = 11; // ci-allow: R7 T-089 首批 8 条+T-120 E3 增量 3 条=08 任务卡冻结结构数（叙事量纲，非内容平衡数值）
+    /// <summary>Frozen table size (T-089 first batch 8 + T-120 E3 increment 3 + T-127 E4 increment 4).</summary>
+    public const int RemnantCount = 15; // ci-allow: R7 T-089 首批 8 条+T-120 E3 增量 3 条+T-127 E4 增量 4 条=任务卡冻结结构数（叙事量纲，非内容平衡数值）
 
     /// <summary>Max echo stage (渐显带 1..4).</summary>
     public const int MaxEchoStage = 4; // ci-allow: R7 T-089 回声伏笔渐显 1..4 段=T-089 结构旋钮（叙事量纲）
@@ -126,7 +126,7 @@ public sealed class RemnantCatalog
 
             Require(
                 itemsEl.GetArrayLength() == RemnantCount,
-                $"{sourceName}: items 须恰好 {RemnantCount} 条（得到 {itemsEl.GetArrayLength()}——T-089 首批 8 条+T-120 E3 增量 3 条）");
+                $"{sourceName}: items 须恰好 {RemnantCount} 条（得到 {itemsEl.GetArrayLength()}——T-089 首批 8 条+T-120 E3 增量 3 条+T-127 E4 增量 4 条）");
 
             var items = new List<KnowledgeRemnant>();
             var ids = new HashSet<string>(StringComparer.Ordinal);

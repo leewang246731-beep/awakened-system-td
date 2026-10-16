@@ -69,11 +69,12 @@ public class StoryChapterTests
         Assert.InRange(twoChapters, 1, 8000);
     }
 
-    [Fact] // legal — 文本量：叙事总盘（三章+残卷+钩子+台词库）≤2 万字（F-106 主线预算）
+    [Fact] // legal — 文本量：叙事总盘（四章+主线脉络+残卷+钩子+台词库）≤2 万字（F-106 主线预算；T-127 执法更新：纳入 story-e4+story-arc）
     public void The_whole_narrative_corpus_stays_within_the_20000_character_budget()
     {
         int corpus = NarrativeContent.CountNarrativeChars(
-            "story-e1.json", "story-e2.json", "story-e3.json", "remnants.json", "hooks.json", "system-lines.json");
+            "story-e1.json", "story-e2.json", "story-e3.json", "story-e4.json", "story-arc.json",
+            "remnants.json", "hooks.json", "system-lines.json");
 
         Assert.InRange(corpus, 1, 20000);
     }

@@ -67,7 +67,7 @@ public class MockArcRulebookTests
         }
     }
 
-    [Fact] // legal — 隐藏奖励零幽灵引用：三章全部 item_ids 与 chest_tier 都在 chests.json 实锚
+    [Fact] // legal — 隐藏奖励零幽灵引用：四章全部 item_ids 与 chest_tier 都在 chests.json 实锚
     public void Every_hidden_reward_resolves_in_the_chest_table()
     {
         using JsonDocument chests = JsonDocument.Parse(ReadSibling("campaign", "chests.json"));
@@ -80,7 +80,7 @@ public class MockArcRulebookTests
             .Select(item => item.GetProperty("id").GetString()!)
             .ToArray();
 
-        foreach (StoryChapter chapter in new[] { StoryE1(), StoryE2(), StoryE3() })
+        foreach (StoryChapter chapter in new[] { StoryE1(), StoryE2(), StoryE3(), StoryE4() })
         {
             foreach (MockArcRow arc in chapter.MockArcs)
             {
