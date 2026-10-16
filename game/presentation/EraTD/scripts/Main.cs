@@ -279,6 +279,30 @@ public sealed partial class Main : Control
             $"atlas={Era2TerrainAtlas.TileCount * Era2TerrainAtlas.TilePx}x{Era2TerrainAtlas.TilePx} " +
             $"pack_files={Era2TerrainAtlas.ProbePackFiles().Count}/15 " +
             "source=kenney-tiny-town+medieval-rts-cc0+procedural-standin");
+
+        // T-119 (C-28): E3 industrial art pack load proof + belt dual-layer
+        // wiring (F-127/F-133). Atlas composes in-engine (missing tiles
+        // throw); the belt straight-segment material instantiates the
+        // belt-scroll shader with the dual-layer textures bound and the turn
+        // strip geometry is asserted live — era routing stays with the E3
+        // level visuals, this marker proves the validator-gated pack loads
+        // (GPU pixel output is a windowed-only fact: headless 局限, 41 号 §6).
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        _ = Era3TerrainAtlas.Build();
+        _ = Era3ArtPack.BuildBeltScrollMaterial();
+        Vector2 beltStrip = Era3ArtPack.LoadTurnStrip().GetSize();
+        GD.Print(
+            $"ART3 era=industrial atlas_tiles={Era3TerrainAtlas.TileCount} " +
+            $"tile_px={Era3TerrainAtlas.TilePx} " +
+            $"atlas={Era3TerrainAtlas.TileCount * Era3TerrainAtlas.TilePx}x{Era3TerrainAtlas.TilePx} " +
+            $"pack_files={Era3ArtPack.ProbePackFiles().Count}/22 " +
+            "source=procedural-era3-placeholders");
+        GD.Print(
+            "BELT shader=belt-scroll layers=2 " +
+            $"body_px={Era3ArtPack.BeltBodyPx} turn_frames={Era3ArtPack.TurnFrames} " +
+            $"strip={(int)beltStrip.X}x{(int)beltStrip.Y} " +
+            $"grid={Era3ArtPack.TurnFramesPerRow}x{Era3ArtPack.TurnFrames / Era3ArtPack.TurnFramesPerRow} " +
+            "phase=BeltRenderDecisions(locked shader-offset/frame-index)");
         GD.Print(
             $"BRIDGE frames={SmokeFrames} ticks={_bridge.Current.Tick} " +
             $"units={_bridge.Current.Units.Count} buildings={_bridge.Current.Buildings.Count} " +
