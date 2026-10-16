@@ -222,6 +222,7 @@ public class EraTransitionTests : SqliteSavePortTestBase
     [InlineData(EraTransitionStep.Snapshot)]
     [InlineData(EraTransitionStep.NewContinent)]
     [InlineData(EraTransitionStep.RelicReplay)]
+    [InlineData(EraTransitionStep.DigSiteBuild)] // T-125：挖掘位步（占用只落事务内大陆，无需 undo）
     [InlineData(EraTransitionStep.TechRootSwitch)]
     [InlineData(EraTransitionStep.ScheduleBuild)]
     public void failure_at_any_step_rolls_back_every_input(EraTransitionStep failAt)

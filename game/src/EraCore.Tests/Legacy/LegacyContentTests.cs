@@ -140,7 +140,7 @@ public class LegacyContentTests
 
     // ---- era_transition.json ------------------------------------------ legal
 
-    [Fact] // legal — F-003/F-011 跃迁参数锚点：30% 带走 + 3:1 折算 + 仓库+1 + 终局关 E1/E2 行 + 双目标时代前三关排期（T-117）
+    [Fact] // legal — F-003/F-011 跃迁参数锚点：30% 带走 + 3:1 折算 + 仓库+1 + 终局关 E1/E2/E3 行 + 三目标时代前三关排期（T-117/T-125）
     public void era_transition_params_match_frozen_anchors()
     {
         EraTransitionSpec spec = LegacyDataLoader.ParseEraTransition(Load("era_transition.json"));
@@ -152,9 +152,10 @@ public class LegacyContentTests
         Assert.True(spec.PyramidBonusCarriesOver); // 金字塔随遗迹城跨代
         Assert.Equal("campaign:level-e1-final", spec.FinalLevels[1]);
         Assert.Equal("campaign:level-e2-final", spec.FinalLevels[2]); // T-117 E2→E3 行（id 裁定=E1 行同款约定，见 _source）
+        Assert.Equal("campaign:level-e3-final", spec.FinalLevels[3]); // T-125 E3→E4 行（e3-finale.json 演出同款命名约定）
 
-        // 排期=两个目标时代各三行（target_era 2=E1→E2 冻结行；3=T-117 E2→E3 行）
-        Assert.Equal(6, spec.FirstThreeSchedule.Count);
+        // 排期=三个目标时代各三行（target_era 2=E1→E2 冻结行；3=T-117；4=T-125）
+        Assert.Equal(9, spec.FirstThreeSchedule.Count);
         IReadOnlyList<EraFirstThreeSlot> e2 = spec.ScheduleFor(2);
         Assert.Equal(3, e2.Count);
         Assert.Equal("new_energy", e2.Single(s => s.Slot == 1).Focus); // 关 1 新能源
@@ -170,6 +171,15 @@ public class LegacyContentTests
         Assert.Equal("new_logistics", e3.Single(s => s.Slot == 2).Focus);
         Assert.Equal("campaign:level-e3-03", e3.Single(s => s.Slot == 3).LevelId);
         Assert.Equal("archaeology_hero_system", e3.Single(s => s.Slot == 3).Focus);
+
+        IReadOnlyList<EraFirstThreeSlot> e4 = spec.ScheduleFor(4); // T-125：E3→E4 前三关=e4-01..03（逐值对齐 era4/levels.json）
+        Assert.Equal(3, e4.Count);
+        Assert.Equal("campaign:level-e4-01", e4.Single(s => s.Slot == 1).LevelId);
+        Assert.Equal("new_energy", e4.Single(s => s.Slot == 1).Focus);
+        Assert.Equal("campaign:level-e4-02", e4.Single(s => s.Slot == 2).LevelId);
+        Assert.Equal("new_logistics", e4.Single(s => s.Slot == 2).Focus);
+        Assert.Equal("campaign:level-e4-03", e4.Single(s => s.Slot == 3).LevelId);
+        Assert.Equal("archaeology_hero_system", e4.Single(s => s.Slot == 3).Focus);
         Assert.Empty(spec.ScheduleFor(6)); // 未声明目标时代=空（E5→终章行属未来内容）
     }
 

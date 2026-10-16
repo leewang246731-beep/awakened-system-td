@@ -28,14 +28,17 @@ public enum EraTransitionStep
     /// <summary>遗迹映射回放: F.7 replay ladder + no-loss assertion.</summary>
     RelicReplay = 4,
 
+    /// <summary>考古挖掘位: degraded ruins anchor as dig-site entities on the new continent (T-125).</summary>
+    DigSiteBuild = 5,
+
     /// <summary>科技时代根切换: tech tree era root +1.</summary>
-    TechRootSwitch = 5,
+    TechRootSwitch = 6,
 
     /// <summary>前三关排期元数据: the new era's first-three schedule rows.</summary>
-    ScheduleBuild = 6,
+    ScheduleBuild = 7,
 
     /// <summary>campaign 域一次写: the single K-7 campaign-document commit.</summary>
-    CampaignWrite = 7,
+    CampaignWrite = 8,
 }
 
 /// <summary>
@@ -121,8 +124,9 @@ public sealed record EraLevyLine(
 /// <summary>
 /// The committed transition outcome (T-074): the new era index, the levy
 /// ledger, the new-era pool (warehouse level +1), the new continent, the
-/// relic mapping result, the first-three schedule and the campaign
-/// document that was written exactly once.
+/// relic mapping result, the dig-site plan of degraded ruins (T-125), the
+/// first-three schedule and the campaign document that was written
+/// exactly once.
 /// </summary>
 public sealed record EraTransitionResult(
     int FromEraIndex,
@@ -133,6 +137,7 @@ public sealed record EraTransitionResult(
     NewContinent Continent,
     RelicCitySnapshot Snapshot,
     RelicMappingResult Mapping,
+    RelicDigSitePlan DigSites,
     IReadOnlyList<EraFirstThreeSlot> Schedule,
     ICampaignMeta WrittenMeta);
 
@@ -256,6 +261,12 @@ public sealed class EraTransitionService
             RelicMappingResult mapping = new RelicMapper(request.Mapping).Map(continent, snapshot);
             Probe(request, EraTransitionStep.RelicReplay);
 
+            // ================= 5b 考古挖掘位: 降级废墟锚定为新大陆实体（T-125）
+            // 占用注册只落在事务内创建的大陆世界上——失败回滚不需要 undo（世界
+            // 随事务丢弃），成功则挖掘位/纪念馆修复位随大陆进入结果。
+            RelicDigSitePlan digSites = RelicDigSites.Build(continent, mapping);
+            Probe(request, EraTransitionStep.DigSiteBuild);
+
             // ================= 6 科技时代根切换
             int previousEraRoot = request.Tech.EraIndex;
             request.Tech.SetEraIndex(toEra);
@@ -285,6 +296,7 @@ public sealed class EraTransitionService
                 continent,
                 snapshot,
                 mapping,
+                digSites,
                 schedule,
                 meta);
         }

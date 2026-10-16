@@ -201,6 +201,7 @@ public enum RelayOutcomeKind
 /// <param name="Cause">Conflict cause of the failed home cell (oob/terrain/resource/cap) or "density-cap".</param>
 /// <param name="ShiftDistance">Chebyshev ring the 移位 rung placed it on (0 = home).</param>
 /// <param name="InCoreZone">Membership in the PERSISTED core-zone set (A5: answered only from the snapshot payload).</param>
+/// <param name="HomeCell">Absolute home cell on the NEW map (T-125): anchor + relative coordinate, where the building WOULD stand — the dig-site anchor of a degraded ruin. Always computed, so it may lie outside the map for oob rows.</param>
 public sealed record RelicRelayOutcome(
     long BuildingId,
     string TypeId,
@@ -209,7 +210,8 @@ public sealed record RelicRelayOutcome(
     CellCoord? Cell,
     string Cause,
     int ShiftDistance,
-    bool InCoreZone);
+    bool InCoreZone,
+    CellCoord? HomeCell = null);
 
 /// <summary>
 /// Result of one F.7 replay pass (T-074): every snapshotted building lands
@@ -303,6 +305,8 @@ public sealed class RelicMappingResult
                 hash = Mix(hash, (ulong)(outcome.Cell?.Y ?? -1));
                 hash = Mix(hash, (ulong)outcome.ShiftDistance);
                 hash = Mix(hash, outcome.InCoreZone ? 1UL : 0UL);
+                hash = Mix(hash, (ulong)(outcome.HomeCell?.X ?? -1));
+                hash = Mix(hash, (ulong)(outcome.HomeCell?.Y ?? -1));
                 foreach (char c in outcome.TypeId)
                 {
                     hash = Mix(hash, c);
@@ -393,7 +397,7 @@ public sealed class RelicMapper
 
             if (IsEligible(world, relics, home))
             {
-                Place(building, home, RelayOutcomeKind.IntactHome, "none", shiftDistance: 0, inCoreZone);
+                Place(building, home, home, RelayOutcomeKind.IntactHome, "none", shiftDistance: 0, inCoreZone);
                 continue;
             }
 
@@ -414,7 +418,7 @@ public sealed class RelicMapper
                         var cell = new CellCoord(home.X + dx, home.Y + dy);
                         if (IsEligible(world, relics, cell))
                         {
-                            Place(building, cell, RelayOutcomeKind.IntactShifted, "shift", ring, inCoreZone);
+                            Place(building, home, cell, RelayOutcomeKind.IntactShifted, "shift", ring, inCoreZone);
                             placed = true;
                         }
                         else if (world.Contains(cell)
@@ -439,7 +443,7 @@ public sealed class RelicMapper
                 outcomes.Add(new RelicRelayOutcome(
                     building.BuildingId, building.TypeId, building.Tier,
                     RelayOutcomeKind.CapSkipped, Cell: null, Cause: "density-cap",
-                    ShiftDistance: 0, InCoreZone: inCoreZone));
+                    ShiftDistance: 0, InCoreZone: inCoreZone, HomeCell: home));
                 abstractList.Add($"abstract|id={building.BuildingId}|type={building.TypeId}|tier=T{building.Tier}|reason=density-cap");
             }
             else
@@ -448,7 +452,7 @@ public sealed class RelicMapper
                 outcomes.Add(new RelicRelayOutcome(
                     building.BuildingId, building.TypeId, building.Tier,
                     RelayOutcomeKind.RuinDowngraded, Cell: null, Cause: cause,
-                    ShiftDistance: 0, InCoreZone: inCoreZone));
+                    ShiftDistance: 0, InCoreZone: inCoreZone, HomeCell: home));
                 abstractList.Add($"ruin|id={building.BuildingId}|type={building.TypeId}|tier=T{building.Tier}|cause={cause}|near=({home.X},{home.Y})");
             }
 
@@ -482,13 +486,13 @@ public sealed class RelicMapper
 
         return result;
 
-        void Place(RelicBuildingSnapshot b, CellCoord cell, RelayOutcomeKind kind, string cause, int shiftDistance, bool coreZone)
+        void Place(RelicBuildingSnapshot b, CellCoord home, CellCoord cell, RelayOutcomeKind kind, string cause, int shiftDistance, bool coreZone)
         {
             relics.Add(cell);
             // 顺序序号（非 buildingId）：与资源节点 id 段（900_000+）保持不相交
             world.RegisterOccupancy(new EntityId(RelicEntityBase + relics.Count), new[] { cell });
             outcomes.Add(new RelicRelayOutcome(
-                b.BuildingId, b.TypeId, b.Tier, kind, cell, cause, shiftDistance, coreZone));
+                b.BuildingId, b.TypeId, b.Tier, kind, cell, cause, shiftDistance, coreZone, home));
             registry.Add($"relic|id={b.BuildingId}|type={b.TypeId}|tier=T{b.Tier}|at=({cell.X},{cell.Y})|mode={(kind == RelayOutcomeKind.IntactHome ? "home" : "shifted")}|shift={shiftDistance}");
             if (coreZone)
             {

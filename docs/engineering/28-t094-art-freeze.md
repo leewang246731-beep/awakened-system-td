@@ -2,9 +2,9 @@
 
 | 项 | 内容 |
 |---|---|
-| 版本 | v1.0 |
-| 日期 | 2026-10-15 |
-| 状态 | **已冻结生效**（Q8 口径 v0.1=E1+E2；此后 §4 清单内素材不再变更，变更须走 REV，见 §6） |
+| 版本 | v1.1 |
+| 日期 | 2026-10-13 |
+| 状态 | **已冻结生效**（Q8 口径 v0.1=E1+E2；此后 §4 清单内素材不再变更，变更须走 REV，见 §6。v1.1=T-125 增补跨代遗迹标记域 §2.3/§4.4——新增冻结面，既有 63 PNG 零触碰） |
 | 任务卡 | T-094（E1+E2 美术包冻结；Wave 4，E 泳道，组件 C-28；覆盖 F-132；依赖 T-078） |
 | 验收标准 | 全实体/UI 素材过校验并冻结清单（08-task-plan T-094 行，Q8 范围） |
 | 依据 | 14-art-license-audit §3/§4（像素规格+台账纪律）；15-t045-art-integration（E1 先例）；24-t078-era2-art（E2 先例+程序合成回退路线）；07-decided-plan Q8（首发=E1+E2）；CODE_STANDARDS CS-4.1/CS-5.1 |
@@ -71,6 +71,19 @@
 | E2 走廊建筑件（城墙/城门渲染素材） | — | structures/watchtower、gatehouse、wall-crenellated | 64×64 | 44/17/15 | MRTS |
 
 **盘点结论**：E1+E2 内容实体共 **63 项映射**（塔 9 种×两级=18 张、敌 16 种=16 张、Boss 2、英雄 2、载具 2、地形 17、UI 色板 2、E2 建筑 3、水域动画 1），全部有素材过校验器——**"无实体无素材"清零**。盘点时缺口共 **30 件**（§3），已全部程序合成补齐。
+
+### 2.3 跨代遗迹标记（T-125 增补 v1.1，`textures/relic/`）
+
+v1.1 新冻结面（T-125 遗迹映射正式版，F-057/F-168）：遗迹映射生产通道（RelicMapper/RelicDigSites/RelicMarkerBoard）的新时代地图 UI 标记面。该域 **era 无关**（遗迹本体=上一代建筑、标记=新一代地图 UI），不属任何单代美术包（E4 美术包=T-128 未产，按任务卡「美术未产占位合成」指示先行占位）；全部由 tools/art/relic_placeholders.py 程序合成（**P3** 来源，确定性：固定坐标+固定 12 色跨代遗迹色板=风化石灰岩 3+青铜铭刻 2+苔藓 2+勘测旗红 2+基座阴影 2+勾勒金 1，无随机数无 AI 生图）。stem 与 EraCore.Presentation/RelicMarkerBoard.cs 冻结常量逐一对应（跨层契约，RelicArtMappingTests 实锚）：
+
+| 标记类（RelicMarkerKind） | 名称 | 素材文件 | 画布 | 来源 |
+|---|---|---|---|---|
+| StandingRelic（立碑遗迹：回放原位/移位） | 断柱纪念碑 | relic/relic-standing.png | 32×32 | P3 |
+| DigSite（考古挖掘位：降级废墟地图实体） | 碎石堆+勘测旗 | relic/relic-dig-site.png | 32×32 | P3 |
+| MemorialSlot（纪念馆修复位：未消费修复槽） | 纪念碑修复位 | relic/relic-memorial.png | 32×32 | P3 |
+| CoreReserveOutline（A5 核心保留区勾勒） | 勾勒 tile（alpha 192 边框+255 四角） | relic/relic-reserve.png | 16×16 | P3 |
+
+sha256 见 §4.4；升级口=28 号 §6 同律（占位→人工重绘须 REV+本清单递增版本，脚本为底稿）。
 
 ## 3. 缺漏补齐（本轮 30 件，程序合成）
 
@@ -183,6 +196,17 @@ T-045 只交付了 E1 地形 8 tile；T-078 交付了 E2 塔/马车/UI/水/建�
 
 （音频线 zip/快照=26 号 T-092 台账，不属本清单。）
 
+### 4.4 跨代遗迹标记（T-125 增补 4 PNG，v1.1）
+
+路径根=presentation/EraTD/textures/relic/（§2.3 冻结面；合成器 tools/art/relic_placeholders.py，二次生成 sha256 全等实测）：
+
+| 素材文件 | sha256 |
+|---|---|
+| relic/relic-standing.png | 40247b304f8e9e8ae20b6f730fda702716399f78978fe83e40b797a72884d66d |
+| relic/relic-dig-site.png | 298b47842811ad08d0b040896ffa2bef02a2cc8f1e29a24184fe28283208362e |
+| relic/relic-memorial.png | a73445a11fac8f1d26958c5e67be7d6a1740d57f3607920c0b72563ded7a56e0 |
+| relic/relic-reserve.png | f45cde4b43132ea10f314ab21e8cbfcc606e58509b790a64c065422853950e9d |
+
 ## 5. 调色板一致性与白名单纪律
 
 - **代际子板**：E1 远古子板 23 色（土 4/木 3/兽皮 3/骨 2/火 3/绿 3/血 2/铁 3，era1_placeholders.py `PALETTE`——与 Tiny Dungeon 土色系 tile 同族）；E2 古典子板 22 色（石/木/铁/金/蓝石/火/水，era2_placeholders.py `PALETTE`，T-094 增补的敌/英雄全部复用该 22 色）。两子板合计 45 色 ≤ master 64 上限（14 §3）。
@@ -192,7 +216,7 @@ T-045 只交付了 E1 地形 8 tile；T-078 交付了 E2 塔/马车/UI/水/建�
 
 ## 6. 冻结声明与待做清单
 
-**声明**：v0.1（Q8=E1+E2）范围内 §4.1 全部 63 PNG+§4.2 三包库自本清单生效起冻结——**不再变更**（含重命名/改尺寸/改色）；任何变更（含占位→人工重绘升级、Boss 96 画布升级、动画帧引入）须开 REV 登记（docs/engineering/reviews/）+code-review 双轴后递增本清单版本。合成器脚本 tools/art/era{1,2}_placeholders.py 为冻结产物的确定性复现源（二次生成 sha256 全等），脚本后续演进不追溯已冻结 PNG。
+**声明**：v0.1（Q8=E1+E2）范围内 §4.1 全部 63 PNG+§4.2 三包库自本清单生效起冻结——**不再变更**（含重命名/改尺寸/改色）；任何变更（含占位→人工重绘升级、Boss 96 画布升级、动画帧引入）须开 REV 登记（docs/engineering/reviews/）+code-review 双轴后递增本清单版本。合成器脚本 tools/art/era{1,2}_placeholders.py 为冻结产物的确定性复现源（二次生成 sha256 全等），脚本后续演进不追溯已冻结 PNG。**v1.1 增补**：§2.3/§4.4 跨代遗迹标记 4 PNG（textures/relic/，T-125）并入同一冻结纪律——合成器 tools/art/relic_placeholders.py 为其确定性复现源，升级口同上（era 无关域，不随 T-128 E4 美术包自动重绘；重绘升级时以 REV 登记）。
 
 **待做清单（不阻塞 v0.1，逐项挂 REV 升级口）**：
 
@@ -235,3 +259,4 @@ T-045 只交付了 E1 地形 8 tile；T-078 交付了 E2 塔/马车/UI/水/建�
 ## 变更记录
 
 - v1.0（2026-10-15）：T-094 首次成文。实体→素材映射 63 项全表（E1+E2 "无实体无素材"清零）；30 件程序合成补漏（era1_placeholders.py 新建+era2_placeholders.py 增补）；冻结清单 sha256（presentation 63 逐文件+三包 tree digest+留档件）；调色板一致性（E1 23 色/E2 22 色，全库 max 61≤64，白名单零滥用）；冻结声明+W8/升级待做 8 项；U 盘同步 freeze-v0.1。
+- v1.1（2026-10-13）：T-125 遗迹映射正式版增补。§2.3/§4.4 跨代遗迹标记 4 PNG（textures/relic/：立碑遗迹/考古挖掘位/纪念馆修复位/核心保留区勾勒）——era 无关域新冻结面，relic_placeholders.py 程序合成（P3，12 色跨代遗迹色板，二次生成 sha256 全等实测），stem 与 RelicMarkerBoard 冻结常量逐一对应（RelicArtMappingTests 实锚）；既有 E1+E2 63 PNG 零触碰（v0.1 冻结面不动）。E4 时代专属素材仍归 T-128（待做 #8 不变）。

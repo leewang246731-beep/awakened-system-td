@@ -149,6 +149,30 @@ internal static class LegacyFixture
         return facts;
     }
 
+    /// <summary>
+    /// Deterministic hostile-placement relic-city facts (T-125): one row of
+    /// buildings at Chebyshev distance 6 from the anchor — OUTSIDE the F.7
+    /// shift radius (2), so on an all-water continent every building
+    /// degrades (ruin), none shifts onto the single plain cell a radius-0
+    /// yield pass leaves at the anchor. No rng: fixed cells, stable across
+    /// every seed.
+    /// </summary>
+    public static List<RelicCityBuildingFact> HostileCityFacts(int count, IReadOnlyList<int> orientations)
+    {
+        var facts = new List<RelicCityBuildingFact>(count);
+        for (int i = 0; i < count; i++)
+        {
+            facts.Add(new RelicCityBuildingFact(
+                500_000 + i,
+                $"era1:tower-{i % 4}",
+                1 + (i % 4),
+                orientations[i % orientations.Count],
+                new CellCoord(Anchor.X - 6 + (i % 12), Anchor.Y + 6)));
+        }
+
+        return facts;
+    }
+
     /// <summary>A minimal previous campaign document of the given era.</summary>
     public static CampaignMetaDto EmptyMeta(long worldSeed, int eraIndex) =>
         new(worldSeed, eraIndex, new Dictionary<string, long>(), new List<string>(), new List<string>(), new List<LevelLayoutSnapshotDto>());
