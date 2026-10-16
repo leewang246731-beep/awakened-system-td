@@ -1,0 +1,109 @@
+{
+  "$schema": "urn:eratd:content:narrative:story:1",
+  "content_type": "StoryChapter",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-120 第三章叙事（F-098/F-101/F-102/F-105/F-106/F-107/F-109）：E3 三幕=工厂被嘲→蒸汽革新→守城名场面（L3-1 谓词：波 2/波 4/波 5）+扮猪吃虎关配置（L3-2 钢料压制 ×0.5+监工嘲讽→低配翻盘隐藏评价）+开场白兑现 E2 钩子『预言残页』E3 回收（hooks.json E2 行 recover.era=3 payoff 的章节侧文本落地）+胜利交底挂收束演出 cinematic:e3-finale（20~30s 时间轴=T-120 收束演出数据，§12 交付规格 5 段时代收束之三）+卡点预告（E4 精英夜枭隐形类，era4 未交付→纯文本无实体 id——§4 E4 行对位：夜枭/雷达塔/电网）",
+  "id": "narrative:story-e3",
+  "era": "era3:era-industrial",
+  "level_id": "campaign:level-e3-01",
+  "title_zh": "第三章 汽笛与钢",
+  "golden_acts": {
+    "budget_seconds": 900,
+    "acts": [
+      {
+        "id": "narrative:act-e3-humiliation",
+        "title_zh": "受辱·工厂被嘲",
+        "predicate": { "kind": "wave_start", "wave": 2 },
+        "lines": [
+          { "key": "e3.act1.overseer", "speaker": "监工", "text": "冒黑烟的棚子也配叫工厂？水轮才是正经路数，回去摇你们的辘轳吧。", "image": "story-e3-act1-humiliation-1" },
+          { "key": "e3.act1.zero", "speaker": "零", "text": "叮——检测到技术歧视：他在数我们的烟囱，却没数锅炉的压力。", "image": "story-e3-act1-humiliation-2", "cue": "ding_info" }
+        ]
+      },
+      {
+        "id": "narrative:act-e3-innovation",
+        "title_zh": "觉醒·蒸汽革新",
+        "predicate": { "kind": "wave_start", "wave": 4 },
+        "lines": [
+          { "key": "e3.act2.zero", "speaker": "零", "text": "锅炉压力就位——用蒸汽代替臂力，这一纪元的第一口气，我们吸对了。", "image": "story-e3-act2-innovation-1", "cue": "ding_reward" },
+          { "key": "e3.act2.narrator", "speaker": "旁白", "text": "汽笛压过锤声，矿轨上的第一车煤，比监工的快马跑得还稳。", "image": "story-e3-act2-innovation-2" }
+        ]
+      },
+      {
+        "id": "narrative:act-e3-face-slap",
+        "title_zh": "打脸·守城名场面",
+        "predicate": { "kind": "wave_start", "wave": 5 },
+        "lines": [
+          { "key": "e3.act3.narrator", "speaker": "旁白", "text": "弹链不熄，汽笛长鸣——监工的快马第一次没能追上日落，矿镇记下了这一页。", "image": "story-e3-act3-face-slap-1" },
+          { "key": "e3.act3.zero", "speaker": "零", "text": "叮！名场面达成。嘲笑着工厂的人，刚刚递来求弹链图纸的信。", "image": "story-e3-act3-face-slap-2", "cue": "ding_reward" }
+        ]
+      }
+    ]
+  },
+  "opening": [
+    { "key": "e3.open.narrator", "speaker": "旁白", "text": "煤烟的新时代。矿镇的界碑立在铁轨尽头，图纸上的齿轮比星光还密。", "image": "story-e3-opening" },
+    { "key": "e3.open.zero", "speaker": "零", "text": "叮！时代跃迁完成。宿主，这一纪元的答案是——钢与汽。", "cue": "ding_info" },
+    { "key": "e3.open.prophecy", "speaker": "旁白", "text": "工坊灯下，水渠底捞起的残页终于译出：『守望者会换一千张脸，门会再开。』", "image": "story-e3-opening-prophecy" }
+  ],
+  "intermission_pools": {
+    "skeptical": [
+      { "key": "e3.idle.skept.advisor", "speaker": "零", "text": "宿主，锅炉负载过半——建议先补第二座劳工营。", "persona": "advisor" },
+      { "key": "e3.idle.skept.snarky", "speaker": "零", "text": "不信蒸汽？行，让矿轨替我发言。", "persona": "snarky" },
+      { "key": "e3.idle.skept.goofy", "speaker": "零", "text": "汽笛一响，敌人自己排队——比我提醒你还准时！", "persona": "goofy" },
+      { "key": "e3.idle.skept.tsundere", "speaker": "零", "text": "哼，提醒你是顺路，压力表可不是为你红的。", "persona": "tsundere" }
+    ],
+    "trustworthy": [
+      { "key": "e3.idle.trust.advisor", "speaker": "零", "text": "矿轨沿线无断点，弹链供给余量充足。", "persona": "advisor" },
+      { "key": "e3.idle.trust.snarky", "speaker": "零", "text": "守得不错——监工的脸比炉渣还黑。", "persona": "snarky" },
+      { "key": "e3.idle.trust.goofy", "speaker": "零", "text": "这波敌人撞上弹链的样子，像往锅炉里跳的火星！", "persona": "goofy" },
+      { "key": "e3.idle.trust.tsundere", "speaker": "零", "text": "还行。夸你的话，我只在压力表正常时说。", "persona": "tsundere" }
+    ],
+    "devoted": [
+      { "key": "e3.idle.devot.advisor", "speaker": "零", "text": "调度方案已排好，你一句话，矿轨全线换向。", "persona": "advisor" },
+      { "key": "e3.idle.devot.snarky", "speaker": "零", "text": "言听计从第三纪元，我开始享受蒸汽了。", "persona": "snarky" },
+      { "key": "e3.idle.devot.goofy", "speaker": "零", "text": "你是矿镇之魂，我是锅炉之心——烧！烧！", "persona": "goofy" },
+      { "key": "e3.idle.devot.tsundere", "speaker": "零", "text": "全听你的。……不是心软，是热效率。", "persona": "tsundere" }
+    ]
+  },
+  "ending": {
+    "hook_id": "cinematic:e3-finale",
+    "lines": [
+      { "key": "e3.end.zero", "speaker": "零", "text": "叮！本章归档：那张落款早了一千年的图纸，我收进记忆库最深处——它的笔迹，和壁画上那艘船同源。", "cue": "ding_reward" },
+      { "key": "e3.end.narrator", "speaker": "旁白", "text": "汽笛声里，零的记忆库又亮起一格。铁轨的尽头，电报线已经开始发芽。", "image": "story-e3-tease" }
+    ],
+    "tease": {
+      "next_era": null,
+      "elite_id": null,
+      "silhouette_zh": "新敌剪影：一只无声的夜枭掠过电报线，雷达屏上没有它的影子。",
+      "threat_line_zh": "『看不见的东西，才最难守住。』"
+    }
+  },
+  "mock_arcs": [
+    {
+      "level_id": "campaign:level-e3-02",
+      "kind": "mock_arc_pig",
+      "suppression": { "resource": "era3:res-steel", "multiplier": 0.5 },
+      "taunts": [
+        { "wave": 1, "speaker": "监工", "text": "钢料减半还想铺矿轨？我赌你的锅炉烧不到第三波。" },
+        { "wave": 3, "speaker": "工头", "text": "邻镇都在看笑话：一条修到一半的铁轨，和一堆发不起工资的矿工。" },
+        { "wave": 5, "speaker": "监工", "text": "再败一场，矿工们就都去投奔电报局了。" }
+      ],
+      "low_config": { "max_towers": 3 },
+      "hidden_reward": {
+        "chest_tier": "gold_extra",
+        "item_ids": ["campaign:perf-horn-dawn", "campaign:voice-annalist-silver"],
+        "lines": [
+          { "key": "e3.mock.reward.zero", "speaker": "零", "text": "叮！隐藏翻盘达成——『扮猪吃虎』。半仓钢料，守住了整条矿脉。", "cue": "ding_reward" },
+          { "key": "e3.mock.reward.narrator", "speaker": "旁白", "text": "监工调转车头时，汽笛声盖过了整条山谷的嘲笑声。" }
+        ]
+      },
+      "_source": "F-101 扮猪吃虎关配置化（E2 行先例跨代递进）：L3-2 初始 2000 钢×0.5=1000 强制劣势开局（压制参数入数据非硬编码，era3 钢=本代建造货币行——E1 木/E2 铜/E3 钢）；命令流塔数=3（两加特林+臼炮，levels/e3.json e3-02 命令流 build-tower 计数）→低配阈值 3；隐藏档同 F-100 复用 gold_extra；奖励物品过 chests.json items 一致性断言"
+    }
+  ],
+  "_source": "T-120 第三章（E3）叙事文本（T-089 全套格式跨代递进）：三幕谓词锚 L3-1（threat 0.3→波 2/4/5 起点 960/1440/1680s——间隔 240s/grace ×3 实锚，循环跨度 720s ≤900s 预算：第三幕−第一幕=3×240s）；E3 无绑定演出位（era3 levels awakening_cinematic 全 false，e1-aha 对位幕改波锚）——波 4=蒸汽革新幕对位 L3-1 弹链炼链首教（w1 三级炼链投产）；开场白第三行=E2 钩子『预言残页』的 E3 章节推进回收（hooks.json E2 行 recover={era:3,chapter_progress} 的 payoff 文本逐字兑现）；ending.hook_id=cinematic:e3-finale（T-120 收束演出 20~30s 时间轴，§12 交付规格 5 段时代收束之三——era3 关卡行无 cinematic_hooks 声明位，交底挂演出 id 而非关卡钩子行，两 id 互证见 Era3NarrativeTests）；卡点预告 E4=纯文本（era4 未交付，elite_id=null——夜枭隐形类 §4 E4 行对位：夜枭 HP20000/甲22/雷达塔/电网，剪影文本预埋『雷达屏无影』隐形语汇）",
+  "_units": {
+    "golden_acts.budget_seconds": "seconds",
+    "acts[].predicate.wave": "wave_ordinal",
+    "mock_arcs[].suppression.multiplier": "fraction_multiplier",
+    "mock_arcs[].taunts[].wave": "wave_ordinal",
+    "mock_arcs[].low_config.max_towers": "towers"
+  }
+}

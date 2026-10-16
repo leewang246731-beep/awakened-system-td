@@ -41,12 +41,14 @@ public class CrossEraHookRegistryTests
         Assert.Equal(HookLayer.SystemVoice, registry.Items[4].Layer); // E5 回声低语
     }
 
-    [Fact] // legal — 埋点对实锚：E1 壁画=L1-3 石语河谷（08 任务卡钉锚）；E2 残页=L2-2
+    [Fact] // legal — 埋点对实锚：E1 壁画=L1-3 石语河谷（08 任务卡钉锚）；E2 残页=L2-2；
+    //        E3 图纸=L3-3 考古关（T-120 物化——dig_site 挖出位）；E4/E5 未交付只登记回收位
     public void Planted_levels_exist_in_the_level_files_at_the_pinned_anchors()
     {
         CrossEraHookRegistry registry = Hooks();
         IReadOnlyList<(string Id, string? NameZh)> e1 = LevelRows("e1");
         IReadOnlyList<(string Id, string? NameZh)> e2 = LevelRows("e2");
+        IReadOnlyList<(string Id, string? NameZh)> e3 = LevelRows("e3");
 
         CrossEraHook mural = registry.Items[0];
         Assert.Equal("campaign:level-e1-03", mural.PlantedLevelId);
@@ -57,9 +59,42 @@ public class CrossEraHookRegistryTests
         Assert.Equal("campaign:level-e2-02", prophecy.PlantedLevelId);
         Assert.Contains(e2, row => row.Id == prophecy.PlantedLevelId);
 
-        Assert.Null(registry.Items[2].PlantedLevelId); // E3+ 未交付章只登记回收位
-        Assert.Null(registry.Items[3].PlantedLevelId);
+        CrossEraHook blueprint = registry.Items[2]; // T-120 物化：E3 已交付
+        Assert.Equal("campaign:level-e3-03", blueprint.PlantedLevelId);
+        Assert.Contains(e3, row => row.Id == blueprint.PlantedLevelId);
+        Assert.Null(registry.Items[3].PlantedLevelId); // E4/E5 未交付章只登记回收位
         Assert.Null(registry.Items[4].PlantedLevelId);
+    }
+
+    [Fact] // legal — E3 图纸-考古链一致性（T-120 物化）：埋点关=考古关（dig_sites 物理挖出位+
+    //        unlocks.features 含 archaeology）+双向残卷链+E2 钩子的 E3 回收在章节文本兑现
+    public void The_blueprint_hook_digs_out_of_a_real_archaeology_level()
+    {
+        CrossEraHook blueprint = Hooks().Items[2];
+
+        using JsonDocument e3 = JsonDocument.Parse(ReadSibling("levels", "e3.json"));
+        JsonElement level3 = e3.RootElement.GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("id").GetString() == blueprint.PlantedLevelId);
+        Assert.True(level3.GetProperty("map").TryGetProperty("dig_sites", out JsonElement digSites));
+        Assert.True(digSites.GetArrayLength() >= 1, "埋点关须有 dig_site（图纸物理挖出位）");
+        Assert.Contains(
+            "archaeology",
+            level3.GetProperty("unlocks").GetProperty("features").EnumerateArray()
+                .Select(f => f.GetString()));
+
+        // 双向残卷链：钩子 linked_remanent ↔ 残卷 beat_id（图纸记忆文本回扣壁画笔迹线）
+        KnowledgeRemnant remnant = Assert.IsType<KnowledgeRemnant>(Remnants().Find(blueprint.LinkedRemnant!));
+        Assert.Equal(blueprint.Id, remnant.BeatId);
+        Assert.Contains("笔迹", remnant.MemoryZh);
+
+        // E2 钩子的 E3 回收（recover.era=3 chapter_progress）：payoff 预言句在 E3 章节文本兑现
+        //（story-e3 开场白第三行=残页译文『守望者会换一千张脸，门会再开。』）
+        CrossEraHook prophecy = Hooks().Items[1];
+        Assert.Equal(3, prophecy.Recover.Era);
+        Assert.Contains("门会再开", prophecy.PayoffZh); // 回收方向句在 payoff 声明里
+        Assert.Contains(
+            StoryE3().Opening.Select(line => line.Text),
+            text => text.Contains("门会再开")); // 兑现于 E3 开场白
     }
 
     [Fact] // legal — 考古回收实锚：E1 钩子回收通道=knowledge_scroll（archaeology.json 三通道之一）

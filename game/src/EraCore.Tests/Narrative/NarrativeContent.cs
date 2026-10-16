@@ -48,6 +48,10 @@ internal static class NarrativeContent
     public static EraCore.Narrative.StoryChapter StoryE2() =>
         EraCore.Narrative.StoryChapter.Parse(Read("story-e2.json"), "narrative/story-e2.json");
 
+    /// <summary>The E3 chapter straight out of content (T-120).</summary>
+    public static EraCore.Narrative.StoryChapter StoryE3() =>
+        EraCore.Narrative.StoryChapter.Parse(Read("story-e3.json"), "narrative/story-e3.json");
+
     /// <summary>The remnant catalog straight out of content.</summary>
     public static EraCore.Narrative.RemnantCatalog Remnants() =>
         EraCore.Narrative.RemnantCatalog.Parse(Read("remnants.json"), "narrative/remnants.json");

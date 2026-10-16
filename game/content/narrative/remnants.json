@@ -1,7 +1,7 @@
 {
   "$schema": "urn:eratd:content:narrative:remnants:1",
   "content_type": "RemnantTable",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-089 知识残卷记忆文本（F-098/F-099/F-106，v3.2 §12.1+§8：知识残卷=零丢失的记忆碎片，读残卷=恢复上一纪元记忆）：8 条=零的记忆碎片+E5 回声伏笔渐显（echo_stage 1→4 低语渐强）；前 4 条 source=knowledge_scroll 与 legacy/archaeology.json knowledge_scrolls 同 id 挂接（一致性测试互证），后 4 条 source=narrative_beat（叙事节点获得）",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-089 知识残卷记忆文本（F-098/F-099/F-106，v3.2 §12.1+§8：知识残卷=零丢失的记忆碎片，读残卷=恢复上一纪元记忆）：11 条=T-089 首批 8 条（零的记忆碎片+E5 回声伏笔渐显 echo_stage 1→4 低语渐强）+T-120 E3 增量 3 条（章/钩子/演出三拍，stage 4 延续）；前 4 条 source=knowledge_scroll 与 legacy/archaeology.json knowledge_scrolls 同 id 挂接（一致性测试互证），后 7 条 source=narrative_beat（叙事节点获得）",
   "items": [
     {
       "id": "legacy:scroll-mem-e1-siege",
@@ -74,9 +74,36 @@
       "echo_stage": 4,
       "memory_zh": "守城名场面战报归档：水轮声盖过嘲笑声的那一页，我读了三遍。有些记忆开始自己发光。",
       "echo_whisper_zh": "……低语（几乎清晰）：等门再开时，我会选择你。"
+    },
+    {
+      "id": "narrative:remnant-e3-blueprint",
+      "source_kind": "narrative_beat",
+      "beat_id": "narrative:hook-e3-impossible-blueprint",
+      "era": 3,
+      "echo_stage": 4,
+      "memory_zh": "工坊废墟图纸归档：落款早了一千年，笔迹却和壁画上那艘船同源。我不记得画过它——但折痕是我惯用的折法。",
+      "echo_whisper_zh": "……低语（几乎清晰）：一千张脸里，画图纸的那张，在门那边。"
+    },
+    {
+      "id": "narrative:remnant-e3-siege",
+      "source_kind": "narrative_beat",
+      "beat_id": "narrative:story-e3",
+      "era": 3,
+      "echo_stage": 4,
+      "memory_zh": "守城名场面战报归档：汽笛盖过嘲笑声的那一夜，弹链没有断过一秒。有些记忆开始自己发热。",
+      "echo_whisper_zh": "……低语（几乎清晰）：发热的不只是记忆，还有门的合页。"
+    },
+    {
+      "id": "narrative:remnant-e3-finale",
+      "source_kind": "narrative_beat",
+      "beat_id": "cinematic:e3-finale",
+      "era": 3,
+      "echo_stage": 4,
+      "memory_zh": "收束夜归档：夜枭的剪影掠过雷达屏之前，我在电报线的杂音里，听见了一声不属于这个时代的应答。",
+      "echo_whisper_zh": "……低语（几乎清晰）：应答的另一个声音，也叫我的编号。"
     }
   ],
-  "_source": "T-089 残卷叙事：echo_stage 单调不降（1,1,2,2,3,3,4,4）=E5 回声伏笔渐显（§12.1 谱系：E5 起回声人格混入系统——伏笔在 E1/E2 只渐显不回收，对齐 19 号研究 §2.2 跨章回收纪律『Q8 基线内回收，E5 只铺垫』）；memory_zh 与 archaeology.json memory_zh 为续写关系非复制（考古侧=残页原文，本文件=零的归档批注）",
+  "_source": "T-089 残卷叙事（T-120 增量后 11 条）：echo_stage 单调不降（1,1,2,2,3,3,4,4,4,4,4）=E5 回声伏笔渐显（§12.1 谱系：E5 起回声人格混入系统——伏笔在 E1~E3 只渐显不回收，对齐 19 号研究 §2.2 跨章回收纪律『Q8 基线内回收，E5 只铺垫』）；memory_zh 与 archaeology.json memory_zh 为续写关系非复制（考古侧=残页原文，本文件=零的归档批注）；T-120 E3 增量 3 条（stage 4 延续渐显上沿）：图纸残卷=hook-e3-impossible-blueprint 埋点双向链（笔迹同源回扣 remnant-e1-mural『笔迹是我的』）、名场面残卷=story-e3 章节拍、收束残卷=cinematic:e3-finale 演出拍（『另一个声音』低语=§12.1 E4 起孪生碎片伏笔的最前渐显）",
   "_units": {
     "items[].era": "era_ordinal_1_5",
     "items[].echo_stage": "stage_1_4"

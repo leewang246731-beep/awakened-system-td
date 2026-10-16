@@ -5,22 +5,22 @@ using static EraCore.Tests.Narrative.NarrativeContent;
 
 namespace EraCore.Tests.Narrative;
 
-// [C-24] [F-098] [F-099] T-089 知识残卷目录：8 条残卷装载（考古卷挂接+叙事
-// 拍挂接）、scroll_id 对 archaeology.json knowledge_scrolls 零幽灵引用、E5
-// 回声低语沿 echo_stage 渐显（1..4 单调）、schema 违规（规模漂移/渐显回退/
+// [C-24] [F-098] [F-099] T-089 知识残卷目录（T-120 E3 增量后 11 条）：残卷装载
+//（考古卷挂接+叙事拍挂接）、scroll_id 对 archaeology.json knowledge_scrolls 零幽灵
+// 引用、E5 回声低语沿 echo_stage 渐显（1..4 单调）、schema 违规（规模漂移/渐显回退/
 // 来源缺 id）。
 public class RemnantCatalogTests
 {
     // ---------------------------------------------------------------- legal
 
-    [Fact] // legal — 8 条残卷装载：4 条挂考古卷 id+4 条挂叙事拍、era/stage 域合法
-    public void Eight_remnants_load_half_linked_to_archaeology_scrolls()
+    [Fact] // legal — 11 条残卷装载：4 条挂考古卷 id+7 条挂叙事拍、era/stage 域合法
+    public void Eleven_remnants_load_with_archaeology_scroll_links()
     {
         RemnantCatalog catalog = Remnants();
 
-        Assert.Equal(8, catalog.Items.Count);
+        Assert.Equal(11, catalog.Items.Count); // T-089 首批 8+T-120 E3 增量 3
         Assert.Equal(4, catalog.Items.Count(item => item.SourceKind == RemnantSourceKind.KnowledgeScroll));
-        Assert.Equal(4, catalog.Items.Count(item => item.SourceKind == RemnantSourceKind.NarrativeBeat));
+        Assert.Equal(7, catalog.Items.Count(item => item.SourceKind == RemnantSourceKind.NarrativeBeat));
         Assert.All(catalog.Items, item => Assert.InRange(item.EchoStage, 1, 4));
         Assert.All(catalog.Items, item => Assert.InRange(item.Era, 1, 5));
     }
@@ -56,13 +56,14 @@ public class RemnantCatalogTests
         Assert.All(catalog.Items, item => Assert.False(string.IsNullOrWhiteSpace(item.MemoryZh)));
     }
 
-    [Fact] // legal — 渐显切片：AtEchoStage(4)=最接近显形的两条（低语文本含『选择你』终章伏笔）
+    [Fact] // legal — 渐显切片：AtEchoStage(4)=最接近显形的五条（含『选择你』终章伏笔+E3 增量三条）
     public void The_final_stage_slice_carries_the_finale_foreshadow()
     {
         IReadOnlyList<KnowledgeRemnant> stage4 = Remnants().AtEchoStage(4);
 
-        Assert.Equal(2, stage4.Count);
+        Assert.Equal(5, stage4.Count); // E2 两条+E3 增量三条（T-120）
         Assert.Contains(stage4, remnant => remnant.EchoWhisperZh.Contains("选择你")); // §12.1 忠诚反转的种子
+        Assert.Equal(3, stage4.Count(remnant => remnant.Era == 3)); // E3 增量全在渐显上沿
     }
 
     [Fact] // legal — Find 查询：id 命中/未命中
@@ -76,19 +77,19 @@ public class RemnantCatalogTests
 
     // -------------------------------------------------------------- illegal
 
-    [Fact] // illegal — 残卷规模漂移：7 条/9 条拒绝（首批冻结 8 条）
+    [Fact] // illegal — 残卷规模漂移：10 条/12 条拒绝（T-089 首批 8+T-120 E3 增量 3）
     public void A_remnant_count_drift_is_rejected()
     {
-        Assert.Contains("恰好 8 条", Assert.Throws<NarrativeSchemaException>(
-            () => RemnantCatalog.Parse(RemnantJson(7), "inline")).Message);
-        Assert.Contains("恰好 8 条", Assert.Throws<NarrativeSchemaException>(
-            () => RemnantCatalog.Parse(RemnantJson(9), "inline")).Message);
+        Assert.Contains("恰好 11 条", Assert.Throws<NarrativeSchemaException>(
+            () => RemnantCatalog.Parse(RemnantJson(10), "inline")).Message);
+        Assert.Contains("恰好 11 条", Assert.Throws<NarrativeSchemaException>(
+            () => RemnantCatalog.Parse(RemnantJson(12), "inline")).Message);
     }
 
     [Fact] // illegal — 渐显回退：后行 stage 低于前行拒绝（单调不降）
     public void An_echo_stage_regression_is_rejected()
     {
-        string regress = RemnantJson(8, stageAt4: 1);
+        string regress = RemnantJson(11, stageAt4: 1);
 
         Assert.Contains("单调不降", Assert.Throws<NarrativeSchemaException>(
             () => RemnantCatalog.Parse(regress, "inline")).Message);
@@ -97,11 +98,11 @@ public class RemnantCatalogTests
     [Fact] // illegal — 来源缺 id：knowledge_scroll 缺 scroll_id / narrative_beat 缺 beat_id
     public void A_source_row_missing_its_link_id_is_rejected()
     {
-        string noScroll = RemnantJson(8, sourceAt0: "knowledge_scroll", stripScroll0: true);
+        string noScroll = RemnantJson(11, sourceAt0: "knowledge_scroll", stripScroll0: true);
         Assert.Contains("缺 scroll_id", Assert.Throws<NarrativeSchemaException>(
             () => RemnantCatalog.Parse(noScroll, "inline")).Message);
 
-        string noBeat = RemnantJson(8, sourceAt0: "narrative_beat");
+        string noBeat = RemnantJson(11, sourceAt0: "narrative_beat");
         Assert.Contains("缺 beat_id", Assert.Throws<NarrativeSchemaException>(
             () => RemnantCatalog.Parse(noBeat, "inline")).Message);
     }

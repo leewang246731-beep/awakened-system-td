@@ -1,0 +1,25 @@
+{
+  "$schema": "urn:eratd:content:cinematics:1",
+  "content_type": "Cinematic",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）。本文件=T-120 C-24 时代收束演出（F-107，§12 交付规格『5 段时代收束演出（20~30s）』之三=E3 段）：胜利交底（零归档+图纸钩子收口）→A 层视频资产位（E3→E4 像素片母带 A-04 落幕蒙太奇）→新敌剪影卡点预告（P1 插画位 image_card+E4 夜枭隐形类威胁台词）。无 hook 键=非关卡叙事钩子位（era3 关卡行无 cinematic_hooks 声明位）——由战役宿主在本时代终局关胜利拍显式发射（victory.json 结算缝同款 explicit-launch 语境，先例=final_levels[2]=campaign:level-e2-final 胜利→跃迁事务缝；E3 终局关行（final_levels[3]，campaign:level-e3-final 命名约定）随后续关卡任务落位后挂同一发射位，本脚本数据完备先行）。跳过安全=无 choice 步、terminal_commands 空=零世界命令（纯回放演出，零污染纪律）；minimum_play_ticks=45 声明保护下限（同 victory.json：长按加速 ≤4×、至少播 1.5s，§12 映射#10）。",
+  "id": "cinematic:e3-finale",
+  "title_zh": "时代收束·钢与汽",
+  "minimum_play_ticks": 45,
+  "steps": [
+    { "kind": "screen", "flavor": "black_fade_in", "duration_ticks": 15 },
+    { "kind": "sound", "cue": "ding_reward" },
+    { "kind": "speak", "speaker": "零", "text": "叮！工业纪元归档：汽笛、矿轨、弹链，还有那张早了一千年的图纸——全部入库。", "duration_ticks": 90 },
+    { "kind": "video_frame", "asset": "A-04", "skippable": true, "duration_ticks": 602 },
+    { "kind": "image_card", "image": "story-e3-tease", "duration_ticks": 75 },
+    { "kind": "sound", "cue": "ding_crisis" },
+    { "kind": "speak", "speaker": "旁白", "text": "铁轨的尽头，一只无声的夜枭掠过电报线——雷达屏上，没有它的影子。", "duration_ticks": 75 },
+    { "kind": "checkpoint", "id": "e3-finale-end" },
+    { "kind": "screen", "flavor": "fade_out", "duration_ticks": 15 }
+  ],
+  "terminal_commands": [],
+  "_source": "T-120 收束时间轴（RL7：全部节拍入脚本数据）：总时长 872 ticks=29.07s ∈[20,30]s（§12 收束带，Era3NarrativeTests 断言）；image_card=P1 插画资产位（story-e3-tease 剪影卡，E3 P1 批未入库——T-152 降级契约：缺图自动降级纯文本，键位先行同 story-e1/e2 先例）；video_frame=A 层视频资产位（A-04=visual-assets.json E3→E4 跃迁像素片母带 20.06s×30tps=602 ticks——收束演出借同款母带作时代落幕蒙太奇；正式 E3→E4 跃迁过场 transition-e3-e4（T-152，F-003 事务点）独立发射，两场不同步连播，收束段可单跳）；交底台词与 story-e3.json ending 双载体（章末气泡线+本演出 speak 行同文互证）；剪影/威胁台词=story-e3 ending.tease 同源（E4 夜枭隐形类卡点预告）；A-04 母带时长断言=visual-assets duration_s×30 四舍五入=602（与 transition-e3-e4 同式）",
+  "_units": {
+    "minimum_play_ticks": "ticks_30hz",
+    "steps[].duration_ticks": "ticks_30hz"
+  }
+}
