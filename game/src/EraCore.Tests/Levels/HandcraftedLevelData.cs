@@ -51,8 +51,11 @@ public sealed record StockLine(string Resource, double Amount);
 
 /// <summary>
 /// Wave table of one handcrafted level: the §6 参数表 knobs (基数/起/间隔/
-/// 成长 + 批次 + 波谷) plus the regular roster and the independent elite
-/// line (F-031). Every knob feeds <see cref="WaveFormula.Count"/>/
+/// 成长 + 批次 + 波谷) plus the regular roster, the independent elite
+/// line (F-031) and the boss wave (终局关行：该波只出 Boss 批次——
+/// <see cref="EraCore.Units.WaveSpawner.PlanWave"/> 的 boss 波语义，常规/
+/// 精英线在该波被压掉；Boss 状态 ×1.5/×1.3 由 WaveSpawnConfig 默认值携带).
+/// Every knob feeds <see cref="WaveFormula.Count"/>/
 /// <see cref="Elite.Count"/> and the WaveSpawner unchanged.
 /// </summary>
 public sealed record HandcraftedWaveTable(
@@ -64,7 +67,9 @@ public sealed record HandcraftedWaveTable(
     double ValleySeconds,
     IReadOnlyList<string> RegularRoster,
     bool EliteLineEnabled,
-    string? EliteEnemyId);
+    string? EliteEnemyId,
+    int? BossWave = null,
+    string? BossEnemyId = null);
 
 /// <summary>
 /// One teaching command of the level's 命令流脚本: anchored to a WAVE (the
@@ -131,7 +136,7 @@ public sealed record HandcraftedLevel(
 
 /// <summary>
 /// Parsed content of one handcrafted-level file: the era it belongs to plus
-/// its level rows (E1 batch = 4 rows, E2 batch = 3 rows, T-085 首批).
+/// its level rows (E1 = 4+终局关, E2 = 3+终局关; T-085 首批 + 跃迁前置补全).
 /// </summary>
 public sealed record HandcraftedLevelSet(string Era, IReadOnlyList<HandcraftedLevel> Items)
 {
@@ -419,6 +424,7 @@ internal static class HandcraftedLevelData
         int spacing = Int(waves, "spacing");
         double scaling = Number(waves, "scaling");
         double valley = Number(waves, "valley_seconds");
+        int formulaWin = Campaign.WinWaves(threat); // §7：boss 波窗上界（装载期即知）
         if (baseCount < 1)
         {
             throw new HandcraftedLevelSchemaException($"{id}: 波表基数须 ≥1（得 {baseCount}）");
@@ -469,9 +475,32 @@ internal static class HandcraftedLevelData
             throw new HandcraftedLevelSchemaException($"{id}: elite_enemy_id 仅在 elite_line_enabled 时存在");
         }
 
+        // Boss wave（终局关行）：boss_wave 与 boss_enemy_id 成对出现，波号
+        // 落在 [1,胜波] 窗内（胜波=§7 公式，装载期即知）；Boss 敌种不得与
+        // 常规/精英线重复（一线一种）。
+        int? bossWave = OptionalInt(waves, "boss_wave");
+        string? bossId = OptionalString(waves, "boss_enemy_id");
+        if ((bossWave is null) != (bossId is null))
+        {
+            throw new HandcraftedLevelSchemaException(
+                $"{id}: boss_wave 与 boss_enemy_id 须成对出现（终局关 Boss 行）");
+        }
+
+        if (bossWave is not null && (bossWave.Value < 1 || bossWave.Value > formulaWin))
+        {
+            throw new HandcraftedLevelSchemaException(
+                $"{id}: boss_wave {bossWave} 须在 [1,{formulaWin}]（胜波窗口内，§7）");
+        }
+
+        if (bossId is not null && (roster.Contains(bossId) || bossId == eliteId))
+        {
+            throw new HandcraftedLevelSchemaException($"{id}: boss_enemy_id {bossId} 与常规/精英线重复");
+        }
+
         return new HandcraftedWaveTable(
             baseCount, Int(waves, "begin_wave"), spacing, scaling,
-            Int(waves, "batches_per_wave"), valley, roster, eliteEnabled, eliteId);
+            Int(waves, "batches_per_wave"), valley, roster, eliteEnabled, eliteId,
+            bossWave, bossId);
     }
 
     private static IReadOnlyList<ScriptStep> ParseScript(JsonElement item, string id, HandcraftedMap map, string era)

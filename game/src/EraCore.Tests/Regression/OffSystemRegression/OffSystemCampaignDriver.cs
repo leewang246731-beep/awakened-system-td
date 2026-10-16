@@ -241,7 +241,13 @@ internal sealed class OffSystemCampaignDriver
         int appliedCommands = 0;
 
         var levels = new List<OffSystemLevelRecord>();
-        foreach (HandcraftedLevel level in HandcraftedLevelData.Load("e1.json").Items)
+        // T-084 冻结回归面=T-085 首批四关（slot 1~4；锚值表/审计计数按四关钉死）。
+        // e1-final（slot 5 终局关，跃迁前置补全）不进本回归——其 headless 通关
+        // 与跃迁可达链由 Levels/Legacy 的终局关测试覆盖（FinalBossLevelTests/
+        // FinalLevelTransitionReachabilityTests），T-084 锚面零漂移。
+        foreach (HandcraftedLevel level in HandcraftedLevelData.Load("e1.json").Items
+                     .Where(level => level.Slot <= 4)
+                     .OrderBy(level => level.Slot))
         {
             LevelNodeInfo node = PickNextNode(campaign.Grid);
             SimulationConfig simConfig = BuildConfig(level, "era1");

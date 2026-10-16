@@ -46,6 +46,7 @@ public class OffSystemRegressionTests : IDisposable
         Assert.Equal(AlarmChannel.NeutralBanner, run.AlarmChannel);
 
         HandcraftedLevelSet set = HandcraftedLevelData.Load("e1.json");
+        var batch = set.Items.Where(level => level.Slot <= 4).ToList(); // T-084 冻结面=首批四关（驱动同口径）
         Assert.Equal(4, run.Levels.Count);
         Assert.Equal(new[] { 1, 2, 3, 4 }, run.Levels.Select(level => level.Slot).ToArray()); // 按槽序通关
         Assert.All(run.Levels, level => Assert.Equal(GameFlowState.Victory, level.EndState));
@@ -53,14 +54,14 @@ public class OffSystemRegressionTests : IDisposable
             Assert.Equal(
                 set.TryGet(level.LevelId)!.WinWaves, level.WinWaves)); // 胜波=关卡行 win_waves（§7 双面）
         Assert.All(run.Levels, level => Assert.Equal(
-            set.TryGet(level.LevelId)!.CommandScript.Count(step => step.Verb == "build-tower"),
-            level.TowerCount)); // 终局塔数=脚本建造数（零出售）
+                set.TryGet(level.LevelId)!.CommandScript.Count(step => step.Verb == "build-tower"),
+                level.TowerCount)); // 终局塔数=脚本建造数（零出售）
         Assert.Equal(
-            set.Items.Sum(level => level.CommandScript.Count), run.IssuedCommands); // 命令流全量签发
+            batch.Sum(level => level.CommandScript.Count), run.IssuedCommands); // 命令流全量签发
         Assert.Equal(run.IssuedCommands, run.AppliedCommands); // 零拒收（经济面全合法）
 
         // 战役完成半边：占领序=关序、四关全占（主城+4=5 格）。
-        Assert.Equal(set.Items.Select(level => level.Id).ToArray(), run.CapturedOrder.ToArray());
+        Assert.Equal(batch.Select(level => level.Id).ToArray(), run.CapturedOrder.ToArray());
         Assert.Equal(5, run.OccupiedCells);
     }
 
@@ -185,9 +186,12 @@ public class OffSystemRegressionTests : IDisposable
         });
         Assert.Equal(run.Levels.Sum(level => level.ChestItemIds.Count), run.CosmeticsCount); // 装饰全入账
 
-        // E1 战役里程碑：四关全占（占领序=关序，见通关用例；此处=成就面同锚）。
+        // E1 战役里程碑：四关全占（占领序=关序，见通关用例；此处=成就面同锚——
+        // T-084 冻结面=首批四关，e1-final 终局关由 FinalLevelTransitionReachability
+        // 覆盖真通关链）。
         Assert.Equal(
-            HandcraftedLevelData.Load("e1.json").Items.Select(level => level.Id).ToArray(),
+            HandcraftedLevelData.Load("e1.json").Items.Where(level => level.Slot <= 4)
+                .Select(level => level.Id).ToArray(),
             run.CapturedOrder.ToArray());
     }
 

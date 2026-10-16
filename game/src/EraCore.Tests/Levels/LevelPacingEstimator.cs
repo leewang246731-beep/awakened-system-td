@@ -11,7 +11,8 @@ public sealed record WaveRhythm(
     int EliteCount,
     double ClearSeconds,
     double RhythmSeconds,
-    bool IntervalCapped);
+    bool IntervalCapped,
+    bool IsBossWave = false);
 
 /// <summary>
 /// Result of one headless pacing estimate (T-085 时长验收): the wave
@@ -48,10 +49,24 @@ public sealed record LevelPacingEstimate(
 internal static class LevelPacingEstimator
 {
     /// <summary>
+    /// Boss-state hp multiplier of the v3.2 §6 Boss 状态 (×1.5) — same frozen
+    /// source as the <c>WaveSpawnConfig.BossHpMultiplier</c> default the live
+    /// spawner applies; restated here because the estimator reads content
+    /// tables, not engine configs (T-085 口径，与 BossBattleIntegrationTests
+    /// 手算行 2500×1.5 同锚).
+    /// </summary>
+    private const double BossHpMultiplier = 1.5;
+
+    /// <summary>
     /// Estimates the theoretical rhythm of one handcrafted level. Tower and
     /// enemy specs must resolve every id the level references (callers feed
     /// the era content tables); a dangling id throws
-    /// <see cref="KeyNotFoundException"/>.
+    /// <see cref="KeyNotFoundException"/>. Boss waves (终局关行
+    /// boss_wave/boss_enemy_id) follow the spawner's boss-wave semantics:
+    /// the wave materializes the boss batch ALONE (regular/elite lines are
+    /// suppressed that wave — <see cref="EraCore.Units.WaveSpawner.PlanWave"/>),
+    /// so its clear time is the boss EHP line (HP×威胁 HP 乘子×Boss 状态
+    /// ×1.5) against the tower line's armor-pierced DPS.
     /// </summary>
     public static LevelPacingEstimate Estimate(
         HandcraftedLevel level,
@@ -109,24 +124,40 @@ internal static class LevelPacingEstimator
             double meanShot = dpsTotal > 0.0 ? shotWeighted / dpsTotal : 0.0;
             double clear = dpsTotal > 0.0 ? 0.0 : double.PositiveInfinity;
 
+            bool isBossWave = level.Waves.BossEnemyId is not null && wave == level.Waves.BossWave;
+            if (isBossWave)
+            {
+                // Boss 波只出 Boss 批次（spawner 语义）：清场=Boss EHP 线，
+                // 常规/精英计数该波为 0（下述两线不再加项）。
+                if (dpsTotal > 0.0)
+                {
+                    EnemySpec boss = enemies[level.Waves.BossEnemyId!];
+                    clear += boss.Hp * multipliers.Hp * BossHpMultiplier
+                        / EffectiveDps(dpsTotal, meanShot, boss.Armor);
+                }
+            }
+
             int regular = WaveFormula.Count(
                 wave, level.Waves.BaseCount, level.Waves.BeginWave, level.Waves.Spacing,
                 level.Waves.Scaling, multipliers.Count);
             int rosterSize = level.Waves.RegularRoster.Count;
-            for (int i = 0; i < rosterSize; i++)
+            if (!isBossWave)
             {
-                int count = (regular / rosterSize) + (i < regular % rosterSize ? 1 : 0);
-                if (count == 0 || double.IsInfinity(clear))
+                for (int i = 0; i < rosterSize; i++)
                 {
-                    continue;
-                }
+                    int count = (regular / rosterSize) + (i < regular % rosterSize ? 1 : 0);
+                    if (count == 0 || double.IsInfinity(clear))
+                    {
+                        continue;
+                    }
 
-                EnemySpec enemy = enemies[level.Waves.RegularRoster[i]];
-                clear += count * enemy.Hp * multipliers.Hp / EffectiveDps(dpsTotal, meanShot, enemy.Armor);
+                    EnemySpec enemy = enemies[level.Waves.RegularRoster[i]];
+                    clear += count * enemy.Hp * multipliers.Hp / EffectiveDps(dpsTotal, meanShot, enemy.Armor);
+                }
             }
 
             int elite = level.Waves.EliteLineEnabled ? Elite.Count(wave) : 0;
-            if (elite > 0)
+            if (!isBossWave && elite > 0)
             {
                 if (double.IsInfinity(clear))
                 {
@@ -141,7 +172,14 @@ internal static class LevelPacingEstimator
 
             double rhythm = Math.Min(interval, clear + valley);
             total += rhythm;
-            lines.Add(new WaveRhythm(wave, regular, elite, clear, rhythm, clear + valley > interval));
+            lines.Add(new WaveRhythm(
+                wave,
+                isBossWave ? 0 : regular,
+                isBossWave ? 0 : elite,
+                clear,
+                rhythm,
+                clear + valley > interval,
+                isBossWave));
         }
 
         double duration = grace + total;

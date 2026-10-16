@@ -82,11 +82,11 @@ public class HandcraftedLevelSetTests
     [Fact]
     public void Both_files_parse_and_declare_the_Level_family_schema()
     {
-        // [F-055] levels/e1.json+e2.json 解析+K-2 Level 族声明+首批 4+3 关。
+        // [F-055] levels/e1.json+e2.json 解析+K-2 Level 族声明+首批 4+3 关+两终局关。
         foreach (var (file, eraId, expectedCount) in new[]
                  {
-                     ("e1.json", "era1:era-ancient", 4),
-                     ("e2.json", "era2:era-classical", 3),
+                     ("e1.json", "era1:era-ancient", 5),
+                     ("e2.json", "era2:era-classical", 4),
                  })
         {
             HandcraftedLevelSet set = HandcraftedLevelData.Load(file);
@@ -115,7 +115,9 @@ public class HandcraftedLevelSetTests
     public void Win_waves_follow_the_frozen_formula_and_threats_progress_as_tasked()
     {
         // [F-055] 胜波=10+⌊t×10⌋（§7）逐关复核；E1 任务卡递进锚点
-        // L1-1=0.3 教学、L1-2~4=0.3/0.45/0.6 严格递进；E2 行=排期冻结值。
+        // L1-1=0.3 教学、L1-2~4=0.3/0.45/0.6 严格递进、终局关 0.9（=SP-9
+        // 邻接 2 网格点，递进链收口于威胁带上沿带内）；E2 行=排期冻结值
+        //（终局关 0.9 与 L2-3 同档=邻接 2）。
         foreach (HandcraftedLevel level in AllLevels())
         {
             Assert.Equal(Campaign.WinWaves(level.Threat), level.WinWaves);
@@ -126,10 +128,11 @@ public class HandcraftedLevelSetTests
         var e1 = E1().Items.OrderBy(l => l.Slot).ToList();
         Assert.Equal(0.3, e1[0].Threat, 3); // 教学关=带下限
         Assert.True(e1[0].TeachingLevel);
-        Assert.Equal(new[] { 0.3, 0.45, 0.6 }, e1.Skip(1).Select(l => l.Threat));
-        Assert.True(e1[1].Threat < e1[2].Threat && e1[2].Threat < e1[3].Threat); // 递进
+        Assert.Equal(new[] { 0.3, 0.45, 0.6, 0.9 }, e1.Skip(1).Select(l => l.Threat));
+        Assert.True(e1[1].Threat < e1[2].Threat && e1[2].Threat < e1[3].Threat
+            && e1[3].Threat < e1[4].Threat); // 递进（终局关收口 0.9）
         Assert.All(e1.Skip(1), l => Assert.False(l.TeachingLevel));
-        Assert.Equal(new[] { 1, 2, 3, 4 }, e1.Select(l => l.Slot)); // slot 连续
+        Assert.Equal(new[] { 1, 2, 3, 4, 5 }, e1.Select(l => l.Slot)); // slot 连续（5=终局关）
 
         // 宽限带：教学 ×3（§6）；非教学 ×1.5~2（§6）——装载器已校验，此处锚值
         Assert.Equal(3.0, e1[0].FirstWaveGraceMultiplier, 3);
@@ -195,6 +198,11 @@ public class HandcraftedLevelSetTests
         if (level.Waves.EliteEnemyId is not null)
         {
             Assert.Contains(level.Waves.EliteEnemyId, enemies.Keys);
+        }
+
+        if (level.Waves.BossEnemyId is not null)
+        {
+            Assert.Contains(level.Waves.BossEnemyId, enemies.Keys); // Boss 行解析（SP-3a/b）
         }
 
         if (level.HeroId is not null)
@@ -264,7 +272,7 @@ public class HandcraftedLevelSetTests
     {
         // [F-055] 每关 ≥1 策略+1 挑战目标实例（objectives 抽选 seed 化=map.seed
         // 家族，data 手工定稿）：strategy ⊆ SP-8a 池、challenge ⊆ SP-8b 池，
-        // ★ 难位（c1~c4 hard）旗标对齐池行，七关实例两两不同。
+        // ★ 难位（c1~c4 hard）旗标对齐池行，九关实例两两不同。
         (IReadOnlyList<string> strategyPool, IReadOnlyList<string> challengePool) =
             HandcraftedLevelContent.ObjectivePools();
         Assert.Equal(8, strategyPool.Count); // SP-8a S1~S8
@@ -292,11 +300,13 @@ public class HandcraftedLevelSetTests
             Assert.True(seenInstances.Add(instance), $"{level.Id}: 目标实例与他关重复");
         }
 
-        // 七关实例覆盖：策略 7/8 池、挑战 7/8 池（不同关不同目标，抽选面铺开）
+        // 九关实例覆盖：策略 8/8 池、挑战 8/8 池（首批 7 关 7/7+7/7，终局关
+        // e1-final 补 s3/c5 两池末位，e2-final 复用对位——9>8 必有复用，仅
+        // 实例对唯一即可）。
         var usedStrategy = AllLevels().SelectMany(l => l.Objectives.Strategy).ToHashSet();
         var usedChallenge = AllLevels().SelectMany(l => l.Objectives.Challenge).ToHashSet();
-        Assert.Equal(7, usedStrategy.Count);
-        Assert.Equal(7, usedChallenge.Count);
+        Assert.Equal(8, usedStrategy.Count);
+        Assert.Equal(8, usedChallenge.Count);
     }
 
     [Fact]
@@ -329,12 +339,13 @@ public class HandcraftedLevelSetTests
     [Fact]
     public void E2_rows_match_the_frozen_era2_levels_schedule_row_by_row()
     {
-        // [F-092] 排期一致性断言：levels/e2.json 三行与 era2/levels.json
+        // [F-092] 排期一致性断言：levels/e2.json 前三关行与 era2/levels.json
         // （T-079 冻结）逐字段一致——id/slot/focus/tier/邻接/威胁/胜波/宽限/
-        // 教学/觉醒/解锁双列，任何一侧漂移即红。
+        // 教学/觉醒/解锁双列，任何一侧漂移即红；终局关行（slot 4）不在排期
+        // 表（T-079=前三关排期侧文件），单列断言见下。
         var schedule = HandcraftedLevelContent.Era2ScheduleRows();
         Assert.Equal(3, schedule.Count);
-        foreach (HandcraftedLevel level in E2().Items)
+        foreach (HandcraftedLevel level in E2().Items.Where(l => l.Slot <= 3))
         {
             JsonElement frozen = schedule[level.Slot];
             Assert.Equal(frozen.GetProperty("id").GetString(), level.Id);
@@ -367,8 +378,9 @@ public class HandcraftedLevelSetTests
     public void E2_capability_unlock_chain_is_progressive_and_per_focus()
     {
         // [F-092] 能力解锁链：L2-1 只水力（对话级两动作）、L2-2 增马车+水渠
-        // （建造级九动作）、L2-3 增考古+英雄（巡逻级 SpawnScout/HeroOrder）——
-        // G.2 锚点动作只出现在其排期位，E1 首批不新增闸位。
+        // （建造级九动作）、L2-3 增考古+英雄（巡逻级 SpawnScout/HeroOrder）
+        // —— G.2 锚点动作只出现在其排期位，E1 首批不新增闸位；终局关（slot 4）
+        // 不新增闸位（时代能力链在 slot 3 收口，§4 L67 排期只覆盖前三关）。
         var bySlot = E2().Items.OrderBy(l => l.Slot).ToList();
 
         Assert.Equal(new[] { "TodoBoard", "StopTask" }.Order().ToList(), bySlot[0].Unlocks.Actions.Order().ToList());
@@ -386,16 +398,59 @@ public class HandcraftedLevelSetTests
         Assert.DoesNotContain("HeroOrder", bySlot[0].Unlocks.Actions);
         Assert.DoesNotContain("HeroOrder", bySlot[1].Unlocks.Actions);
 
-        // E2 三威胁递进（0.3<0.6<0.9 → 胜波 13<16<19，§7 公式）
+        // E2 前三威胁递进（0.3<0.6<0.9 → 胜波 13<16<19，§7 公式）；终局关
+        // 与 L2-3 同档 0.9/19（邻接 2 网格点收口，非递进破坏）。
         Assert.True(bySlot[0].Threat < bySlot[1].Threat && bySlot[1].Threat < bySlot[2].Threat);
         Assert.True(bySlot[0].WinWaves < bySlot[1].WinWaves && bySlot[1].WinWaves < bySlot[2].WinWaves);
+        HandcraftedLevel e2Final = bySlot[3];
+        Assert.Equal(0.9, e2Final.Threat, 9);
+        Assert.Equal(bySlot[2].WinWaves, e2Final.WinWaves);
+        Assert.Equal(Threat.ClampThreat(e2Final.AdjacentEnemyCamps!.Value), e2Final.Threat, 9); // SP-9 同源
 
-        // E1 首批不新增闸位（E1 能力=时代级解锁，G.2 解锁时代=E1）
+        // E1 首批与 E2 终局关都不新增闸位（E1 能力=时代级解锁；终局关收口）
         Assert.All(E1().Items, level =>
         {
             Assert.Empty(level.Unlocks.Actions);
             Assert.Empty(level.Unlocks.Features);
         });
+        Assert.Empty(e2Final.Unlocks.Actions);
+        Assert.Empty(e2Final.Unlocks.Features);
+    }
+
+    // ---- 5b) 终局关 Boss 行 + 跃迁前置缝合（era_transition ↔ 关卡集） ------
+
+    [Fact]
+    public void Final_boss_rows_carry_the_boss_wave_and_match_the_era_transition_ids()
+    {
+        // [F-003][F-055] 跃迁前置缝合：era_transition.json final_levels{1,2}
+        // 引用的终局关 id 必须真实存在于 levels/e1.json+e2.json（T-074/T-117
+        // 只落引用值，实关行缺失曾使 E1→E2/E2→E3 Precheck 在真实游戏不可达
+        // ——本断言钉死两侧行 id 双向相等）；每文件恰一 Boss 行，Boss 波=胜波
+        //（终局一搏），Boss 敌种=era 敌表 is_boss 行且威胁=SP-9 网格点 0.9。
+        var transition = EraCore.Tests.Legacy.LegacyFixture.Transition();
+        Assert.Equal("campaign:level-e1-final", transition.FinalLevels[1]);
+        Assert.Equal("campaign:level-e2-final", transition.FinalLevels[2]);
+
+        foreach (var (set, eraIndex, eraDir, finalId, bossId) in new[]
+                 {
+                     (E1(), 1, "era1", "campaign:level-e1-final", "era1:enemy-boss"),
+                     (E2(), 2, "era2", "campaign:level-e2-final", "era2:enemy-boss"),
+                 })
+        {
+            var bossRows = set.Items.Where(l => l.Waves.BossEnemyId is not null).ToList();
+            HandcraftedLevel final = Assert.Single(bossRows); // 每文件恰一 Boss 行
+            Assert.Equal(finalId, final.Id); // id=era_transition 引用值（缝合点）
+            Assert.Equal(finalId, transition.FinalLevels[eraIndex]);
+            Assert.Equal(bossId, final.Waves.BossEnemyId);
+            Assert.Equal(final.WinWaves, final.Waves.BossWave); // Boss 波=胜波（终局一搏）
+            Assert.Equal(19, final.WinWaves); // 威胁 0.9 → §7
+            Assert.Equal(0.9, final.Threat, 9);
+
+            // Boss 敌种解析到 era 敌表的 is_boss 行（enemies.json SP-3a/b L107/L121）
+            var enemies = HandcraftedLevelContent.Enemies(eraDir);
+            Assert.Contains(bossId, enemies.Keys);
+            Assert.True(enemies[bossId].IsBoss, $"{bossId} 须为敌表 is_boss 行");
+        }
     }
 
     // ---- 6) 觉醒演出钩子（§10.4） [F-055] ---------------------------------
@@ -550,6 +605,10 @@ public class HandcraftedLevelSetTests
         { "E2 转换器缺配方引用",
             "{ \"wave\": 1, \"verb\": \"assign-carrier\", \"from_entity\": 2, \"to_entity\": 3 }",
             "{ \"wave\": 1, \"verb\": \"build-converter\", \"cell\": { \"x\": 3, \"y\": 3 } }" },
+        { "Boss 波越胜波窗", "\"elite_line_enabled\": false",
+            "\"elite_line_enabled\": false,\n \"boss_wave\": 99,\n \"boss_enemy_id\": \"era1:enemy-boss\"" },
+        { "Boss 行缺配对字段", "\"elite_line_enabled\": false",
+            "\"elite_line_enabled\": false,\n \"boss_wave\": 5" },
     };
 
     [Theory]

@@ -1,0 +1,224 @@
+using EraCore.CampaignLoop;
+using EraCore.Contracts.Foundation;
+using EraCore.Contracts.Sim;
+using EraCore.Economy;
+using EraCore.Legacy;
+using EraCore.Sim;
+using EraCore.Tests.Checkpoint;
+using EraCore.Tests.Levels;
+using EraCore.Tests.Persistence;
+using EraCore.Tests.Sim;
+using EraCore.Tests.World;
+using Xunit;
+using static EraCore.Tests.Levels.HandcraftedLevelAssemblyTests;
+using static EraCore.Tests.Legacy.LegacyFixture;
+
+namespace EraCore.Tests.Legacy;
+
+// [C-20][F-003][F-011][F-055] 终局关跃迁可达性集成（终局关补全的验收面）：
+// era_transition.json final_levels{1,2} 引用的 campaign:level-e1-final /
+// campaign:level-e2-final 此前只是字符串——实关行不存在，E1→E2/E2→E3 的
+// Precheck 在真实游戏永不可达（T-117 的『有行未占领仍硬拒』守卫恰好用
+// 别的 id 注册占领，掩盖了引用悬空）。本套件把整条链跑真：
+// ①E1 全五关（含 e1-final Boss 终局关）headless 真通关→逐关占领入树→
+//   E1→E2 事务 Precheck 放行（真前置链通）；
+// ②E2 全四关（含 e2-final）同理→E2→E3 放行（target_era=3 排期=e3-01..03）；
+// ③负向：占领本时代全部非终局关（id 全部来自真实关卡行）仍硬拒——缺的
+//   恰是终局关一行（Precheck 谓词口径，RegisterCapture=循环占领入库写侧）。
+// 入 CheckpointHeavyCollection 串行（九关全循环耗时同 CampaignLoopE2ETests 量级）。
+[Collection(CheckpointHeavyCollection.Name)]
+public class FinalLevelTransitionReachabilityTests : SqliteSavePortTestBase
+{
+    /// <summary>Headless 真通关一关（offsystem 纯玩家命令流，T-084/T-116 先例）。</summary>
+    private (int WinWaves, long VictoryTick, int Towers) PlayThrough(
+        HandcraftedLevel level, string eraDir, ResourceStock? pool)
+    {
+        SimulationConfig config = FinalBossLevelTests.BuildBossConfig(
+            level, eraDir, eraDir == "era1" ? 60 : 100); // 践踏调参（BossBattle/Ironhoof 先例；非 Boss 关不消费）
+        IReadOnlyList<SimCommand> commands = BuildCommands(level, eraDir);
+        var session = new LevelSession(
+            new LevelSessionConfig(config, $"reach.{level.Id}", level.Threat, level.Map.Seed),
+            new SimRng(level.Map.Seed),
+            CreatePort(),
+            pool);
+        session.Machine.StartLevel();
+        foreach (SimCommand command in commands)
+        {
+            session.Enqueue(command);
+        }
+
+        long steps = 0;
+        // 胜波+12 波窗 horizon（FinalBossLevelTests +8 的加宽版）：T-085 首批
+        // 关的弹链是刀锋经济（e2-01 两箭塔清 13 波的尾清场 ~+4 波窗），终局
+        // 关 +2~3 波窗即胜——通关即停，horizon 只是失败护栏。
+        long intervalTicks = (long)Math.Round(
+            EraCore.Balance.Campaign.WaveIntervalSeconds(level.Threat) * Simulation.TicksPerSecond,
+            MidpointRounding.AwayFromZero);
+        long graceTicks = (long)Math.Round(
+            intervalTicks * (double)level.FirstWaveGraceMultiplier, MidpointRounding.AwayFromZero);
+        long horizon = graceTicks + ((level.WinWaves + 12) * intervalTicks);
+        while (session.Machine.State == GameFlowState.InLevel && steps < horizon)
+        {
+            session.RunFor(600);
+            steps += 600;
+        }
+
+        Assert.True(session.Machine.State == GameFlowState.Victory,
+            $"未通关（state={session.Machine.State}）: id={level.Id} wave={session.Sim.CurrentWave} " +
+            $"tick={session.Sim.CurrentTick} issued={session.IssuedCommands.Count} " +
+            $"applied={session.Sim.AppliedCommandCount} towers={session.Sim.Towers.Count} " +
+            $"alive={session.Sim.Units.Count(u => u.Alive)} aliveHp={session.Sim.Units.Where(u => u.Alive).Sum(u => u.Hp)}");
+        return (session.WinWaves, session.Sim.CurrentTick, session.Sim.Towers.Count);
+    }
+
+    private static IReadOnlyList<HandcraftedLevel> LevelsOf(string file) =>
+        HandcraftedLevelData.Load(file).Items.OrderBy(level => level.Slot).ToList();
+
+    [Fact] // [F-003] legal — E1 全五关（含 e1-final）真通关→占领→E1→E2 Precheck 放行
+    public void E1_full_clear_including_the_final_boss_level_unlocks_the_transition()
+    {
+        var transition = Transition();
+        string finalId = transition.FinalLevels[1];
+        Assert.Equal("campaign:level-e1-final", finalId);
+
+        IReadOnlyList<HandcraftedLevel> levels = LevelsOf("e1.json");
+        Assert.Equal(5, levels.Count);
+        Assert.Contains(levels, level => level.Id == finalId); // 引用不悬空（补全前此行即红）
+
+        // 全五关 headless 真通关（终局关=第 19 波踏群者），逐关占领入树。
+        ResourceStock pool = Pool(wood: 500, stone: 400, food: 300);
+        var tech = Tree(1);
+        foreach (HandcraftedLevel level in levels)
+        {
+            (int winWaves, long victoryTick, int towers) = PlayThrough(level, "era1", pool);
+            Assert.Equal(level.WinWaves, winWaves);
+            Assert.True(victoryTick > 0);
+            Assert.True(towers > 0);
+            tech.RegisterCapture(level.Id);
+        }
+
+        var ledger = new LegacyLedger(Archaeology(), Shop());
+        ledger.MarkWonderBuilt(E1Wonder().Id); // 附录 F.3 跃迁硬条件之奇观侧
+
+        EraTransitionResult result = new EraTransitionService().Execute(
+            Request(pool, tech, ledger, CityFacts(7, 40, 13, Mapping().Orientations),
+                new CountingSavePort(CreatePort()), EmptyMeta(Seed, 1)));
+
+        Assert.Equal(1, result.FromEraIndex);
+        Assert.Equal(2, result.ToEraIndex); // Precheck 放行：终局关+奇观双前置皆真
+        Assert.Equal(
+            new[] { "campaign:level-e2-01", "campaign:level-e2-02", "campaign:level-e2-03" },
+            result.Schedule.Select(slot => slot.LevelId).ToArray()); // E1→E2 排期=e2 行
+        Assert.Equal(
+            levels.Select(level => level.Id).ToHashSet(),
+            tech.CapturedLevelIds.ToHashSet()); // 全五关占领入树（含终局关）
+        Assert.Contains(finalId, tech.CapturedLevelIds);
+    }
+
+    [Fact] // [F-003] legal — E2 全四关（含 e2-final）真通关→占领→E2→E3 Precheck 放行
+    public void E2_full_clear_including_the_final_boss_level_unlocks_the_transition()
+    {
+        var transition = Transition();
+        string finalId = transition.FinalLevels[2];
+        Assert.Equal("campaign:level-e2-final", finalId);
+
+        IReadOnlyList<HandcraftedLevel> levels = LevelsOf("e2.json");
+        Assert.Equal(4, levels.Count);
+        Assert.Contains(levels, level => level.Id == finalId);
+
+        // 全四关 headless 真通关（终局关=第 19 波铁蹄），逐关占领入树。
+        var pool = new ResourceStock(new SimClock(), warehouseLevel: 2);
+        _ = pool.Deposit(new ResourceKey("era1:res-wood"), 600);
+        _ = pool.Deposit(new ResourceKey("era1:res-stone"), 300);
+        _ = pool.Deposit(new ResourceKey("era2:res-copper"), 500);
+        var tech = Tree(2);
+        foreach (HandcraftedLevel level in levels)
+        {
+            (int winWaves, _, _) = PlayThrough(level, "era2", pool);
+            Assert.Equal(level.WinWaves, winWaves);
+            tech.RegisterCapture(level.Id);
+        }
+
+        var ledger = new LegacyLedger(Archaeology(), Shop());
+        ledger.MarkWonderBuilt(Wonders().Single(wonder => wonder.EraIndex == 2).Id);
+
+        var policy = CrossEraResourcePolicy.Parse(
+            File.ReadAllText(Path.Combine(EraDir("era3"), "era.json")));
+        var request = new EraTransitionRequest(
+            Seed,
+            FromEraIndex: 2,
+            pool,
+            tech,
+            ledger,
+            CityFacts(11, 30, 9, Mapping().Orientations),
+            Anchor,
+            policy.NewEraResources,
+            new SimClock(),
+            new LcgRng(Seed + 3),
+            new CountingSavePort(CreatePort()),
+            EmptyMeta(Seed, 2),
+            Mapping(),
+            transition,
+            Wonders());
+
+        EraTransitionResult result = new EraTransitionService().Execute(request);
+
+        Assert.Equal(2, result.FromEraIndex);
+        Assert.Equal(3, result.ToEraIndex); // Precheck 放行（真前置链通）
+        Assert.Equal(
+            new[] { "campaign:level-e3-01", "campaign:level-e3-02", "campaign:level-e3-03" },
+            result.Schedule.Select(slot => slot.LevelId).ToArray()); // E2→E3 排期=e3 行
+    }
+
+    [Fact] // [F-003] illegal — 占领全部非终局关仍硬拒：缺的恰是终局关一行
+    public void Capturing_every_non_final_level_still_refuses_both_jumps()
+    {
+        // 占领面用 Precheck 谓词口径（RegisterCapture=循环占领入库的写侧
+        // API，EraTransitionIntegrationTests 先例）：两时代的全部非终局关
+        // id 逐一注册（id 全部来自真实关卡行）——终局关未占，Precheck 必拒
+        // 且点名 final_levels 引用值（T-117 守卫的可达性版：别关都打完也
+        // 不能替代终局关）。
+        var transition = Transition();
+        foreach (var (eraIndex, file, finalId) in new[]
+                 {
+                     (1, "e1.json", "campaign:level-e1-final"),
+                     (2, "e2.json", "campaign:level-e2-final"),
+                 })
+        {
+            var tech = Tree(eraIndex);
+            foreach (HandcraftedLevel level in LevelsOf(file).Where(level => level.Id != finalId))
+            {
+                tech.RegisterCapture(level.Id);
+            }
+
+            var ledger = new LegacyLedger(Archaeology(), Shop());
+            ledger.MarkWonderBuilt(Wonders().Single(wonder => wonder.EraIndex == eraIndex).Id);
+
+            EraTransitionRequest request = eraIndex == 1
+                ? Request(Pool(500, 400, 300), tech, ledger,
+                    CityFacts(7, 40, 13, Mapping().Orientations),
+                    new CountingSavePort(CreatePort()), EmptyMeta(Seed, 1))
+                : new EraTransitionRequest(
+                    Seed,
+                    FromEraIndex: 2,
+                    new ResourceStock(new SimClock(), warehouseLevel: 2),
+                    tech,
+                    ledger,
+                    CityFacts(11, 30, 9, Mapping().Orientations),
+                    Anchor,
+                    CrossEraResourcePolicy.Parse(
+                        File.ReadAllText(Path.Combine(EraDir("era3"), "era.json"))).NewEraResources,
+                    new SimClock(),
+                    new LcgRng(Seed + 3),
+                    new CountingSavePort(CreatePort()),
+                    EmptyMeta(Seed, 2),
+                    Mapping(),
+                    transition,
+                    Wonders());
+
+            EraTransitionRejectedException ex = Assert.Throws<EraTransitionRejectedException>(
+                () => new EraTransitionService().Execute(request));
+            Assert.Contains(finalId, ex.Message, StringComparison.Ordinal); // 点名终局关 id
+        }
+    }
+}

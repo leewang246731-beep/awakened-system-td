@@ -22,9 +22,11 @@ public class HandcraftedLevelAssemblyTests : SqliteSavePortTestBase
         ("campaign:level-e1-02", "era1"),
         ("campaign:level-e1-03", "era1"),
         ("campaign:level-e1-04", "era1"),
+        ("campaign:level-e1-final", "era1"),
         ("campaign:level-e2-01", "era2"),
         ("campaign:level-e2-02", "era2"),
         ("campaign:level-e2-03", "era2"),
+        ("campaign:level-e2-final", "era2"),
     };
 
     private static HandcraftedLevel Level(string id, string eraDir) =>
@@ -75,6 +77,8 @@ public class HandcraftedLevelAssemblyTests : SqliteSavePortTestBase
                 RegularRoster: level.Waves.RegularRoster,
                 EliteLineEnabled: level.Waves.EliteLineEnabled,
                 EliteEnemyId: level.Waves.EliteEnemyId,
+                BossWave: level.Waves.BossWave ?? 20, // 终局关 Boss 波（null=默认 20 占位，BossEnemyId=null 时禁用）
+                BossEnemyId: level.Waves.BossEnemyId,
                 FirstWaveGraceMultiplier: level.FirstWaveGraceMultiplier,
                 ValleySeconds: level.Waves.ValleySeconds,
                 BatchesPerWave: level.Waves.BatchesPerWave,

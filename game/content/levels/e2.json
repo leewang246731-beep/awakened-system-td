@@ -2,7 +2,7 @@
   "$schema": "urn:eratd:content:levels:1",
   "content_type": "Level",
   "era": "era2:era-classical",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）。本文件=T-085 E2 手工关卡集首批 3 关（F-055）：前三关行与 game/content/era2/levels.json（T-079 冻结排期元数据）同 id 逐字段一致（id/slot/focus/schedule_tier/威胁度/胜波/宽限/教学位/觉醒位/unlocks——一致性由 HandcraftedLevelSetTests 排期一致性断言互证）；手工关=固定 seed+布局参数+命令流脚本+三重目标实例（campaign/objectives.json SP-8 池引用）；能力解锁链=v3.2 §4 L67 新时代前三关排期（关 1 新能源/关 2 新物流/关 3 考古+英雄+系统新能力）+§11.8 三级（对话级→建造级→巡逻/托管级）——L2-1 只水力、L2-2 马车+水渠、L2-3 考古+英雄+SpawnScout/HeroOrder；威胁度/胜波=§7 公式（clamp(0.3+0.3×邻接敌营)→10+⌊t×10⌋：0.3/0.6/0.9→13/16/19）；波间隔=§6（120s×乘子，F.2 表）；E2 命令动词=E1 五动词+升级/英雄令（SimE2Fixture 里程碑链裁剪）；任务卡『威胁 0.5~0.75』带与 T-079 冻结排期（0.3/0.6/0.9）冲突时以冻结数据为准（F-092 三源一致纪律）",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）。本文件=T-085 E2 手工关卡集首批 3 关（F-055）+终局关（跃迁前置补全：era_transition.json final_levels[2]=campaign:level-e2-final 的实关行）：前三关行与 game/content/era2/levels.json（T-079 冻结排期元数据）同 id 逐字段一致（id/slot/focus/schedule_tier/威胁度/胜波/宽限/教学位/觉醒位/unlocks——一致性由 HandcraftedLevelSetTests 排期一致性断言互证）；终局关行不在排期表（T-079=前三关排期侧文件），id=era_transition final_levels[2] 引用值；手工关=固定 seed+布局参数+命令流脚本+三重目标实例（campaign/objectives.json SP-8 池引用）；能力解锁链=v3.2 §4 L67 新时代前三关排期（关 1 新能源/关 2 新物流/关 3 考古+英雄+系统新能力）+§11.8 三级（对话级→建造级→巡逻/托管级）——L2-1 只水力、L2-2 马车+水渠、L2-3 考古+英雄+SpawnScout/HeroOrder，终局关不新增闸位（时代能力链在 slot 3 收口）；威胁度/胜波=§7 公式（clamp(0.3+0.3×邻接敌营)→10+⌊t×10⌋：0.3/0.6/0.9→13/16/19）；波间隔=§6（120s×乘子，F.2 表）；E2 命令动词=E1 五动词+升级/英雄令（SimE2Fixture 里程碑链裁剪）；任务卡『威胁 0.5~0.75』带与 T-079 冻结排期（0.3/0.6/0.9）冲突时以冻结数据为准（F-092 三源一致纪律）",
   "_duration_calibration": "每关 budget_seconds=设计预算（objectives C1 ClearTimeSeconds 的 threshold 0.8 乘子基值）；实际时长验收口径=理论节奏估算（EraCore.Tests/Levels/LevelPacingEstimator：宽限+Σ波节奏，波节奏=min(波间隔, 清场+波谷 15s)，清场由命令流塔线 DPS 对波 EHP 按 F.5 先例两线式估算）——不含真实玩家操作时间（实测口径归 T-095 ≥3 人中位）。[RED-FLAG: 估算器节奏模型（min(间隔,清场+波谷)）与生产 WaveSpawner 固定节拍结构性偏差 ~3×（T-084 实锚 2800~3900s/关 vs 估算 940~1260s）——15~40 分钟带仅估算模型内成立；T-095 复核+实测口径校准，**必须先于 T-130 E1 硬验收清账**；c1 限时目标同批校准]",
   "items": [
     {
@@ -61,9 +61,9 @@
         { "wave": 1, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 10, "y": 22 } },
         { "wave": 1, "verb": "assign-carrier", "from_entity": 5, "to_entity": 6, "carrier_tier": "porter" },
         { "wave": 1, "verb": "assign-carrier", "from_entity": 6, "to_entity": 7, "carrier_tier": "porter" },
-        { "wave": 5, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 16, "y": 22 } },
+        { "wave": 5, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 14, "y": 23 } },
         { "wave": 5, "verb": "assign-carrier", "from_entity": 6, "to_entity": 8, "carrier_tier": "porter" },
-        { "wave": 9, "verb": "upgrade-tower", "entity": 7, "to_tier": 2 }
+        { "wave": 9, "verb": "upgrade-tower", "entity": 8, "to_tier": 2 }
       ],
       "objectives": {
         "strategy": ["campaign:obj-s7"],
@@ -82,7 +82,7 @@
       },
       "_new": true,
       "_new_fields": ["map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds"],
-      "_source": "T-085 E2 首关=水力教学关（与 era2/levels.json level-e2-01 同 id 同排期元数据）：威胁 0.3/胜波 13/宽限 ×3/教学位+觉醒位=T-079 冻结值；水力能源骨干=三劳工营（era.json energy waterpower L1 30 的坐席骨干）；500 铜（箭楼 90×2+升档差 180=360+余量 140，towers.json cost_total + UpgradesTo 链 arrow→crossbow）；命令流=对话级教学（亲手建造为主，系统只对话——对位 challenge c4 不使用系统建造）；strategy s7 完成 1 项研究对位 tech-e2-arrow 研究闸 bound_levels 本关（T-073）；敌表轻线（散兵/掠骑/火箭）；波表 16/3/4/1.6 [NEW-原型校准]",
+      "_source": "T-085 E2 首关=水力教学关（与 era2/levels.json level-e2-01 同 id 同排期元数据）：威胁 0.3/胜波 13/宽限 ×3/教学位+觉醒位=T-079 冻结值；水力能源骨干=三劳工营（era.json energy waterpower L1 30 的坐席骨干）；500 铜（箭楼 90×2+升档差 180=360+余量 140，towers.json cost_total + UpgradesTo 链 arrow→crossbow）；命令流=对话级教学（亲手建造为主，系统只对话——对位 challenge c4 不使用系统建造）；strategy s7 完成 1 项研究对位 tech-e2-arrow 研究闸 bound_levels 本关（T-073）；敌表轻线（散兵/掠骑/火箭）；波表 16/3/4/1.6 [NEW-原型校准]。headless 通关校验修复（跃迁前置补全批，FinalLevelTransitionReachabilityTests 先证）：二塔 (16,22) 距核心位 214px>箭楼射界 208px（漏敌泊核心位吃不到火力）→移 (14,23)（距 172px 入界）；w9 升档令改指二塔——首塔 (10,22) 供弹箭楼须永驻核心位射界（升档后弹种换石弩矢=断供）",
       "_units": {
         "threat": "dimensionless_clamped_0.3_1.2",
         "adjacent_enemy_camps": "camp_nodes",
@@ -153,8 +153,7 @@
         "batches_per_wave": 4,
         "valley_seconds": 15.0,
         "regular_roster": ["era2:enemy-skirmisher", "era2:enemy-raider", "era2:enemy-crossbowman", "era2:enemy-warrior"],
-        "elite_line_enabled": true,
-        "elite_enemy_id": "era2:enemy-ram"
+        "elite_line_enabled": false
       },
       "command_script": [
         { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 21 } },
@@ -163,12 +162,10 @@
         { "wave": 1, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 10, "y": 22 } },
         { "wave": 1, "verb": "assign-carrier", "from_entity": 3, "to_entity": 4, "carrier_tier": "porter" },
         { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
-        { "wave": 3, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 16, "y": 22 } },
-        { "wave": 3, "verb": "assign-carrier", "from_entity": 4, "to_entity": 6, "carrier_tier": "cart" },
-        { "wave": 6, "verb": "upgrade-tower", "entity": 5, "to_tier": 2 },
-        { "wave": 10, "verb": "upgrade-tower", "entity": 6, "to_tier": 2 },
-        { "wave": 14, "verb": "build-tower", "tower": "era2:tower-repeating-crossbow", "cell": { "x": 13, "y": 22 } },
-        { "wave": 14, "verb": "assign-carrier", "from_entity": 4, "to_entity": 7, "carrier_tier": "porter" }
+        { "wave": 5, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 16, "y": 22 } },
+        { "wave": 5, "verb": "assign-carrier", "from_entity": 4, "to_entity": 6, "carrier_tier": "cart" },
+        { "wave": 6, "verb": "upgrade-tower", "entity": 6, "to_tier": 2 },
+        { "wave": 14, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" }
       ],
       "objectives": {
         "strategy": ["campaign:obj-s8"],
@@ -190,7 +187,7 @@
       },
       "_new": true,
       "_new_fields": ["map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds"],
-      "_source": "T-085 E2 第二关=新物流关（与 era2/levels.json level-e2-02 同 id 同排期元数据）：威胁 0.6（邻接 1）/胜波 16/宽限 2.0=T-079 冻结值；马车 carrier_tier=cart 首发于本关命令流（era.json logistics carriage 0.6 件/s）；1600 铜（箭楼 90×2+升档差 180×2+连弩 810=1350+余量 250）；塔线全穿刺（箭楼→弩塔×2→连弩——对位 challenge c2 仅穿刺+支援类）；elite 线=攻城锤 ram（era2:enemy-ram 甲 12，§6 精英线 1+⌊(波−8)/4⌋）；strategy s8 物流零死锁对位马车/水渠主题；波表 14/2/4/2.0 [NEW-原型校准]",
+      "_source": "T-085 E2 第二关=新物流关（与 era2/levels.json level-e2-02 同 id 同排期元数据）：威胁 0.6（邻接 1）/胜波 16/宽限 2.0=T-079 冻结值；马车 carrier_tier=cart 首发于本关命令流（era.json logistics carriage 0.6 件/s）；1600 铜（箭楼 90×2+升档差（弩塔档 270−90=180）+余量 1240，towers.json cost_total+UpgradesTo 链）；塔线全穿刺（箭楼→弩塔——对位 challenge c2 仅穿刺+支援类）；strategy s8 物流零死锁对位马车/水渠主题；波表 14/2/4/2.0 [NEW-原型校准]。headless 通关校验修复（跃迁前置补全批）：①升档令 w6/w10 改指二塔 (16,22)——首塔 (10,22) 供弹箭楼永驻核心位射界（原 w6 升首塔=弹种换石弩矢断供+核心位失覆盖，漏敌永积）；②w14 民夫改挂首塔线（连弩吃铁矢与箭弹不匹配）；③elite ram 线关内不启用——甲 12 对箭 15 单发 3 伤（10% 保底=1.5 取 3），攻城锤 EHP 无箭弹链可清（era2 配方表有 recipe-stone-bolt 但 E2 语料岩格=0，T-115 审计口径），攻城锤敌种留待石弩弹链内容落位",
       "_units": {
         "threat": "dimensionless_clamped_0.3_1.2",
         "adjacent_enemy_camps": "camp_nodes",
@@ -274,23 +271,35 @@
           "era2:enemy-warrior",
           "era2:enemy-centurion"
         ],
-        "elite_line_enabled": true,
-        "elite_enemy_id": "era2:enemy-ram"
+        "elite_line_enabled": false
       },
       "command_script": [
         { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 21 } },
         { "wave": 1, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 3, "y": 18 } },
         { "wave": 1, "verb": "build-converter", "converter_recipe": "era2:recipe-arrow", "cell": { "x": 8, "y": 19 } },
-        { "wave": 1, "verb": "build-tower", "tower": "era2:tower-crossbow", "cell": { "x": 10, "y": 22 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 10, "y": 22 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 13, "y": 22 } },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 3, "to_entity": 4, "carrier_tier": "porter" },
         { "wave": 1, "verb": "assign-carrier", "from_entity": 3, "to_entity": 4, "carrier_tier": "porter" },
         { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
         { "wave": 2, "verb": "hero-order", "order": "move", "cell": { "x": 9, "y": 20 } },
-        { "wave": 4, "verb": "upgrade-tower", "entity": 5, "to_tier": 2 },
+        { "wave": 3, "verb": "build-labor-camp", "cell": { "x": 5, "y": 21 } },
+        { "wave": 3, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 5, "y": 17 } },
+        { "wave": 3, "verb": "build-converter", "converter_recipe": "era2:recipe-arrow", "cell": { "x": 12, "y": 19 } },
+        { "wave": 3, "verb": "assign-carrier", "from_entity": 8, "to_entity": 9, "carrier_tier": "porter" },
+        { "wave": 3, "verb": "assign-carrier", "from_entity": 8, "to_entity": 9, "carrier_tier": "porter" },
+        { "wave": 3, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 7, "y": 22 } },
+        { "wave": 3, "verb": "assign-carrier", "from_entity": 4, "to_entity": 10, "carrier_tier": "porter" },
+        { "wave": 4, "verb": "upgrade-tower", "entity": 6, "to_tier": 2 },
         { "wave": 6, "verb": "hero-order", "order": "skill" },
-        { "wave": 8, "verb": "build-tower", "tower": "era2:tower-fire-oil", "cell": { "x": 13, "y": 22 } },
-        { "wave": 8, "verb": "assign-carrier", "from_entity": 4, "to_entity": 6, "carrier_tier": "cart" },
-        { "wave": 16, "verb": "build-tower", "tower": "era2:tower-onager", "cell": { "x": 16, "y": 22 } },
-        { "wave": 16, "verb": "assign-carrier", "from_entity": 4, "to_entity": 7, "carrier_tier": "porter" }
+        { "wave": 7, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 15, "y": 17 } },
+        { "wave": 7, "verb": "assign-carrier", "from_entity": 11, "to_entity": 9, "carrier_tier": "cart" },
+        { "wave": 7, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 15, "y": 23 } },
+        { "wave": 7, "verb": "assign-carrier", "from_entity": 9, "to_entity": 12, "carrier_tier": "porter" },
+        { "wave": 10, "verb": "build-tower", "tower": "era2:tower-fire-oil", "cell": { "x": 14, "y": 22 } },
+        { "wave": 13, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 5, "y": 23 } },
+        { "wave": 13, "verb": "assign-carrier", "from_entity": 9, "to_entity": 14, "carrier_tier": "porter" },
+        { "wave": 16, "verb": "build-tower", "tower": "era2:tower-onager", "cell": { "x": 16, "y": 22 } }
       ],
       "objectives": {
         "strategy": ["campaign:obj-s5"],
@@ -302,7 +311,7 @@
       },
       "_new": true,
       "_new_fields": ["map.seed", "map.forest_ratio", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds", "map.dig_sites", "map.hero_cell"],
-      "_source": "T-085 E2 第三关=考古+英雄+系统新能力关（与 era2/levels.json level-e2-03 同 id 同排期元数据）：威胁 0.9（邻接 2）/胜波 19/宽限 1.5=T-079 冻结值；考古=dig_sites 两处遗迹点（legacy/archaeology.json 三通道自本关开放 F-058）；英雄=era2:hero-spearwarden（SP-6 每代第 3 关解锁招募）+hero-order 命令两拍（move/skill）；4000 铜=2 级仓库池上限顶格（弩塔 270+升档差（连弩档 810−270=540）+火油 2430+弩炮 700=3940+余量 60，UpgradesTo 链 arrow→crossbow→repeating→fire-oil 的数据接线口径）；strategy s5 波末塔效率 ≥70%+challenge c6 英雄不出阵或不阵亡（英雄在场=真选择）；敌表全五线+百夫长（甲 6）+elite ram（弩炮物理线对位甲 12）；波表 14/2/4/1.6 [NEW-原型校准]",
+      "_source": "T-085 E2 第三关=考古+英雄+系统新能力关（与 era2/levels.json level-e2-03 同 id 同排期元数据）：威胁 0.9（邻接 2）/胜波 19/宽限 1.5=T-079 冻结值；考古=dig_sites 两处遗迹点（legacy/archaeology.json 三通道自本关开放 F-058）；英雄=era2:hero-spearwarden（SP-6 每代第 3 关解锁招募）+hero-order 命令两拍（move/skill）；4000 铜=2 级仓库池上限顶格（箭楼 90×5+升档差（弩塔档 270−90=180）+火油 2430+弩炮 700=3760+余量 240，towers.json cost_total+UpgradesTo 链）；strategy s5 波末塔效率 ≥70%+challenge c6 英雄不出阵或不阵亡（英雄在场=真选择）；敌表全五线+百夫长（甲 6）；波表 14/2/4/1.6 [NEW-原型校准]。headless 通关校验重排（跃迁前置补全批，威胁 0.9 需 e2-final 同款弹链密度）：①首塔改箭楼+双民夫入木（原弩塔吃石弩矢=零供弹，全关无一可开火塔）；②二转换器+三采集+cart 并行（0.9 威胁 ~33EHP/s 入场 vs 原单线 1.5 发/s）；③升档令改指非供弹塔；④elite ram 线关内不启用（甲 12 无箭弹链可清，同 e2-02 裁定；弩炮物理线保留对位百夫长甲 6）；⑤火油/弩炮塔=时代科技陈列（弹链配方未入 E2 语料）",
       "_units": {
         "threat": "dimensionless_clamped_0.3_1.2",
         "adjacent_enemy_camps": "camp_nodes",
@@ -321,6 +330,123 @@
         "waves.scaling": "divisor",
         "waves.batches_per_wave": "batches",
         "waves.valley_seconds": "seconds",
+        "command_script.wave": "wave_ordinal",
+        "command_script.seats": "harvest_seats",
+        "command_script.from_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_entity": "entity_ordinal_warehouse_is_1",
+        "command_script.entity": "entity_ordinal_warehouse_is_1",
+        "command_script.to_tier": "tower_tier"
+      }
+    },
+    {
+      "id": "campaign:level-e2-final",
+      "content_type": "Level",
+      "era": "era2:era-classical",
+      "slot": 4,
+      "name_zh": "铁蹄之下",
+      "name_en": "Under the Ironhoof",
+      "aliases": ["E2 终局关", "E2 Boss 关", "铁蹄关"],
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "adjacent_enemy_camps": 2,
+      "threat": 0.9,
+      "win_waves": 19,
+      "first_wave_grace_multiplier": 1.5,
+      "budget_seconds": 1800,
+      "map": {
+        "seed": 20261204,
+        "width": 20,
+        "height": 26,
+        "forest_ratio": 0.05,
+        "rock_ratio": 0.0,
+        "water_ratio": 0.0,
+        "base_cell": { "x": 10, "y": 25 },
+        "warehouse_cell": { "x": 2, "y": 21 },
+        "entry_cells": [
+          { "x": 10, "y": 0 },
+          { "x": 5, "y": 0 },
+          { "x": 15, "y": 0 },
+          { "x": 7, "y": 0 },
+          { "x": 13, "y": 1 }
+        ]
+      },
+      "initial_stock": [
+        { "resource": "era2:res-copper", "amount": 4000.0 }
+      ],
+      "waves": {
+        "base_count": 14,
+        "begin_wave": 2,
+        "spacing": 4,
+        "scaling": 2.0,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0,
+        "regular_roster": [
+          "era2:enemy-skirmisher",
+          "era2:enemy-raider",
+          "era2:enemy-crossbowman",
+          "era2:enemy-warrior",
+          "era2:enemy-centurion"
+        ],
+        "elite_line_enabled": false,
+        "boss_wave": 19,
+        "boss_enemy_id": "era2:enemy-boss"
+      },
+      "command_script": [
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 4, "y": 21 } },
+        { "wave": 1, "verb": "build-labor-camp", "cell": { "x": 5, "y": 21 } },
+        { "wave": 1, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 3, "y": 18 } },
+        { "wave": 1, "verb": "build-converter", "converter_recipe": "era2:recipe-arrow", "cell": { "x": 8, "y": 19 } },
+        { "wave": 1, "verb": "build-tower", "tower": "era2:tower-crossbow", "cell": { "x": 10, "y": 22 } },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
+        { "wave": 1, "verb": "assign-carrier", "from_entity": 4, "to_entity": 5, "carrier_tier": "porter" },
+        { "wave": 3, "verb": "build-labor-camp", "cell": { "x": 6, "y": 21 } },
+        { "wave": 3, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 5, "y": 17 } },
+        { "wave": 3, "verb": "build-converter", "converter_recipe": "era2:recipe-arrow", "cell": { "x": 12, "y": 19 } },
+        { "wave": 3, "verb": "assign-carrier", "from_entity": 8, "to_entity": 9, "carrier_tier": "porter" },
+        { "wave": 3, "verb": "assign-carrier", "from_entity": 8, "to_entity": 9, "carrier_tier": "porter" },
+        { "wave": 3, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 7, "y": 22 } },
+        { "wave": 3, "verb": "assign-carrier", "from_entity": 5, "to_entity": 10, "carrier_tier": "porter" },
+        { "wave": 5, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 15, "y": 17 } },
+        { "wave": 5, "verb": "assign-carrier", "from_entity": 11, "to_entity": 9, "carrier_tier": "cart" },
+        { "wave": 5, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 13, "y": 22 } },
+        { "wave": 5, "verb": "assign-carrier", "from_entity": 9, "to_entity": 12, "carrier_tier": "porter" },
+        { "wave": 7, "verb": "build-harvester", "resource": "era1:res-wood", "seats": 1, "cell": { "x": 17, "y": 18 } },
+        { "wave": 7, "verb": "assign-carrier", "from_entity": 13, "to_entity": 5, "carrier_tier": "cart" },
+        { "wave": 7, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 15, "y": 23 } },
+        { "wave": 7, "verb": "assign-carrier", "from_entity": 9, "to_entity": 14, "carrier_tier": "porter" },
+        { "wave": 8, "verb": "build-tower", "tower": "era2:tower-fire-oil", "cell": { "x": 13, "y": 23 } },
+        { "wave": 10, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 8, "y": 23 } },
+        { "wave": 10, "verb": "assign-carrier", "from_entity": 5, "to_entity": 16, "carrier_tier": "porter" },
+        { "wave": 13, "verb": "build-tower", "tower": "era2:tower-arrow", "cell": { "x": 5, "y": 23 } },
+        { "wave": 13, "verb": "assign-carrier", "from_entity": 5, "to_entity": 17, "carrier_tier": "porter" },
+        { "wave": 15, "verb": "build-tower", "tower": "era2:tower-onager", "cell": { "x": 16, "y": 22 } }
+      ],
+      "objectives": {
+        "strategy": ["campaign:obj-s1"],
+        "challenge": ["campaign:obj-c7"]
+      },
+      "unlocks": { "actions": [], "features": [] },
+      "_new": true,
+      "_new_fields": ["waves.boss_wave", "waves.boss_enemy_id"],
+      "_source": "E2 终局关（跃迁前置补全：本行 id=era_transition.json final_levels[2] 引用值 campaign:level-e2-final——T-117 只落了引用行，实关行此前缺失，E2→E3 跃迁 Precheck 在真实游戏不可达；id 裁定=era_transition _source 记录的 E1 行同款约定）：威胁 0.9（邻接 2=SP-9 clamp 网格点，胜波 19=10+⌊0.9×10⌋ §7）；宽限 1.5=§6 带下沿；Boss=铁蹄 era2:enemy-boss（SP-3b L121：HP4000/甲10 逐字锚点）第 19 波出场（boss_wave=胜波：终局一搏——WaveSpawner boss 波语义=该波只出 Boss 批次，攻城锤精英线同波压掉；Boss 状态 ×1.5 HP/×1.3 伤=v3.2 §6；出场 HP 手算=4000×威胁 HP 乘子 0.5+(0.9−0.3)/0.9≈1.1667×1.5=7000）；技能组=冲撞（每 600 ticks、150→×1.3=195 伤/触及 2 格/持续 90 ticks/+50% 速度）+践踏（半径 2 格，TrampleProfile 100/45ticks=IronhoofBattleTests [NEW-原型校准] 同锚）+战鼓（半径 3 格友军 +15%）——WaveSpawner boss 批次经 spec traits 自动接线（IronhoofBattleTests 断言先例：ChargeIntervalTicks=600/ChargeDamage=195/WarDrumsRadiusPx=96）；护盾语境=§6『护盾 E3 起』——E2 波次盾关（ShieldStartWave=null）且铁蹄个体无 shield 行=无盾 Boss 战（克物理+瓮城 SP-3b：onager 物理线 700 铜对位甲 10，瓮城结构塔 T-007 归类后续落位）；4000 铜=2 级仓库池上限顶格（e2-03 同口径；弩塔 270+箭楼 90×4+升档差 180+火油 2430+弩炮 700=3940+余量 60，towers.json cost_total+UpgradesTo 链）；命令流=offsystem 纯玩家风格（E1 五动词+升级令；三劳工营水力骨干=e2-01 先例×3、四木采集+双箭转换器=弹链 10 发/s、马车 cart 档=e2-02 先例）：w1 弩塔立线→w3~7 四箭楼供弹线贴基座（核心位 6.5 格射程内全覆）→w8 火油塔 T4 旗舰→w12 箭楼升弩塔（estate 升级令收尾）→w15 弩炮压轴；目标 s1 不损失采集站+c7 全程不暂停（offsystem 命令流零损失风险位/零暂停=目标可达成）；终局关不新增能力闸位（时代能力链 slot 3 收口，§4 L67 排期只覆盖前三关）；败绩分档=§3 终局关失败→检查点（⌊19×0.75⌋=14 且 ≥10）+一次免费演习+只清本关存档；波表 14/2/4/2.0（elite ram 线不启用——甲 12 无箭弹链可清，e2-02/03 同款裁定）[NEW-原型校准]",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier",
+        "budget_seconds": "seconds",
+        "map.seed": "int64_seed",
+        "map.width": "cells",
+        "map.height": "cells",
+        "map.forest_ratio": "fraction",
+        "initial_stock.amount": "resource_points",
+        "waves.base_count": "enemies",
+        "waves.begin_wave": "wave_ordinal",
+        "waves.spacing": "waves",
+        "waves.scaling": "divisor",
+        "waves.batches_per_wave": "batches",
+        "waves.valley_seconds": "seconds",
+        "waves.boss_wave": "wave_ordinal",
         "command_script.wave": "wave_ordinal",
         "command_script.seats": "harvest_seats",
         "command_script.from_entity": "entity_ordinal_warehouse_is_1",

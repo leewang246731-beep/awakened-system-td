@@ -16,13 +16,15 @@ public class HandcraftedLevelPacingTests
         ("campaign:level-e1-02", "era1"),
         ("campaign:level-e1-03", "era1"),
         ("campaign:level-e1-04", "era1"),
+        ("campaign:level-e1-final", "era1"),
         ("campaign:level-e2-01", "era2"),
         ("campaign:level-e2-02", "era2"),
         ("campaign:level-e2-03", "era2"),
+        ("campaign:level-e2-final", "era2"),
     };
 
     private static HandcraftedLevel Level(string id) =>
-        HandcraftedLevelData.Load(id.Contains("e1-0", StringComparison.Ordinal) ? "e1.json" : "e2.json")
+        HandcraftedLevelData.Load(id.Contains("level-e1-", StringComparison.Ordinal) ? "e1.json" : "e2.json")
             .TryGet(id) ?? throw new InvalidOperationException($"缺关卡行 {id}");
 
     private static LevelPacingEstimate Estimate(string id)
@@ -39,20 +41,23 @@ public class HandcraftedLevelPacingTests
     [Fact]
     public void First_batch_median_duration_falls_inside_the_15_40_minute_band()
     {
-        // [F-055] 首批 7 关理论节奏中位 ∈[15,40] 分钟（v3.2 §3 手工关时长带；
-        // T-085 任务卡验收），且七关全部落带内（比中位更强的批次断言）。
+        // [F-055] 首批 7 关+两终局关理论节奏中位 ∈[15,40] 分钟（v3.2 §3 手工关
+        // 时长带；T-085 任务卡验收+跃迁前置补全），且九关全部落带内（比中位
+        // 更强的批次断言）。终局关 19 波=首批最长胜波，但其 Boss 波只有 Boss
+        // 批次一行清场（估算器 boss 波语义），估算不因胜波变长而失控。
         var estimates = Batch.Select(row => Estimate(row.Id)).OrderBy(e => e.DurationMinutes).ToList();
-        Assert.Equal(7, estimates.Count);
+        Assert.Equal(9, estimates.Count);
 
-        double median = estimates[3].DurationMinutes;
+        double median = estimates[4].DurationMinutes;
         Assert.InRange(median, 15.0, 40.0);
         Assert.All(estimates, e => Assert.InRange(e.DurationMinutes, 15.0, 40.0));
 
         // 中位锚值面（理论节奏表，口径见 LevelPacingEstimator 头注）：
-        // 排序后 16.46 / 16.73 / 17.67 / 18.73 / 19.84 / 20.55 / 20.99 分钟。
-        Assert.InRange(estimates[0].DurationMinutes, 16.0, 17.0);
-        Assert.InRange(median, 18.0, 19.5);
-        Assert.InRange(estimates[6].DurationMinutes, 20.0, 22.0);
+        // 排序后 15.42(e2-02) / 16.46 / 16.73 / 16.76(e2-final) / 17.67 /
+        // 18.73 / 19.37(e2-03) / 19.84 / 21.72(e1-final) 分钟。
+        Assert.InRange(estimates[0].DurationMinutes, 15.0, 16.0);
+        Assert.InRange(median, 17.0, 18.5);
+        Assert.InRange(estimates[8].DurationMinutes, 21.0, 22.0);
     }
 
     [Fact]
@@ -119,6 +124,39 @@ public class HandcraftedLevelPacingTests
     }
 
     // ---- 3) 估算器边界/非法/确定性（CS-3.1） -------------------------------
+
+    [Theory]
+    [InlineData("campaign:level-e1-final")]
+    [InlineData("campaign:level-e2-final")]
+    public void Boss_wave_line_models_the_boss_batch_alone(string id)
+    {
+        // [F-055] legal — 终局关 Boss 波（spawner 语义：该波只出 Boss 批次，
+        // 常规/精英线压掉）：估算行 IsBossWave=true、常规/精英计数=0、清场=
+        // Boss EHP 线（HP×威胁 HP 乘子×Boss 状态 ×1.5）÷ 穿甲后塔线 DPS——
+        // 手算复核（E1：2500×1.1667×1.5=4375；E2：4000×1.1667×1.5=7000）。
+        HandcraftedLevel level = Level(id);
+        LevelPacingEstimate estimate = Estimate(id);
+
+        WaveRhythm bossLine = estimate.Waves.Single(w => w.IsBossWave);
+        Assert.Equal(level.Waves.BossWave, bossLine.Wave);
+        Assert.Equal(0, bossLine.RegularCount); // 该波常规线不入场
+        Assert.Equal(0, bossLine.EliteCount); // 精英线同波压掉（E2 ram 线 w19=0）
+        Assert.All(
+            estimate.Waves.Where(w => !w.IsBossWave),
+            w => Assert.Equal(Elite.Count(w.Wave) > 0 && level.Waves.EliteLineEnabled
+                ? Elite.Count(w.Wave)
+                : 0, w.EliteCount)); // 非 Boss 波精英线照常（E2 侧 w12 起 2/只）
+
+        var enemies = Enemies(EraDirOf(level));
+        double bossHp = enemies[level.Waves.BossEnemyId!].Hp
+            * Threat.Multipliers(level.Threat).Hp
+            * 1.5; // v3.2 §6 Boss 状态 ×1.5（WaveSpawnConfig 默认值同源）
+        var towers = Towers(EraDirOf(level));
+        Assert.True(bossLine.ClearSeconds > 0);
+        Assert.True(
+            bossLine.ClearSeconds <= bossHp / (0.1 * towers.Values.Sum(t => t.Dps)) + 1e-9,
+            "Boss 波清场不得超过 10% 保底 DPS 口径的上界（甲>单发时的保守下限）");
+    }
 
     [Fact]
     public void Towerless_script_caps_every_wave_at_the_interval()
@@ -207,8 +245,17 @@ public class HandcraftedLevelPacingTests
     public void Elite_and_regular_counts_come_from_the_frozen_formulas()
     {
         // [F-055] 数量行=冻结公式复算（WaveFormula.Count/Elite.Count ×威胁乘子），
-        // 防估算器私改波形状：抽 L2-03（精英线最长的一关）逐波比对。
-        HandcraftedLevel level = Level("campaign:level-e2-03");
+        // 防估算器私改波形状。已发行 E2 行不启用精英线（跃迁前置补全批裁定：
+        // 攻城锤甲 12 无箭弹链可清），故精英线以 L2-03 合成精英行复算（with 注入
+        // ——估算器行为回归口径，非内容行）。
+        HandcraftedLevel level = Level("campaign:level-e2-03") with
+        {
+            Waves = Level("campaign:level-e2-03").Waves with
+            {
+                EliteLineEnabled = true,
+                EliteEnemyId = "era2:enemy-ram",
+            },
+        };
         LevelPacingEstimate estimate = LevelPacingEstimator.Estimate(
             level, Towers("era2"), Enemies("era2"));
         ThreatMultipliers multipliers = Threat.Multipliers(level.Threat);
@@ -222,6 +269,6 @@ public class HandcraftedLevelPacingTests
             Assert.Equal(Elite.Count(rhythm.Wave), rhythm.EliteCount);
         }
 
-        Assert.Contains(estimate.Waves, w => w.EliteCount > 0); // 攻城锤线确已入场
+        Assert.Contains(estimate.Waves, w => w.EliteCount > 0); // 攻城锤线确已入场（合成行）
     }
 }
