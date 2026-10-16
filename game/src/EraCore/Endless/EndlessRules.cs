@@ -71,11 +71,12 @@ public sealed record EndlessSpawn(string EnemyId, int EraIndex, EndlessEnemyRole
 
 /// <summary>
 /// Configuration of one endless run (T-080 入口规则, SP-7「任选时代、混编
-/// 敌人、奇观带入」): the starting era (chosen freely), its wave shape for
-/// the ≤40 regular segment, the threat level driving the multipliers, the
-/// cross-era enemy pool, the affix tuning, the boss cadence, the carried-in
-/// wonder ids and the score weights. Validated once at construction; pure
-/// data, host-supplied (RL7); the caller seeds its rng from
+/// 敌人、奇观带入」+ T-118 开局参与档): the starting era (chosen freely), its
+/// wave shape for the ≤40 regular segment, the threat level driving the
+/// multipliers, the cross-era enemy pool, the affix tuning, the boss cadence,
+/// the carried-in wonder ids, the score weights and the LOCKED opening
+/// participation mode (开局档——T-118 三榜分记的路由口径). Validated once at
+/// construction; pure data, host-supplied (RL7); the caller seeds its rng from
 /// <see cref="Seed"/> (determinism root).
 /// </summary>
 public sealed class EndlessRunConfig
@@ -103,7 +104,8 @@ public sealed class EndlessRunConfig
         EndlessEnemyPool pool,
         EndlessAffixTuning affixes,
         EndlessScoreWeights scores,
-        IReadOnlyList<string> wonderIds)
+        IReadOnlyList<string> wonderIds,
+        EndlessParticipationMode participation = EndlessParticipationMode.Manual)
     {
         ArgumentNullException.ThrowIfNull(pool);
         ArgumentNullException.ThrowIfNull(affixes);
@@ -114,6 +116,12 @@ public sealed class EndlessRunConfig
             throw new ArgumentException(
                 $"Start era must lie in {EndlessEnemyPool.MinEraIndex}..{EndlessEnemyPool.MaxEraIndex} (got {startEraIndex}).",
                 nameof(startEraIndex));
+        }
+
+        if (!EndlessParticipation.IsDefined(participation))
+        {
+            throw new ArgumentException(
+                $"Participation mode must be a defined three-board mode (got {participation}).", nameof(participation));
         }
 
         if (!(threatLevel >= 0))
@@ -167,6 +175,7 @@ public sealed class EndlessRunConfig
         Affixes = affixes;
         Scores = scores;
         WonderIds = wonderIds.ToList();
+        Participation = participation;
     }
 
     /// <summary>Run seed — the caller's <see cref="IRng"/> is seeded with it (determinism root).</summary>
@@ -204,6 +213,14 @@ public sealed class EndlessRunConfig
 
     /// <summary>奇观带入: wonder ids carried in from the campaign (v2.1 入口规则行).</summary>
     public IReadOnlyList<string> WonderIds { get; }
+
+    /// <summary>
+    /// 开局参与档（T-118 局面参与状态机）: 纯手动/军师辅助/全托管 — frozen
+    /// here with the config (开局档锁定) and NEVER re-judged later: it is the
+    /// run's ONLY board-routing input (记档整局). Mid-run mode switches live
+    /// on the <see cref="EndlessRun"/> as current-mode audit, not here.
+    /// </summary>
+    public EndlessParticipationMode Participation { get; }
 
     /// <summary>Threat multiplier triple of the run (v3.2 appendix F.2).</summary>
     public ThreatMultipliers Threat => Balance.Threat.Multipliers(ThreatLevel);

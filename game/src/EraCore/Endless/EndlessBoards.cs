@@ -5,20 +5,23 @@ using EraCore.Persistence;
 namespace EraCore.Endless;
 
 /// <summary>
-/// The three endless boards (T-080, F-006; SP-7c 三榜分立): 手动 / 系统辅助 /
-/// 全托管 — every settled run records on exactly ONE board, chosen by the
-/// system-action share of the run (routing lives in <see cref="EndlessRun"/>;
-/// the boards themselves never re-judge).
+/// The three endless boards (T-080, F-006; SP-7c 三榜分立 + T-118 整局锁档):
+/// 手动 / 系统辅助 / 全托管 — every settled run records on exactly ONE
+/// board, chosen by the run's LOCKED opening participation mode
+/// (<see cref="EndlessParticipation.BoardOf"/>; routing lives in
+/// <see cref="EndlessRun"/>; the boards themselves never re-judge — the
+/// SP-7c share ranges below are the frozen share-rule audit mapping, not
+/// the router).
 /// </summary>
 public enum EndlessBoardKind
 {
-    /// <summary>手动榜 — share 0% (SP-7c).</summary>
+    /// <summary>手动榜 — 纯手动开局档（SP-7c 占比审计行 share 0%）.</summary>
     Manual = 0,
 
-    /// <summary>系统辅助榜 — share 1%~89% (SP-7c).</summary>
+    /// <summary>系统辅助榜 — 军师辅助开局档（SP-7c 占比审计行 share 1%~89%）.</summary>
     Assisted = 1,
 
-    /// <summary>全托管榜 — share ≥90% (SP-7c); channel-isolated via T-081.</summary>
+    /// <summary>全托管榜 — 全托管开局档（SP-7c 占比审计行 share ≥90%）; channel-isolated via T-081.</summary>
     Autopilot = 2,
 }
 

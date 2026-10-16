@@ -8,9 +8,11 @@ using Xunit;
 
 namespace EraCore.Tests.Endless;
 
-// [F-006][F-123][T-080] 无尽模式运行时：永续波次生成、死亡终局（唯一终态）、三榜
-// 路由矩阵（SP-7c 占比判定 0%/1~89%/≥90%）、SP-7c+词缀加权记分、T-081 sink 挂接、
-// K-7 campaign 域落账、同 seed 100 波确定性哈希、混编跨时代与 Boss 节奏。
+// [F-006][F-123][T-080+T-118] 无尽模式运行时：永续波次生成、死亡终局（唯一
+// 终态）、T-118 整局锁档路由（开局档定榜——占比式 SP-7c 矩阵 0%/1~89%/≥90%
+// 保留为纯映射与审计列）、SP-7c+词缀加权记分、T-081 sink 挂接、K-7 campaign
+// 域落账、同 seed 100 波确定性哈希、混编跨时代与 Boss 节奏。锁档语义与 3×3
+// 混排矩阵的专项断言在 EndlessParticipationTests。
 public class EndlessRunTests
 {
     // ------------------------------------------------ 永续生成 ---------
@@ -156,19 +158,25 @@ public class EndlessRunTests
         Assert.Throws<ArgumentOutOfRangeException>(() => EndlessRun.RouteBoard(11, 10));
     }
 
-    [Fact] // legal：全流程路由——占比经 RecordAction 累计后 Defeat 落对应榜（三例各一）
-    public void Defeat_routes_by_recorded_share()
+    [Fact] // legal：T-118 整局锁档路由——Defeat 落榜=开局档（SP-7c 占比降为审计列，动作流不换榜）
+    public void Defeat_routes_by_the_locked_opening_mode()
     {
-        (int autopilot, int manual, EndlessBoardKind expected)[] cases =
+        (EndlessParticipationMode locked, int autopilot, int manual, EndlessBoardKind expected)[] cases =
         {
-            (0, 20, EndlessBoardKind.Manual),
-            (1, 99, EndlessBoardKind.Assisted),
-            (18, 2, EndlessBoardKind.Autopilot),
+            // 纯手动开局：任何动作流都入手动榜（含中途全托管化——换档不换榜）
+            (EndlessParticipationMode.Manual, 0, 20, EndlessBoardKind.Manual),
+            (EndlessParticipationMode.Manual, 20, 0, EndlessBoardKind.Manual),
+            // 军师辅助开局：轻/重辅助动作流均落系统辅助榜
+            (EndlessParticipationMode.Assisted, 1, 99, EndlessBoardKind.Assisted),
+            (EndlessParticipationMode.Assisted, 99, 1, EndlessBoardKind.Assisted),
+            // 全托管开局：含玩家整局接管（罚则当波、记档整局——T-081 语义对齐）
+            (EndlessParticipationMode.FullAutopilot, 20, 0, EndlessBoardKind.Autopilot),
+            (EndlessParticipationMode.FullAutopilot, 0, 20, EndlessBoardKind.Autopilot),
         };
 
-        foreach ((int autopilot, int manual, EndlessBoardKind expected) in cases)
+        foreach ((EndlessParticipationMode locked, int autopilot, int manual, EndlessBoardKind expected) in cases)
         {
-            var run = new EndlessRun(EndlessFixture.Config(), new LcgRng(EndlessFixture.Seed));
+            var run = new EndlessRun(EndlessFixture.Config(participation: locked), new LcgRng(EndlessFixture.Seed));
             EndlessFixture.PlayWaves(run, 5);
             for (int i = 0; i < manual; i++)
             {
@@ -183,19 +191,25 @@ public class EndlessRunTests
             EndlessSettlement settlement = run.Defeat();
 
             Assert.Equal(expected, settlement.Board);
+            Assert.Equal(locked, settlement.LockedParticipation);
             Assert.Equal(EndlessBoardChannels.Of(expected), settlement.ChannelId);
             Assert.Equal(run.AutopilotShare, settlement.AutopilotShare, 12);
+            // 审计列：占比式判定（SP-7c 矩阵）如实留痕——锁档与占比冲突时二者可见
+            Assert.Equal(EndlessRun.RouteBoard(autopilot, autopilot + manual), settlement.ShareImpliedBoard);
+            Assert.Equal(autopilot > 0, settlement.AdvisorParticipated);
         }
     }
 
     // ------------------------------------------------ T-081 sink 挂接 --
 
-    [Fact] // legal：全托管局→sink 收到 endless.autopilot 通道条目；手动/辅助局 sink 不收
+    [Fact] // legal：全托管【开局档】局→sink 收到 endless.autopilot 通道条目；手动/辅助开局局 sink 不收
     public void Autopilot_board_feeds_the_t081_sink()
     {
         var sink = new RecordingScoreSink();
 
-        var auto = new EndlessRun(EndlessFixture.Config(), new LcgRng(EndlessFixture.Seed), scoreSink: sink);
+        var auto = new EndlessRun(
+            EndlessFixture.Config(participation: EndlessParticipationMode.FullAutopilot),
+            new LcgRng(EndlessFixture.Seed), scoreSink: sink);
         EndlessFixture.PlayWaves(auto, 15);
         for (int i = 0; i < 20; i++)
         {
@@ -223,11 +237,13 @@ public class EndlessRunTests
         Assert.Empty(manualSink.Entries); // 手动局不进托管通道
 
         var assistedSink = new RecordingScoreSink();
-        var assisted = new EndlessRun(EndlessFixture.Config(), new LcgRng(EndlessFixture.Seed), scoreSink: assistedSink);
+        var assisted = new EndlessRun(
+            EndlessFixture.Config(participation: EndlessParticipationMode.Assisted),
+            new LcgRng(EndlessFixture.Seed), scoreSink: assistedSink);
         EndlessFixture.PlayWaves(assisted, 15);
         for (int i = 0; i < 50; i++)
         {
-            assisted.RecordAction(byAutopilot: i % 2 == 0); // 50% 辅助局
+            assisted.RecordAction(byAutopilot: i % 2 == 0); // 50% 辅助动作流（开局档=辅助）
         }
 
         Assert.Equal(EndlessBoardKind.Assisted, assisted.Defeat().Board);
@@ -299,11 +315,13 @@ public class EndlessRunTests
         EndlessBoards boards = EndlessBoardStore.FromMeta(stored);
         Assert.Single(boards.Of(EndlessBoardKind.Manual));                          // 手动局入手动榜
 
-        var second = new EndlessRun(EndlessFixture.Config(), new LcgRng(EndlessFixture.Seed + 1), port, stored);
+        var second = new EndlessRun(
+            EndlessFixture.Config(participation: EndlessParticipationMode.FullAutopilot),
+            new LcgRng(EndlessFixture.Seed + 1), port, stored);
         EndlessFixture.PlayWaves(second, 30);
         for (int i = 0; i < 95; i++)
         {
-            second.RecordAction(byAutopilot: true); // ≥90% → 全托管榜
+            second.RecordAction(byAutopilot: true); // 全托管开局档 → 全托管榜
         }
 
         EndlessSettlement secondSettled = second.Defeat();

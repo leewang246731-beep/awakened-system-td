@@ -40,11 +40,12 @@ internal static class EndlessFixture
         new EndlessEnemyPoolEntry("era3:enemy-boss-liberator", 3, EndlessEnemyRole.Boss, 1.0),
     });
 
-    /// <summary>The standard validated run config (era1, t=0.9, default tunings).</summary>
+    /// <summary>The standard validated run config (era1, t=0.9, default tunings, locked opening mode).</summary>
     public static EndlessRunConfig Config(
         long seed = Seed,
         EndlessEnemyPool? pool = null,
-        IReadOnlyList<string>? wonders = null) =>
+        IReadOnlyList<string>? wonders = null,
+        EndlessParticipationMode participation = EndlessParticipationMode.Manual) =>
         new(
             seed,
             startEraIndex: 1,
@@ -57,7 +58,8 @@ internal static class EndlessFixture
             pool ?? MixedPool(),
             EndlessAffixTuning.Default,
             EndlessScoreWeights.Default,
-            wonders ?? Array.Empty<string>());
+            wonders ?? Array.Empty<string>(),
+            participation);
 
     /// <summary>Runs <paramref name="waves"/> full cycles (plan → kill everything → complete).</summary>
     public static void PlayWaves(EndlessRun run, int waves)

@@ -6,12 +6,14 @@ using EraCore.Contracts.Persistence;
 namespace EraCore.Endless;
 
 /// <summary>
-/// The settled outcome of one endless run (T-080 死亡终局): the SP-7c
-/// score breakdown, the board the run was routed to (三榜分记) and the
-/// channel id — the autopilot board carries the T-081 reserved channel and
-/// additionally lands in the injected <see cref="IAutopilotScoreSink"/>.
+/// The settled outcome of one endless run (T-080 死亡终局 + T-118 整局锁档):
+/// the SP-7c score breakdown, the board the run was routed to
+/// (<see cref="EndlessParticipationMode">开局档</see> — 三榜分记互不混排的
+/// 唯一路由口径) and the channel id — the autopilot board carries the T-081
+/// reserved channel and additionally lands in the injected
+/// <see cref="IAutopilotScoreSink"/>.
 /// </summary>
-/// <param name="Board">Board the run was routed to (SP-7c 榜别判定).</param>
+/// <param name="Board">Board the run was routed to (T-118 开局档锁定；= <see cref="EndlessParticipation.BoardOf"/>(<paramref name="LockedParticipation"/>)).</param>
 /// <param name="ChannelId">Channel of the board (<see cref="EndlessBoardChannels.Of"/>).</param>
 /// <param name="WavesSurvived">Completed waves at death (存活波数).</param>
 /// <param name="EliteKills">Elite kills of the whole run.</param>
@@ -21,6 +23,11 @@ namespace EraCore.Endless;
 /// <param name="ActionsTotal">Actions (manual + autopilot) recorded over the run.</param>
 /// <param name="AutopilotActions">Actions issued by the autopilot among them.</param>
 /// <param name="AutopilotShare">Autopilot action share in [0,1] (0 when no actions).</param>
+/// <param name="LockedParticipation">开局参与档（记档整局的口径——结算榜别=该档）.</param>
+/// <param name="CurrentParticipation">死亡时的当前档（中途换档后的末值；≠ LockedMode 只说明换过档，不影响榜别）.</param>
+/// <param name="SwitchCount">中途换档次数（审计）.</param>
+/// <param name="ShareImpliedBoard">SP-7c 占比式判定的审计列（0%→手动/1~89%→辅助/≥90%→全托管）——T-118 裁定占比不参与路由，仅留痕口径漂移.</param>
+/// <param name="AdvisorParticipated">军师参与位（T-081 口径：军师实际执行过 ≥1 动作）.</param>
 /// <param name="Record">The stamped leaderboard row actually stored.</param>
 /// <param name="Persisted">True when the record reached the campaign domain (port injected).</param>
 public sealed record EndlessSettlement(
@@ -34,17 +41,25 @@ public sealed record EndlessSettlement(
     long ActionsTotal,
     long AutopilotActions,
     double AutopilotShare,
+    EndlessParticipationMode LockedParticipation,
+    EndlessParticipationMode CurrentParticipation,
+    int SwitchCount,
+    EndlessBoardKind ShareImpliedBoard,
+    bool AdvisorParticipated,
     EndlessScoreRecord Record,
     bool Persisted);
 
 /// <summary>
-/// One endless run (T-080, F-006; SP-7): perpetual wave generation
-/// (<see cref="BeginWave"/> keeps planning waves forever — there is no
-/// victory wave), the ONLY terminal is death (<see cref="Defeat"/> — 死亡
-/// 终局), and settling routes the score onto exactly one of the three
-/// boards by the SP-7c share rule, persists it through the K-7 campaign
-/// domain (落账) and — for the full-autopilot board — hands the
-/// <see cref="AutopilotScoreEntry"/> to the T-081 sink.
+/// One endless run (T-080, F-006; SP-7 + T-118 三榜分记): perpetual wave
+/// generation (<see cref="BeginWave"/> keeps planning waves forever — there
+/// is no victory wave), the ONLY terminal is death (<see cref="Defeat"/> —
+/// 死亡终局), and settling routes the score onto exactly one of the three
+/// boards by the LOCKED OPENING participation mode
+/// (<see cref="EndlessRunConfig.Participation"/> — T-118 整局锁档：中途换档
+/// [<see cref="SwitchParticipation"/>] 只改当前档，绝不换榜；SP-7c 占比降为
+/// 审计列), persists it through the K-7 campaign domain (落账) and — for the
+/// full-autopilot board — hands the <see cref="AutopilotScoreEntry"/> to the
+/// T-081 sink.
 /// Determinism: all randomness flows through the injected
 /// <see cref="IRng"/> with a fixed draw order, and
 /// <see cref="ComputeStateHash"/> digests the whole generated history —
@@ -67,8 +82,10 @@ public sealed class EndlessRun
     private readonly ICampaignMeta? _campaignMeta;
     private readonly IAutopilotScoreSink? _scoreSink;
     private readonly List<EndlessWavePlan> _history = new();
+    private readonly List<EndlessParticipationSwitch> _participationSwitches = new();
 
     private EndlessWavePlan? _active;
+    private EndlessParticipationMode _currentParticipation;
 
     private int _lastWave;
 
@@ -94,6 +111,7 @@ public sealed class EndlessRun
         _port = port;
         _campaignMeta = campaignMeta;
         _scoreSink = scoreSink;
+        _currentParticipation = config.Participation;
     }
 
     /// <summary>Run configuration (frozen at construction).</summary>
@@ -207,15 +225,81 @@ public sealed class EndlessRun
     public double AutopilotShare => ActionsTotal == 0 ? 0.0 : (double)AutopilotActions / ActionsTotal;
 
     /// <summary>
-    /// Board the run would settle on (SP-7c 榜别判定): share 0% → 手动榜,
-    /// 1%~89% → 系统辅助榜, ≥90% → 全托管榜. Integer cross-multiplication —
-    /// the 90% boundary never rides on double rounding.
+    /// Board the run will settle on (T-118 整局锁档): <b>the LOCKED opening
+    /// participation mode</b> — <see cref="EndlessParticipation.BoardOf"/>(
+    /// <see cref="EndlessRunConfig.Participation"/>) — never re-judged from the
+    /// share and never changed by <see cref="SwitchParticipation"/> (中途换档
+    /// 不换榜). The SP-7c share rule survives as the audit column
+    /// <see cref="EndlessSettlement.ShareImpliedBoard"/>.
     /// </summary>
-    public EndlessBoardKind Board => RouteBoard(AutopilotActions, ActionsTotal);
+    public EndlessBoardKind Board => EndlessParticipation.BoardOf(_config.Participation);
+
+    /// <summary>开局参与档（随配置冻结的记档口径——整局不变）.</summary>
+    public EndlessParticipationMode LockedParticipation => _config.Participation;
 
     /// <summary>
-    /// Pure routing rule (matrix-testable): <c>total == 0</c> → Manual;
-    /// <c>autopilot × 100 ≥ total × 90</c> → Autopilot; else Assisted.
+    /// 当前参与档（T-118 局面参与状态机的活档）：开局=开局档，
+    /// <see cref="SwitchParticipation"/> 后随之变化——只影响 HUD/审计，
+    /// 不影响 <see cref="Board"/>（记档整局）。
+    /// </summary>
+    public EndlessParticipationMode CurrentParticipation => _currentParticipation;
+
+    /// <summary>中途换档审计行（按发生序；空=整局未换档）.</summary>
+    public IReadOnlyList<EndlessParticipationSwitch> ParticipationSwitches => _participationSwitches;
+
+    /// <summary>
+    /// 局内参与状态实时查询快照（T-118 HUD 位）：开局锁档+当前档+动作审计+
+    /// 换档计数，一次只读取值——表现层每帧可查，不参与任何路由。
+    /// </summary>
+    public EndlessParticipationSnapshot Participation => new(
+        LockedParticipation,
+        _currentParticipation,
+        CurrentWave,
+        ActionsTotal,
+        AutopilotActions,
+        AutopilotShare,
+        _participationSwitches.Count,
+        AutopilotActions > 0,
+        IsOver);
+
+    /// <summary>
+    /// 中途换档（T-118——换档自由、记档不换）：把<b>当前档</b>切到
+    /// <paramref name="mode"/> 并记一条审计行（波次号+迁移+机读原因）。
+    /// 榜别（<see cref="Board"/>）与开局档（<see cref="LockedParticipation"/>）
+    /// 永不因此变化。T-081「当波降级」对齐：接管降级=切到 Assisted（罚则
+    /// 当波已生效不回退——那是 T-081 罚则侧语义；本方法只管档位与审计）。
+    /// </summary>
+    /// <returns>True 当发生了真实换档；同档调用是 no-op（不记审计行）返回 false.</returns>
+    /// <exception cref="ArgumentException">mode is undefined or reason is null/blank.</exception>
+    /// <exception cref="InvalidOperationException">The run is over.</exception>
+    public bool SwitchParticipation(EndlessParticipationMode mode, string reason)
+    {
+        ThrowIfOver();
+        if (!EndlessParticipation.IsDefined(mode))
+        {
+            throw new ArgumentException(
+                $"Participation mode must be a defined three-board mode (got {mode}).", nameof(mode));
+        }
+
+        ArgumentException.ThrowIfNullOrEmpty(reason);
+        if (mode == _currentParticipation)
+        {
+            return false;
+        }
+
+        _participationSwitches.Add(new EndlessParticipationSwitch(
+            CurrentWave, _currentParticipation, mode, reason));
+        _currentParticipation = mode;
+        return true;
+    }
+
+    /// <summary>
+    /// SP-7c share rule as a pure mapping (matrix-testable): <c>total == 0</c>
+    /// → Manual; <c>autopilot × 100 ≥ total × 90</c> → Autopilot; else
+    /// Assisted. Since T-118 this is the AUDIT column
+    /// (<see cref="EndlessSettlement.ShareImpliedBoard"/>) — the score's
+    /// destination is the locked opening mode (<see cref="Board"/>), never
+    /// this mapping.
     /// </summary>
     public static EndlessBoardKind RouteBoard(long autopilotActions, long actionsTotal)
     {
@@ -244,9 +328,10 @@ public sealed class EndlessRun
 
     /// <summary>
     /// 死亡终局: settles the run (terminal). Computes the SP-7c + 词缀加权
-    /// score of the COMPLETED waves, routes the board, persists the record
-    /// through the campaign domain when a port was injected (落账 — a wave
-    /// still in progress simply dies uncounted) and hands the T-081
+    /// score of the COMPLETED waves, routes the board BY THE LOCKED OPENING
+    /// MODE (T-118 整局锁档——中途换档不换榜), persists the record through the
+    /// campaign domain when a port was injected (落账 — a wave still in
+    /// progress simply dies uncounted) and hands the T-081
     /// <see cref="AutopilotScoreEntry"/> to the sink for the autopilot
     /// board. Double settle is refused — a dead run never re-scores.
     /// </summary>
@@ -261,6 +346,7 @@ public sealed class EndlessRun
         long score = EndlessRules.Score((int)WavesSurvived, EliteKills, BossKills, _config.Scores);
         EndlessBoardKind board = Board;
         string channelId = EndlessBoardChannels.Of(board);
+        EndlessBoardKind shareImplied = RouteBoard(AutopilotActions, ActionsTotal);
         var record = new EndlessScoreRecord(
             board,
             Arrival: 0,
@@ -305,16 +391,23 @@ public sealed class EndlessRun
             ActionsTotal,
             AutopilotActions,
             AutopilotShare,
+            LockedParticipation,
+            _currentParticipation,
+            _participationSwitches.Count,
+            shareImplied,
+            AdvisorParticipated: AutopilotActions > 0,
             record,
             persisted);
     }
 
     /// <summary>
     /// FNV-1a hash over the run's whole generated history and tallies
-    /// (determinism ledger): config digest, then every planned wave (counts,
-    /// interval, modifiers, full roster in draw order), then the tallies
-    /// and terminal flag. Same seed + same wave/action stream ⇒ identical
-    /// hash at any point — the 100-wave determinism acceptance test.
+    /// (determinism ledger): config digest (incl. the locked participation
+    /// mode), the participation switch log (T-118), every planned wave
+    /// (counts, interval, modifiers, full roster in draw order), then the
+    /// tallies, the CURRENT participation mode and the terminal flag. Same
+    /// seed + same wave/action/switch stream ⇒ identical hash at any point
+    /// — the 100-wave determinism acceptance test.
     /// </summary>
     public long ComputeStateHash()
     {
@@ -329,6 +422,16 @@ public sealed class EndlessRun
         writer.Write(_config.WaveScaling);
         writer.Write(_config.BossEveryWaves);
         WriteStringList(writer, _config.WonderIds);
+        writer.Write((int)_config.Participation);
+
+        writer.Write(_participationSwitches.Count);
+        foreach (EndlessParticipationSwitch participationSwitch in _participationSwitches)
+        {
+            writer.Write(participationSwitch.Wave);
+            writer.Write((int)participationSwitch.From);
+            writer.Write((int)participationSwitch.To);
+            WriteString(writer, participationSwitch.Reason);
+        }
 
         writer.Write(_history.Count);
         foreach (EndlessWavePlan plan in _history)
@@ -372,6 +475,7 @@ public sealed class EndlessRun
         writer.Write(ActionsTotal);
         writer.Write(AutopilotActions);
         writer.Write(AutopilotPoints);
+        writer.Write((int)_currentParticipation);
         writer.Write(IsOver);
         writer.Flush();
         byte[] payload = stream.ToArray();
