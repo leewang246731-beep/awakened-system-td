@@ -26,23 +26,24 @@ public class Era3HandcraftedLevelPacingTests
     private static LevelPacingEstimate Estimate(int slot) =>
         LevelPacingEstimator.Estimate(Level(slot), Towers("era3"), Enemies("era3"));
 
-    public static IEnumerable<object[]> Slots() => Enumerable.Range(1, 4).Select(slot => new object[] { slot });
+    public static IEnumerable<object[]> Slots() => Enumerable.Range(1, 5).Select(slot => new object[] { slot });
 
     // ---- 1) 中位带断言（T-116 验收核心） -----------------------------------
 
     [Fact]
     public void E3_batch_median_duration_falls_inside_the_15_40_minute_band()
     {
-        // [F-055] E3 首批 4 关理论节奏中位 ∈[15,40] 分钟（v3.2 §3 手工关时长带；
-        // T-116 任务卡验收），且四关全部落带内（比中位更强的批次断言）。
-        var estimates = Enumerable.Range(1, 4).Select(Estimate).OrderBy(estimate => estimate.DurationMinutes).ToList();
-        Assert.Equal(4, estimates.Count);
+        // [F-055] E3 首批 4 关+终局关理论节奏中位 ∈[15,40] 分钟（v3.2 §3 手工关
+        // 时长带；T-116 任务卡验收；e3-final=T-124 入表），且五关全部落带内
+        //（比中位更强的批次断言）。
+        var estimates = Enumerable.Range(1, 5).Select(Estimate).OrderBy(estimate => estimate.DurationMinutes).ToList();
+        Assert.Equal(5, estimates.Count);
 
-        double median = (estimates[1].DurationMinutes + estimates[2].DurationMinutes) / 2.0;
+        double median = estimates[2].DurationMinutes; // 五关中位=第三序统计量
         Assert.InRange(median, 15.0, 40.0);
         Assert.All(estimates, estimate => Assert.InRange(estimate.DurationMinutes, 15.0, 40.0));
 
-        foreach (int slot in Enumerable.Range(1, 4))
+        foreach (int slot in Enumerable.Range(1, 5))
         {
             _output.WriteLine(
                 $"L3-{slot} {Level(slot).NameZh}: win={Level(slot).WinWaves} threat={Level(slot).Threat} " +
@@ -129,8 +130,8 @@ public class Era3HandcraftedLevelPacingTests
             && towers[step.Tower!].Class.ToString().Equals("splash", StringComparison.OrdinalIgnoreCase));
         Assert.Equal("era3:enemy-ironclad-guard", shield.Waves.EliteEnemyId);
 
-        // 四关估算两两可比（时长表非退化：min≠max——波表/塔线差异真实生效）
-        var durations = Enumerable.Range(1, 4).Select(slot => Estimate(slot).DurationMinutes).ToList();
-        Assert.True(durations.Max() - durations.Min() > 0.25, "四关时长表不得退化为一列常数");
+        // 五关估算两两可比（时长表非退化：min≠max——波表/塔线差异真实生效）
+        var durations = Enumerable.Range(1, 5).Select(slot => Estimate(slot).DurationMinutes).ToList();
+        Assert.True(durations.Max() - durations.Min() > 0.25, "五关时长表不得退化为一列常数");
     }
 }

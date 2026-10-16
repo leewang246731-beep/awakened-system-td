@@ -11,13 +11,14 @@ using static EraCore.Tests.Levels.HandcraftedLevelContent;
 
 namespace EraCore.Tests.Levels;
 
-// [C-19][F-055] T-116 E3 全关可玩验收（headless E2E，T-084/T-085 e2e 先例）：
-// 每条 e3.json 关行以 T-085 命令流（纯玩家建造）贯穿生产 LevelSession 跑到
-// Victory——断言面：①逐关通关（胜波=数据行 win_waves §7 双面）；②命令流全量
-// 签发且零拒收（经济面全合法——L3-2 富煤矿岩格图的命令流可建性引擎面证明）；
-// ③终局塔数=脚本建造数（零出售）；④理论节奏估算表（中位∈[15,40] 分钟带）
-// 与 headless 通关时刻并列输出（时长估算表；估算器不含弹链供给节流，实测
-// 时刻=节流口径的诚实读数）；⑤同 seed 双跑状态哈希全等（含岩格图的确定性）。
+// [C-19][F-055] T-116 E3 全关可玩验收（headless E2E，T-084/T-085 e2e 先例；
+// T-124 扩展 e3-final 堡垒号终局关）：每条 e3.json 关行以 T-085 命令流（纯
+// 玩家建造）贯穿生产 LevelSession 跑到 Victory——断言面：①逐关通关（胜波=
+// 数据行 win_waves §7 双面）；②命令流全量签发且零拒收（经济面全合法——L3-2
+// 富煤矿岩格图的命令流可建性引擎面证明）；③终局塔数=脚本建造数（零出售）；
+// ④理论节奏估算表（中位∈[15,40] 分钟带）与 headless 通关时刻并列输出（时长
+// 估算表；估算器不含弹链供给节流，实测时刻=节流口径的诚实读数）；⑤同 seed
+// 双跑状态哈希全等（含岩格图的确定性）。
 // E3 装配扩展（T-113）：era3/era.json energy.risk → EnergyRiskTuning 挂载
 //（过热通道活性；本批四关劳工营满供 → 负载率<100% 不触发——T-113 Counterplay
 // 先例的教学位对策面）。
@@ -60,6 +61,7 @@ public class Era3LevelPlaythroughTests : SqliteSavePortTestBase
         int Towers,
         int Issued,
         int Applied,
+        int? BossMaxHp,
         long StateHash);
 
     private PlaythroughLine RunOnce(HandcraftedLevel level, ISavePort port)
@@ -85,6 +87,29 @@ public class Era3LevelPlaythroughTests : SqliteSavePortTestBase
         }
 
         Assert.Equal(GameFlowState.Victory, session.Machine.State);
+
+        int? bossMaxHp = null;
+        if (level.Waves.BossEnemyId is not null)
+        {
+            // Boss 出场胜败手算锚（v3.2 §6 Boss 状态 ×1.5 × 威胁 HP 乘子 F.2）：
+            // 堡垒号 9000→15750；Boss 死亡=场清谓词的最后一环。
+            EraCore.Units.Unit boss = Assert.Single(session.Sim.Units, u => u.IsBoss);
+            int expectedMaxHp = (int)Math.Ceiling(
+                Enemies("era3")[level.Waves.BossEnemyId!].Hp
+                * EraCore.Balance.Threat.Multipliers(level.Threat).Hp
+                * 1.5);
+            Assert.Equal(expectedMaxHp, boss.MaxHp);
+            Assert.False(boss.Alive); // Boss 必死（Victory=全灭场清）
+            long intervalTicks = (long)Math.Round(
+                EraCore.Balance.Campaign.WaveIntervalSeconds(level.Threat) * Simulation.TicksPerSecond,
+                MidpointRounding.AwayFromZero);
+            long graceTicks = (long)Math.Round(
+                intervalTicks * (double)level.FirstWaveGraceMultiplier, MidpointRounding.AwayFromZero);
+            Assert.True(boss.SpawnTick >= graceTicks + ((level.Waves.BossWave!.Value - 1) * intervalTicks),
+                $"Boss 出场刻 {boss.SpawnTick} 须不早于第 {level.Waves.BossWave} 波开场");
+            bossMaxHp = boss.MaxHp;
+        }
+
         return new PlaythroughLine(
             level.Slot,
             level.NameZh,
@@ -96,12 +121,13 @@ public class Era3LevelPlaythroughTests : SqliteSavePortTestBase
             session.Sim.Towers.Count,
             session.IssuedCommands.Count,
             (int)session.Sim.AppliedCommandCount,
+            bossMaxHp,
             session.Sim.ComputeStateHash());
     }
 
     // ---- ①②③ 逐关命令流通关断言 -------------------------------------------
 
-    public static IEnumerable<object[]> Slots() => Enumerable.Range(1, 4).Select(slot => new object[] { slot });
+    public static IEnumerable<object[]> Slots() => Enumerable.Range(1, 5).Select(slot => new object[] { slot });
 
     [Theory]
     [MemberData(nameof(Slots))]
@@ -119,6 +145,11 @@ public class Era3LevelPlaythroughTests : SqliteSavePortTestBase
         Assert.Equal(level.CommandScript.Count, line.Issued);
         Assert.Equal(line.Issued, line.Applied); // 零拒收（AppliedCommandCount==签发数）
         Assert.Equal(level.CommandScript.Count(step => step.Verb == "build-tower"), line.Towers);
+        if (slot == 5)
+        {
+            Assert.Equal(15750, line.BossMaxHp); // 堡垒号 9000×1.1667×1.5（v3.2 §6 手算锚）
+        }
+
         _output.WriteLine(
             $"L3-{slot} {line.NameZh}: win={line.WinWaves} threat={level.Threat} " +
             $"estimate={line.EstimateMinutes:F2}min victory={line.VictorySeconds:F0}s " +
@@ -134,17 +165,17 @@ public class Era3LevelPlaythroughTests : SqliteSavePortTestBase
         // 落带；headless 通关时刻（弹链节流口径）并列输出——两口径同表即
         // _duration_calibration 的 RED-FLAG 诚实披露（实测口径归 T-095）。
         var lines = new List<PlaythroughLine>();
-        foreach (int slot in Enumerable.Range(1, 4))
+        foreach (int slot in Enumerable.Range(1, 5))
         {
             lines.Add(RunOnce(Level(slot), CreatePort()));
         }
 
         var sorted = lines.Select(line => line.EstimateMinutes).OrderBy(minutes => minutes).ToList();
-        double median = (sorted[1] + sorted[2]) / 2.0;
+        double median = sorted[2]; // 五关中位=第三序统计量（终局关入表，T-124）
         Assert.InRange(median, 15.0, 40.0);
         Assert.All(lines, line => Assert.InRange(line.EstimateMinutes, 15.0, 40.0));
 
-        _output.WriteLine("T-116 E3 时长表（estimate=理论节奏估算 / victory=headless 通关秒）:");
+        _output.WriteLine("T-116/T-124 E3 时长表（estimate=理论节奏估算 / victory=headless 通关秒）:");
         foreach (PlaythroughLine line in lines.OrderBy(line => line.Slot))
         {
             _output.WriteLine(
@@ -163,7 +194,7 @@ public class Era3LevelPlaythroughTests : SqliteSavePortTestBase
         // [F-055] 确定性③（引擎面）：同 seed+命令流双跑 → 终局状态哈希与通关
         // 时刻全等——含 L3-2 固定 seed 岩格图（煤位分布确定性=稀缺机制的可复
         // 现性证明，T-115 §四扫描同 seed 同图口径）。
-        foreach (int slot in Enumerable.Range(1, 4))
+        foreach (int slot in Enumerable.Range(1, 5))
         {
             HandcraftedLevel level = Level(slot);
             PlaythroughLine first = RunOnce(level, CreatePort());

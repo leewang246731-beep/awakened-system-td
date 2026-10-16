@@ -27,12 +27,13 @@ public class Era3HandcraftedLevelSetTests
     [Fact]
     public void E3_file_parses_and_declares_the_Level_family_schema()
     {
-        // [F-055] levels/e3.json 解析+K-2 Level 族声明+首批 4 关（前三关=L3-1/2/3
-        // 排期关+L3-4 后续关首张，T-116 任务卡『3~4 关』）。
+        // [F-055] levels/e3.json 解析+K-2 Level 族声明+首批 4 关+终局关（前三关
+        // =L3-1/2/3 排期关+L3-4 后续关首张，T-116 任务卡『3~4 关』；L3-5=
+        // e3-final 堡垒号 Boss 关，T-124 跃迁前置补全）。
         HandcraftedLevelSet set = E3();
         Assert.Equal("era3:era-industrial", set.Era);
-        Assert.Equal(4, set.Items.Count);
-        Assert.Equal(new[] { 1, 2, 3, 4 }, set.Items.Select(level => level.Slot).OrderBy(slot => slot).ToArray());
+        Assert.Equal(5, set.Items.Count);
+        Assert.Equal(new[] { 1, 2, 3, 4, 5 }, set.Items.Select(level => level.Slot).OrderBy(slot => slot).ToArray());
 
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "game", "content", "levels")))
@@ -58,8 +59,9 @@ public class Era3HandcraftedLevelSetTests
     [Fact]
     public void Threats_win_waves_and_graces_follow_the_frozen_formulas()
     {
-        // [F-055] 胜波=10+⌊t×10⌋（§7）逐关复核：0.3/0.6/0.9/0.75→13/16/19/17；
-        // 预算 15~40 分钟带；教学位仅 L3-1（宽限 ×3），其余 ×1.5~2（§6）。
+        // [F-055] 胜波=10+⌊t×10⌋（§7）逐关复核：0.3/0.6/0.9/0.75/0.9→13/16/19/17/19
+        //（终局关=SP-9 邻接 2 网格点 0.9，T-124 补）；预算 15~40 分钟带；教学位
+        // 仅 L3-1（宽限 ×3），其余 ×1.5~2（§6）。
         foreach (HandcraftedLevel level in E3().Items)
         {
             Assert.Equal(Campaign.WinWaves(level.Threat), level.WinWaves);
@@ -67,8 +69,8 @@ public class Era3HandcraftedLevelSetTests
             Assert.InRange(level.BudgetSeconds, 900, 2400);
         }
 
-        Assert.Equal(new[] { 0.3, 0.6, 0.9, 0.75 }, E3().Items.OrderBy(level => level.Slot).Select(level => level.Threat));
-        Assert.Equal(new[] { 13, 16, 19, 17 }, E3().Items.OrderBy(level => level.Slot).Select(level => level.WinWaves));
+        Assert.Equal(new[] { 0.3, 0.6, 0.9, 0.75, 0.9 }, E3().Items.OrderBy(level => level.Slot).Select(level => level.Threat));
+        Assert.Equal(new[] { 13, 16, 19, 17, 19 }, E3().Items.OrderBy(level => level.Slot).Select(level => level.WinWaves));
         Assert.True(Level(1).TeachingLevel);
         Assert.All(E3().Items.Skip(1), level => Assert.False(level.TeachingLevel));
         Assert.All(E3().Items.Skip(1), level => Assert.InRange(level.FirstWaveGraceMultiplier, 1.5, 2.0));

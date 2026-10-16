@@ -22,7 +22,8 @@
     "1": "campaign:level-e1-final",
     "2": "campaign:level-e2-final",
     "3": "campaign:level-e3-final",
-    "_source": "各时代终局关 id（键=被离开的时代序号，Precheck 以 FinalLevels[FromEraIndex] 硬校验占领）。E1 行=T-074 占位；E2 行=T-117 落位；E3 行=T-125 落位（E3→E4 跃迁扩展）——id 裁定=沿用 E1/E2 行命名约定 campaign:level-e{n}-final（n=被离开时代；e3-finale.json 演出脚本同款命名约定引用）。E3 实关行（levels/e3.json）由 T-124 战役关卡域落位后 Precheck 在真实游戏可达（先例=final_levels[2] 引用先行、实关行随后）；【T-125/T-124 并行缝】若 T-124 以其它 id 落 E3 终局关行，以其实关行为准同步本行（一行字符串的协调缝，后提交者消解）"
+    "4": "campaign:level-e4-final",
+    "_source": "各时代终局关 id（键=被离开的时代序号，Precheck 以 FinalLevels[FromEraIndex] 硬校验占领）。E1 行=T-074 占位；E2 行=T-117 落位；E3 行=T-125 落位（E3→E4 跃迁扩展）——id 裁定=沿用 E1/E2 行命名约定 campaign:level-e{n}-final（n=被离开时代；e3-finale.json 演出脚本同款命名约定引用）。E3 实关行（levels/e3.json）由 T-124 战役关卡域落位后 Precheck 在真实游戏可达（先例=final_levels[2] 引用先行、实关行随后）；【T-125/T-124 并行缝】若 T-124 以其它 id 落 E3 终局关行，以其实关行为准同步本行（一行字符串的协调缝，后提交者消解）——T-124 已按本行 id 落实关 campaign:level-e3-final（levels/e3.json slot 5 堡垒号 Boss 关），缝已消解。E4 行=T-124 落位（键=被离开时代 4——E4→E5 跃迁=T-134 域的引用先行）且实关行同任务齐备（levels/e4.json slot 5 夜枭 Boss 关）——a58c86f『引用先行、实关缺失致 Precheck 不可达』教训的反面先例：本行引用不悬空，FinalLevelTransitionReachability 断言两侧行 id 双向相等"
   },
   "first_three_schedule": [
     {

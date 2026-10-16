@@ -14,14 +14,16 @@ using static EraCore.Tests.Levels.HandcraftedLevelContent;
 namespace EraCore.Tests.Levels;
 
 // [C-19][F-003][F-055] 终局关 headless 全通关验收（跃迁前置补全；T-084/T-116
-// e2e 先例）：e1.json/e2.json 各追加一条 Boss 终局关（id=era_transition.json
-// final_levels 引用值），每关以 offsystem 纯玩家命令流贯穿生产 LevelSession
-// 跑到 Victory——断言面：①两终局关可玩至胜（胜波 19=数据行 win_waves=§7 公式
-// 双面；19 波=Boss 波，终局一搏）；②命令流全量签发且零拒收（经济面全合法）；
-//③Boss 出场胜败手算锚：踏群者/铁蹄 MaxHp=敌表 HP×威胁 HP 乘子×Boss 状态
-// ×1.5（2500→4375 / 4000→7000）、践踏/冲撞/战鼓技能参数=BossBattle/
-// IronhoofBattle 先例锚、Boss 必死（场清谓词）；④时长估算表（估算中位带
-// [15,40] 分钟+headless 通关时刻并列输出）；⑤同 seed 双跑状态哈希全等。
+// e2e 先例；T-124 扩展 e3-final/e4-final）：e1~e4.json 各追加一条 Boss 终局关
+//（id=era_transition.json final_levels 引用值），每关以 offsystem 纯玩家命令流
+// 贯穿生产 LevelSession 跑到 Victory——断言面：①各终局关可玩至胜（胜波 19=
+// 数据行 win_waves=§7 公式双面；19 波=Boss 波，终局一搏）；②命令流全量签发且
+// 零拒收（经济面全合法）；③Boss 出场胜败手算锚：踏群者/铁蹄/堡垒号/夜枭
+// MaxHp=敌表 HP×威胁 HP 乘子×Boss 状态 ×1.5（2500→4375 / 4000→7000 /
+// 9000→15750 / 20000→35000）、践踏/冲撞/战鼓/战吼技能参数=BossBattle/
+// IronhoofBattle/FortressBattle 先例锚、Boss 必死（场清谓词）；④时长估算表
+//（估算中位带 [15,40] 分钟+headless 通关时刻并列输出）；⑤同 seed 双跑状态
+// 哈希全等。
 public class FinalBossLevelTests : SqliteSavePortTestBase
 {
     private readonly ITestOutputHelper _output;
@@ -29,19 +31,32 @@ public class FinalBossLevelTests : SqliteSavePortTestBase
     public FinalBossLevelTests(ITestOutputHelper output) => _output = output;
 
     /// <summary>
-    /// 两终局关 + 各自的践踏调参（[NEW-原型校准] 测试侧配置，与
-    /// BossBattleIntegrationTests（踏群者 60/45）和 IronhoofBattleTests
-    /// （铁蹄 100/45）同锚——引擎不携带设计数值，CS-2.3/RL7）。
+    /// 四终局关 + 各自的践踏调参（[NEW-原型校准] 测试侧配置，与
+    /// BossBattleIntegrationTests（踏群者 60/45）、IronhoofBattleTests
+    /// （铁蹄 100/45）和 FortressBattleTests（堡垒号 100/45）同锚；夜枭
+    /// 无践踏（traits.airstrike=数据位）→ 0=惰性调参——引擎不携带设计数值，
+    /// CS-2.3/RL7）。T-124 扩展：e3-final（堡垒号）+e4-final（夜枭）。
     /// </summary>
     private static readonly (string Id, string EraDir, int TrampleDamage)[] Finals =
     {
         ("campaign:level-e1-final", "era1", 60),
         ("campaign:level-e2-final", "era2", 100),
+        ("campaign:level-e3-final", "era3", 100),
+        ("campaign:level-e4-final", "era4", 0),
     };
 
     private static HandcraftedLevel Level(string id, string eraDir) =>
-        HandcraftedLevelData.Load(eraDir == "era1" ? "e1.json" : "e2.json").TryGet(id)
+        HandcraftedLevelData.Load(LevelFile(eraDir)).TryGet(id)
         ?? throw new InvalidOperationException($"缺终局关行 {id}");
+
+    private static string LevelFile(string eraDir) => eraDir switch
+    {
+        "era1" => "e1.json",
+        "era2" => "e2.json",
+        "era3" => "e3.json",
+        "era4" => "e4.json",
+        _ => throw new InvalidOperationException($"未登记时代目录 {eraDir}"),
+    };
 
     /// <summary>
     /// 终局关装配：T-085 BuildConfig（含 boss_wave/boss_enemy_id 透传）+
@@ -128,7 +143,8 @@ public class FinalBossLevelTests : SqliteSavePortTestBase
             $"bossAlive={session.Sim.Units.Any(u => u.IsBoss && u.Alive)}");
 
         // Boss 出场胜败手算锚（v3.2 §6 Boss 状态 ×1.5 × 威胁 HP 乘子 F.2）：
-        // 踏群者 2500→4375 / 铁蹄 4000→7000；Boss 死亡=场清谓词的最后一环。
+        // 踏群者 2500→4375 / 铁蹄 4000→7000 / 堡垒号 9000→15750 / 夜枭
+        // 20000→35000；Boss 死亡=场清谓词的最后一环。
         Unit boss = Assert.Single(session.Sim.Units, u => u.IsBoss);
         int expectedMaxHp = (int)Math.Ceiling(
             Enemies(eraDir)[level.Waves.BossEnemyId!].Hp
@@ -184,7 +200,12 @@ public class FinalBossLevelTests : SqliteSavePortTestBase
         Assert.Equal(level.CommandScript.Count(step => step.Verb == "build-tower"), line.Towers);
 
         // 技能锚：践踏=调参×Boss 状态 ×1.3（60→78 / 100→130，先例同式）；
-        // E2 铁蹄冲撞 150→195/600 ticks+战鼓 3 格=96 px（IronhoofBattle 断言值）。
+        // E2 铁蹄冲撞 150→195/600 ticks+战鼓 3 格=96 px（IronhoofBattle 断言值）；
+        // E3 堡垒号无冲撞——战吼=主动周期通道（traits.war_cry 半径 3 格 +15%
+        // ×6s/20s，FortressBattleTests 的 WarCryGridPulses 域），非铁蹄被动
+        // 战鼓光环（traits.war_drums）⇒ 被动光环半径 0（两通道分离，EnemySpec
+        // 同锚）；E4 夜枭无践踏/冲撞/战鼓（traits.airstrike=数据位——空袭消费
+        // 随 Boss 战宿主扩展）。
         int expectedTrample = (int)Math.Ceiling(trampleDamage * 1.3);
         Assert.Equal(expectedTrample, line.BossTrampleDamage);
         if (eraDir == "era2")
@@ -195,9 +216,9 @@ public class FinalBossLevelTests : SqliteSavePortTestBase
         }
         else
         {
-            Assert.Equal(0, line.BossChargeIntervalTicks); // E1 踏群者无冲撞/战鼓
+            Assert.Equal(0, line.BossChargeIntervalTicks); // E1/E3/E4 Boss 无冲撞
             Assert.Equal(0, line.BossChargeDamage);
-            Assert.Equal(0f, line.BossWarDrumsRadiusPx, 3);
+            Assert.Equal(0f, line.BossWarDrumsRadiusPx, 3); // E3 战吼=主动通道（非被动光环）；E1/E4 无光环
         }
 
         _output.WriteLine(
@@ -210,9 +231,9 @@ public class FinalBossLevelTests : SqliteSavePortTestBase
     // ---- ④ 时长估算表（估算带 + headless 实测时刻并列） ----------------------
 
     [Fact]
-    public void Duration_table_both_finals_land_in_the_band_and_victories_are_recorded()
+    public void Duration_table_all_finals_land_in_the_band_and_victories_are_recorded()
     {
-        // [F-055] 时长估算落带注记：理论节奏（估算器口径，含 Boss 波行）逐关
+        // [F-055] 时长估算落带注记（四终局关）：理论节奏（估算器口径，含 Boss 波行）逐关
         // ∈[15,40] 分钟带；headless 通关时刻（弹链供给节流口径）并列输出——
         // 两口径同表即 _duration_calibration 的 RED-FLAG 诚实披露（实测口径归
         // T-095；终局关 Boss 波=单 Boss 批次，估算不因 19 波胜波失控）。
@@ -238,7 +259,7 @@ public class FinalBossLevelTests : SqliteSavePortTestBase
     // ---- ⑤ 确定性（同 seed 双跑） ---------------------------------------------
 
     [Fact]
-    public void Same_seed_double_run_of_both_finals_hashes_identically()
+    public void Same_seed_double_run_of_all_finals_hashes_identically()
     {
         // [F-055] 确定性③（引擎面）：同 seed+命令流双跑 → 通关时刻与终局状态
         // 哈希全等（终局关固定 seed+布局参数，Boss 出场序确定）。

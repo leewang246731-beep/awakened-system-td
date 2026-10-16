@@ -153,6 +153,7 @@ public class LegacyContentTests
         Assert.Equal("campaign:level-e1-final", spec.FinalLevels[1]);
         Assert.Equal("campaign:level-e2-final", spec.FinalLevels[2]); // T-117 E2→E3 行（id 裁定=E1 行同款约定，见 _source）
         Assert.Equal("campaign:level-e3-final", spec.FinalLevels[3]); // T-125 E3→E4 行（e3-finale.json 演出同款命名约定）
+        Assert.Equal("campaign:level-e4-final", spec.FinalLevels[4]); // T-124 E4 行（E4→E5 引用先行+实关同落——levels/e4.json slot 5 夜枭 Boss 关，引用不悬空）
 
         // 排期=三个目标时代各三行（target_era 2=E1→E2 冻结行；3=T-117；4=T-125）
         Assert.Equal(9, spec.FirstThreeSchedule.Count);

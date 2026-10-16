@@ -148,9 +148,22 @@ internal static class HandcraftedLevelContent
             .ToDictionary(row => row.GetProperty("slot").GetInt32());
     }
 
-    /// <summary>The era directory segment of a level row ("era1"/"era2"/"era3" from its era id).</summary>
+    /// <summary>
+    /// The frozen T-123 E4 schedule rows (era4/levels.json — the 排期侧 file;
+    /// map blocks live in levels/e4.json, T-124) keyed by slot. Same
+    /// non-disposing convention as <see cref="Era3ScheduleRows"/>.
+    /// </summary>
+    public static IReadOnlyDictionary<int, JsonElement> Era4ScheduleRows()
+    {
+        var doc = JsonDocument.Parse(ReadText("era4", "levels.json"));
+        return doc.RootElement.GetProperty("items").EnumerateArray()
+            .ToDictionary(row => row.GetProperty("slot").GetInt32());
+    }
+
+    /// <summary>The era directory segment of a level row ("era1"/"era2"/"era3"/"era4" from its era id).</summary>
     public static string EraDir(HandcraftedLevel level) => level.Era switch
     {
+        string era when era.StartsWith("era4:", StringComparison.Ordinal) => "era4",
         string era when era.StartsWith("era3:", StringComparison.Ordinal) => "era3",
         string era when era.StartsWith("era2:", StringComparison.Ordinal) => "era2",
         _ => "era1",
@@ -187,5 +200,63 @@ internal static class HandcraftedLevelContent
             Meltdown: null); // E3 无核电（Sp4RiskTables.OverheatOnly 同口径）
         tuning.Overheat.Validate();
         return tuning;
+    }
+
+    /// <summary>
+    /// The E4 grid risk tables of era4/era.json (overheat + meltdown), assembled
+    /// into the production <see cref="EnergyRiskTuning"/> (T-124: E4 关卡把
+    /// 内容阈值行挂进 SimulationConfig——过热沿用 E3 表值+熔毁通道 E4 起挂入；
+    /// 数值全部出自内容表，CS-2.3).
+    /// </summary>
+    public static EnergyRiskTuning Era4EnergyRisk()
+    {
+        using var doc = JsonDocument.Parse(ReadText("era4", "era.json"));
+        JsonElement energy = doc.RootElement.GetProperty("items").EnumerateArray().Single()
+            .GetProperty("energy");
+        JsonElement row = energy.GetProperty("risk");
+        JsonElement trigger = row.GetProperty("trigger");
+        JsonElement heat = row.GetProperty("heat_dynamics");
+        JsonElement consequences = row.GetProperty("consequences");
+        JsonElement meltdown = energy.GetProperty("meltdown");
+        JsonElement mTrigger = meltdown.GetProperty("trigger");
+        JsonElement mConsequences = meltdown.GetProperty("consequences");
+        var tuning = new EnergyRiskTuning(
+            Overheat: new OverheatTuning(
+                OverloadLoadRatio: trigger.GetProperty("overload_threshold_percent").GetDouble() / 100.0,
+                OverloadSustainedSeconds: trigger.GetProperty("sustained_s").GetDouble(),
+                HeatCapacity: trigger.GetProperty("heat_capacity").GetDouble(),
+                BaseHeatPerSecond: heat.GetProperty("gain_per_s_overloaded").GetDouble(),
+                HeatLoadStepRatio: heat.GetProperty("overload_step_percent").GetDouble() / 100.0,
+                HeatPerLoadStepPerSecond: heat.GetProperty("bonus_gain_per_s_per_extra_10pct_overload").GetDouble(),
+                HeatCooldownPerSecond: heat.GetProperty("decay_per_s_unloaded").GetDouble(),
+                ExplosionRadiusCells: row.GetProperty("explosion_radius_cells").GetDouble(),
+                BuildingDamageMaxHpFraction: consequences.GetProperty("building_damage_fraction_of_max_hp").GetDouble(),
+                EnemyDamage: consequences.GetProperty("enemy_damage").GetDouble(),
+                GeneratorDowntimeSeconds: consequences.GetProperty("culprit_outage_s").GetDouble(),
+                GeneratorDerateFraction: consequences.GetProperty("culprit_degraded_output_fraction").GetDouble(),
+                GeneratorDerateSeconds: consequences.GetProperty("culprit_degraded_duration_s").GetDouble()),
+            Meltdown: new MeltdownTuning(
+                OverloadLoadRatio: mTrigger.GetProperty("overload_threshold_percent").GetDouble() / 100.0,
+                OverloadSustainedSeconds: mTrigger.GetProperty("sustained_s").GetDouble(),
+                InstantLoadRatio: mTrigger.GetProperty("instant_threshold_percent").GetDouble() / 100.0,
+                CountdownSeconds: meltdown.GetProperty("countdown_s").GetDouble(),
+                InterruptUnloadFraction: meltdown.GetProperty("interrupt").GetProperty("unload_percent").GetDouble() / 100.0,
+                RequireCoolant: meltdown.GetProperty("coolant_required").GetBoolean(),
+                ExplosionRadiusCells: meltdown.GetProperty("explosion_radius_cells").GetDouble(),
+                BuildingDamageMaxHpFraction: mConsequences.GetProperty("building_damage_fraction_of_max_hp").GetDouble(),
+                RadiationZoneSeconds: mConsequences.GetProperty("radiation_zone_s").GetDouble(),
+                RadiationEnemySlowFraction: mConsequences.GetProperty("radiation_enemy_slow_percent").GetDouble() / 100.0,
+                WreckRecoveryCostFraction: mConsequences.GetProperty("wreck_recovery_cost_fraction").GetDouble()));
+        tuning.Validate();
+        return tuning;
+    }
+
+    /// <summary>The E4 radiation-zone per-second decay of era4/era.json (T-123 [NEW] 行: 过热对敌 300 ÷ 污染 60s=5 点/s).</summary>
+    public static double Era4RadiationZoneHpDecayPerSecond()
+    {
+        using var doc = JsonDocument.Parse(ReadText("era4", "era.json"));
+        return doc.RootElement.GetProperty("items").EnumerateArray().Single()
+            .GetProperty("energy").GetProperty("meltdown").GetProperty("consequences")
+            .GetProperty("radiation_zone_hp_decay_per_s").GetDouble();
     }
 }

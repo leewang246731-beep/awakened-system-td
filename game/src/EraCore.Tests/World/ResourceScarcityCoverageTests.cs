@@ -258,7 +258,7 @@ public class ResourceScarcityCoverageTests
             }
         }
 
-        Assert.Equal(4, rows); // T-116 首批 4 关（前三排期关+后续关首张）
+        Assert.Equal(5, rows); // T-116 首批 4 关+T-124 终局关 e3-final（rock=0 同守——终局关非富煤矿位）
     }
 
     [Fact] // [F-025] boundary — 已发行 e1/e2/e3 关全量显式声明分布字段（稀缺裁决的显式前提）

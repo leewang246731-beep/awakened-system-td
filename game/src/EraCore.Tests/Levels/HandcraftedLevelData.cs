@@ -136,7 +136,8 @@ public sealed record HandcraftedLevel(
 
 /// <summary>
 /// Parsed content of one handcrafted-level file: the era it belongs to plus
-/// its level rows (E1 = 4+终局关, E2 = 3+终局关; T-085 首批 + 跃迁前置补全).
+/// its level rows (E1 = 4+终局关, E2 = 3+终局关, E3 = 4+终局关, E4 = 4+终局关;
+/// T-085/T-116/T-124 首批 + 跃迁前置补全).
 /// </summary>
 public sealed record HandcraftedLevelSet(string Era, IReadOnlyList<HandcraftedLevel> Items)
 {
@@ -165,7 +166,10 @@ internal static class HandcraftedLevelData
     /// trip forms of the six-tier logistics ladder the verb accepts
     /// (TransportTiers — belt/teleporter are separate verbs, so they are not
     /// assignable here). E1/E2 rows used porter/cart; E3 introduces mine-rail
-    /// (10 件/s, era.json logistics tier 2).
+    /// (10 件/s, era.json logistics tier 2); E4 rows (T-124) keep the trip
+    /// vocabulary — the era's belt form is a separate verb and the truck row
+    /// is data-first, so mine-rail stays the heavy trunk of the era's
+    /// command streams (e4.json 注记同锚).
     /// </summary>
     public static readonly IReadOnlySet<string> CarrierTiers = new HashSet<string>
     {
@@ -326,7 +330,7 @@ internal static class HandcraftedLevelData
         if (rock != 0.0 && !era3)
         {
             throw new HandcraftedLevelSchemaException(
-                $"{id}: E1/E2 手工关固定布局要求 rock_ratio=0（命令流对任意 seed 可建）；E3 起 rock_ratio>0=矿位（煤）分布声明（T-115 §四，F-025）");
+                $"{id}: E1/E2/E4 手工关固定布局要求 rock_ratio=0（命令流对任意 seed 可建）；E3 关 rock_ratio>0=矿位（煤）分布声明（T-115 §四，F-025；E4 矿位稀缺声明通道随 T-115 §四跨代扩展另落，本批 E4 行零声明）");
         }
 
         if (rock < 0.0 || rock > 1.0)
@@ -552,9 +556,10 @@ internal static class HandcraftedLevelData
                 }
 
                 if (step.Verb == "build-converter" && string.IsNullOrWhiteSpace(step.ConverterRecipe)
-                    && (era.StartsWith("era2:", StringComparison.Ordinal) || era.StartsWith("era3:", StringComparison.Ordinal)))
+                    && (era.StartsWith("era2:", StringComparison.Ordinal) || era.StartsWith("era3:", StringComparison.Ordinal)
+                        || era.StartsWith("era4:", StringComparison.Ordinal)))
                 {
-                    throw new HandcraftedLevelSchemaException($"{id}: E2/E3 build-converter 须携带 converter_recipe 引用");
+                    throw new HandcraftedLevelSchemaException($"{id}: E2/E3/E4 build-converter 须携带 converter_recipe 引用");
                 }
 
                 if (step.Verb != "build-converter" && step.ConverterRecipe is not null)
