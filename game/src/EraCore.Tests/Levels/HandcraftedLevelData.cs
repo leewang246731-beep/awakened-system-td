@@ -23,10 +23,15 @@ public sealed record CellPoint(int X, int Y);
 
 /// <summary>
 /// Fixed map parameters of one handcrafted level (T-085): the seed pins the
-/// terrain draw (forest layout — passable), water/rock stay 0 so every
-/// scripted build coordinate is buildable for ANY seed draw (the E2E fixture
-/// determinism precedent), and the entry/base/warehouse cells fix the attack
-/// lane. 手工关=确定性 seed+布局参数，非随机重掷.
+/// terrain draw (forest layout — passable), water stays 0 and rock stays 0
+/// for E1/E2 rows so every scripted build coordinate is buildable for ANY
+/// seed draw (the E2E fixture determinism precedent). T-116 (F-025): E3 rows
+/// may declare rock_ratio &gt; 0 — the 矿格 (rock slot) is the coal-deposit
+/// proxy of the 资源地理稀缺 design (富煤矿只在特定关, T-115 §四); the fixed
+/// seed keeps such a map deterministic, so the scripted coordinates stay
+/// buildable for THE authored seed (the level's own buildability proof runs
+/// against the real GridWorld draw — Era3HandcraftedLevelSetTests).
+/// 手工关=确定性 seed+布局参数，非随机重掷.
 /// </summary>
 public sealed record HandcraftedMap(
     long Seed,
@@ -150,6 +155,18 @@ internal static class HandcraftedLevelData
         "assign-carrier", "upgrade-tower", "hero-order",
     };
 
+    /// <summary>
+    /// Closed carrier_tier vocabulary of assign-carrier steps (T-116): the
+    /// trip forms of the six-tier logistics ladder the verb accepts
+    /// (TransportTiers — belt/teleporter are separate verbs, so they are not
+    /// assignable here). E1/E2 rows used porter/cart; E3 introduces mine-rail
+    /// (10 件/s, era.json logistics tier 2).
+    /// </summary>
+    public static readonly IReadOnlySet<string> CarrierTiers = new HashSet<string>
+    {
+        "porter", "cart", "mine-rail", "drone",
+    };
+
     // ---- repo-relative discovery (RL9: walk up, no absolute paths) ------
 
     private static DirectoryInfo FindLevelsDir()
@@ -244,7 +261,7 @@ internal static class HandcraftedLevelData
                 $"{id}: 关卡预算 {budget}s 须在手工关 15~40 分钟带 [900,2400]s（§3）");
         }
 
-        var map = ParseMap(item, id);
+        var map = ParseMap(item, id, era);
         var stock = ParseStock(item, id);
         var waves = ParseWaves(item, id, threat);
         var script = ParseScript(item, id, map, era);
@@ -282,7 +299,7 @@ internal static class HandcraftedLevelData
             Unlocks: unlocks);
     }
 
-    private static HandcraftedMap ParseMap(JsonElement item, string id)
+    private static HandcraftedMap ParseMap(JsonElement item, string id, string era)
     {
         var map = Object(item, "map");
         int width = Int(map, "width");
@@ -294,10 +311,22 @@ internal static class HandcraftedLevelData
 
         double water = Number(map, "water_ratio");
         double rock = Number(map, "rock_ratio");
-        if (water != 0.0 || rock != 0.0)
+        if (water != 0.0)
         {
             throw new HandcraftedLevelSchemaException(
-                $"{id}: 手工关固定布局要求 water_ratio=0 且 rock_ratio=0（命令流坐标可建性；水比先例=E2E 夹具）");
+                $"{id}: 手工关固定布局要求 water_ratio=0（命令流坐标可建性；水比先例=E2E 夹具）");
+        }
+
+        bool era3 = era.StartsWith("era3:", StringComparison.Ordinal);
+        if (rock != 0.0 && !era3)
+        {
+            throw new HandcraftedLevelSchemaException(
+                $"{id}: E1/E2 手工关固定布局要求 rock_ratio=0（命令流对任意 seed 可建）；E3 起 rock_ratio>0=矿位（煤）分布声明（T-115 §四，F-025）");
+        }
+
+        if (rock < 0.0 || rock > 1.0)
+        {
+            throw new HandcraftedLevelSchemaException($"{id}: 岩比 {rock} 须在 [0,1]");
         }
 
         double forest = Number(map, "forest_ratio");
@@ -494,9 +523,9 @@ internal static class HandcraftedLevelData
                 }
 
                 if (step.Verb == "build-converter" && string.IsNullOrWhiteSpace(step.ConverterRecipe)
-                    && era.StartsWith("era2:", StringComparison.Ordinal))
+                    && (era.StartsWith("era2:", StringComparison.Ordinal) || era.StartsWith("era3:", StringComparison.Ordinal)))
                 {
-                    throw new HandcraftedLevelSchemaException($"{id}: E2 build-converter 须携带 converter_recipe 引用");
+                    throw new HandcraftedLevelSchemaException($"{id}: E2/E3 build-converter 须携带 converter_recipe 引用");
                 }
 
                 if (step.Verb != "build-converter" && step.ConverterRecipe is not null)
@@ -511,6 +540,12 @@ internal static class HandcraftedLevelData
                 if (step.FromEntity is null || step.ToEntity is null)
                 {
                     throw new HandcraftedLevelSchemaException($"{id}: assign-carrier 缺 from_entity/to_entity");
+                }
+
+                if (step.CarrierTier is not null && !CarrierTiers.Contains(step.CarrierTier))
+                {
+                    throw new HandcraftedLevelSchemaException(
+                        $"{id}: 未登记运输档位 {step.CarrierTier}（封闭档位表：porter/cart/mine-rail/drone）");
                 }
 
                 RequireBuilt(id, builtEntities, step.FromEntity.Value, "assign-carrier.from_entity");

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EraCore.Combat;
+using EraCore.Energy;
 using EraCore.Units;
 using Xunit;
 
@@ -135,8 +136,56 @@ internal static class HandcraftedLevelContent
             .ToDictionary(row => row.GetProperty("slot").GetInt32());
     }
 
-    /// <summary>The era directory segment of a level row ("era1"/"era2" from its era id).</summary>
-    public static string EraDir(HandcraftedLevel level) => level.Era.StartsWith("era2:", StringComparison.Ordinal)
-        ? "era2"
-        : "era1";
+    /// <summary>
+    /// The frozen T-112 E3 schedule rows (era3/levels.json — the 排期侧 file;
+    /// map blocks live in levels/e3.json per T-115 §四 G2) keyed by slot.
+    /// Same non-disposing convention as <see cref="Era2ScheduleRows"/>.
+    /// </summary>
+    public static IReadOnlyDictionary<int, JsonElement> Era3ScheduleRows()
+    {
+        var doc = JsonDocument.Parse(ReadText("era3", "levels.json"));
+        return doc.RootElement.GetProperty("items").EnumerateArray()
+            .ToDictionary(row => row.GetProperty("slot").GetInt32());
+    }
+
+    /// <summary>The era directory segment of a level row ("era1"/"era2"/"era3" from its era id).</summary>
+    public static string EraDir(HandcraftedLevel level) => level.Era switch
+    {
+        string era when era.StartsWith("era3:", StringComparison.Ordinal) => "era3",
+        string era when era.StartsWith("era2:", StringComparison.Ordinal) => "era2",
+        _ => "era1",
+    };
+
+    /// <summary>
+    /// The E3 overheat risk table of era3/era.json energy.risk, assembled into
+    /// the production <see cref="EnergyRiskTuning"/> (T-113: E3+ 关卡把内容
+    /// 阈值行挂进 SimulationConfig；数值全部出自内容表，CS-2.3).
+    /// </summary>
+    public static EnergyRiskTuning Era3EnergyRisk()
+    {
+        using var doc = JsonDocument.Parse(ReadText("era3", "era.json"));
+        JsonElement row = doc.RootElement.GetProperty("items").EnumerateArray().Single()
+            .GetProperty("energy").GetProperty("risk");
+        JsonElement trigger = row.GetProperty("trigger");
+        JsonElement heat = row.GetProperty("heat_dynamics");
+        JsonElement consequences = row.GetProperty("consequences");
+        var tuning = new EnergyRiskTuning(
+            Overheat: new OverheatTuning(
+                OverloadLoadRatio: trigger.GetProperty("overload_threshold_percent").GetDouble() / 100.0,
+                OverloadSustainedSeconds: trigger.GetProperty("sustained_s").GetDouble(),
+                HeatCapacity: trigger.GetProperty("heat_capacity").GetDouble(),
+                BaseHeatPerSecond: heat.GetProperty("gain_per_s_overloaded").GetDouble(),
+                HeatLoadStepRatio: heat.GetProperty("overload_step_percent").GetDouble() / 100.0,
+                HeatPerLoadStepPerSecond: heat.GetProperty("bonus_gain_per_s_per_extra_10pct_overload").GetDouble(),
+                HeatCooldownPerSecond: heat.GetProperty("decay_per_s_unloaded").GetDouble(),
+                ExplosionRadiusCells: row.GetProperty("explosion_radius_cells").GetDouble(),
+                BuildingDamageMaxHpFraction: consequences.GetProperty("building_damage_fraction_of_max_hp").GetDouble(),
+                EnemyDamage: consequences.GetProperty("enemy_damage").GetDouble(),
+                GeneratorDowntimeSeconds: consequences.GetProperty("culprit_outage_s").GetDouble(),
+                GeneratorDerateFraction: consequences.GetProperty("culprit_degraded_output_fraction").GetDouble(),
+                GeneratorDerateSeconds: consequences.GetProperty("culprit_degraded_duration_s").GetDouble()),
+            Meltdown: null); // E3 无核电（Sp4RiskTables.OverheatOnly 同口径）
+        tuning.Overheat.Validate();
+        return tuning;
+    }
 }

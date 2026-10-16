@@ -15,7 +15,9 @@ namespace EraCore.Tests.World;
 //   - 传承刷新丰度 ×0.5 的语料物化：E2 全部已发行关 forest_ratio 恰=
 //     E1 默认丰度 × era2 legacy_refresh 乘数（wood 0.5）；
 //   - 跨代大陆（E2→E3 seed 派生路径）资源节点数=内容声明且避开让位区；
-//   - era3 levels.json 无 map 块=T-116 前向守卫（煤的"只在特定关"落位后翻转）。
+//   - era3 煤位守卫（T-116 落位 levels/e3.json map 块后已翻转）：非零煤位
+//     （rock 位）仅出现于稀缺标记关 L3-2 矿轨关；排期侧 era3/levels.json
+//     保持无 map（载体分立）。
 // 扫描数字（min/mean/max 覆盖率）随测试输出落 trx，汇总入
 // docs/engineering/40-t115-crossera-audit.md §4。
 public class ResourceScarcityCoverageTests
@@ -213,27 +215,56 @@ public class ResourceScarcityCoverageTests
         Assert.InRange(max, expected - 0.02, expected + 0.02);
     }
 
-    // ---- boundary：era3 前向守卫（T-116 落位 map 块后翻转） ------------------
+    // ---- boundary：era3 煤位守卫（T-116 落位 map 块后的翻转形态） -----------
+    // 前向守卫（v1：era3 levels 无 map 块）已由 T-116 战役制作翻转——
+    // levels/e3.json 落位 map 块后，煤（rock 位=矿位代理）分布字段的负向
+    // 守卫=非零煤位仅出现于稀缺标记关（L3-2 矿轨关）；排期侧 era3/levels.json
+    // 保持无 map（T-112 范围=排期侧先行冻结，map 载体归 levels/e3.json）。
 
-    [Fact] // [F-025] boundary — era3 前三关尚无 map/资源分布字段（T-116 战役制作落位）；
-            // 落位后本守卫应翻转为：煤（rock 位）分布字段仅出现于稀缺标记关
-    public void Era3_levels_declare_no_resource_distribution_fields_yet()
+    [Fact] // [F-025] boundary — 排期侧 era3/levels.json 保持排期纯度（map 块载体=levels/e3.json）
+    public void Era3_schedule_rows_stay_map_free()
     {
         int rows = 0;
         foreach (JsonElement row in LevelRows("era3", "levels.json"))
         {
             rows++;
-            Assert.False(row.TryGetProperty("map", out _), $"{row.GetProperty("id").GetString()}: map 块先于 T-116 落位");
-            Assert.False(row.TryGetProperty("initial_stock", out _), $"{row.GetProperty("id").GetString()}: initial_stock 先于 T-116 落位");
+            Assert.False(row.TryGetProperty("map", out _), $"{row.GetProperty("id").GetString()}: 排期侧不落 map 块（载体=levels/e3.json）");
+            Assert.False(row.TryGetProperty("initial_stock", out _), $"{row.GetProperty("id").GetString()}: 排期侧不落 initial_stock");
         }
 
         Assert.Equal(3, rows); // T-112 冻结的前三关排期行
     }
 
-    [Fact] // [F-025] boundary — 已发行 e1/e2 关全量显式声明分布字段（稀缺裁决的显式前提）
+    [Fact] // [F-025] legal+negative — 煤位字段仅出现于稀缺标记关（T-116 翻转守卫）：
+            // 非零 rock_ratio 只在 L3-2 矿脉铁轨（富煤矿），其余 E3 关显式声明 0（煤稀）
+    public void Coal_deposit_rock_ratio_lands_only_on_the_flagged_e3_level()
+    {
+        const string flaggedId = "campaign:level-e3-02"; // 矿轨关=富煤矿（e3.json _source 锚）
+        int rows = 0;
+        foreach (JsonElement row in LevelRows("levels", "e3.json"))
+        {
+            rows++;
+            string id = row.GetProperty("id").GetString()!;
+            JsonElement map = row.GetProperty("map"); // 落位后每行必有 map 块
+            Assert.True(map.TryGetProperty("rock_ratio", out JsonElement rock), $"{id}: rock_ratio 必须显式");
+
+            if (id == flaggedId)
+            {
+                Assert.Equal(0.10, rock.GetDouble(), 9); // 富煤矿 map 参数（§四表 2 同值）
+            }
+            else
+            {
+                Assert.Equal(0.0, rock.GetDouble(), 9); // 煤稀：零声明=零矿格（表 2b 通道）
+            }
+        }
+
+        Assert.Equal(4, rows); // T-116 首批 4 关（前三排期关+后续关首张）
+    }
+
+    [Fact] // [F-025] boundary — 已发行 e1/e2/e3 关全量显式声明分布字段（稀缺裁决的显式前提）
     public void Authored_levels_always_declare_their_distribution_explicitly()
     {
-        foreach (string eraFile in new[] { "e1.json", "e2.json" })
+        foreach (string eraFile in new[] { "e1.json", "e2.json", "e3.json" })
         {
             foreach (JsonElement row in LevelRows("levels", eraFile))
             {
