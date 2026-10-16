@@ -56,14 +56,20 @@ internal static class AudioContent
 // [C-25][F-135][F-137][F-138] 入库音频参数表集成断言
 public class AudioContentTests
 {
-    [Fact] // legal — the shipped BGM table is the frozen E1/E2 pair and renders all six loops
-    public void Shipped_bgm_table_renders_six_loops()
+    [Fact] // legal — the shipped BGM table is the frozen E1/E2/E3 set and renders all nine loops
+    public void Shipped_bgm_table_renders_nine_loops()
     {
         BgmProgramTable table = AudioContent.BgmPrograms();
 
-        Assert.Equal(2, table.Programs.Count);
+        Assert.Equal(3, table.Programs.Count);
         Assert.NotNull(table.Find("era1"));
         Assert.NotNull(table.Find("era2"));
+
+        BgmProgram era3 = table.Find("era3")!; // T-121 row: parallel column, timbre from the table
+        Assert.NotNull(era3);
+        Assert.Equal(BgmTimbre.Industrial, era3.Timbre);
+        Assert.Equal(BgmTimbre.Acoustic, table.Find("era1")!.Timbre);
+        Assert.Equal(BgmTimbre.Acoustic, table.Find("era2")!.Timbre);
 
         foreach (BgmProgram program in table.Programs)
         {

@@ -4,9 +4,10 @@ using Xunit;
 namespace EraCore.Tests.Audio;
 
 /// <summary>
-/// Tests of the strict BGM program-table parser (T-092, F-135): the legal
-/// E1/E2 rows, and every schema violation the loader must reject. Signal
-/// behavior of the rendered loops lives in <see cref="BgmSynthTests"/>.
+/// Tests of the strict BGM program-table parser (T-092, F-135; T-121 adds
+/// the timbre column + era3 row): the legal E1/E2/E3 rows, and every schema
+/// violation the loader must reject. Signal behavior of the rendered loops
+/// lives in <see cref="BgmSynthTests"/>.
 /// </summary>
 // [C-25][F-135] 三态 BGM 参数表：严格解析（合法/边界/非法）
 public class BgmProgramTests
@@ -20,22 +21,28 @@ public class BgmProgramTests
           "programs": [
             { "era": "era1", "tempo_bpm": 84, "root_hz": 110.0,
               "chord_intervals": [1.0, 1.5, 2.0],
-              "pad_gain": 0.3, "percussion_gain": 0.2, "bass_gain": 0.25, "hat_subdivisions": 2 },
+              "pad_gain": 0.3, "percussion_gain": 0.2, "bass_gain": 0.25, "hat_subdivisions": 2,
+              "timbre": "acoustic" },
             { "era": "era2", "tempo_bpm": 100, "root_hz": 146.83,
               "chord_intervals": [1.0, 1.26, 2.0],
-              "pad_gain": 0.3, "percussion_gain": 0.2, "bass_gain": 0.25, "hat_subdivisions": 4 }
+              "pad_gain": 0.3, "percussion_gain": 0.2, "bass_gain": 0.25, "hat_subdivisions": 4,
+              "timbre": "acoustic" },
+            { "era": "era3", "tempo_bpm": 112, "root_hz": 92.5,
+              "chord_intervals": [1.0, 1.3348, 1.4983, 2.0],
+              "pad_gain": 0.3, "percussion_gain": 0.26, "bass_gain": 0.36, "hat_subdivisions": 4,
+              "timbre": "industrial" }
           ]
         }
         """;
 
     // ---------------------------------------------------------------- legal
 
-    [Fact] // legal — the two E1/E2 rows parse with derived timing math
+    [Fact] // legal — the three E1/E2/E3 rows parse with derived timing math and their timbres
     public void Legal_table_parses_with_derived_timing()
     {
         BgmProgramTable table = BgmProgramTable.Parse(LegalJson);
 
-        Assert.Equal(2, table.Programs.Count);
+        Assert.Equal(3, table.Programs.Count);
         Assert.Equal(22050, table.SampleRateHz);
 
         BgmProgram era1 = table.Find("era1")!;
@@ -47,6 +54,12 @@ public class BgmProgramTests
 
         BgmProgram era2 = table.Find("era2")!;
         Assert.True(era2.TempoBpm > era1.TempoBpm);
+
+        BgmProgram era3 = table.Find("era3")!; // T-121 row — parallel to E1/E2, timbre from the table
+        Assert.Equal(BgmTimbre.Industrial, era3.Timbre);
+        Assert.Equal(BgmTimbre.Acoustic, era1.Timbre);
+        Assert.Equal(BgmTimbre.Acoustic, era2.Timbre);
+        Assert.True(era3.TempoBpm > era2.TempoBpm); // era progression 84 → 100 → 112
 
         Assert.Null(table.Find("era9")); // closed set — unknown era stays null, no throw
     }
@@ -117,6 +130,16 @@ public class BgmProgramTests
         Assert.Equal(new[] { 1.0, 2.5 }, program.ChordIntervals);
     }
 
+    [Theory] // boundary — the timbre column's closed set accepts both family ids
+    [InlineData("acoustic", BgmTimbre.Acoustic)]
+    [InlineData("industrial", BgmTimbre.Industrial)]
+    public void Boundary_timbre_closed_set_parses(string text, BgmTimbre expected)
+    {
+        string json = LegalJson.Replace("\"timbre\": \"industrial\"", $"\"timbre\": \"{text}\"");
+
+        Assert.Equal(expected, BgmProgramTable.Parse(json).Find("era3")!.Timbre);
+    }
+
     // -------------------------------------------------------------- illegal
 
     [Fact] // illegal — wrong content marker
@@ -131,6 +154,16 @@ public class BgmProgramTests
     public void Illegal_duplicate_era_rejected()
     {
         string json = LegalJson.Replace("\"era2\"", "\"era1\"");
+
+        Assert.Throws<EraCore.Audio.AudioSchemaException>(() => BgmProgramTable.Parse(json));
+    }
+
+    [Theory] // illegal — timbre outside the closed set / column missing
+    [InlineData("\"timbre\": \"industrial\"", "\"timbre\": \"steam\"")]
+    [InlineData("\"timbre\": \"industrial\"", "\"x\": 1")]
+    public void Illegal_timbre_rejected(string original, string mutation)
+    {
+        string json = LegalJson.Replace(original, mutation);
 
         Assert.Throws<EraCore.Audio.AudioSchemaException>(() => BgmProgramTable.Parse(json));
     }
@@ -161,13 +194,13 @@ public class BgmProgramTests
         Assert.Throws<EraCore.Audio.AudioSchemaException>(() => BgmProgramTable.Parse(json));
     }
 
-    [Fact] // illegal — program count must stay the frozen 2
+    [Fact] // illegal — program count must stay the frozen 3
     public void Illegal_program_count_rejected()
     {
         int insertAt = LegalJson.LastIndexOf(']'); // closing bracket of the programs array
         string json = LegalJson.Insert(insertAt,
-            ",{ \"era\": \"era3\", \"tempo_bpm\": 90, \"root_hz\": 120.0, \"chord_intervals\": [1.0, 1.5], " +
-            "\"pad_gain\": 0.3, \"percussion_gain\": 0.2, \"bass_gain\": 0.25, \"hat_subdivisions\": 2 }");
+            ",{ \"era\": \"era4\", \"tempo_bpm\": 90, \"root_hz\": 120.0, \"chord_intervals\": [1.0, 1.5], " +
+            "\"pad_gain\": 0.3, \"percussion_gain\": 0.2, \"bass_gain\": 0.25, \"hat_subdivisions\": 2, \"timbre\": \"acoustic\" }");
 
         Assert.Throws<EraCore.Audio.AudioSchemaException>(() => BgmProgramTable.Parse(json));
     }

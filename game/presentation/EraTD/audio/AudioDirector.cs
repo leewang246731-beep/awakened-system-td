@@ -8,7 +8,8 @@ namespace EraTD.Audio;
 // 职责边界（CS-1.6：表现层零业务规则）——本节点只做四件事：
 //   1) 内容装载：game/content/audio/ 三参数表（bgm-programs/persona-timbres/
 //      narration）；
-//   2) BGM 三态：六循环代码合成（2 时代 × 3 态，确定性；WAV 落
+//   2) BGM 三态：九循环代码合成（T-121 起 3 时代 × 3 态——era1/era2 acoustic +
+//      era3 industrial[蒸汽垫/金属打击/汽笛动机]，确定性；WAV 落
 //      res://audio/generated/ 供可听测）+ CrossFadeBus 等功率淡入淡出；现场
 //      态驱动=只读快照（场上有敌→交战；Boss 波经 SetBossWave 由波计划接线）；
 //   3) 人格语音/一次性旁白：四人格音色 token（台词 key 驱动，人格只改音色）；
@@ -16,7 +17,9 @@ namespace EraTD.Audio;
 //      + 合成音调，一次性标记经 IFileStore 入 settings/narration.json；关闭
 //      系统时军师语音降级中性旁白音色（VoiceDowngrade，OffModeDowngrade 联动）；
 //   4) 冒烟：headless 合成序列走三态迁移/四音色/两旁白/三通道音量+叮三级
-//      回归，打印 AUDIO_OK——smoke 音频段判据（失败 Quit(1)）。
+//      回归，打印 AUDIO_OK——smoke 音频段判据（失败 Quit(1)）；T-121 追加
+//      era3 段（三态分离/等功率中点/无缝循环/era3 播放器实测增益），打印
+//      AUDIO3_OK bgm=3states era=e3 loop=seamless（失败 Quit(1)）。
 // 并行纪律：Main.cs 只追加一行 Instantiate（冲突由后提交者 rebase）。
 
 /// <summary>
@@ -98,7 +101,8 @@ public sealed partial class AudioDirector : Node
         _mixer = new AudioMixer();
         _ding = GetParent().GetNode<DingAudioPlayer>("DingAudio");
 
-        // ---- BGM: render six loops, persist WAVs, start on Calm -----------
+        // ---- BGM: render nine loops (3 eras × 3 states, T-121 adds era3 industrial),
+        //      persist WAVs, start on Calm ------------------------------------
         int filesWritten = 0;
         foreach (BgmProgram program in _programs.Programs)
         {
@@ -169,6 +173,7 @@ public sealed partial class AudioDirector : Node
 
         // ---- headless acceptance --------------------------------------------
         RunAcceptance(filesWritten);
+        RunEra3Acceptance(filesWritten);
     }
 
     /// <summary>Live path: one frame poll — BGM state follows the read-only snapshot beats.</summary>
@@ -392,7 +397,7 @@ public sealed partial class AudioDirector : Node
             && personasDistinct && personaAudible && downgrade && narratorDistinct
             && openFirst && victoryFirst && replaySilent && persisted
             && busIndependent && dingRegression
-            && loops == 6 && stingers == 2 && (!editorRun || filesWritten >= 6);
+            && loops == 9 && stingers == 2 && (!editorRun || filesWritten >= 9);
 
         if (ok)
         {
@@ -418,6 +423,120 @@ public sealed partial class AudioDirector : Node
                 $"narrated={narrated} bus={busIndependent} ding={dingRegression} loops={loops} stingers={stingers}");
             GetTree().Quit(1);
         }
+    }
+
+    // ---- headless acceptance, era3 (T-121 smoke 音频段判据) -------------------
+
+    /// <summary>
+    /// E3 acceptance (T-121): the era3 industrial row is table-driven, its
+    /// three state loops render distinct and seam-balanced with LoopEnd
+    /// pinned to the exact sample count, the equal-power chain holds on the
+    /// era3 program, and the live gain path drives the era3 players through
+    /// the mid-fade point (master × √½). Prints <c>AUDIO3_OK</c> or fails
+    /// the run.
+    /// </summary>
+    private void RunEra3Acceptance(int filesWritten)
+    {
+        BgmProgram? era3 = _programs.Find("era3");
+        bool tableRow = era3 is { Timbre: BgmTimbre.Industrial };
+
+        // three distinct era3 loops + era identity against era1 (real tracks, not one)
+        byte[] calm = _bgmStreams["era3:Calm"].Data;
+        byte[] combat = _bgmStreams["era3:Combat"].Data;
+        byte[] boss = _bgmStreams["era3:Boss"].Data;
+        int distinct = new[] { calm, combat, boss }
+            .Select(Convert.ToBase64String)
+            .Distinct()
+            .Count();
+        bool eraIdentity = !calm.SequenceEqual(_bgmStreams["era1:Calm"].Data);
+
+        // loop=seamless: LoopEnd pins the loop at the exact sample count AND
+        // the halves carry balanced energy (no edge ramp ⇒ seamless wrap)
+        bool loopPinned = true;
+        bool halvesBalanced = true;
+        foreach (BgmLayerState state in Enum.GetValues<BgmLayerState>())
+        {
+            AudioStreamWav stream = _bgmStreams[$"era3:{state}"];
+            loopPinned &= stream.LoopEnd == stream.Data.Length / 2;
+            halvesBalanced &= HalfRmsRatio(stream.Data) is >= 0.75 and <= 1.35;
+        }
+
+        // equal-power transition chain on the era3 program (dedicated bus —
+        // the same CrossFadeBus the live path drives; era-agnostic math)
+        var era3Bus = new CrossFadeBus(BgmLayerState.Calm, FadeTicks());
+        long t = 0;
+        int transitions = Convert.ToInt32(era3Bus.Request(BgmLayerState.Combat, t));
+        CrossFadeGains mid = era3Bus.GainsAt(t + (FadeTicks() / 2));
+        bool equalPower = Math.Abs((mid.FromGain * mid.FromGain) + (mid.ToGain * mid.ToGain) - 1.0) < 1e-9;
+        bool midIsSqrtHalf = Math.Abs(mid.ToGain - Math.Sqrt(0.5)) < 1e-3;
+        t += FadeTicks();
+        transitions += Convert.ToInt32(era3Bus.Request(BgmLayerState.Boss, t));
+        t += FadeTicks();
+        transitions += Convert.ToInt32(era3Bus.Request(BgmLayerState.Calm, t));
+        t += FadeTicks();
+        bool chainDone = !era3Bus.IsFading(t) && era3Bus.Current == BgmLayerState.Calm;
+
+        // live path: drive the real bus so the ERA3 players take the mid-fade
+        // gains for real (0.8 master × √½ ≈ −4.94 dB), then park back on Calm
+        string previousEra = _activeEra;
+        SetActiveEra("era3");
+        long liveT = t + 1000;
+        _ = _fades.Request(BgmLayerState.Combat, liveT);
+        _smokeTick = liveT + (FadeTicks() / 2);
+        ApplyBgmGains();
+        double expectedMidDb = LinearToDb(_mixer.EffectiveGain(AudioChannel.Bgm) * Math.Sqrt(0.5));
+        bool era3PlayerGain = Math.Abs(_bgmPlayers["era3:Combat"].VolumeDb - expectedMidDb) < 0.05;
+        _ = _fades.Request(BgmLayerState.Calm, liveT + FadeTicks());
+        _smokeTick = (liveT + FadeTicks()) + FadeTicks();
+        ApplyBgmGains();
+        SetActiveEra(previousEra);
+        ApplyBgmGains();
+
+        bool editorRun = !OS.HasFeature("template"); // T-096: WAV dump is editor-only
+        bool ok = tableRow && distinct == 3 && eraIdentity && loopPinned && halvesBalanced
+            && transitions == 3 && equalPower && midIsSqrtHalf && chainDone && era3PlayerGain
+            && (!editorRun || filesWritten >= 9);
+
+        if (ok)
+        {
+            GD.Print(
+                $"AUDIO3_OK bgm=3states era=e3 loop=seamless timbre=industrial " +
+                $"transitions={transitions} equal_power=mid loops=3 distinct={distinct} " +
+                $"halves=balanced loop_end=pinned whistle=long+reprise+faint2 " +
+                $"clangs=8 rivets=32 fade={FadeSeconds:0.#}s player_gain=mid-db " +
+                $"eras={_programs.Programs.Count} files={filesWritten} source=procedural");
+        }
+        else
+        {
+            GD.PushError(
+                "era3 audio acceptance failed: " +
+                $"table_row={tableRow} distinct={distinct} era_identity={eraIdentity} " +
+                $"loop_pinned={loopPinned} halves={halvesBalanced} transitions={transitions} " +
+                $"equal_power={equalPower} mid={midIsSqrtHalf} chain={chainDone} " +
+                $"player_gain={era3PlayerGain} files={filesWritten}");
+            GD.Print(
+                $"AUDIO3_FAIL era3 distinct={distinct} transitions={transitions} " +
+                $"equal_power={equalPower} seam={loopPinned && halvesBalanced} table_row={tableRow}");
+            GetTree().Quit(1);
+        }
+    }
+
+    /// <summary>RMS ratio of the second loop half over the first (seamless-wrap balance probe).</summary>
+    private static double HalfRmsRatio(byte[] pcm)
+    {
+        int samples = pcm.Length / 2;
+        int half = samples / 2;
+        double head = 0.0;
+        double tail = 0.0;
+        for (int i = 0; i < half; i++)
+        {
+            short a = (short)(pcm[2 * i] | (pcm[(2 * i) + 1] << 8));
+            short b = (short)(pcm[2 * (i + half)] | (pcm[(2 * (i + half)) + 1] << 8));
+            head += (double)a * a;
+            tail += (double)b * b;
+        }
+
+        return Math.Sqrt(tail / Math.Max(head, 1.0));
     }
 
     private void LoadContent()

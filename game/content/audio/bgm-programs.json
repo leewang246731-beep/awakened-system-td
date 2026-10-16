@@ -1,7 +1,7 @@
 {
-  "$schema": "urn:eratd:content:audio:bgm-programs:1",
+  "$schema": "urn:eratd:content:audio:bgm-programs:2",
   "content_type": "BgmProgramTable",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-092 三态 BGM 合成参数表（F-135 E1/E2 薄版）：每时代一行；三态=同和弦垫底的累积分层（calm=环境垫/combat=+鼓点/boss=+低音，§14 三态分层），交叠期由 CrossFadeBus 等功率淡入淡出。全部频率在合成时按整数周期/循环量化，保证循环无缝与跨机确定可听测。",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-092 三态 BGM 合成参数表（F-135），v2（T-121）加 timbre 列与 era3 行：每时代一行；三态=同和弦垫底的累积分层（calm=环境垫/combat=+鼓点/boss=+低音，§14 三态分层），交叠期由 CrossFadeBus 等功率淡入淡出。timbre=音色族封闭集：acoustic=T-092 原声鼓组（E1/E2）；industrial=E3 工业音景（31 号视觉身份卡：蒸汽垫底低频脉冲+微汽笛 / 金属打击+铆钉动机 / 重工业低音+汽笛长鸣动机）。全部音调分量按整数周期/循环量化，事件按拍网格放置，保证循环无缝与跨机确定可听测。",
   "sample_rate_hz": 22050,
   "loop_bars": 4,
   "beats_per_bar": 4,
@@ -14,7 +14,8 @@
       "pad_gain": 0.34,
       "percussion_gain": 0.20,
       "bass_gain": 0.24,
-      "hat_subdivisions": 2
+      "hat_subdivisions": 2,
+      "timbre": "acoustic"
     },
     {
       "era": "era2",
@@ -24,7 +25,19 @@
       "pad_gain": 0.32,
       "percussion_gain": 0.22,
       "bass_gain": 0.26,
-      "hat_subdivisions": 4
+      "hat_subdivisions": 4,
+      "timbre": "acoustic"
+    },
+    {
+      "era": "era3",
+      "tempo_bpm": 112,
+      "root_hz": 92.5,
+      "chord_intervals": [1.0, 1.3348, 1.4983, 2.0],
+      "pad_gain": 0.30,
+      "percussion_gain": 0.26,
+      "bass_gain": 0.36,
+      "hat_subdivisions": 4,
+      "timbre": "industrial"
     }
   ]
 }

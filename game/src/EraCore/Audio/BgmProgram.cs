@@ -17,15 +17,32 @@ public sealed class AudioSchemaException : Exception
 }
 
 /// <summary>
+/// Instrument family of one era's program (T-121): the closed timbre set the
+/// synthesizer renders. <c>Acoustic</c> = the T-092 voice set (detuned sine
+/// pad / kick-snare-hat / soft-clipped bass); <c>Industrial</c> = the E3
+/// soundscape of the 31 号 visual identity card — 蒸汽垫底低频脉冲+微汽笛 /
+/// 金属打击+铆钉动机 / 重工业低音+汽笛长鸣动机.
+/// </summary>
+public enum BgmTimbre
+{
+    /// <summary>E1/E2 — the T-092 acoustic voice set.</summary>
+    Acoustic = 0,
+
+    /// <summary>E3 工业 — steam pad + metal percussion + whistle motif.</summary>
+    Industrial = 1,
+}
+
+/// <summary>
 /// One era's three-state BGM program (T-092, F-135 E1/E2 薄版, v3.2 §14
 /// 三态分层): the harmonic facts the deterministic synthesizer renders the
 /// three cumulative layers from — calm = 环境垫底 (detuned sine pad over the
 /// chord), combat = +鼓点 (kick/snare/hat on the beat grid), boss = +低音
 /// (soft-clipped low note per bar). Pure data parsed strictly from
 /// <c>game/content/audio/bgm-programs.json</c>; every timing fact is derived,
-/// never stored twice.
+/// never stored twice. T-121 adds the <paramref name="Timbre"/> column so the
+/// E3 industrial voice set is a table row, parallel to E1/E2 — not code.
 /// </summary>
-/// <param name="Era">Era id (<c>era1</c>/<c>era2</c>).</param>
+/// <param name="Era">Era id (<c>era1</c>/<c>era2</c>/<c>era3</c>).</param>
 /// <param name="TempoBpm">Tempo in beats per minute (40~200).</param>
 /// <param name="RootHz">Chord root fundamental in Hz (55~440).</param>
 /// <param name="ChordIntervals">Chord ratios over the root, ascending, first = 1.0.</param>
@@ -36,6 +53,7 @@ public sealed class AudioSchemaException : Exception
 /// <param name="SampleRateHz">Render sample rate (table-wide).</param>
 /// <param name="LoopBars">Loop length in bars (table-wide).</param>
 /// <param name="BeatsPerBar">Beats per bar (table-wide).</param>
+/// <param name="Timbre">Instrument family (T-121 column; default keeps the T-092 acoustic voice set for direct constructions).</param>
 public sealed record BgmProgram(
     string Era,
     double TempoBpm,
@@ -47,7 +65,8 @@ public sealed record BgmProgram(
     int HatSubdivisions,
     int SampleRateHz,
     int LoopBars,
-    int BeatsPerBar)
+    int BeatsPerBar,
+    BgmTimbre Timbre = BgmTimbre.Acoustic)
 {
     /// <summary>One beat in seconds.</summary>
     public double BeatSec => 60.0 / TempoBpm;
@@ -67,21 +86,22 @@ public sealed record BgmProgram(
 
 /// <summary>
 /// Strict parser of the BGM program table (schema
-/// <c>urn:eratd:content:audio:bgm-programs:1</c>): closed marker, bounded
-/// globals, unique era ids, ascending chords rooted at 1.0, gains in (0, 1].
-/// E1/E2 thin slice = exactly the two eras of the card (frozen count —
-/// E3+ lands with T-121 by appending rows here, never in code).
+/// <c>urn:eratd:content:audio:bgm-programs:2</c> — v2 adds the per-row
+/// <c>timbre</c> column and the era3 row, T-121): closed marker, bounded
+/// globals, unique era ids, ascending chords rooted at 1.0, gains in (0, 1],
+/// closed timbre set. E1/E2/E3 = exactly the three eras of the card (frozen
+/// count — E4+ lands by appending rows here, never in code).
 /// </summary>
 public sealed class BgmProgramTable
 {
     /// <summary>Content schema URN of the BGM program table.</summary>
-    public const string SchemaUrn = "urn:eratd:content:audio:bgm-programs:1";
+    public const string SchemaUrn = "urn:eratd:content:audio:bgm-programs:2";
 
     /// <summary>Content type marker the loader requires.</summary>
     public const string ContentTypeMarker = "BgmProgramTable";
 
-    /// <summary>Frozen program count of the T-092 card (era1+era2; E3+ = T-121).</summary>
-    public const int ProgramCount = 2; // ci-allow: R7 T-092 冻结口径=E1/E2 两时代（08 任务卡），E3 起由 T-121 扩表
+    /// <summary>Frozen program count of the T-121 card (era1+era2+era3; E4+ = later table extension).</summary>
+    public const int ProgramCount = 3; // ci-allow: R7 T-121 冻结口径=E1/E2/E3 三时代（08 任务卡），E4 起扩表改本常量（3<10 永不入锚点集，防御性标注）
 
     private readonly Dictionary<string, BgmProgram> _byEra;
 
@@ -157,7 +177,7 @@ public sealed class BgmProgramTable
         if (programsEl.GetArrayLength() != ProgramCount)
         {
             throw new AudioSchemaException(
-                $"{sourceName}: programs 必须 {ProgramCount} 行（T-092 冻结=E1/E2；扩时代走 T-121 改表）");
+                $"{sourceName}: programs 必须 {ProgramCount} 行（T-121 冻结=E1/E2/E3；扩时代走改表+本常量）");
         }
 
         var programs = new List<BgmProgram>(ProgramCount);
@@ -236,9 +256,18 @@ public sealed class BgmProgramTable
                 throw new AudioSchemaException($"{sourceName}: {era} hat_subdivisions={hatSubdivisions} 越界（1~8）");
             }
 
+            string timbreText = RequireString(row, "timbre", sourceName);
+            BgmTimbre timbre = timbreText switch
+            {
+                "acoustic" => BgmTimbre.Acoustic,
+                "industrial" => BgmTimbre.Industrial,
+                _ => throw new AudioSchemaException(
+                    $"{sourceName}: {era} timbre={timbreText} 不在封闭集（acoustic|industrial）"),
+            };
+
             programs.Add(new BgmProgram(
                 era, tempo, rootHz, intervals, padGain, percussionGain, bassGain,
-                hatSubdivisions, sampleRate, loopBars, beatsPerBar));
+                hatSubdivisions, sampleRate, loopBars, beatsPerBar, timbre));
         }
 
         return new BgmProgramTable(sampleRate, loopBars, beatsPerBar, programs);
