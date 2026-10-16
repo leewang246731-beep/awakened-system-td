@@ -95,6 +95,15 @@ public sealed record BuildCostPolicy(
 /// load-rate ladder risks (E1/E2: era.json risk_events=false) and the
 /// energy ledger is constructed exactly as before (bit-identical hashes).
 /// </param>
+/// <param name="RadiationZoneHpDecayPerSecond">
+/// Per-second HP decay of enemies standing inside an E4 meltdown radiation
+/// zone (T-123 world consumer; data-side = era4.json
+/// <c>energy.meltdown.consequences.radiation_zone_hp_decay_per_s</c> =
+/// 5, [NEW-T-123] derivation 300÷60 — the E3 overheat enemy-hit budget
+/// smoothed over the SP-4 60 s ground-pollution window). Default 0 = the
+/// decay batch is off (E1~E3 callers stay bit-identical — no zone ever
+/// exists without a meltdown outcome anyway).
+/// </param>
 public sealed record SimulationConfig(
     int Width,
     int Height,
@@ -117,4 +126,5 @@ public sealed record SimulationConfig(
     double RuinRepairCostFraction = 0.30,
     bool ProjectileTwinsEnabled = false,
     int WarehouseLevel = 1,
-    EnergyRiskTuning? EnergyRisk = null);
+    EnergyRiskTuning? EnergyRisk = null,
+    double RadiationZoneHpDecayPerSecond = 0.0);

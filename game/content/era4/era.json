@@ -1,0 +1,175 @@
+{
+  "$schema": "urn:eratd:content:era:1",
+  "content_type": "Era",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E4 时代行锚点=v3.2 §4 L61（docs/我在游戏觉醒系统-游戏设计方案.md）+§4 能源阶梯行/跨代资源行+§5 L78~L79（物流阶梯、仓库等级）；格式先例=era1/era.json（T-049）+era2/era.json（T-079）+era3/era.json（T-112）",
+  "items": [
+    {
+      "id": "era4:era-modern",
+      "content_type": "Era",
+      "era_index": 4,
+      "name_zh": "现代",
+      "name_en": "Modern",
+      "aliases": ["E4", "现代", "现代时代"],
+      "resources": [
+        { "id": "era4:res-oil", "name_zh": "石油", "name_en": "Oil" },
+        {
+          "id": "era3:res-coal",
+          "name_zh": "煤",
+          "name_en": "Coal",
+          "legacy_refresh": { "from_era": 3, "abundance_multiplier": 0.5 }
+        },
+        {
+          "id": "era2:res-iron",
+          "name_zh": "铁",
+          "name_en": "Iron",
+          "legacy_refresh": { "from_era": 3, "abundance_multiplier": 0.5 }
+        },
+        { "id": "era4:res-electronics", "name_zh": "电子", "name_en": "Electronics" },
+        { "id": "era4:res-concrete", "name_zh": "混凝土", "name_en": "Concrete" }
+      ],
+      "_resources_note": "§4 L61 E4 资源=石油/电子/混凝土（本代行三资源：石油=本代新矿（油田）；电子/混凝土=炼链制品（era4/recipes.json era4:recipe-electronics / era4:recipe-concrete 的输出件，非原料——SupplyChain one key one meaning，era3『钢』同款分立先例））。煤+铁=上代（E3）2 种基础资源传承刷新（§4 跨代资源行『上代 2 种基础资源刷新（丰度 ×0.5）』：E3 基础二资源=煤/铁，钢=制品不入刷新对；铁连续第二代刷新（E2→E3→E4），from_era 逐代表记紧邻前代；E1 木材/石料、E2 铜/粮/马不再续刷——『上代』=紧邻前代 E3）。无用途旧资源 3:1 折算文明基金不发生在本行内（见 legacy/era_transition.json levy，E3→E4 扩展=T-125 遗迹映射正式版域）",
+      "energy": {
+        "type": "grid",
+        "name_zh": "电网",
+        "levels": [
+          { "tier": 1, "name_zh": "柴油发电机", "output": 1000, "_new": true },
+          { "tier": 2, "name_zh": "燃气轮机", "output": 4000, "_new": true },
+          {
+            "tier": 3,
+            "name_zh": "核电站",
+            "output": 20000,
+            "dangerous_position": {
+              "confirm_class": "build_confirm",
+              "requires_confirm": true,
+              "never_auto_allow": true
+            },
+            "_new": true,
+            "_dangerous_position_source": "§11.4/F.4 危险位先例（v3.2 L130 SellTower{confirm_sell:true,永不自动允许}/BuildPlan{confirm_overwrite 强制 Ask}；ApprovalGate.DangerBits 同族规则驱动表）——核电站=首个数据侧危险建筑位：系统 BuildPlan 建造须玩家确认、永不入关卡级自动允许清单（熔毁后果的建筑位前置闸）。数据位先行（T-123），宿主管线接线=T-124 战役制作",
+            "_new_fields": ["dangerous_position"]
+          }
+        ],
+        "ladder_multiplier_min": 3.0,
+        "ladder_multiplier_max": 5.0,
+        "risk_events": true,
+        "risk": {
+          "kind": "overheat_explosion",
+          "name_zh": "过热爆炸",
+          "trigger": {
+            "overload_threshold_percent": 100,
+            "sustained_s": 30,
+            "heat_capacity": 100
+          },
+          "heat_dynamics": {
+            "gain_per_s_overloaded": 2,
+            "overload_step_percent": 10,
+            "bonus_gain_per_s_per_extra_10pct_overload": 1,
+            "decay_per_s_unloaded": 5,
+            "min_seconds_to_full_heat_at_sustained_overload": 50
+          },
+          "explosion_radius_cells": 4,
+          "consequences": {
+            "building_damage_fraction_of_max_hp": 0.5,
+            "enemy_damage": 300,
+            "culprit_outage_s": 60,
+            "culprit_degraded_output_fraction": 0.5,
+            "culprit_degraded_duration_s": 30
+          },
+          "_source": "SP-4 L146『E3 过热爆炸』行全值（docs/engineering/11-spec-tables.md 表体 [NEW-原型校准]，已定案待 Wave 1 金样回归校准）——适用代=E3 起（SP-4 L142），E4 电网（柴油/燃气档）沿用同表：触发=负载率 ≥100% 连续 30 s 且热量槽达 100；热量槽过热期 +2/s、负载率每 +10% 追加 +1/s、卸载后 −5/s 回落，0→100 需 ≥50 s；爆炸半径 4 格；后果=对建筑其最大 HP×50%、对敌 300 伤害、肇事发电机停机 60 s 后以 50% 功率运行 30 s。世界层消费（AOE 落格）=T-123 EnergyRiskWorldConsumer（Sim 第 (2) 段接线）；配套口径③（SP-4 L150）：阈值入内容数据禁止硬编码（RL7；T-113 引擎侧读本行）"
+        },
+        "meltdown": {
+          "kind": "meltdown",
+          "name_zh": "熔毁",
+          "trigger": {
+            "overload_threshold_percent": 120,
+            "sustained_s": 20,
+            "instant_threshold_percent": 150
+          },
+          "countdown_s": 45,
+          "interrupt": { "unload_percent": 30 },
+          "coolant_required": true,
+          "explosion_radius_cells": 6,
+          "consequences": {
+            "building_damage_fraction_of_max_hp": 0.8,
+            "culprit_permanently_destroyed": true,
+            "radiation_zone_s": 60,
+            "radiation_enemy_slow_percent": 25,
+            "radiation_zone_hp_decay_per_s": 5,
+            "wreck_recovery_cost_fraction": 0.3
+          },
+          "_source": "SP-4 L147『E4 熔毁』行全值（[NEW-原型校准] 已定案）——触发=负载率 ≥120% 连续 20 s，或瞬时 ≥150%；熔毁倒计时 45 s：卸载 ≥30% 负载可中断；半径 6 格；后果=该发电建筑永久损毁成残骸（修复口径=原成本×30% 追回，联动 §十①/F-004）+半径内建筑受最大 HP×80%+地面污染 60 s（过境敌 −25% 速度）。coolant_required=true=T-113 任务卡『断冷→熔毁』通道（SP-4 未列冷却液行，[NEW-T-113]）。radiation_zone_hp_decay_per_s=5 为 [NEW-T-123]：E3 过热对敌 300（SP-4 L146 后果锚）÷ 地面污染 60 s（SP-4 L147）= 5 点/s 均摊预算（全程滞留区内的对敌总伤=E3 过热门檔；世界层消费=T-123 EnergyRiskWorldConsumer 辐射区 tick，经 SimulationConfig.RadiationZoneHpDecayPerSecond 注入）；热/熔毁双通道共用 EnergyRiskTuning（T-113 框架，Overheat 行必选+Meltdown 行 E4 起挂入）"
+        }
+      },
+      "logistics": {
+        "tier": 3,
+        "carrier": "conveyor_belt",
+        "carrier_zh": "传送带",
+        "throughput_items_per_s": 15.0,
+        "ladder_items_per_s": [0.3, 0.6, 10.0, 15.0, 20.0, null],
+        "truck": {
+          "available": true,
+          "name_zh": "卡车",
+          "name_en": "Truck"
+        },
+        "_ladder_note": "末位 null=∞（v3.2 §5 L78 物流阶梯 0.3→0.6→10→15→20→∞ 件/s；E4 处于第 3 档=传送带 15/s）。§4 L61 E4 行『传送带 15/s、卡车』——卡车=现代机动补充运输形态（trip 类，对位 E2 马车/era2 aqueduct 先例：并列第二形态，运力细则无文档锚点，数据位先行 _new，实现随 T-124 战役宿主）",
+        "_truck_source": "v3.2 §4 L61『传送带 15/s、卡车』逐字点位（卡车与传送带并列书写）"
+      },
+      "warehouse_level": 4,
+      "towers": [
+        "era4:tower-missile",
+        "era4:tower-laser",
+        "era4:tower-radar",
+        "era4:tower-mine"
+      ],
+      "_towers_note": "§4 L61 塔防特色=导弹塔/激光塔/雷达（三塔对齐 era4/towers.json 实存行；定类=SP-1b L49~L51 预归类经 T-123 章节设计复核追认：导弹塔=溅射、激光塔=能量（六类中唯一 E4 首发类）、雷达=支援——round 2 处置 #9 挂接的 E4 归类复核于本行落定）。era4:tower-mine（地雷）=T-123 章节设计新增行（任务卡 E4 塔组第 4 位，E1 陷阱『一次性触发』行形对位、面封锁利基 tier_line=specialization；v3.2 §4 特色列不点名，[NEW-T-123]）——本数组与 towers.json ids 恰等",
+      "boss": {
+        "enemy_id": "era4:enemy-boss",
+        "name_zh": "夜枭",
+        "name_en": "Night Owl",
+        "hp": 20000,
+        "armor": 22
+      },
+      "system_stage": "multicore",
+      "system_stage_zh": "多核期",
+      "system_stage_features": ["patrol_subagents", "another_voice_hook"],
+      "_system_stage_note": "§4 L61 系统形态=多核期（巡逻子代理；『另一个声音』钩子）——patrol_subagents=巡逻子代理（SpawnScout 多路并发域，实装=T-124+）、another_voice_hook=『另一个声音』主线钩子（T-127 叙事段）；19 动作封闭清单无 E4 新动词（ActionCatalog 全体 UnlockEra≤E2，三源矩阵见 Era4ContentTests），多核期=执行形态升级非动作扩员（era3 自主期同款注记）",
+      "_new": true,
+      "_new_fields": [
+        "energy.levels[0].output",
+        "energy.levels[1].output",
+        "energy.levels[2].output",
+        "energy.levels[2].dangerous_position",
+        "energy.risk",
+        "energy.meltdown",
+        "logistics.truck"
+      ],
+      "_source": "v3.2 §4 L61 E4 行（资源=石油/电子/混凝土；能源=电网；物流=传送带 15/s、卡车；塔防特色=导弹塔/激光塔/雷达；Boss=夜枭 HP20000/甲22；系统形态=多核期）+§4 能源阶梯行（×3~5/级；E4 熔毁=SP-4 负载率类阶梯风险）+§4 跨代资源行（上代 2 种基础资源刷新 丰度 ×0.5）+§5 L78~L79（物流阶梯 E4=第 3 档 15；仓库等级跃迁自动 +1：E3=3→E4=4）——能源 L1=1000（柴油）/L2=4000（燃气）/L3=20000（核电）为 T-123 任务卡锚点（倍率 4000/1000=4、20000/4000=5 均 ∈[3,5]，v3.2 未定逐级绝对值，_new 待原型校准）；energy.risk 全值=SP-4 L146 表体（沿用行）；energy.meltdown 全值=SP-4 L147 表体+coolant_required [NEW-T-113]+radiation_zone_hp_decay_per_s [NEW-T-123]（推导式见块内 _source）；Boss HP/甲为 §4 逐字锚点（与 era4/enemies.json e4_boss 行同值，不得漂移）",
+      "_units": {
+        "energy_output": "energy_points_per_second",
+        "throughput_items_per_s": "items_per_second",
+        "abundance_multiplier": "fraction_of_e3_abundance",
+        "hp": "points",
+        "armor": "points",
+        "warehouse_level": "levels",
+        "overload_threshold_percent": "percent",
+        "sustained_s": "seconds",
+        "heat_capacity": "heat_points",
+        "gain_per_s_overloaded": "heat_points_per_second",
+        "decay_per_s_unloaded": "heat_points_per_second",
+        "min_seconds_to_full_heat_at_sustained_overload": "seconds",
+        "explosion_radius_cells": "cells",
+        "building_damage_fraction_of_max_hp": "fraction_of_max_hp",
+        "enemy_damage": "points",
+        "culprit_outage_s": "seconds",
+        "culprit_degraded_output_fraction": "fraction_of_rated_output",
+        "culprit_degraded_duration_s": "seconds",
+        "instant_threshold_percent": "percent",
+        "countdown_s": "seconds",
+        "unload_percent": "percent",
+        "radiation_zone_s": "seconds",
+        "radiation_enemy_slow_percent": "percent",
+        "radiation_zone_hp_decay_per_s": "points_per_second",
+        "wreck_recovery_cost_fraction": "fraction_of_original_cost"
+      }
+    }
+  ]
+}

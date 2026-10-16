@@ -38,14 +38,28 @@ public enum SimBuildingKind
 /// owning subsystems (occupancy in GridWorld, towers in BuildingRegistry);
 /// this list only pins a deterministic iteration order for hashing and
 /// snapshot views — dictionaries are never iterated.
+/// <para>
+/// T-123 (energy-risk world consumer): the optional <see cref="MaxHp"/> pins
+/// the blast-damage denominator (SP-4 后果列=「其最大 HP×fraction」—— damage
+/// reads MAX, not the current row, so overlapping blasts take the same bite).
+/// Every pre-T-123 call site leaves it null and reads back its own
+/// <see cref="Hp"/> (construction hp = max hp — the E1..E3 rows are never
+/// damaged); only risk blasts write sub-max rows.
+/// </para>
 /// </summary>
+/// <param name="MaxHp">Hit-point ceiling; null = the placement hp (undamaged row).</param>
 public sealed record SimBuilding(
     EntityId Id,
     string ContentId,
     CellCoord Cell,
     int Hp,
     int Tier,
-    SimBuildingKind Kind);
+    SimBuildingKind Kind,
+    int? MaxHp = null)
+{
+    /// <summary>Hit-point ceiling of this row (the placement hp when never damaged).</summary>
+    public int MaxHpResolved => MaxHp ?? Hp;
+}
 
 /// <summary>
 /// One placed weapon tower with its firing loop (C-09 reuse, C-12 wiring).
@@ -232,6 +246,16 @@ public sealed class Simulation
     private long _kills;
     private long _shotsLanded;
 
+    // T-123 (F-010, W6-exit P1「AOE 消费面」清账): world-layer consumer of the
+    // energy-risk outcomes — blasts (buildings/enemies) and the E4 radiation
+    // zones. The ledger is position-free (C-08), so this map pins every
+    // producer node's anchor cell at registration (the labor-camp build verb
+    // is the Sim's only producer site) and the cursor drains the ledger's
+    // append-only RiskEvents queue exactly once per outcome.
+    private readonly EnergyRiskWorldConsumer _riskWorld;
+    private readonly Dictionary<EnergyNodeId, CellCoord> _producerCells = new();
+    private int _riskEventsConsumed;
+
     /// <summary>
     /// Builds the whole level from one config and one seeded rng stream:
     /// the rng is reseeded with <paramref name="seed"/> (IRng replay
@@ -287,6 +311,15 @@ public sealed class Simulation
         {
             throw new ArgumentException(
                 $"FlowFrameBudgetMs must be finite and positive (got {config.FlowFrameBudgetMs}).", nameof(config));
+        }
+
+        // T-123: the radiation-zone HP-decay channel (era4.json content seam) —
+        // hostile values fail at construction, never mid-run.
+        if (!double.IsFinite(config.RadiationZoneHpDecayPerSecond) || config.RadiationZoneHpDecayPerSecond < 0)
+        {
+            throw new ArgumentException(
+                $"RadiationZoneHpDecayPerSecond must be finite and non-negative (got {config.RadiationZoneHpDecayPerSecond}).",
+                nameof(config));
         }
 
         if (config.EconomyBuildingHp < 1)
@@ -350,6 +383,10 @@ public sealed class Simulation
         _ledger = new EnergyLedger(
             _clock,
             risk: config.EnergyRisk is null ? null : new EnergyRiskEngine(config.EnergyRisk));
+        // T-123: the world-layer risk consumer (blast + radiation zones); the
+        // decay channel arrives from content (era4.json → config, validated
+        // above with the other config rows).
+        _riskWorld = new EnergyRiskWorldConsumer(TicksPerSecond, config.RadiationZoneHpDecayPerSecond);
         _registry = new BuildingRegistry(_world);
         _registry.AttachToWorld();
         _flowGrid = new SimFlowGrid(_registry, _world);
@@ -481,6 +518,16 @@ public sealed class Simulation
     public TowerSupplyMonitor SupplyMonitor => _supplyMonitor;
 
     /// <summary>
+    /// World-layer consumer of the energy-risk outcomes (T-123, F-010 —
+    /// W6-exit P1「AOE 消费面」清账): blasts settle through
+    /// <see cref="EnergyRiskWorldConsumer.ApplyBlast"/> inside the phase-(2)
+    /// drain, the E4 radiation zones live on its
+    /// <see cref="EnergyRiskWorldConsumer.RadiationZones"/> list (read seam
+    /// for hosts/presentation; empty unless a meltdown fired).
+    /// </summary>
+    public EnergyRiskWorldConsumer RiskWorld => _riskWorld;
+
+    /// <summary>
     /// Looks up the AUTHORITATIVE magazine of one placed tower (T-053 DEBT ①,
     /// 弹匣单源): the Supply-side <see cref="TowerMagazine"/> porters unload
     /// into — its <c>ItemsAccepted</c>/<c>CumulativeShotsDelivered</c> counters
@@ -553,7 +600,16 @@ public sealed class Simulation
         //     肇事机停机/降载/注销在账本内生效，AOE/辐射区负载入
         //     Ledger.RiskEvents 供世界层应用). Teleporter lanes read
         //     the settled satisfaction in phase (4).
+        //     T-123 (W6-exit P1 清账): the world-layer consumption now drains
+        //     those outcomes right here — blasts settle on buildings/enemies
+        //     and E4 meltdowns spawn the radiation zone — followed by the
+        //     per-tick zone pass (slow + HP decay) BEFORE the unit layer's
+        //     ResolveSpeedEffects of phase (6), so the debuff bites the same
+        //     tick it stands in. A level without a risk table never fires an
+        //     outcome and never holds a zone: both passes are strict no-ops
+        //     and the E1~E3 hash/orchestration is bit-identical.
         _ledger.Settle();
+        ConsumeRiskOutcomes(tick);
 
         // (3) Economy: harvest into yard piles, craft ammo in converters —
         //     backpressure lives inside the subsystems.
@@ -746,6 +802,15 @@ public sealed class Simulation
         hash = Mix(hash, (ulong)_clock.Tick);
         hash = Mix(hash, (ulong)_world.ComputeMapHash());
         hash = Mix(hash, (ulong)_ledger.ComputeStateHash());
+        // T-123: the risk world consumer's live radiation zones fold into
+        // the hash ONLY when one exists (absent zones contribute nothing —
+        // E1~E3-without-meltdown runs stay bit-identical, teleporter/hero
+        // precedent). Blast damage itself is already covered: the struck
+        // building rows and unit hp/shield bits hash below.
+        if (_riskWorld.RadiationZones.Count > 0)
+        {
+            hash = Mix(hash, (ulong)_riskWorld.ComputeStateHash());
+        }
         hash = Mix(hash, (ulong)_stock.ComputeStateHash());
 
         hash = Mix(hash, (ulong)_groups.Producers.Count);
@@ -1187,8 +1252,9 @@ public sealed class Simulation
             {
                 var id = new EntityId(_nextBuildingId++);
                 _world.RegisterOccupancy(id, new[] { cell });
-                _ledger.RegisterProducer(
-                    new EnergyNodeId(LaborCampNodeBase + _laborCampNodes++), EnergyNodeKind.LaborCamp);
+                var node = new EnergyNodeId(LaborCampNodeBase + _laborCampNodes++);
+                _ledger.RegisterProducer(node, EnergyNodeKind.LaborCamp);
+                _producerCells.Add(node, cell); // T-123: blast anchor of this producer node
                 _groups.Buildings.Add(new SimBuilding(
                     id, "era1:building-labor-camp", cell, _config.EconomyBuildingHp, 1, SimBuildingKind.LaborCamp)); // T-067: 分组注册
             });
@@ -1882,6 +1948,47 @@ public sealed class Simulation
                 ProjectileTwinSpeedPxPerTick,
                 ProjectileTwinLifetimeTicks));
         }
+    }
+
+    /// <summary>
+    /// Phase-(2) drain of the ledger's energy-risk outcomes (T-123, F-010 —
+    /// the W6-exit deferred AOE consumption, now wired): every outcome the
+    /// ledger appended since the last step is settled onto the world exactly
+    /// once — the blast (E3 overheat AND E4 meltdown share the path:
+    /// buildings inside the radius take the max-HP fraction, enemies the
+    /// flat damage through the single <see cref="Unit.ApplyDamage"/>
+    /// pipeline) anchored at the culprit producer's registered cell, then a
+    /// positive radiation duration spawns the E4 zone. The per-tick zone
+    /// pass (slow re-arm + HP-decay batch + pruning) follows, still ahead
+    /// of the phase-(6) speed resolve. An unresolvable culprit node is a
+    /// wiring bug and throws — the ledger only fires on producers the Sim
+    /// itself registered, so a miss means the anchor map lost an entry
+    /// (same standing as the T-113 null-culprit throw).
+    /// </summary>
+    private void ConsumeRiskOutcomes(long tick)
+    {
+        var events = _ledger.RiskEvents;
+        while (_riskEventsConsumed < events.Count)
+        {
+            EnergyRiskOutcome outcome = events[_riskEventsConsumed++];
+            if (!_producerCells.TryGetValue(outcome.Culprit, out CellCoord? anchor))
+            {
+                throw new InvalidOperationException(
+                    $"Energy risk outcome at tick {tick} (culprit node {outcome.Culprit.Value}) has no registered anchor cell — the producer map is incomplete.");
+            }
+
+            _ = _riskWorld.ApplyBlast(
+                outcome,
+                tick,
+                anchor,
+                _groups.Buildings,
+                (index, damaged) => _groups.Buildings.ReplaceAt(index, damaged),
+                _groups.Units,
+                onKill: _ => _kills++);
+            _ = _riskWorld.SpawnZone(outcome, anchor, tick);
+        }
+
+        _riskWorld.TickZones(tick, _groups.Units, onKill: _ => _kills++);
     }
 
     /// <summary>

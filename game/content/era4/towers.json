@@ -1,0 +1,168 @@
+{
+  "$schema": "urn:eratd:content:building:1",
+  "content_type": "Building",
+  "era": "era4:era-modern",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；数值锚点出处见各 item 的 _source 字段（T-123；格式先例=era1/towers.json T-049+era2/towers.json T-065+era3/towers.json T-112）；F.5 基准表仅钉 E2 行——E4 全部数值为 F.5 类推锚带 [NEW]（标注推导式），待原型校准",
+  "ammo_convention": {
+    "shots_per_ammo_item": 10,
+    "_source": "v3.2 §5 L78「1 件弹药 = 10 发」（docs/我在游戏觉醒系统-游戏设计方案.md）"
+  },
+  "items": [
+    {
+      "id": "era4:tower-missile",
+      "content_type": "Building",
+      "class": "splash",
+      "name_zh": "导弹塔",
+      "name_en": "Missile Tower",
+      "aliases": ["导弹塔", "导弹", "导弹发射塔", "missile tower", "missile"],
+      "tier": 1,
+      "max_tier": 2,
+      "upgrades_to": "era4:tower-laser",
+      "tier_line": "standard",
+      "cost_total": 810,
+      "dps": 480.0,
+      "damage_per_shot": 160,
+      "reload_ticks": 10,
+      "range_cells": 10.0,
+      "hp": 640,
+      "ammo_item": "era4:ammo-missile",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "splash_radius_cells": 2.5
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item", "traits.splash_radius_cells"],
+      "_source": "定类锚点 SP-1b L49「E4 导弹塔=溅射（预归类 [NEW-章节设计复核]）」——T-123 复核追认（精确打击面伤害职责：密集群；溅射边缘保底 40% 引擎侧 Damage.SplashDecay）。标准线 T1（upgrades_to=激光塔）。F.5 类推锚带 [NEW]：成本 810=E3 T1 270×3（跨代基点步恰一级 ×3 阶梯，E2 对 E1 同式重演 30→90、E3 对 E2 90→270）；DPS 480=E3 标准线 T2 终点 480（跨代基点=前代标准线终点——新时代 T1 不弱于前代任何塔，E2→E3 同性质）；射程 10.0=E3 T1 8.0×1.25（半格网格合法值）；单发/攻速拆分 d=160@3 发/s（reload 10 ticks@30 Hz，160×30/10=480 自洽）→ [NEW]；AOE 半径 2.5 格 [NEW]（＞E3 臼炮 2.0——精确打击制导档）；hp/弹药件（导弹=era4:ammo-missile）无文档锚点 → _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points",
+        "splash_radius_cells": "cells"
+      }
+    },
+    {
+      "id": "era4:tower-laser",
+      "content_type": "Building",
+      "class": "energy",
+      "name_zh": "激光塔",
+      "name_en": "Laser Tower",
+      "aliases": ["激光塔", "激光", "镭射塔", "laser tower", "laser"],
+      "tier": 2,
+      "max_tier": 2,
+      "tier_line": "standard",
+      "cost_total": 2430,
+      "dps": 960.0,
+      "damage_per_shot": 96,
+      "reload_ticks": 3,
+      "range_cells": 12.5,
+      "hp": 760,
+      "ammo_item": "era4:ammo-capacitor",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "armor_pierce": true
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item", "traits.armor_pierce"],
+      "_source": "定类锚点 SP-1b L50「E4 激光塔=能量——能量类首发（六类中唯一不在 E1+E2 出齐的类，随 E4 解锁）」。标准线 T2 终点（upgrades_to 无后继行，不发明 T3）。F.5 类推锚带 [NEW]：成本 2430=810×3（严格 ×3/级，F.5 90→270→810→2430 阶梯同带重演，E4 行集与 E2 标准线同构同价）；DPS 960=480×2（严格 ×2/级）；射程 12.5=10.0×1.25（恰带内值、半格网格合法）；单发/攻速拆分 d=96@10 发/s（reload 3 ticks@30 Hz，96×30/3=960 自洽；高能直射快脉冲 [NEW]）→ [NEW]；traits.armor_pierce=true=SP-1a L28 能量类『穿甲』标记（可打断护盾再生 v3.2 §6『穿甲打断』；衰减=1.0、无弹道飞行时间 [NEW-原型校准]——引擎消费=Unit.ApplyDamage pierce 通道，SettleShot 接线随 E4 战役宿主 T-124）；hp/弹药件（电容组=era4:ammo-capacitor）无文档锚点 → _new。T2 同级无标准单体参照行→溅射/能量 ×0.8 类带 N/A（E2 火油/E3 臼炮同款哨兵先例，Era4ContentTests.Class_bands；E4 出同级单体行时必须补 ValidateClassBand）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era4:tower-radar",
+      "content_type": "Building",
+      "class": "support",
+      "name_zh": "雷达",
+      "name_en": "Radar",
+      "aliases": ["雷达", "警戒雷达", "雷达站", "radar"],
+      "tier": 1,
+      "max_tier": 1,
+      "cost_total": 405,
+      "dps": 0.0,
+      "damage_per_shot": 0,
+      "reload_ticks": null,
+      "range_cells": 12.0,
+      "hp": 320,
+      "ammo_item": null,
+      "ammo_per_shot": 0,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "aura_radius_cells": 12,
+        "aura_effects": ["alert_vision", "focus_fire_boost"],
+        "reveal_stealth": true
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "range_cells", "hp", "traits.aura_radius_cells", "traits.aura_effects", "traits.reveal_stealth"],
+      "_source": "定类锚点 SP-1b L51「E4 雷达=支援——视野/集火增益；互联网奇观（E4）后全图共享（v3.2 附录 F.3 奇观清单）[E4 归类待 T-123 章节设计复核（Wave 7；round 2 处置 #9 补挂）]」——T-123 复核落定：支援类、零伤（dps 0/damage 0 先例=E1 篝火/陷阱、E3 铁甲墙）；光环=半径 12 格警戒视野+区内塔集火增益（E1 篝火 alert_vision 行形对位、半径跨代放大 [NEW]）；traits.reveal_stealth=true=夜枭隐形反制钩子（era4/enemies.json e4_boss traits.stealth.countered_by_radar 与本行同源；T-124 互联网奇观（F-060）后全图共享——本行为前置数据位）；max_tier 1（支援设施不升级，无后继行不发明）。F.5 类推锚带 [NEW]：成本 405=同级武器塔 T1 810×0.5（支援档折半——E3 墙 120/加特林 270≈0.44 同带）；射程 12.0=光环半径同值（篝火先例 range=aura_radius）；支援类不入 DPS 验证带（SP-1a L30）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "range_cells": "cells",
+        "hp": "points",
+        "aura_radius_cells": "cells"
+      }
+    },
+    {
+      "id": "era4:tower-mine",
+      "content_type": "Building",
+      "class": "splash",
+      "name_zh": "地雷",
+      "name_en": "Mine",
+      "aliases": ["地雷", "雷区", "反装甲雷", "mine"],
+      "tier": 1,
+      "max_tier": 1,
+      "tier_line": "specialization",
+      "cost_total": 240,
+      "dps": 100.0,
+      "damage_per_shot": 300,
+      "reload_ticks": 90,
+      "range_cells": 2.5,
+      "hp": 200,
+      "ammo_item": "era4:ammo-mine",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "splash_radius_cells": 1.5
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item", "traits.splash_radius_cells"],
+      "_source": "T-123 章节设计新增行（任务卡 E4 塔组第 4 位——v3.2 §4 特色列不点名，[NEW-T-123]）：地雷=面封锁利基（雷场布设——弹药件 era4:ammo-mine=预制雷模块，1 件 10 发=10 次起爆；E1 陷阱『一次性触发』行形对位、本行为可再装填雷场档）。定类=splash（面伤害；溅射边缘保底 40%）；tier_line=specialization（F.5 弩炮 700|80|11 先例：梯外利基行——面封锁以低持续 DPS 换区域拒止，不入 ×3 严格梯、同级类带豁免 UpgradeLaw.ValidateClassBand）；max_tier 1（利基行无后继不发明）。数值 [NEW]：成本 240（利基档——弩炮 700 vs 标准线同级 810 折 0.86 的梯外定价带内再折面封锁利基 0.30×810）；单发 300（对位 E3 过热对敌 300 档的反装甲定向爆破）、reload 90 ticks（3 s 布设循环）→ DPS=300×30/90=100 自洽；AOE 半径 1.5 格（E2 火油 1.5 同值——地面起爆档）；射程 2.5 格（近距封锁）；hp 200；弹药件（雷组件=era4:ammo-mine，era4/recipes.json era4:recipe-mine 输出——混凝土（壳体）+电子（引信）的消费落位）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points",
+        "splash_radius_cells": "cells"
+      }
+    }
+  ]
+}

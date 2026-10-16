@@ -1,0 +1,117 @@
+{
+  "$schema": "urn:eratd:content:recipe:1",
+  "content_type": "Resource",
+  "era": "era4:era-modern",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E4 配方集锚点=v3.2 §5 L74~L76（链深 ≤3；1 件弹药=10 发；T1 采集 0.5 件/s/坐席）+§4 L61 E4 资源行（石油/电子/混凝土）+era3/recipes.json 行形先例（T-112）；K-2 15 类封闭枚举无 Recipe 类——配方行随资源经济族走，content_type 薄版声明为 Resource（先例=era2/recipes.json，T-079）；行形状对齐 AmmoRecipe（inputs 篮子/AmmoResource/CraftTicks，一 craft 产 1 件）；全部篮子/时长 [NEW] 待原型校准",
+  "raw_resources": [
+    { "resource": "era4:res-oil", "name_zh": "石油" },
+    { "resource": "era3:res-coal", "name_zh": "煤（传承刷新）" },
+    { "resource": "era2:res-iron", "name_zh": "铁（传承刷新）" }
+  ],
+  "_raw_note": "深度 1 原料集=本代可采原料三件（石油=本代新矿（油田）；煤/铁=上代（E3）2 种基础资源传承刷新，§4 跨代资源行——E3 基础二资源=煤/铁，钢=制品不入刷新对）。电子、混凝土（era.json 资源行成员，§4 L61 点名）均为炼链制品（era4:recipe-electronics / era4:recipe-concrete 输出）——SupplyChain one key one meaning：制品不入原料表（era3『钢』分立先例：§4 点名资源含制品、两表分立）",
+  "chain_depth_max": 3,
+  "_chain_note": "v3.2 §5 L74 链深 ≤3（原料=1，制品=1+最深输入）——本表最深=导弹/电容/雷组件 3（石油/铁(1)→电子(2)→弹药(3)；煤/石油(1)→混凝土(2)→雷组件(3)），守卫=SupplyChain.Validate（T-034），Era4ContentTests 装载校验",
+  "items": [
+    {
+      "id": "era4:recipe-electronics",
+      "content_type": "Resource",
+      "kind": "intermediate",
+      "era_index": 4,
+      "name_zh": "电子",
+      "name_en": "Electronics",
+      "aliases": ["电子", "电子元件", "电路", "electronics"],
+      "inputs": [
+        { "resource": "era4:res-oil", "amount": 2 },
+        { "resource": "era2:res-iron", "amount": 1 }
+      ],
+      "output": { "resource": "era4:res-electronics", "amount": 1 },
+      "craft_ticks": 150,
+      "chain_depth": 2,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "石油→电子炼链主件（§4 L61 资源=石油/电子/混凝土+T-123 任务卡『现代/精确打击』章设）[NEW 数值标注]——篮子 2 石油+1 铁→1 电子（石油=半导体基板/树脂封装化工位；铁=引线框架——传承刷新铁的本代用途落位）、时长 150 ticks（5 s@30 Hz，对齐 E3 炼钢档）待原型校准；链位=中间件（深度 2：石油/铁(1)→电子(2)），导弹/电容/雷组件的前置",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era4:recipe-concrete",
+      "content_type": "Resource",
+      "kind": "intermediate",
+      "era_index": 4,
+      "name_zh": "混凝土",
+      "name_en": "Concrete",
+      "aliases": ["混凝土", "混凝土预制件", "concrete"],
+      "inputs": [
+        { "resource": "era3:res-coal", "amount": 2 },
+        { "resource": "era4:res-oil", "amount": 1 }
+      ],
+      "output": { "resource": "era4:res-concrete", "amount": 1 },
+      "craft_ticks": 180,
+      "chain_depth": 2,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "煤→混凝土炼链主件（§4 L61 资源行第三资源）[NEW 数值标注]——篮子 2 煤+1 石油→1 混凝土（煤=煅烧燃料、石油=沥青/外加剂——传承刷新煤的本代用途落位）、时长 180 ticks（6 s@30 Hz，大质量低速档）待原型校准；链位=中间件（深度 2：煤/石油(1)→混凝土(2)），雷组件的前置（面封锁工事位）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era4:recipe-missile",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 4,
+      "name_zh": "导弹",
+      "name_en": "Missile",
+      "aliases": ["导弹", "导弹组", "制导导弹", "missile"],
+      "inputs": [
+        { "resource": "era4:res-electronics", "amount": 1 },
+        { "resource": "era2:res-iron", "amount": 2 },
+        { "resource": "era3:res-coal", "amount": 1 }
+      ],
+      "output": { "resource": "era4:ammo-missile", "amount": 1 },
+      "craft_ticks": 210,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era4:tower-missile 弹药位（era4/towers.json）[NEW 数值标注]——篮子 1 电子+2 铁+1 煤→1 件（电子=制导头、铁=战斗部壳体、煤=推进剂）、时长 210 ticks（7 s@30 Hz，重于 E3 臼炮弹 180 大质量低速档）待原型校准；链位=链深天花板锚（铁/煤(1)→电子(2)→导弹(3)=§5 链深 ≤3 恰用满，SupplyChain 边界行）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era4:recipe-capacitor",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 4,
+      "name_zh": "电容组",
+      "name_en": "Capacitor",
+      "aliases": ["电容组", "电容", "聚能电容", "capacitor"],
+      "inputs": [
+        { "resource": "era4:res-electronics", "amount": 2 },
+        { "resource": "era4:res-oil", "amount": 1 }
+      ],
+      "output": { "resource": "era4:ammo-capacitor", "amount": 1 },
+      "craft_ticks": 120,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era4:tower-laser 弹药位（era4/towers.json）[NEW 数值标注]——篮子 2 电子+1 石油→1 件（电子=介质/电荷泵、石油=绝缘灌封树脂）、时长 120 ticks（4 s@30 Hz，轻量快循环档——激光塔 reload 3 ticks 高射速的供弹节奏）待原型校准；链位=链深天花板锚（石油(1)→电子(2)→电容组(3)恰用满）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era4:recipe-mine",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 4,
+      "name_zh": "雷组件",
+      "name_en": "Mine Charge",
+      "aliases": ["雷组件", "预制雷", "定向雷", "mine charge"],
+      "inputs": [
+        { "resource": "era4:res-concrete", "amount": 2 },
+        { "resource": "era4:res-electronics", "amount": 1 }
+      ],
+      "output": { "resource": "era4:ammo-mine", "amount": 1 },
+      "craft_ticks": 150,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era4:tower-mine 弹药位（era4/towers.json）[NEW 数值标注]——篮子 2 混凝土+1 电子→1 件（混凝土=预埋壳体/配重、电子=引信——混凝土的消费落位：面封锁工事位）、时长 150 ticks（5 s@30 Hz）待原型校准；链位=链深天花板锚（煤/石油(1)→混凝土(2)→雷组件(3)恰用满）；雷达无弹药（ammo_item=null，不入弹药覆盖闭合）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    }
+  ]
+}
