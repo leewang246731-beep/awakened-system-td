@@ -17,6 +17,9 @@
 ; 数据流向声明弹窗（DisclosureOverlay 模态：确认持久化 settings/
 ; llm-disclosure.json；「暂不启用」不落盘下次仍弹——状态机
 ; EraCore.Llm.LlmDisclosureGate）。
+; T-138 (F-140): + TtsReservedRow 语音（预留）灰置行——纯 Label 说明
+; （无任何可点击开关控件），文案由 SettingsFormState.TtsReserved* 供给；
+; 功能面在 EraCore.Llm.TtsChannel（接口预留，本版零网络）。
 
 [ext_resource type="Script" path="res://scripts/SettingsPanelUi.cs" id="1_settings"]
 
@@ -71,6 +74,53 @@ text = "画质档位（渲染三档）"
 
 [node name="RenderTierDropdown" type="OptionButton" parent="Scroll/Form/RenderTierRow"]
 layout_mode = 2
+
+; T-137 (C-27/F-078): 军师三档选择 + L2 本地模型可选下载入口。档位选择
+; 即时持久化 settings/l2-tier.json（同画质档位行——非 BYOK 表单字段，不进
+; 保存按钮路径）；L2 下载行（模型 1.93 GB 可选下载不进主包 + llama.cpp 运行
+; 时补拉）落在玩家数据目录 data/models|runtime/，决策与文案单源
+; EraCore.Llm.L2（L2Facts/L2RouteDecider/L2DegradationNotices）。
+[node name="AdvisorTierRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/AdvisorTierRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "军师档位（三档）"
+
+[node name="AdvisorTierDropdown" type="OptionButton" parent="Scroll/Form/AdvisorTierRow"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+
+[node name="L2ModelRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Scroll/Form/L2ModelRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "L2 本地模型"
+
+[node name="L2DownloadButton" type="Button" parent="Scroll/Form/L2ModelRow"]
+layout_mode = 2
+text = "下载模型（约 1.8 GB）"
+
+[node name="L2CancelButton" type="Button" parent="Scroll/Form/L2ModelRow"]
+layout_mode = 2
+text = "取消"
+
+[node name="L2StatusText" type="Label" parent="Scroll/Form"]
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="L2ProgressBar" type="ProgressBar" parent="Scroll/Form"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+max_value = 100.0
+step = 1.0
+show_percentage = false
 
 [node name="TemplateRow" type="HBoxContainer" parent="Scroll/Form"]
 layout_mode = 2
@@ -353,6 +403,22 @@ text = ""
 
 [node name="AiAssetLabel" type="Label" parent="Scroll/Form"]
 layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="TtsReservedRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+modulate = Color(0.55, 0.55, 0.55, 0.9)
+
+[node name="Caption" type="Label" parent="Scroll/Form/TtsReservedRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = ""
+
+[node name="Notice" type="Label" parent="Scroll/Form/TtsReservedRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 2
 text = ""
 

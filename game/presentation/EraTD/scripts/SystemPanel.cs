@@ -1,6 +1,8 @@
 using EraCore.Agent.Governance;
 using EraCore.Agent.Pipeline;
+using EraCore.Contracts.Actions;
 using EraCore.Contracts.Agent;
+using EraCore.Llm.L2;
 using EraCore.Presentation;
 using Godot;
 
@@ -60,6 +62,14 @@ public sealed partial class SystemPanel : Control
     private SimHost _host = null!;
     private TrustBadgeTracker _trustTracker = new(TrustBadge.Trustworthy); // era reset = score 50
     private bool _alarmAnnounced;
+
+    // T-137 (F-078): L2 lane binding (coordinator + wave-gap service). Null
+    // until BindL2 — the order path then consults the frozen route matrix on
+    // every L1 clarification and mirrors the neutral degradation banner.
+    private L2.L2Coordinator? _l2;
+    private L2.WaveGapL2Service? _waveGap;
+    private Label _l2TierHint = null!;
+    private Label _l2Banner = null!;
 
     // T-110 (F-164): platform tier row (Web ⇒ L3 off ⇒ AI 高级语法 hint
     // hidden). Desktop default until the host binds the real platform fact
@@ -140,6 +150,46 @@ public sealed partial class SystemPanel : Control
         }
 
         RefreshHud(host.BuildHudSnapshot());
+    }
+
+    /// <summary>
+    /// T-137: binds the L2 lane (coordinator + wave-gap service). After this,
+    /// every L1-clarified order consults the route matrix: L2-ready orders
+    /// queue for the wave-gap fill; downgraded lanes show the neutral banner
+    /// once per transition (降级可见, OffModeDowngrade 中性先例).
+    /// </summary>
+    internal void BindL2(L2.L2Coordinator coordinator, L2.WaveGapL2Service waveGap)
+    {
+        ArgumentNullException.ThrowIfNull(coordinator);
+        ArgumentNullException.ThrowIfNull(waveGap);
+        _l2 = coordinator;
+        _waveGap = waveGap;
+        _waveGap.FillLanded += OnL2FillLanded;
+        _waveGap.FillAbandoned += OnL2FillAbandoned;
+        RefreshL2Surfaces();
+    }
+
+    /// <summary>Re-renders the tier hint + banner from the coordinator's current lane state.</summary>
+    internal void RefreshL2Surfaces()
+    {
+        if (_l2 is null || _l2TierHint is null)
+        {
+            return;
+        }
+
+        L2RouteDecision decision = _l2.DecideRoute();
+        _l2TierHint.Text = decision.EffectiveTier switch
+        {
+            LlmTierKind.L2Local => "军师档位：L2 本地模型（127.0.0.1 本地推理，不上传）",
+            LlmTierKind.L3Cloud => "军师档位：L3 云模型（BYOK）",
+            _ => decision.Downgraded
+                ? $"军师档位：L1 军令语法（L2 已选，暂不可用——{L2DegradationNotices.BannerZh(decision.Reason)}）"
+                : "军师档位：L1 军令语法（离线）",
+        };
+        _l2Banner.Text = decision.Downgraded
+            ? L2DegradationNotices.BannerZh(decision.Reason)
+            : string.Empty;
+        _l2Banner.Visible = decision.Downgraded;
     }
 
     public override void _Ready()
@@ -311,6 +361,27 @@ public sealed partial class SystemPanel : Control
         _offSwitch.Toggled += OnOffSwitchToggled;
         wheelRow.AddChild(_offSwitch);
 
+        // T-137: L2 档位提示行（当前生效档）+ 降级中性横幅（OffModeDowngrade
+        // 先例——白字非红，降级是能力事实非危机）
+        _l2TierHint = new Label
+        {
+            Text = "军师档位：L1 军令语法（离线）",
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _l2TierHint.AddThemeFontSizeOverride("font_size", 10);
+        _l2TierHint.AddThemeColorOverride("font_color", new Color(HoloSkin.TextDimCyan, 0.75f));
+
+        _l2Banner = new Label
+        {
+            Text = string.Empty,
+            Visible = false,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            CustomMinimumSize = new Vector2(300, 0),
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _l2Banner.AddThemeFontSizeOverride("font_size", 10);
+        _l2Banner.AddThemeColorOverride("font_color", Colors.White); // 中性横幅：白字（§10.7 先例）
+
         var reportRow = Separation(new HBoxContainer(), 6);
         _avatar = new TextureRect
         {
@@ -358,6 +429,8 @@ public sealed partial class SystemPanel : Control
         body.AddChild(_ghostHint);
         body.AddChild(_aiSyntaxHint);
         body.AddChild(wheelRow);
+        body.AddChild(_l2TierHint);
+        body.AddChild(_l2Banner);
         body.AddChild(reportRow);
         bevel.AddChild(body);
         _expandedPanel.AddChild(scan);
@@ -540,8 +613,67 @@ public sealed partial class SystemPanel : Control
         OrderOutcome outcome = _host.Pipeline.Handle(order);
         _lastOutcome = outcome.Kind;
         RenderOutcome(outcome);
+
+        // T-137 三档路由（L1 澄清面）：L1 没听懂的军令交给路由矩阵——L2 就绪
+        // → 入波间队列（下一波间异步填充）；降级 → 中性横幅一次（L1 澄清卡
+        // 已在屏上，功能零损失）。L3 选用时同样经 LlmGateway 走异步填充。
+        if (outcome.Kind is PipelineOutcomeKind.Clarification or PipelineOutcomeKind.Refused
+            && _l2 is not null && _waveGap is not null)
+        {
+            L2RouteDecision decision = _l2.DecideRoute();
+            if (decision.EffectiveTier == LlmTierKind.L2Local && _waveGap.Enqueue(order) is not null)
+            {
+                _reportText.Text =
+                    $"这道令 L1 语法没听懂——L2 本地军师将在波间帮你再想（超时自动放弃，不卡波）。{outcome.ClarifyingKey}";
+                _bubble.Text = $"◈ 系统·{_reportText.Text}";
+            }
+
+            RefreshL2Surfaces(); // mirrors the degradation banner when the lane is down
+        }
+
         return outcome.Kind;
     }
+
+    /// <summary>
+    /// T-137: one wave-gap fill landed — its candidate action re-enters the
+    /// SAME five-stage pipeline through <see cref="AgentPipeline.HandleSystemAction"/>
+    /// (registry gates unchanged — no RL6 bypass) and renders through the
+    /// normal outcome lane.
+    /// </summary>
+    private void OnL2FillLanded(L2.WaveGapLandedFill landed)
+    {
+        if (_host is null || !landed.Result.Ok || landed.Result.ActionJson is null)
+        {
+            return;
+        }
+
+        if (System.Text.Json.JsonDocument.Parse(landed.Result.ActionJson).RootElement
+                .TryGetProperty("action", out var actionElement)
+            && Enum.TryParse<SystemActionKind>(actionElement.GetString(), out SystemActionKind verb))
+        {
+            OrderOutcome outcome = _host.Pipeline.HandleSystemAction(verb, landed.Result.ActionJson);
+            _lastOutcome = outcome.Kind;
+            RenderOutcome(outcome);
+            string line = outcome.Report is not null
+                ? ReportLine(outcome.Report)
+                : "方案卡已出：确认后我才动手。";
+            _reportText.Text = $"[L2 波间] {landed.Order.OrderText} → {line}";
+            _bubble.Text = $"◈ 系统·{_reportText.Text}";
+        }
+    }
+
+    /// <summary>T-137: fill abandoned (budget exhausted / lane died) — neutral L1-fallback banner only.</summary>
+    private void OnL2FillAbandoned(L2QueuedFill order, L2DegradationReason reason)
+    {
+        _l2Banner.Text = L2DegradationNotices.BannerZh(reason);
+        _l2Banner.Visible = true;
+    }
+
+    /// <summary>Current degradation banner text (empty when none) — smoke probe.</summary>
+    internal string L2BannerText => _l2Banner?.Text ?? string.Empty;
+
+    /// <summary>Current tier hint text — smoke probe.</summary>
+    internal string L2TierHintText => _l2TierHint?.Text ?? string.Empty;
 
     /// <summary>Confirm button → Pipeline.Confirm of the pending plan card.</summary>
     internal PipelineOutcomeKind? ConfirmPending()

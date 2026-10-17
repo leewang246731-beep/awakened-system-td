@@ -103,6 +103,18 @@ public sealed partial class SettingsPanelUi : Control
     private Label _declarationFooter = null!;
     private Label _codingPlanNotice = null!;
 
+    // T-138 (F-140): 语音（预留）灰置行——两枚 Label，无任何可点击控件
+    private Label _ttsReservedCaption = null!;
+    private Label _ttsReservedNotice = null!;
+
+    // T-137 (F-078): 军师三档下拉 + L2 本地模型下载面（决策全在 L2Coordinator）
+    private L2.L2Coordinator? _l2;
+    private OptionButton _advisorTierDropdown = null!;
+    private Button _l2DownloadButton = null!;
+    private Button _l2CancelButton = null!;
+    private Label _l2StatusText = null!;
+    private ProgressBar _l2ProgressBar = null!;
+
     // T-109 (F-153 声明/对比条 + F-147 标注 + 首启声明弹窗)
     private Label _compareHeading = null!;
     private Label _l1Row = null!;
@@ -132,8 +144,40 @@ public sealed partial class SettingsPanelUi : Control
     /// <summary>Compare-bar L3 row text (T-110 smoke probe: Web 行文案由 DataFlowCompareBar 供给).</summary>
     internal string CompareL3RowText => _l3Row.Text;
 
+    /// <summary>Compare-bar L2 row text (T-137 smoke probe: 档位选择同步口径).</summary>
+    internal string CompareL2RowText => _l2Row.Text;
+
     /// <summary>The persisted config baseline this panel saves against.</summary>
     internal LlmConfig Config => _config;
+
+    /// <summary>The bound L2 coordinator (null before BindL2 — smoke/host probe).</summary>
+    internal L2.L2Coordinator? L2 => _l2;
+
+    /// <summary>Advisor-tier dropdown index right now (T-137 smoke probe).</summary>
+    internal int AdvisorTierIndex => _advisorTierDropdown.Selected;
+
+    /// <summary>L2 status line right now (T-137 smoke probe).</summary>
+    internal string L2StatusText => _l2StatusText.Text;
+
+    /// <summary>L2 progress bar value right now, -1 when indeterminate/hidden (T-137 smoke probe).</summary>
+    internal double L2ProgressValue => _l2ProgressBar.Value;
+
+    /// <summary>
+    /// T-137: binds the shared L2 coordinator (Main creates ONE — the panel,
+    /// the order path and the wave-gap service all mirror the same lane).
+    /// Mirrors the loaded selection into the dropdown and subscribes to the
+    /// state broadcast. Must run before Open() for the first mirror.
+    /// </summary>
+    internal void BindL2(L2.L2Coordinator coordinator)
+    {
+        ArgumentNullException.ThrowIfNull(coordinator);
+        _l2 = coordinator;
+        _l2.StateChanged += OnL2StateChanged;
+        _applying = true;
+        _advisorTierDropdown.Select((int)coordinator.Settings.Selection);
+        _applying = false;
+        OnL2StateChanged(coordinator.CurrentState);
+    }
 
     /// <summary>Instance factory for the host (Main.cs appends one init line).</summary>
     public static SettingsPanelUi Instantiate(
@@ -258,6 +302,11 @@ public sealed partial class SettingsPanelUi : Control
     private void WireNodes()
     {
         _renderTierDropdown = GetNode<OptionButton>("Scroll/Form/RenderTierRow/RenderTierDropdown");
+        _advisorTierDropdown = GetNode<OptionButton>("Scroll/Form/AdvisorTierRow/AdvisorTierDropdown");
+        _l2DownloadButton = GetNode<Button>("Scroll/Form/L2ModelRow/L2DownloadButton");
+        _l2CancelButton = GetNode<Button>("Scroll/Form/L2ModelRow/L2CancelButton");
+        _l2StatusText = GetNode<Label>("Scroll/Form/L2StatusText");
+        _l2ProgressBar = GetNode<ProgressBar>("Scroll/Form/L2ProgressBar");
         _templateDropdown = GetNode<OptionButton>("Scroll/Form/TemplateRow/TemplateDropdown");
         _openAiRadio = GetNode<CheckBox>("Scroll/Form/ProtocolRow/OpenAiRadio");
         _anthropicRadio = GetNode<CheckBox>("Scroll/Form/ProtocolRow/AnthropicRadio");
@@ -287,6 +336,8 @@ public sealed partial class SettingsPanelUi : Control
         _probeResult = GetNode<Label>("Scroll/Form/ProbeResult");
         _declarationFooter = GetNode<Label>("Scroll/Form/DeclarationFooter");
         _codingPlanNotice = GetNode<Label>("Scroll/Form/CodingPlanNotice");
+        _ttsReservedCaption = GetNode<Label>("Scroll/Form/TtsReservedRow/Caption");
+        _ttsReservedNotice = GetNode<Label>("Scroll/Form/TtsReservedRow/Notice");
 
         // T-109: 对比条三行 + AI 素材标注 + 首启声明弹窗
         _compareHeading = GetNode<Label>("Scroll/Form/CompareHeading");
@@ -314,6 +365,11 @@ public sealed partial class SettingsPanelUi : Control
         _renderTierDropdown.AddItem("低（集显/Web 流畅优先）");         // Low = 1
         _renderTierDropdown.AddItem("中（默认画质）");                  // Medium = 2
         _renderTierDropdown.AddItem("高（全开+更细脏粒度）");           // High = 3
+
+        // T-137 军师三档下拉（索引=L2TierSelection 枚举序；文案锚 §11.5 三档）
+        _advisorTierDropdown.AddItem("L1 军令语法（默认·离线，不发送数据）");  // L1 = 0
+        _advisorTierDropdown.AddItem("L2 本地模型（可选下载 ~1.8 GB，本地推理）"); // L2 = 1
+        _advisorTierDropdown.AddItem("L3 云模型（BYOK，设置页配置服务）");     // L3 = 2
 
         // 协议单选（同一 ButtonGroup → 互斥 radio）
         var group = new ButtonGroup();
@@ -343,6 +399,9 @@ public sealed partial class SettingsPanelUi : Control
         // 信号（玩家输入路径；程序化写值由 _applying 屏蔽）
         _templateDropdown.ItemSelected += OnTemplateSelected;
         _renderTierDropdown.ItemSelected += OnRenderTierSelected;
+        _advisorTierDropdown.ItemSelected += OnAdvisorTierSelected;
+        _l2DownloadButton.Pressed += () => _ = StartL2DownloadAsync();
+        _l2CancelButton.Pressed += OnL2Cancel;
         _openAiRadio.Toggled += _ => OnProtocolChanged();
         _anthropicRadio.Toggled += _ => OnProtocolChanged();
         _baseUrlInput.TextChanged += OnBaseUrlChanged;
@@ -368,6 +427,10 @@ public sealed partial class SettingsPanelUi : Control
         _disclosureDecline.Pressed += OnDisclosureDecline;
 
         _codingPlanNotice.Text = SettingsFormState.CodingPlanNoticeZh;
+
+        // T-138 (F-140): 语音（预留）灰置行——文案原样上屏，无开关无交互
+        _ttsReservedCaption.Text = SettingsFormState.TtsReservedCaptionZh;
+        _ttsReservedNotice.Text = SettingsFormState.TtsReservedNoticeZh;
 
         // T-109: 静态披露文案（对比条标题 + AI 素材标注 + 弹窗标题/按钮/中英文案）
         _compareHeading.Text = DataFlowCompareBar.HeadingZh;
@@ -440,6 +503,9 @@ public sealed partial class SettingsPanelUi : Control
                 "Title" => true,                  // page title is not a BYOK field
                 "RenderTierRow" => true,          // Web-relevant setting (T-102)
                 "AiAssetLabel" => true,           // disclosure (F-153, T-109)
+                "TtsReservedRow" => true,         // reserved notice, not an editable field (T-138)
+                "AdvisorTierRow" or "L2ModelRow" or "L2StatusText" or "L2ProgressBar"
+                    => surfaces.L2SurfacesVisible, // T-137: L2 档位/下载面随 L2 平台行（Web 禁）
                 "CompareHeading" or "L1Row" or "L2Row" or "L3Row"
                     => surfaces.CompareBarVisible, // disclosure (F-153, T-109/T-110)
                 _ => surfaces.ByokFormVisible,
@@ -488,6 +554,62 @@ public sealed partial class SettingsPanelUi : Control
         {
             Preference = (RenderTierPreference)index,
         });
+    }
+
+    // ------------------------------------------------------ T-137 L2 lane
+
+    /// <summary>Advisor-tier dropdown → immediate persistence (settings/l2-tier.json) + compare-bar sync.</summary>
+    private void OnAdvisorTierSelected(long index)
+    {
+        if (_applying || index is < 0 or > (int)EraCore.Presentation.L2TierSelection.L3)
+        {
+            return;
+        }
+
+        _l2?.SelectTier((EraCore.Presentation.L2TierSelection)index);
+        RefreshCompareBar();
+    }
+
+    /// <summary>Download button → the coordinator's opt-in download lane (progress rides StateChanged).</summary>
+    private async Task StartL2DownloadAsync()
+    {
+        if (_l2 is null)
+        {
+            _l2StatusText.Text = "L2 协调器未接线（dev 宿主）——下载不可用。";
+            return;
+        }
+
+        _l2DownloadButton.Disabled = true;
+        try
+        {
+            EraCore.Llm.L2.L2DownloadResult result = await _l2.StartDownloadAsync().ConfigureAwait(true);
+            _l2StatusText.Text = result.IsUsable
+                ? "模型已就绪（sha256 校验通过）——选择 L2 档位即可启用本地军师。"
+                : $"下载未完成（{result.Outcome}）：{result.Detail}——进度已保留，可重新点击续传。";
+        }
+        finally
+        {
+            _l2DownloadButton.Disabled = false;
+        }
+    }
+
+    private void OnL2Cancel() => _l2?.CancelDownload();
+
+    /// <summary>Mirrors one coordinator broadcast: status line + progress bar (single copy source: the coordinator notice).</summary>
+    private void OnL2StateChanged(L2.L2LaneState state)
+    {
+        _l2StatusText.Text = state.Notice;
+        if (state.Progress is { } progress)
+        {
+            _l2ProgressBar.Visible = true;
+            _l2ProgressBar.Value = progress.Percent;
+        }
+        else
+        {
+            _l2ProgressBar.Visible = false;
+        }
+
+        RefreshCompareBar();
     }
 
     private LlmConfig LoadConfig()
@@ -676,7 +798,9 @@ public sealed partial class SettingsPanelUi : Control
     private void RefreshCompareBar()
     {
         var rows = DataFlowCompareBar.Resolve(
-            _tiers, _form.Fields.Enable, _form.Fields.BaseUrl);
+            _tiers, _form.Fields.Enable, _form.Fields.BaseUrl,
+            l2Selected: _l2?.Settings.Selection
+                == EraCore.Presentation.L2TierSelection.L2);
         foreach (var row in rows)
         {
             Label label = row.Tier switch
@@ -1068,6 +1192,79 @@ public sealed partial class SettingsPanelUi : Control
             problems.Add("AI 素材标注行缺失（文案/manifest 链接）");
         }
 
+        // T-138 语音（预留）灰置行：标题+说明文案逐字在位；行内不得存在任何
+        // 可点击控件（BaseButton 家族=Button/CheckBox 全禁——预留不做开关）
+        var ttsRow = GetNode<Control>("Scroll/Form/TtsReservedRow");
+        if (!ttsRow.Visible
+            || _ttsReservedCaption.Text != SettingsFormState.TtsReservedCaptionZh
+            || _ttsReservedNotice.Text != SettingsFormState.TtsReservedNoticeZh)
+        {
+            problems.Add("语音（预留）行缺失或文案不符（T-138）");
+        }
+
+        foreach (Node child in ttsRow.GetChildren())
+        {
+            if (child is BaseButton)
+            {
+                problems.Add($"语音（预留）行含可点击控件 '{child.Name}'（应为纯灰置说明）");
+            }
+        }
+
+        // T-137 L2 lane（零网络冒烟——假端口，绝不真下载）：三档下拉即时持久化
+        // → L2 选用后对比条 L2 行切「已选用」口径 → 状态行镜像协调器通知 →
+        // 回落 L1 复原；Web 档位行下 L2 面隐藏（能力表镜像）。
+        var smokeL2 = new L2.L2Coordinator(
+            _files,
+            new L2.DataRootDownloadFilePort(_files.Root),
+            () => new L2.UnreachableDownloadWirePort(),
+            () => new L2.L2RuntimeHost(
+                new L2.SmokeServerProcess(), new L2.SmokeHealthProbe(), (_, _) => Task.FromResult(true)),
+            _tiers);
+        BindL2(smokeL2);
+
+        _advisorTierDropdown.Select(1);
+        _advisorTierDropdown.EmitSignal(OptionButton.SignalName.ItemSelected, 1L);
+        if (EraCore.Presentation.L2TierStore.Load(_files).Selection
+            != EraCore.Presentation.L2TierSelection.L2)
+        {
+            problems.Add("军师档位选择未即时持久化为 L2（settings/l2-tier.json）");
+        }
+
+        if (!CompareL2RowText.Contains("已选用"))
+        {
+            problems.Add($"对比条 L2 行未随档位选择切换：{CompareL2RowText}");
+        }
+
+        if (L2StatusText.Length == 0)
+        {
+            problems.Add("L2 状态行未镜像协调器通知");
+        }
+
+        _advisorTierDropdown.Select(0);
+        _advisorTierDropdown.EmitSignal(OptionButton.SignalName.ItemSelected, 0L);
+        if (EraCore.Presentation.L2TierStore.Load(_files).Selection
+            != EraCore.Presentation.L2TierSelection.L1)
+        {
+            problems.Add("军师档位未回落 L1");
+        }
+
+        if (CompareL2RowText.Contains("已选用"))
+        {
+            problems.Add($"回落 L1 后对比条 L2 行未复原：{CompareL2RowText}");
+        }
+
+        // Web 档位行：L2 面隐藏（能力表镜像——真 L2 面与 Web 模拟共用同一路径）
+        bool desktopL2Visible = IsFormRowVisible("L2ModelRow");
+        SetAgentTiers(WebConstraints.Availability(isWeb: true));
+        bool webL2Hidden = !IsFormRowVisible("AdvisorTierRow")
+            && !IsFormRowVisible("L2ModelRow")
+            && !IsFormRowVisible("L2StatusText");
+        SetAgentTiers(WebConstraints.Availability(isWeb: false));
+        if (!desktopL2Visible || !webL2Hidden)
+        {
+            problems.Add("L2 档位/下载面未按平台行镜像（桌面可见/Web 隐藏）");
+        }
+
         // 测试连接/拉取列表接线：探针走禁用预置行 → 零网络分类拒绝（中英文案）
         var probe = await ProbeAsync("xiaomi-mimo").ConfigureAwait(true);
         if (probe.Ok || probe.ErrorKey != LlmErrorKeys.Disabled
@@ -1088,7 +1285,7 @@ public sealed partial class SettingsPanelUi : Control
                 $"SETTINGS_OK providers={providerCount} mask=on declare=on " +
                 $"probe={probe.ErrorKey} fetch={fetch.ErrorKey} backend={_secrets.Backend} " +
                 "render_tier=roundtrip-ok key_file=clean disclosure=statemachine-ok " +
-                "compare=3tier-ok ai_label=manifest-linked");
+                "compare=3tier-ok ai_label=manifest-linked tts=reserved-notice-ok");
         }
         else
         {
