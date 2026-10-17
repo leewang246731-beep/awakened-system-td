@@ -44,9 +44,9 @@ public static class DataFlowCompareBar
         "L1 order grammar (default, offline) — no data is sent anywhere; parsing happens entirely on this machine.";
 
     private const string L2Zh =
-        "L2 本地小模型（可选，后续版本提供）——本地推理，不上传对话内容；模型文件自愿下载。";
+        "L2 本地小模型（可选）——本地推理，不上传对话内容；模型文件自愿下载，保存在本机数据目录。";
     private const string L2En =
-        "L2 local model (optional, ships in a later release) — inference runs locally; your conversation is never uploaded; the model file is an opt-in download.";
+        "L2 local model (optional) — inference runs locally; your conversation is never uploaded; the model file is an opt-in download stored in this machine's data folder.";
 
     private const string L2WebZh =
         "L2 本地小模型——Web 版不可用（浏览器沙箱，零网络承诺）。";
@@ -71,6 +71,11 @@ public static class DataFlowCompareBar
     /// <summary>Insert when base_url is still blank (mirrors §11.6 常驻声明 blank insert).</summary>
     public const string BlankBaseUrlZh = "尚未配置 base_url";
 
+    private const string L2ActiveZh =
+        "L2 本地小模型（已选用）——军令交由本机模型推理，不上传对话内容；数据只在本机与 127.0.0.1 本地服务之间流动。";
+    private const string L2ActiveEn =
+        "L2 local model (selected) — orders are reasoned by the on-device model; your conversation is never uploaded; data stays between this machine and its own 127.0.0.1 local service.";
+
     /// <summary>
     /// Resolves the three rows for one platform/provider state.
     /// </summary>
@@ -78,7 +83,20 @@ public static class DataFlowCompareBar
     /// <param name="l3Enabled">The active provider row's enable switch (false = 关闭，零网络).</param>
     /// <param name="baseUrl">The configured base_url (destination shown on the enabled L3 row).</param>
     public static IReadOnlyList<DataFlowCompareRow> Resolve(
-        AgentTierAvailability tiers, bool l3Enabled, string baseUrl)
+        AgentTierAvailability tiers, bool l3Enabled, string baseUrl) =>
+        Resolve(tiers, l3Enabled, baseUrl, l2Selected: false);
+
+    /// <summary>
+    /// Resolves the three rows for one platform/provider/L2 state (T-137:
+    /// the L2 row now mirrors the player's real tier selection — 数据流向
+    /// 声明口径与三档选择同步, the acceptance wording source).
+    /// </summary>
+    /// <param name="tiers">Platform capability row (<see cref="WebConstraints.Availability"/>).</param>
+    /// <param name="l3Enabled">The active provider row's enable switch (false = 关闭，零网络).</param>
+    /// <param name="baseUrl">The configured base_url (destination shown on the enabled L3 row).</param>
+    /// <param name="l2Selected">True when the player routed the advisor to the L2 local lane.</param>
+    public static IReadOnlyList<DataFlowCompareRow> Resolve(
+        AgentTierAvailability tiers, bool l3Enabled, string baseUrl, bool l2Selected)
     {
         ArgumentNullException.ThrowIfNull(tiers);
 
@@ -92,10 +110,26 @@ public static class DataFlowCompareBar
         return
         [
             new(DataFlowTier.L1Grammar, L1Zh, L1En),
-            new(DataFlowTier.L2LocalModel, tiers.L2LocalModel ? L2Zh : L2WebZh,
-                tiers.L2LocalModel ? L2En : L2WebEn),
+            new(DataFlowTier.L2LocalModel, L2RowCopy(tiers, l2Selected, english: false),
+                L2RowCopy(tiers, l2Selected, english: true)),
             new(DataFlowTier.L3CloudByok, l3Zh, l3En),
         ];
+    }
+
+    private static string L2RowCopy(AgentTierAvailability tiers, bool l2Selected, bool english)
+    {
+        if (!tiers.L2LocalModel)
+        {
+            return english ? L2WebEn : L2WebZh;
+        }
+
+        return (l2Selected, english) switch
+        {
+            (true, false) => L2ActiveZh,
+            (true, true) => L2ActiveEn,
+            (false, false) => L2Zh,
+            _ => L2En,
+        };
     }
 
     private static string BaseUrlOrBlank(string baseUrl) =>

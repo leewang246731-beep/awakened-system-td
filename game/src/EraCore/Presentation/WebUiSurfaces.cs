@@ -11,11 +11,13 @@ namespace EraCore.Presentation;
 /// <param name="CompareBarVisible">T-109「你的话发给谁」三档对比条——披露面，任何平台都保留（Web 行文案由 DataFlowCompareBar 供给）。</param>
 /// <param name="AiAdvancedSyntaxHintVisible">军令输入框旁「AI 高级语法」入口（L3 暗示性 UI，桌面可见/默认，Web 隐藏）。</param>
 /// <param name="DesktopOnlyAnnotationActive">词汇表 desktop_only 词条标注「桌面版功能」是否生效（Web 生效，桌面不标）。</param>
+/// <param name="L2SurfacesVisible">设置页「L2 本地模型」下载/档位面（T-137）——桌面可见，Web（L2 平台禁）隐藏。</param>
 public sealed record WebUiSurfacesRow(
     bool ByokFormVisible,
     bool CompareBarVisible,
     bool AiAdvancedSyntaxHintVisible,
-    bool DesktopOnlyAnnotationActive);
+    bool DesktopOnlyAnnotationActive,
+    bool L2SurfacesVisible = true);
 
 /// <summary>
 /// T-110 surface matrix: the single frozen mapping from the
@@ -42,7 +44,8 @@ public static class WebUiSurfaces
             ByokFormVisible: tiers.L3CloudByok,
             CompareBarVisible: true,
             AiAdvancedSyntaxHintVisible: tiers.L3CloudByok,
-            DesktopOnlyAnnotationActive: !tiers.L3CloudByok);
+            DesktopOnlyAnnotationActive: !tiers.L3CloudByok,
+            L2SurfacesVisible: tiers.L2LocalModel);
     }
 
     /// <summary>

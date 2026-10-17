@@ -98,4 +98,46 @@ public class DataFlowCompareBarTests
         Assert.Throws<ArgumentNullException>(
             () => DataFlowCompareBar.Resolve(null!, l3Enabled: true, "https://a.test/v1"));
     }
+
+    // ------------------------------------------- T-137 L2 行口径同步（三档选择）
+
+    [Fact] // T-137 — 三参重载（既有调用面）= 未选 L2 的缺省口径：可选+自愿下载（向后兼容锚）
+    public void Legacy_overload_keeps_the_unselected_L2_copy()
+    {
+        var rows = DataFlowCompareBar.Resolve(Desktop, l3Enabled: false, string.Empty);
+
+        Assert.Contains("可选", rows[1].Zh);
+        Assert.DoesNotContain("已选用", rows[1].Zh);
+    }
+
+    [Fact] // T-137 — L2 已选用：行切「已选用」口径，明说数据只在 127.0.0.1 本地服务间流动
+    public void L2_selected_row_states_the_local_loop_flow()
+    {
+        var rows = DataFlowCompareBar.Resolve(Desktop, l3Enabled: false, string.Empty, l2Selected: true);
+
+        Assert.Contains("已选用", rows[1].Zh);
+        Assert.Contains("127.0.0.1", rows[1].Zh);
+        Assert.Contains("never uploaded", rows[1].En);
+        Assert.Contains("selected", rows[1].En);
+    }
+
+    [Fact] // T-137 — L2 选择与 L3 状态互不干扰：L2 选用时 L3 行照常随 enable 三态
+    public void L2_selection_does_not_disturb_the_L3_row_states()
+    {
+        var off = DataFlowCompareBar.Resolve(Desktop, l3Enabled: false, "https://a.test/v1", l2Selected: true);
+        var on = DataFlowCompareBar.Resolve(Desktop, l3Enabled: true, "https://a.test/v1", l2Selected: true);
+
+        Assert.Contains("不发送任何数据", off[2].Zh);
+        Assert.Contains("https://a.test/v1", on[2].Zh);
+        Assert.Equal(off[1], on[1]); // the L2 row itself does not follow the L3 switch
+    }
+
+    [Fact] // T-137 — Web 平台行无视 L2 选择：L2 平台禁 ⇒ 平台禁用文案优先
+    public void Web_platform_L2_row_ignores_the_selection()
+    {
+        var rows = DataFlowCompareBar.Resolve(Web, l3Enabled: true, string.Empty, l2Selected: true);
+
+        Assert.Contains("Web 版不可用", rows[1].Zh);
+        Assert.DoesNotContain("已选用", rows[1].Zh);
+    }
 }
