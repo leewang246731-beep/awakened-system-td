@@ -41,12 +41,16 @@ public class AutopilotEraGateTests
         Assert.True(AutopilotEraGate.CampaignMayEngageFullAutopilot(6));  // 终章保持解锁态（T-135 域承接）
     }
 
-    [Theory] // legal — 战役泳道 Engage：E1~E4 拒绝且模式不变，E5 进入全托管
+    [Theory] // legal — 战役泳道 Engage：E1~E4 拒绝且模式不变，E5 起进入全托管
+    //（T-135 补 E6 行：全托管可选档按『E5 开、终章同开』延续——系统形态阶梯
+    //为授权递进列（E1 绑定→E5 全托管→终章真相揭示），真相揭示=叙事形态升级
+    //不收回全托管授权；闸门谓词 >=E5 自然覆盖 E6，Engage 泳道面同钉）
     [InlineData(1, false)]
     [InlineData(2, false)]
     [InlineData(3, false)]
     [InlineData(4, false)]
     [InlineData(5, true)]
+    [InlineData(6, true)]
     public void The_campaign_lane_engage_respects_the_era_gate(int era, bool shouldEngage)
     {
         (PipelineHarness harness, AutopilotDirector director) = NewDirector();
