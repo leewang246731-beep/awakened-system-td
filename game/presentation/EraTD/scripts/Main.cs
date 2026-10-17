@@ -310,6 +310,39 @@ public sealed partial class Main : Control
             $"strip={(int)beltStrip.X}x{(int)beltStrip.Y} " +
             $"grid={Era3ArtPack.TurnFramesPerRow}x{Era3ArtPack.TurnFrames / Era3ArtPack.TurnFramesPerRow} " +
             "phase=BeltRenderDecisions(locked shader-offset/frame-index)");
+
+        // W7 E4 视觉接线 F1 (T-128/C-28, F-042/F-127/F-133): E4 modern art
+        // pack load proof — 44 号 §1「时代路由」行的收口（T-128 卡明确挂出的
+        // presentation 接线半边）。Atlas composes in-engine (missing tiles
+        // throw); the belt skin stem comes from the pure gear decision
+        // (BeltRenderDecisions.BeltSkinStem: 15 件/s = E4 传送带档 → era4
+        // 皮肤, 10 件/s = E3 矿轨档 → era3 —— 同一冻结帧律仅色板换装,
+        // 44 号 §3 带速不烙进纹理); tower/enemy/Boss 实体映射按
+        // content-id→stem 规则组合（Era4ArtMappingTests 头less 侧镜像）。
+        // Era routing stays with the render loop as with E2/E3 — this
+        // marker proves the validator-gated pack loads (GPU pixel output is
+        // a windowed-only fact: headless 局限, 41 号 §6).
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        _ = Era4TerrainAtlas.Build();
+        _ = Era4ArtPack.BuildBeltScrollMaterial();
+        Vector2 e4BeltStrip = Era4ArtPack.LoadTurnStrip().GetSize();
+        _ = Era4ArtPack.EnemySpritePath("era4:enemy-boss"); // Boss（夜枭）映射解析即证明
+        _ = Era4ArtPack.TowerSpritePath("era4:tower-missile", 2); // 塔升级位映射解析即证明
+        GD.Print(
+            $"ART4 era=modern terrain={Era4TerrainAtlas.TileCount} " +
+            $"pack_files={Era4ArtPack.ProbePackFiles().Count}/30 " +
+            $"belt={Era4ArtPack.BeltSkinShortStem}@{BeltRenderDecisions.Era4GearItemsPerSecond:0.#}/s " +
+            $"boss={Era4ArtPack.BossStem}{Era4ArtPack.BossCanvasPx} " +
+            "source=procedural-era4-placeholders");
+        GD.Print(
+            "BELT4 shader=belt-scroll layers=2 " +
+            $"skin={Era4ArtPack.BeltSkinStem} " +
+            $"switch={BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era4GearItemsPerSecond)}@{BeltRenderDecisions.Era4GearItemsPerSecond:0.#}/s" +
+            $"|{BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era3GearItemsPerSecond)}@{BeltRenderDecisions.Era3GearItemsPerSecond:0.#}/s " +
+            $"body_px={Era4ArtPack.BeltBodyPx} turn_frames={Era4ArtPack.TurnFrames} " +
+            $"strip={(int)e4BeltStrip.X}x{(int)e4BeltStrip.Y} " +
+            $"grid={Era4ArtPack.TurnFramesPerRow}x{Era4ArtPack.TurnFrames / Era4ArtPack.TurnFramesPerRow} " +
+            "phase=BeltRenderDecisions(same frozen law, palette reskin, doc 44 §3)");
         GD.Print(
             $"BRIDGE frames={SmokeFrames} ticks={_bridge.Current.Tick} " +
             $"units={_bridge.Current.Units.Count} buildings={_bridge.Current.Buildings.Count} " +

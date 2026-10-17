@@ -1,7 +1,7 @@
 # AGENTS.md —《我在游戏觉醒系统》项目记忆与工作宪章
 
 > **任何 AI 会话（ZCode/Claude Code 等）在本仓库工作时自动生效。** 本文件是项目的"团队记忆入口"——先读完本文件再动手。
-> 最后更新：2026-10-14（Wave 3 收尾中）｜维护者：协调会话（业主：hydgame 账号持有人）
+> 最后更新：2026-10-17（W7 收官：E4 章+v1.0 硬验收落库）｜维护者：协调会话（业主：hydgame 账号持有人）
 
 ## 项目一句话
 
@@ -25,7 +25,7 @@
 | 要读什么 | 去哪 |
 |---|---|
 | 游戏设计方案（唯一真相源 v3.2.x） | `docs/我在游戏觉醒系统-游戏设计方案.md` |
-| 任务编排（147 任务/波次/并行纪律） | `docs/engineering/08-task-plan.md`（工作队列） |
+| 任务编排（152 任务/波次/并行纪律） | `docs/engineering/08-task-plan.md`（工作队列） |
 | 代码/文档标准（审查依据） | `docs/CODE_STANDARDS.md` + `docs/DOCUMENT_STANDARDS.md` |
 | 质量门禁 G1~G10 | `docs/engineering/13-quality-gates.md` |
 | 决策记录（32 裁决+历轮审查） | `docs/engineering/07-decided-plan.md` + `docs/engineering/reviews/REV-*` |
@@ -45,9 +45,9 @@ Godot=/d/game/tools/godot_extract/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-st
 密钥=config/{secrets.local.json, ark_key.txt, gh_token.txt}（vibeapi 生图/MiMo/ark/GitHub）
 ```
 
-## 当前进度快照（2026-10-14 晚）
+## 当前进度快照（2026-10-17 W7 收官）
 
-Wave 0~2 全部完成；Wave 3 完成 17/22（在途：批 3 修复轮/T-079；待做：T-078 E2 美术/T-085 关卡集/T-084 自动通关回归→出口核验）。累计 90+ 提交、4400+ 测试全绿基线、确定性回放/恢复等价/跃迁事务/19 动作端到端全部实证。Wave 4=v0.1 内测包（E1+E2 可玩），之后 W5 Web Demo/W6 E3/W7 E4+v1.0。外部依赖仅剩：30 人试玩（业主安排真人后恢复 T-062）。
+Wave 0~7 主体完成：W7 十一项中九项落库（T-123 E4 内容/T-124 E4 关卡+互联网奇观/T-125 遗迹映射正式版/T-126 四人格全量/T-127 E4 叙事/T-128 E4 美术包/T-130 关闭系统全章硬验收=REV-20261017-v10-fullclear：19 关全 Victory+三跃迁+全成就+警报中性，run_all 全绿 6157 passed；E4 视觉接线（Era4TerrainAtlas/Era4ArtPack+ART4 冒烟）随 W7 收口修复 F1 落地）；T-129 L2 spike/T-131 联机评审经 D-34 业主方针改派 W8（08 v1.15）。**在途：v1.0 发包（T-132 商标检索归档+T-133 双轨发布+国内镜像）**。累计 6157+ 测试全绿；E1~E4 四章端到端确定性回放/跃迁事务/无实体无素材清零全部实证。挂账主线：T-095 实测校准随业主终版实测（DEFERRED 同源）；v10 REV 六挂账已归属行尾（08 v1.15 变更记录④）。W8=E5/终章、L2 正式版、TTS、联机、程序关、移动端评估。外部依赖仅剩：30 人试玩（业主安排真人后恢复 T-062）。
 
 ## 沟通口径
 

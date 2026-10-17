@@ -228,7 +228,41 @@ public class BeltRenderDecisionsTests
         Assert.Equal(7, BeltRenderDecisions.FrameIndexFor(15.99, 0));
     }
 
+    // ------------------------------------------------ legal — 皮肤档位（W7 E4 视觉接线 F1）
+
+    [Fact] // legal — [F-042] 档位→皮肤 stem：15/s（E4 传送带档）换装 era4、10/s（E3 矿轨档）保持 era3
+    public void Skin_stem_switches_to_era4_at_the_15_per_s_conveyor_gear()
+    {
+        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era4GearItemsPerSecond));
+        Assert.Equal("era3", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era3GearItemsPerSecond));
+        // 档位锚=冻结阶梯第 4 档位值（v3.2 §5 L78 10→15；era.json tier=3 行同值）
+        Assert.Equal(10.0, BeltRenderDecisions.Era3GearItemsPerSecond);
+        Assert.Equal(15.0, BeltRenderDecisions.Era4GearItemsPerSecond);
+    }
+
+    [Theory] // legal — [F-042] 未交付上档（20/∞=E5+）乘最新已交付皮肤；低于边界乘 E3 皮肤
+    [InlineData(12.5, "era4")]  // 边界本身=切换点（含）
+    [InlineData(13.0, "era4")]
+    [InlineData(20.0, "era4")]  // 阶梯第 5 档（E5 皮肤 W8 T-142 前乘 era4）
+    [InlineData(double.MaxValue, "era4")] // ∞ 档同乘最新
+    [InlineData(12.49, "era3")]
+    [InlineData(0.6, "era3")]   // 低位档乘最近已交付皮肤
+    [InlineData(0.0, "era3")]
+    public void Skin_stem_boundary_and_undelivered_upper_gears_ride_the_newest_skin(
+        double throughputItemsPerSecond, string expectedStem)
+    {
+        Assert.Equal(expectedStem, BeltRenderDecisions.BeltSkinStem(throughputItemsPerSecond));
+        Assert.Equal(12.5, BeltRenderDecisions.SkinSwitchItemsPerSecond); // 冻结边界=(10+15)/2
+    }
+
     // ------------------------------------------------ illegal
+
+    [Fact] // illegal — NaN 速率拒绝（垃圾速率无皮肤，不静默回落）
+    public void NaN_skin_gear_rate_throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => BeltRenderDecisions.BeltSkinStem(double.NaN));
+    }
 
     [Fact] // illegal — null 链拒绝
     public void Null_cells_throw()

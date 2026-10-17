@@ -223,6 +223,51 @@ public static class BeltRenderDecisions
         (int)(PhasePx(scrollPx, originPx) / TurnPxPerFrame);
 
     /// <summary>
+    /// E3 belt-skin gear of the frozen logistics ladder (v3.2 §5): the 10 件/s
+    /// mine-rail rung the T-119 pack (textures/era3/belt/) dresses — the only
+    /// belt-adjacent skin delivered before E4.
+    /// </summary>
+    public const double Era3GearItemsPerSecond = 10.0;
+
+    /// <summary>
+    /// E4 belt-skin gear of the frozen logistics ladder (v3.2 §5 L78
+    /// 0.3→0.6→10→15→20→∞, 第 4 档位值 15.0 件/s): the conveyor-belt rung the
+    /// T-128 pack (textures/era4/belt/, doc 44 §3) dresses — same frozen
+    /// geometry as E3, palette reskin.
+    /// </summary>
+    public const double Era4GearItemsPerSecond = 15.0;
+
+    /// <summary>
+    /// Skin-switch boundary (件/s) between the two delivered belt-skin gears:
+    /// the midpoint of the ladder rungs 10 and 15. Rates at/above it wear the
+    /// E4 skin; rates below wear the E3 skin.
+    /// </summary>
+    public const double SkinSwitchItemsPerSecond = 12.5;
+
+    /// <summary>
+    /// Throughput gear → belt-skin texture stem under
+    /// <c>res://textures/{stem}/belt/</c> (W7 E4 视觉接线 F1): 15 件/s (E4
+    /// conveyor-belt gear, era.json logistics tier=3) selects the <c>era4</c>
+    /// palette reskin; 10 件/s (E3 mine-rail gear) keeps the <c>era3</c> skin
+    /// — the same frozen geometry law (<see cref="PhasePx"/> /
+    /// <see cref="FrameIndexFor"/>) drives both, only the palette differs
+    /// (doc 44 §3 带速不烙进纹理). Undelivered upper rungs (20/∞ = E5+)
+    /// ride the newest delivered skin until their packs land (W8 T-142).
+    /// The Godot side mirrors this table, never re-derives it
+    /// (RendererDecisionMap 先例).
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="throughputItemsPerSecond"/> is NaN (a garbage rate has no skin).</exception>
+    public static string BeltSkinStem(double throughputItemsPerSecond)
+    {
+        if (double.IsNaN(throughputItemsPerSecond))
+        {
+            throw new ArgumentException("belt skin gear rate must be a number, not NaN.", nameof(throughputItemsPerSecond));
+        }
+
+        return throughputItemsPerSecond >= SkinSwitchItemsPerSecond ? "era4" : "era3";
+    }
+
+    /// <summary>
     /// Clockwise quarter turns for the sprite. Canonical tiles: straight
     /// travels SOUTH; turn enters from the south edge heading NORTH and
     /// exits EAST (right turn; left turns mirror via <see cref="BeltCellPlan.FlipX"/>
