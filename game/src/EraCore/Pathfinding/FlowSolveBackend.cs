@@ -111,7 +111,8 @@ public static class FlowSolveBackendFactory
     /// <summary>
     /// Default per-tick quota of <see cref="FlowSolveBackend.PerTickCellQuota"/>
     /// — delegates to <see cref="FlowFieldManager.DefaultCellsPerTick"/>
-    /// (2048 charged units; calibration record on that constant).
+    /// (6144 charged units since the T-153 recalibration; calibration record
+    /// on that constant).
     /// </summary>
     public const int DefaultTickQuota = FlowFieldManager.DefaultCellsPerTick;
 

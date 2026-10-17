@@ -83,8 +83,8 @@ public enum FlowFieldAdvanceMode
 /// one simulation frame's slice, with two budget entries (T-067 DEBT 清账):
 /// <list type="bullet">
 /// <item><see cref="UpdateDeterministic(int?)"/> — the SIMULATION entry: a
-/// cell quota (<see cref="DefaultCellsPerTick"/> = 2048 charged work units
-/// per tick, workload- not time-based). A large flood simply continues on
+/// cell quota (<see cref="DefaultCellsPerTick"/> = 6144 charged work units
+/// per tick, workload- not time-based; T-153 recalibration). A large flood simply continues on
 /// later frames, and the tick on which it completes is a pure function of
 /// the grid snapshot — load-independent by construction, so same-seed
 /// simulations hash identically under any CPU contention (AGENTS.md
@@ -121,22 +121,52 @@ public sealed class FlowFieldManager
     /// cell or settled frontier cell; see
     /// <see cref="FlowField.AdvanceDeterministic(int)"/>).
     /// <para>
-    /// Calibration (T-067 DEBT 清账, this machine = A5-class dev box,
+    /// Calibration v1 (T-067, 2026-10-15, A5-class dev box under a parallel
+    /// CI lane): ≈0.32 µs per charged unit ⇒ 2048 units ≈ 0.7 ms/tick,
+    /// quota-vs-wallclock throughput ratio 0.928 — passed with margin then.
+    /// <br/>
+    /// Calibration v2 (T-153, 2026-10-13 recalibration, RED-FLAG
+    /// 2026-10-17: the 2048 quota rode the throughput gate's line all day —
+    /// 0.899 → 0.862 loaded → quiet-window red/green/red). Measured on this
+    /// machine (8-core dev box, quiet window, Debug test-host profile,
     /// 300×300 sparse d=0.08 seed=42 WallTear full flood = 255,794 charged
-    /// units, measured under a parallel CI lane): ≈0.32 µs per charged unit
-    /// ⇒ 2048 units ≈ 0.7 ms/tick — ~11× margin under the 8 ms design slice
-    /// (v3.2 §6) even ×3 CI/OS jitter; quota-run total 82 ms vs wall-clock
-    /// 8 ms slicing 76 ms = 92.8% throughput (≥90% task gate; no Stopwatch
-    /// decision point costs <8%). Completion: 125 ticks for the 300×300
-    /// rebuild (~4.2 s @ 30 Hz), E1 128×128 maps ≈46k units ⇒ ~23 ticks.
-    /// Empirical record pinned by
-    /// FlowFieldManagerTests.DeterministicQuotaThroughputMatchesWallclockOnFullFlood
-    /// and archived in REV-20261015-flowfield-determinism.md; enlarge the
-    /// quota (not below ~3× per-unit worst-case margin) if field-ready
-    /// latency ever matters more than per-tick headroom.
+    /// units, wall-clock 8 ms entry processes a median ≈19.2k cells per
+    /// 8 ms frame — but see the envelope bound below): per-unit cost
+    /// ≈0.30-0.34 µs mean-field and ≈0.60 µs on the heaviest single tick
+    /// (quota path worst-phase Debug) ⇒
+    /// <list type="bullet">
+    /// <item>6144 units ≈ 1.9-3.7 ms/tick Debug worst-phase (8-core dev
+    /// box), ≈2.7× margin under the 8 ms design slice (v3.2 §6) and
+    /// ≈2.7× under the 10 ms single-slice spike gate (Spike1PerformanceTests
+    /// gate ④); ≈4.3× under the 16 ms soft guard (<see cref="SoftGuardWarnMs"/>).</item>
+    /// <item>300×300 rebuild completes in 42 ticks (~1.4 s @ 30 Hz; was 125
+    /// ticks at 2048); E1 128×128 maps ≈46k units ⇒ ~8 ticks.</item>
+    /// <item>Guardrail DeterministicQuotaThroughputMatchesWallclockOnFullFlood
+    /// (same-round self-comparison, machine-independent ≥90% ratio): quiet
+    /// window three runs 1.000/0.987/1.014 (min-of-3 steady-state sampling,
+    /// T-153) — the 2048 era measured 0.814-0.963 per attempt with a
+    /// structural per-tick tax (~125 ticks × ~0.06 ms manager bookkeeping
+    /// ≈ 8-10% throughput) plus cold-JIT/first-call draws.</item>
+    /// </list>
+    /// Formula-vs-envelope note (T-153 derivation): "quota = median
+    /// 8 ms-frame cells × 0.95" evaluates to ≈18.2k on this machine, but a
+    /// single 18k-unit tick measured 11.03 ms Debug on this very box — over
+    /// the 10 ms spike-gate line even quiet; the binding constraint is the
+    /// single-slice envelope (quota × worst-phase per-unit cost ≤ 10 ms ÷
+    /// load factor), giving an upper bound ≈11k at 1.5× load; 6144 sits at
+    /// ≈55% of that bound with the guardrail ratio already at parity (~1.0),
+    /// so nothing between 6144 and 11k buys gate margin — it only burns
+    /// frame-budget margin.
+    /// <br/>
+    /// This constant enters the deterministic hash chain (Simulation
+    /// UpdateDeterministic call site): changing it shifts rebuild-completion
+    /// ticks and re-pins the golden files (T-153 re-pinned all seven golden
+    /// channels; REV-20261017-T153). Enlarging further is safe for
+    /// determinism (workload-based) but re-pins goldens again — do it only
+    /// with a fresh calibration record here.
     /// </para>
     /// </summary>
-    public const int DefaultCellsPerTick = 2048;
+    public const int DefaultCellsPerTick = 6144;
 
     /// <summary>
     /// Soft-guard line of <see cref="UpdateDeterministic(int?)"/>: a tick

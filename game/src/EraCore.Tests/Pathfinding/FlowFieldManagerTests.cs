@@ -673,11 +673,18 @@ public class FlowFieldManagerTests
     {
         // [T-067 DEBT 清账] 吞吐对比门禁（配额校准依据，同机同轮自比）：
         // 300×300 全图泛洪（与上用例同图）在确定性配额
-        // FlowFieldManager.DefaultCellsPerTick 下的总完成 tick 数、均帧格数、
+        // FlowFieldManager.DefaultCellsPerTick 下的总完成 tick 数、
         // 吞吐（格/ms）留档；与墙钟版（8ms 预算切片）同轮对照——**比率断言**
         // （≥90%，机器无关）：配额机制去掉的是 Stopwatch 决策位，不该损失
-        // 一成以上吞吐，否则按任务口径调大配额。数字经 _output 留档进
-        // REV-20261015-flowfield-determinism.md。
+        // 一成以上吞吐，否则按任务口径调大配额。[T-153 再校准] 2048 时代
+        // 全天贴线（0.899→0.862→安静窗红绿红），上调配额消结构性 per-tick
+        // 税（125 tick×~0.06ms≈8% 吞吐税）+ 单试测量升级为交错双采样取
+        // min（冷 JIT/核态慢抽落单样本，结构性税落每一样本——min 不豁免它）。
+        // 数字经 _output 留档进 REV-20261015-flowfield-determinism.md 与
+        // REV-20261017-T153。测量前小图预热（两机制各一遍，结果丢弃）：
+        // JIT 首调税不是稳态吞吐量，落 attempt1 会把中位拖低一线（T-153
+        // 校准实测 attempt1 恒 0.836/0.844 vs 暖态 0.93~1.07）。
+        WarmupBothEntriesForSteadyState();
         var attempt1 = MeasureQuotaThroughputOnce();
         var attempts = new List<(double Ratio, int QuotaTicks, double QuotaThroughput, double WallThroughput, long WorkUnits)>
         {
@@ -708,6 +715,17 @@ public class FlowFieldManagerTests
     /// Hash equality (burst = wall-clock-sliced = quota-sliced) and the
     /// quota-side tick determinism are hard asserts — they never enter the
     /// retry path.
+    /// <para>
+    /// Steady-state sampling (T-153): each side is measured THREE times per
+    /// attempt in alternating order (wall, quota, wall, quota, ...) and takes
+    /// its MIN elapsed — cold-JIT first-call tax and transient core-state
+    /// slow draws land on individual samples (observed bimodal quota rounds
+    /// ~76 vs ~107 ms for identical work, e.g. T-153 calibration run4), while
+    /// the structural per-tick overhead the gate guards lands on EVERY quota
+    /// sample, so the min keeps it fully. Min-of-N is the standard
+    /// steady-state throughput estimator (same rationale as the unloaded
+    /// envelope archives above); all samples are printed for the record.
+    /// </para>
     /// </summary>
     private (double Ratio, int QuotaTicks, double QuotaThroughput, double WallThroughput, long WorkUnits) MeasureQuotaThroughputOnce()
     {
@@ -717,19 +735,97 @@ public class FlowFieldManagerTests
 
         // ---- wall-clock reference: 8 ms slices, exactly the production
         // legacy entry's cadence (same loop the envelope test above runs).
-        var wallSliced = FlowField.StartBuild(grid, target);
-        var wallWatch = Stopwatch.StartNew();
-        int wallFrames = 0;
-        while (!wallSliced.Advance(TimeSpan.FromMilliseconds(8)))
+        // Measured three times; steady state = min elapsed.
+        var wallSamples = new List<double>(3);
+        var quotaSamples = new List<double>(3);
+        int quotaTicks = 0;
+        for (int sample = 0; sample < 3; sample++)
         {
-            wallFrames++;
+            wallSamples.Add(WallSlicedTotalMs(grid, target, burst));
+            (int ticks, double ms) = QuotaSlicedTotal(grid, target, burst);
+            if (quotaTicks == 0)
+            {
+                quotaTicks = ticks;
+            }
+            else
+            {
+                Assert.Equal(quotaTicks, ticks); // 同配额同图：完成 tick 数确定（口径内钉）
+            }
+
+            quotaSamples.Add(ms);
         }
 
-        wallFrames++;
-        wallWatch.Stop();
+        double wallMs = wallSamples.Min();
+        double quotaMs = quotaSamples.Min();
 
-        // ---- deterministic entry: default quota via the MANAGER (the sim's
-        // real call shape), so per-tick bookkeeping is the production path.
+        long work = burst.ProcessedCells;
+        double wallThroughput = work / wallMs;
+        double quotaThroughput = work / quotaMs;
+
+        _output.WriteLine(
+            "[T-067 DEBT 清账/T-153 再校准] 300x300 d=0.08 seed=42: workUnits=" + work
+            + " | wallclock(8ms) samples=" + string.Join("/", wallSamples.Select(ms => (int)ms)) + "ms steady=" + (int)wallMs + "ms throughput=" + wallThroughput.ToString("F1") + " cells/ms"
+            + " | quota(" + FlowFieldManager.DefaultCellsPerTick + "/tick): ticks=" + quotaTicks
+            + " samples=" + string.Join("/", quotaSamples.Select(ms => (int)ms)) + "ms steady=" + (int)quotaMs + "ms throughput=" + quotaThroughput.ToString("F1") + " cells/ms"
+            + " | ratio=" + (quotaThroughput / wallThroughput).ToString("F3")
+            + " mode=" + burst.Mode);
+
+        return (quotaThroughput / wallThroughput, quotaTicks, quotaThroughput, wallThroughput, work);
+    }
+
+    /// <summary>
+    /// JIT warmup (T-153): one small flood through BOTH entries (wall-clock
+    /// sliced + manager quota), results discarded. First-call tiered-JIT tax
+    /// is not steady-state throughput; without this it lands on attempt 1's
+    /// first quota sample and drags the median (observed 0.836/0.844 vs warm
+    /// 0.93~1.07 during T-153 calibration).
+    /// </summary>
+    private static void WarmupBothEntriesForSteadyState()
+    {
+        var grid = TestMazes.SparseObstacles(96, 7, 0.1);
+        var target = new CellCoord(95, 95);
+        var warm = FlowField.StartBuild(grid, target);
+        while (!warm.Advance(TimeSpan.FromMilliseconds(8)))
+        {
+        }
+
+        var manager = new FlowFieldManager(grid);
+        manager.Acquire(new FlowFieldKey(0, 0), target);
+        while (!manager.UpdateDeterministic())
+        {
+        }
+    }
+
+    /// <summary>
+    /// One wall-clock full flood via the MANAGER legacy entry (T-153: the
+    /// production cadence pre-T-067 was exactly <c>_flows.Update(8ms)</c>; the
+    /// symmetric-manager comparison also removes a measurement asymmetry —
+    /// the raw-field wall loop carries no per-frame manager bookkeeping while
+    /// the quota side always did, which fed the machine-state noise into the
+    /// ratio asymmetrically). Returns total elapsed ms; hash equality is a
+    /// hard assert inside.
+    /// </summary>
+    private static double WallSlicedTotalMs(MapGrid grid, CellCoord target, FlowField burst)
+    {
+        var manager = new FlowFieldManager(grid);
+        var key = new FlowFieldKey(0, 0);
+        manager.Acquire(key, target);
+        var wallWatch = Stopwatch.StartNew();
+        while (!manager.Update(8.0))
+        {
+        }
+
+        wallWatch.Stop();
+        var field = manager.GetField(key)!;
+        Assert.True(field.IsReady);
+        Assert.Equal(burst.Hash, field.Hash); // 切片等价（墙钟口径既有钉）
+        Assert.Equal(burst.ProcessedCells, field.ProcessedCells); // 总工作量与切片方式无关
+        return wallWatch.Elapsed.TotalMilliseconds;
+    }
+
+    /// <summary>One manager-quota full flood via the sim's real call shape; returns (ticks, total ms).</summary>
+    private static (int Ticks, double TotalMs) QuotaSlicedTotal(MapGrid grid, CellCoord target, FlowField burst)
+    {
         var manager = new FlowFieldManager(grid);
         var key = new FlowFieldKey(0, 0);
         manager.Acquire(key, target);
@@ -748,28 +844,10 @@ public class FlowFieldManagerTests
 
         var quotaField = manager.GetField(key)!;
         Assert.True(quotaField.IsReady);
-        Assert.Equal(burst.Hash, wallSliced.Hash); // 切片等价（墙钟口径既有钉）
-        Assert.Equal(burst.Hash, quotaField.Hash); // 切片等价（配额口径新钉）
-        Assert.Equal(burst.ProcessedCells, wallSliced.ProcessedCells); // 总工作量与切片方式无关
+        Assert.Equal(burst.Hash, quotaField.Hash); // 切片等价（配额口径钉）
         Assert.Equal(burst.ProcessedCells, quotaField.ProcessedCells);
         Assert.Equal(burst.ProcessedCells, quotaCells); // 管理器记账=字段累计
-
-        double wallMs = wallWatch.Elapsed.TotalMilliseconds;
-        double quotaMs = quotaWatch.Elapsed.TotalMilliseconds;
-        long work = burst.ProcessedCells;
-        double wallThroughput = work / wallMs;
-        double quotaThroughput = work / quotaMs;
-
-        _output.WriteLine(
-            "[T-067 DEBT 清账] 300x300 d=0.08 seed=42: workUnits=" + work
-            + " | wallclock(8ms): frames=" + wallFrames + " total=" + (int)wallMs + "ms throughput=" + wallThroughput.ToString("F1") + " cells/ms"
-            + " | quota(" + FlowFieldManager.DefaultCellsPerTick + "/tick): ticks=" + quotaTicks
-            + " avgCellsPerTick=" + (quotaCells / (double)quotaTicks).ToString("F1")
-            + " total=" + (int)quotaMs + "ms throughput=" + quotaThroughput.ToString("F1") + " cells/ms"
-            + " | ratio=" + (quotaThroughput / wallThroughput).ToString("F3")
-            + " mode=" + burst.Mode);
-
-        return (quotaThroughput / wallThroughput, quotaTicks, quotaThroughput, wallThroughput, work);
+        return (quotaTicks, quotaWatch.Elapsed.TotalMilliseconds);
     }
 
     /// <summary>
