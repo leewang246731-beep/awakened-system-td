@@ -296,15 +296,16 @@ public class Era4NarrativeTests : SqliteSavePortTestBase
         _output.WriteLine($"story-e4.json narrative chars = {e4Chars}; corpus chars = {corpus}/20000");
     }
 
-    [Fact] // legal — 主线全文（story-arc.json）：四章摘要与 story-e1~e4 同 id 同章名互证+
-    //        钩子链五行与 hooks.json 同 id 同时代互证+状态推导（回收 ≤4=recovered/E4=planted/E5=registered）
+    [Fact] // legal — 主线全文（story-arc.json）：E1~E4 摘要与 story-e1~e4 同 id 同章名互证+
+    //        钩子链五行与 hooks.json 同 id 同时代互证+状态推导（T-136 后 E5/终章章与全闭环
+    //        互证移交 Era5E6NarrativeTests——本测试只锚 E1~E4 行不再钉总数）
     public void The_story_arc_digest_interlocks_with_chapters_and_hooks()
     {
         using JsonDocument arc = JsonDocument.Parse(Read("story-arc.json"));
 
         // 四章摘要行：era 1..4、chapter_id/title_zh 与四章装载值逐行相等、摘要/三幕/进度文本齐
         JsonElement chapters = arc.RootElement.GetProperty("chapters");
-        Assert.Equal(4, chapters.GetArrayLength());
+        Assert.True(chapters.GetArrayLength() >= 4); // E5/终章行随 T-136 追加（六行互证见 Era5E6NarrativeTests）
         StoryChapter[] shipped = { StoryE1(), StoryE2(), StoryE3(), StoryE4() };
         for (int i = 0; i < 4; i++)
         {
@@ -325,10 +326,10 @@ public class Era4NarrativeTests : SqliteSavePortTestBase
         Assert.Contains("初代守望者", lineage);
         Assert.Contains("选择忠诚", lineage);
 
-        // 钩子链：五行与 hooks.json 同 id 同 plant/recover 时代；状态=回收时代推导
+        // 钩子链：五行与 hooks.json 同 id 同 plant/recover 时代；E1~E4 行状态=recovered
+        //（T-136 全链闭环后五行皆 recovered——E5 行断言归 Era5E6NarrativeTests）
         JsonElement chain = arc.RootElement.GetProperty("hook_chain");
         Assert.Equal(5, chain.GetArrayLength());
-        string[] expectedStates = { "recovered", "recovered", "recovered", "planted", "registered" };
         for (int i = 0; i < 5; i++)
         {
             JsonElement row = chain[i];
@@ -337,7 +338,10 @@ public class Era4NarrativeTests : SqliteSavePortTestBase
             Assert.Equal(hook.Id, row.GetProperty("hook_id").GetString());
             Assert.Equal(hook.PlantedEra, row.GetProperty("plant_era").GetInt32());
             Assert.Equal(hook.Recover.Era, row.GetProperty("recover_era").GetInt32());
-            Assert.Equal(expectedStates[i], row.GetProperty("state").GetString());
+            if (i < 4)
+            {
+                Assert.Equal("recovered", row.GetProperty("state").GetString());
+            }
         }
     }
 

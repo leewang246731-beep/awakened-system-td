@@ -1,7 +1,7 @@
 {
   "$schema": "urn:eratd:content:narrative:hooks:1",
   "content_type": "CrossEraHookTable",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-089 跨时代悬念钩子登记（F-098，v3.2 §12.1 谱系线）：5 条=E1 壁画飞艇/E2 预言残页/E3 不该存在图纸/E4 卫星信号（军师私人台词层）/E5 回声低语；埋点-回收链=本章埋（planted）→跨章收（recover/payoff），E3 行已随 T-120 物化（planted_level_id=L3-3 考古关 dig_site，与 Legacy/ 考古链对齐——同关 unlocks.features 含 archaeology），E4 行已随 T-127 物化（planted_level_id=L4-3 多核解锁关——军师私人频道开通位，story-e4.json advisor_private 层承接台词载体），E5 未交付章只登记回收位不落实体",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-089 跨时代悬念钩子登记（F-098，v3.2 §12.1 谱系线）：5 条=E1 壁画飞艇/E2 预言残页/E3 不该存在图纸/E4 卫星信号（军师私人台词层）/E5 回声低语；埋点-回收链=本章埋（planted）→跨章收（recover/payoff），E3 行已随 T-120 物化（planted_level_id=L3-3 考古关 dig_site，与 Legacy/ 考古链对齐——同关 unlocks.features 含 archaeology），E4 行已随 T-127 物化（planted_level_id=L4-3 多核解锁关——军师私人频道开通位，story-e4.json advisor_private 层承接台词载体），E5 行已随 T-136 物化（planted_level_id=L5-3 考古与托管关——unlocks.features 含 full_autopilot，全托管期=回声混入系统的解锁位，story-e5.json echo_intrusion 层承接台词载体）；E4 行 payoff 已在 story-e5.json 开场白第三行兑现（轨道残骸解码=孪生碎片上线），E5 行 payoff 已在 story-e5.json 章末交底兑现（回声留在声音这边——完整忠诚反转随终章播片按信任三档展开，T-136）",
   "items": [
     {
       "id": "narrative:hook-e1-mural-airship",
@@ -60,16 +60,16 @@
       "ordinal": 5,
       "title_zh": "回声低语",
       "planted_era": 5,
-      "planted_level_id": null,
-      "planted_anchor_zh": "E5 回声人格混入系统（章未交付，登记位）",
+      "planted_level_id": "campaign:level-e5-03",
+      "planted_anchor_zh": "L5-3 考古与托管·系统日志边缘（全托管期=回声人格混入系统的解锁位）",
       "teaser_zh": "系统日志的边缘，开始出现不是零写下的批注。",
       "recover": { "era": 5, "kind": "chapter_progress" },
       "payoff_zh": "终章回声选择忠诚——奖励系统使用者，不搞背叛骗局（§12.1 谱系写死）。",
       "layer": "system_voice",
-      "linked_remanent": null
+      "linked_remanent": "narrative:remnant-e5-echo"
     }
   ],
-  "_source": "T-089 跨时代钩子：E1 埋点=L1-3 石语河谷（08 任务卡指定锚），回收=E2 考古通道 knowledge_scroll（archaeology.json channels 实锚，L2-3 dig_sites 两处+unlocks.features 含 archaeology——一致性测试断言）；E4=军师私人台词层（layer=advisor_private，双载体之一：台词层+卫星信号，v3.2 §12 军师谱系）；E5=回声低语（layer=system_voice，与 remnants.json echo_stage 渐显线汇合）。T-120 增量：E3 行物化——planted_level_id=L3-3（campaign:level-e3-03，考古关：dig_sites 两处遗迹点=图纸物理挖出位，unlocks.features 含 archaeology——E1 埋点『L1-3+回收关 L2-3 考古解锁』同款链式对位；埋点时代与挖出同关=E3 章内自埋自挖，回收仍留 E4 章节推进）；linked_remanent=narrative:remnant-e3-blueprint（remnants.json T-120 增量首条，双向链测试断言）；E2 行 recover.era=3 的 payoff 已在 story-e3.json 开场白第三行逐字兑现（章节推进回收落地）。T-127 增量：E4 行物化——planted_level_id=L4-3（campaign:level-e4-03，考古+多核关：unlocks.features 含 multicore_patrol——§4 E4 系统形态『多核期（巡逻子代理；另一个声音钩子）』的解锁位=军师私人频道开通语境；埋点载体=story-e4.json advisor_private 层行 1（beat 同关，teaser 原句『那个频段，我以前用过』逐字落地）；E3 行 recover.era=4 的 payoff 已在 story-e4.json 开场白第三行兑现（图纸是给零的卫星轨道图——章节推进回收落地）；linked_remanent=narrative:remnant-e4-signal（remnants.json T-127 增量，双向链测试断言）；回收仍留 E5 章节推进（E5 未交付）",
+  "_source": "T-089 跨时代钩子：E1 埋点=L1-3 石语河谷（08 任务卡指定锚），回收=E2 考古通道 knowledge_scroll（archaeology.json channels 实锚，L2-3 dig_sites 两处+unlocks.features 含 archaeology——一致性测试断言）；E4=军师私人台词层（layer=advisor_private，双载体之一：台词层+卫星信号，v3.2 §12 军师谱系）；E5=回声低语（layer=system_voice，与 remnants.json echo_stage 渐显线汇合）。T-120 增量：E3 行物化（planted_level_id=L3-3 考古关+linked_remanent=remnant-e3-blueprint 双向链）；T-127 增量：E4 行物化（planted_level_id=L4-3 多核关+advisor_private 行 1 载体+linked_remanent=remnant-e4-signal 双向链；E3 行 payoff 在 story-e4 开场白兑现）。T-136 增量：E5 行物化——planted_level_id=L5-3（campaign:level-e5-03，考古+全托管关：unlocks.features 含 full_autopilot——§4 E5 系统形态『全托管期』的解锁位=回声人格混入系统语境；埋点载体=story-e5.json echo_intrusion 层行 1（beat 同关，teaser 原句『不是零写下的批注』逐字落地）；E4 行 recover.era=5 的 payoff 已在 story-e5.json 开场白第三行兑现（轨道残骸解码：信号源是零的孪生碎片——『另一个声音』上线，章节推进回收落地）；E5 行 recover.era=5 的 payoff 已在 story-e5.json 章末交底行 2 兑现（回声留在声音这边/陪伴立场——完整忠诚反转=终章播片信任三档展开，F-108 域）；linked_remanent=narrative:remnant-e5-echo（remnants.json T-136 增量，双向链测试断言）。五钩链至此全数埋点-回收闭环",
   "_units": {
     "items[].ordinal": "ordinal_1_5",
     "items[].planted_era": "era_ordinal_1_5",

@@ -24,7 +24,7 @@ public enum RemnantSourceKind
 /// <param name="SourceKind">Obtainment channel.</param>
 /// <param name="ScrollId">The archaeology scroll id this remnant extends (knowledge_scroll rows).</param>
 /// <param name="BeatId">The narrative beat id this remnant rides (narrative_beat rows).</param>
-/// <param name="Era">Era the memory belongs to (1..5).</param>
+/// <param name="Era">Era the memory belongs to (1..6 — six-era domain, finale included).</param>
 /// <param name="EchoStage">E5 foreshadow stage (1 faint static → 4 almost-clear whisper).</param>
 /// <param name="MemoryZh">Zero's archive annotation of the memory fragment.</param>
 /// <param name="EchoWhisperZh">The echo whisper shown at this stage.</param>
@@ -52,8 +52,14 @@ public sealed class RemnantCatalog
     /// <summary>Content type marker the loader requires.</summary>
     public const string ContentType = "RemnantTable";
 
-    /// <summary>Frozen table size (T-089 first batch 8 + T-120 E3 increment 3 + T-127 E4 increment 4).</summary>
-    public const int RemnantCount = 15; // ci-allow: R7 T-089 首批 8 条+T-120 E3 增量 3 条+T-127 E4 增量 4 条=任务卡冻结结构数（叙事量纲，非内容平衡数值）
+    /// <summary>Frozen table size (T-089 first batch 8 + T-120 E3 increment 3 + T-127 E4 increment 4 + T-136 E5/finale increments 7).</summary>
+    public const int RemnantCount = 22; // ci-allow: R7 T-089 首批 8 条+T-120 E3 增量 3 条+T-127 E4 增量 4 条+T-136 E5 增量 4 条+终章增量 3 条=任务卡冻结结构数（叙事量纲，非内容平衡数值）
+
+    /// <summary>
+    /// Era ordinal ceiling of the remnant table: E1..E6 (six-era domain;
+    /// T-136 终章增量首用 era 6——回声归位/记忆闭环拍).
+    /// </summary>
+    public const int MaxEraOrdinal = 6; // ci-allow: R7 T-136 残卷时代域 E1..E6=六时代体系冻结结构常量（章数纲，非内容平衡数值）
 
     /// <summary>Max echo stage (渐显带 1..4).</summary>
     public const int MaxEchoStage = 4; // ci-allow: R7 T-089 回声伏笔渐显 1..4 段=T-089 结构旋钮（叙事量纲）
@@ -124,9 +130,9 @@ public sealed class RemnantCatalog
                 throw new NarrativeSchemaException($"{sourceName}: 缺 items 数组");
             }
 
-            Require(
+                Require(
                 itemsEl.GetArrayLength() == RemnantCount,
-                $"{sourceName}: items 须恰好 {RemnantCount} 条（得到 {itemsEl.GetArrayLength()}——T-089 首批 8 条+T-120 E3 增量 3 条+T-127 E4 增量 4 条）");
+                $"{sourceName}: items 须恰好 {RemnantCount} 条（得到 {itemsEl.GetArrayLength()}——T-089 首批 8 条+T-120 E3 增量 3 条+T-127 E4 增量 4 条+T-136 E5/终章增量 7 条）");
 
             var items = new List<KnowledgeRemnant>();
             var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -159,7 +165,9 @@ public sealed class RemnantCatalog
                 }
 
                 int era = RequireInt(itemEl, "era", sourceName);
-                Require(era >= 1 && era <= 5, $"{sourceName}: {id}.era 须 ∈[1,5]");
+                Require(
+                    era >= 1 && era <= MaxEraOrdinal,
+                    $"{sourceName}: {id}.era 须 ∈[1,{MaxEraOrdinal}]（六时代域，T-136 终章增量首用 6）");
                 int stage = RequireInt(itemEl, "echo_stage", sourceName);
                 Require(
                     stage >= 1 && stage <= MaxEchoStage,

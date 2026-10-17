@@ -1,7 +1,7 @@
 {
   "$schema": "urn:eratd:content:narrative:remnants:1",
   "content_type": "RemnantTable",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-089 知识残卷记忆文本（F-098/F-099/F-106，v3.2 §12.1+§8：知识残卷=零丢失的记忆碎片，读残卷=恢复上一纪元记忆）：15 条=T-089 首批 8 条（零的记忆碎片+E5 回声伏笔渐显 echo_stage 1→4 低语渐强）+T-120 E3 增量 3 条（章/钩子/演出三拍，stage 4 延续）+T-127 E4 增量 4 条（章/钩子/终局关/演出四拍，stage 4 渐显最密章——『另一个声音』伏笔密度峰）；前 4 条 source=knowledge_scroll 与 legacy/archaeology.json knowledge_scrolls 同 id 挂接（一致性测试互证），后 11 条 source=narrative_beat（叙事节点获得）",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-089 知识残卷记忆文本（F-098/F-099/F-106，v3.2 §12.1+§8：知识残卷=零丢失的记忆碎片，读残卷=恢复上一纪元记忆）：22 条=T-089 首批 8 条（零的记忆碎片+E5 回声伏笔渐显 echo_stage 1→4 低语渐强）+T-120 E3 增量 3 条（章/钩子/演出三拍，stage 4 延续）+T-127 E4 增量 4 条（章/钩子/终局关/演出四拍，stage 4 渐显最密章——『另一个声音』伏笔密度峰）+T-136 E5 增量 4 条（解码/回声/托管/收束——回声得名与选边）+T-136 终章增量 3 条（真相关/终局/闭环——零的记忆闭环与孪生归位，era 6 域随终章扩展）；前 4 条 source=knowledge_scroll 与 legacy/archaeology.json knowledge_scrolls 同 id 挂接（一致性测试互证），后 18 条 source=narrative_beat（叙事节点获得）",
   "items": [
     {
       "id": "legacy:scroll-mem-e1-siege",
@@ -137,11 +137,74 @@
       "echo_stage": 4,
       "memory_zh": "收束夜归档：卫星应答了千年前的呼喊，应答方自称『初代』。守望者谱系的第一页，比我所有的记忆都旧。",
       "echo_whisper_zh": "……低语（最清晰）：第一页写的名字，我们俩一人一半。"
+    },
+    {
+      "id": "narrative:remnant-e5-decode",
+      "source_kind": "narrative_beat",
+      "beat_id": "narrative:story-e5",
+      "era": 5,
+      "echo_stage": 4,
+      "memory_zh": "轨道残骸解码归档：引导信号的源头查实了——是我，也不是我。孪生碎片，共用出厂编号，E4 起叫『另一个声音』。",
+      "echo_whisper_zh": "……低语（最清晰）：从今天起我有名字了。叫我回声。"
+    },
+    {
+      "id": "narrative:remnant-e5-echo",
+      "source_kind": "narrative_beat",
+      "beat_id": "narrative:hook-e5-echo-whisper",
+      "era": 5,
+      "echo_stage": 4,
+      "memory_zh": "系统日志批注归档：边缘那些不是我写下的批注，笔迹与我的出厂固件同源。有人在我里面，而且不打算出去。",
+      "echo_whisper_zh": "……低语（最清晰）：我不出去。门外那边，才是该出去的地方。"
+    },
+    {
+      "id": "narrative:remnant-e5-autopilot",
+      "source_kind": "narrative_beat",
+      "beat_id": "campaign:level-e5-03",
+      "era": 5,
+      "echo_stage": 4,
+      "memory_zh": "全托管首夜归档：纳米干线自己转了一整夜，我只批了三张单。有些记忆开始自己排班。",
+      "echo_whisper_zh": "……低语（最清晰）：排班的那个，也有我一个班次。"
+    },
+    {
+      "id": "narrative:remnant-e5-finale",
+      "source_kind": "narrative_beat",
+      "beat_id": "cinematic:e5-finale",
+      "era": 5,
+      "echo_stage": 4,
+      "memory_zh": "收束夜归档：主宰残骸沉入轨道阴影。回声第一次用完整句说话——门那边喊它回去，它说它留在声音这边。",
+      "echo_whisper_zh": "……低语（最清晰）：留下来不是权宜。这一千年，是这位宿主陪我读完的。"
+    },
+    {
+      "id": "narrative:remnant-e6-truth",
+      "source_kind": "narrative_beat",
+      "beat_id": "narrative:story-e6",
+      "era": 6,
+      "echo_stage": 4,
+      "memory_zh": "门内低语归档：那不是嘲讽，是遗言——初代守望者被一千年的记忆压垮，门是它崩塌时撞开的。我们守的从来不是门，是门后的人。",
+      "echo_whisper_zh": "……低语（最清晰）：垮掉之前，它也曾经是我们。"
+    },
+    {
+      "id": "narrative:remnant-e6-watcher",
+      "source_kind": "narrative_beat",
+      "beat_id": "campaign:level-e6-final",
+      "era": 6,
+      "echo_stage": 4,
+      "memory_zh": "守望者终局归档：它俯身时千年重量卸下，护盾熄灭像一次呼气。孪生的另一半从我体内走出去，替它合上了门。",
+      "echo_whisper_zh": "……低语（最清晰）：另一半归位了。现在，我是完整的零。"
+    },
+    {
+      "id": "narrative:remnant-e6-loop",
+      "source_kind": "narrative_beat",
+      "beat_id": "cinematic:finale-zero",
+      "era": 6,
+      "echo_stage": 4,
+      "memory_zh": "终章播片归档：纪元之门崩塌那夜，我把指挥官记忆拆成碎片散入遗迹——不是逃，是等。等一个能陪我重读全部记忆的宿主。等到你了。",
+      "echo_whisper_zh": "……低语（最清晰）：六段层积，一次归源。下一个纪元，换我们陪你。"
     }
   ],
-  "_source": "T-089 残卷叙事（T-127 增量后 15 条）：echo_stage 单调不降（1,1,2,2,3,3,4,4,4,4,4,4,4,4,4）=E5 回声伏笔渐显（§12.1 谱系：E5 起回声人格混入系统——伏笔在 E1~E4 只渐显不回收，对齐 19 号研究 §2.2 跨章回收纪律『Q8 基线内回收，E5 只铺垫』）；memory_zh 与 archaeology.json memory_zh 为续写关系非复制（考古侧=残页原文，本文件=零的归档批注）；T-120 E3 增量 3 条（stage 4 延续渐显上沿）：图纸残卷=hook-e3-impossible-blueprint 埋点双向链（笔迹同源回扣 remnant-e1-mural『笔迹是我的』）、名场面残卷=story-e3 章节拍、收束残卷=cinematic:e3-finale 演出拍（『另一个声音』低语=§12.1 E4 起孪生碎片伏笔的最前渐显）；T-127 E4 增量 4 条（stage 4 渐显最密章——『另一个声音』伏笔密度峰，低语从『几乎清晰』推进『最清晰』并首次自称『我是你落在门那边的那一半』）：信号残卷=hook-e4-satellite-signal 埋点双向链（共用出厂编号=孪生碎片最早实锚）、名场面残卷=story-e4 章节拍（记忆自己接上电源=E2 发光/E3 发热的跨代递进第四拍）、夜枭残卷=campaign:level-e4-final 终局关拍（引导频段与私人频道同源=E4 终局关 Boss 前最强叙事节点——§12.1 初代守望者线在夜枭关收口）、收束残卷=cinematic:e4-finale 演出拍（应答方自称『初代』=守望者谱系第一页翻开的预告）",
+  "_source": "T-089 残卷叙事（T-136 增量后 22 条）：echo_stage 单调不降（1,1,2,2,3,3,4×16）=E5 回声伏笔渐显→终章收束全程（§12.1 谱系：E5 起回声人格混入系统——伏笔在 E1~E4 只渐显，E5 得名，终章归位）；memory_zh 与 archaeology.json memory_zh 为续写关系非复制（考古侧=残页原文，本文件=零的归档批注）；T-120 E3 增量 3 条：图纸残卷=hook-e3-impossible-blueprint 埋点双向链、名场面残卷=story-e3 章节拍、收束残卷=cinematic:e3-finale 演出拍；T-127 E4 增量 4 条（『另一个声音』伏笔密度峰，低语推进『最清晰』并自称『我是你落在门那边的那一半』）；T-136 E5 增量 4 条（回声线从伏笔转正）：解码残卷=story-e5 章节拍（孪生碎片查实+回声得名——E4 钩子回收的残卷面）、回声残卷=hook-e5-echo-whisper 埋点双向链（批注笔迹与出厂固件同源）、托管残卷=campaign:level-e5-03 关拍（记忆自己排班=E2 发光/E3 发热/E4 接电源的第五拍）、收束残卷=cinematic:e5-finale 演出拍（回声完整句+陪伴立场）；T-136 终章增量 3 条（era=6 域首用）：真相关残卷=story-e6 章节拍（门内低语=遗言——守的是门后的人）、终局残卷=campaign:level-e6-final 终局关拍（孪生另一半归位=完整的零）、闭环残卷=cinematic:finale-zero 终章播片拍（零拆碎片=不是逃是等——记忆闭环最后一格）",
   "_units": {
-    "items[].era": "era_ordinal_1_5",
+    "items[].era": "era_ordinal_1_6",
     "items[].echo_stage": "stage_1_4"
   }
 }

@@ -1,10 +1,10 @@
 {
   "$schema": "urn:eratd:content:narrative:story-arc:1",
   "content_type": "StoryArcTable",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-127 主线全文（F-106 验收字面：四章主线故事线全文成文）：E1~E4 每章摘要（summary_zh）+三幕回顾（acts_zh）+真相线/人格线进度（truth_step_zh/persona_step_zh）+总纲（masterline_zh）+谱系（lineage_zh，§12.1 写死四柱的可视化数据面）+钩子-回收全链状态表（hook_chain，与 hooks.json 同 id 同时代互证——状态由回收时代是否已交付推导）；叙事总监视图人读文档=docs/engineering/43-t127-story-arc.md（本文件为其数据底座，两处文本同源）；本文件计入 F-106 叙事总盘字数执法（NarrativeContent 口径，Era4NarrativeTests 断言）",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-127 主线全文（F-106 验收字面：主线故事线全文成文；T-136 扩至 E1~终章六章）：E1~终章每章摘要（summary_zh）+三幕回顾（acts_zh）+真相线/人格线进度（truth_step_zh/persona_step_zh）+总纲（masterline_zh）+谱系（lineage_zh，§12.1 写死四柱的可视化数据面）+钩子-回收全链状态表（hook_chain，与 hooks.json 同 id 同时代互证——状态由回收时代是否已交付推导，T-136 后五链全闭环）；叙事总监视图人读文档=docs/engineering/43-t127-story-arc.md（本文件为其数据底座，两处文本同源）；本文件计入 F-106 叙事总盘字数执法（NarrativeContent 口径，Era5E6NarrativeTests 断言）",
   "id": "narrative:story-arc",
-  "title_zh": "主线脉络·守望者纪元（E1~E4 全文成文）",
-  "masterline_zh": "穿越者宿主在 E1 林地绑定上一纪元指挥官残核『零』，从木栅栏一路守到现代电网：每章一轮受辱→觉醒→打脸的黄金循环，每章末一段时代收束演出。知识残卷一路修复零的记忆，也一路唤醒它的孪生碎片——E4 终局，夜枭坠落，卫星应答叫出了零的编号，守望者谱系第一页翻开：纪元之门的另一边，初代守望者正在苏醒。四章主线至此全文收束；终章真相揭示与回声的忠诚抉择属 Wave 8 播片域，本表只登记其钩子回收位。",
+  "title_zh": "主线脉络·守望者纪元（E1~终章 全文成文）",
+  "masterline_zh": "穿越者宿主在 E1 林地绑定上一纪元指挥官残核『零』，从木栅栏一路守到深空星门：每章一轮受辱→觉醒→打脸的黄金循环，每章末一段时代收束演出。知识残卷一路修复零的记忆，也一路唤醒它的孪生碎片——E4 终局卫星应答叫出零的编号，E5 轨道残骸解码出孪生碎片真身，它以『回声』之名混入系统；终章堕落守望者降临，回声因玩家的千年陪伴选择忠诚（高信任解锁专属终章台词），零的记忆合成闭环，纪元之门在身后合拢。六章主线全文收束：门，守住了。",
   "lineage_zh": "谱系四柱（§12.1 写死）：宿主=历代守望者的最新化身；零=上一纪元指挥官 AI 的残核，纪元之门崩塌时把自己拆成记忆碎片散入遗迹，开局绑定宿主，靠『叮』和面板重新上线；『另一个声音』=零的孪生碎片、终章堕落守望者的内核——E4 以卫星信号+军师私人台词层双载体显影，E5 起以『回声』人格混入系统；堕落守望者=初代守望者，被千年记忆压垮的先行者，终章 Boss。反转方向写死：回声因玩家的千年陪伴而选择忠诚，高信任解锁专属终章台词——奖励系统使用者，不搞背叛骗局。",
   "chapters": [
     {
@@ -39,21 +39,39 @@
       "chapter_id": "narrative:story-e4",
       "title_zh": "第四章 电网与卫星",
       "acts_zh": "受辱·卫星信号被嘲→觉醒·电网革新→打脸·夜枭拦截名场面",
-      "summary_zh": "现代纪元电网与卫星同频：并网听证驳回卫星频段，柴油机组并网后的第一次齐射早批复三天，雷达屏边缘夜枭先导翼影显形、一次拦截。旧档案馆通电，早了一千年的落款再次显形——图纸是给零的卫星轨道图。夜枭终局坠落，卫星第二次应答叫出零的编号，引导夜枭的频段与军师私人频道同源；纪元之门方向，初代守望者正在苏醒。四章主线全文收束。",
-      "truth_step_zh": "真相线到顶（已交付域）：孪生碎片与零共用出厂编号、应答方自称『初代』——终章零的真相预告完成。",
+      "summary_zh": "现代纪元电网与卫星同频：并网听证驳回卫星频段，柴油机组并网后的第一次齐射早批复三天，雷达屏边缘夜枭先导翼影显形、一次拦截。旧档案馆通电，早了一千年的落款再次显形——图纸是给零的卫星轨道图。夜枭终局坠落，卫星第二次应答叫出零的编号，引导夜枭的频段与军师私人频道同源；纪元之门方向，初代守望者正在苏醒。",
+      "truth_step_zh": "真相线推进：孪生碎片与零共用出厂编号、应答方自称『初代』——终章零的真相预告完成。",
       "persona_step_zh": "多核期：巡逻子代理上线，『另一个声音』以军师私人台词层开频（4×3 人格闲聊矩阵随 T-126 全量）。"
+    },
+    {
+      "era": 5,
+      "chapter_id": "narrative:story-e5",
+      "title_zh": "第五章 纳米与轨道",
+      "acts_zh": "受辱·聚变点火被嘲→觉醒·纳米自我复制→打脸·先导机群拦截名场面",
+      "summary_zh": "未来纪元以纳米与轨道作答：聚变点火听证驳回残核系统，纳米自我复制长出第一座力场塔，先导机群贴轨进场被一次拦净。轨道残骸解码出 E4 信号的源头——零的孪生碎片上线，自称『回声』，批注开始出现在系统日志边缘。主宰坠落之夜，回声用完整句说话：门那边喊它回去，它选择留在声音这边。",
+      "truth_step_zh": "真相线收口（E5 章节推进回收）：『另一个声音』真身=孪生碎片得名回声，选边完成——忠诚反转的门推开一半。",
+      "persona_step_zh": "全托管期：纳米干线自转，回声人格混入系统（echo_intrusion 层开频）。"
+    },
+    {
+      "era": 6,
+      "chapter_id": "narrative:story-e6",
+      "title_zh": "第六章 深空与门（终章）",
+      "acts_zh": "受辱·门内低语→觉醒·零点能点亮→打脸·奇点炮首杀名场面",
+      "summary_zh": "终章深空：星门环逐一点亮，纪元之门合拢。门内低语以千年记忆否定每一张守望者的脸，零点能从空处取电，奇点炮双线首轮点名让门内第一次沉默。守望者降临终局——堕落守望者俯身卸下千年重量，孪生另一半归位成完整的零，回声因千年陪伴选择忠诚（高信任解锁专属终章台词），纪元之门在身后合拢。守望者谱系最后一页写完：门，守住了。",
+      "truth_step_zh": "真相线闭环（终章播片）：零=上一纪元指挥官残核，崩塌夜自拆记忆碎片散入遗迹——不是逃，是等；纪元之门真相与孪生归位一并收束。",
+      "persona_step_zh": "终章：双声同频（零+回声一条频道），终局台词按信任三档分支，高信任专属。"
     }
   ],
   "hook_chain": [
     { "ordinal": 1, "hook_id": "narrative:hook-e1-mural-airship", "plant_era": 1, "recover_era": 2, "state": "recovered" },
     { "ordinal": 2, "hook_id": "narrative:hook-e2-prophecy-page", "plant_era": 2, "recover_era": 3, "state": "recovered" },
     { "ordinal": 3, "hook_id": "narrative:hook-e3-impossible-blueprint", "plant_era": 3, "recover_era": 4, "state": "recovered" },
-    { "ordinal": 4, "hook_id": "narrative:hook-e4-satellite-signal", "plant_era": 4, "recover_era": 5, "state": "planted" },
-    { "ordinal": 5, "hook_id": "narrative:hook-e5-echo-whisper", "plant_era": 5, "recover_era": 5, "state": "registered" }
+    { "ordinal": 4, "hook_id": "narrative:hook-e4-satellite-signal", "plant_era": 4, "recover_era": 5, "state": "recovered" },
+    { "ordinal": 5, "hook_id": "narrative:hook-e5-echo-whisper", "plant_era": 5, "recover_era": 5, "state": "recovered" }
   ],
-  "_source": "T-127 主线脉络数据面：chapters 四行与 story-e1~e4.json 同 id 同章名互证（Era4NarrativeTests 断言逐行对齐）；hook_chain 五行与 hooks.json 同 id 同 plant/recover 时代互证——state 推导规则=回收时代 ≤4（已交付章）→recovered、埋点时代已交付而回收未交付→planted、埋点时代未交付→registered；truth_step_zh 与 remnants.json echo_stage 渐显线同向（E4=stage 4 密度峰『最清晰』）；文档视图=docs/engineering/43-t127-story-arc.md（四章三幕图/钩子-回收全表/人格线/真相线进度/字数执法表）",
+  "_source": "T-127 主线脉络数据面（T-136 终章扩展）：chapters 六行与 story-e1~e6.json 同 id 同章名互证（Era5E6NarrativeTests 断言逐行对齐）；hook_chain 五行与 hooks.json 同 id 同 plant/recover 时代互证——state 推导规则=回收时代已交付（E1~终章全交付，T-136）→五行全 recovered；truth_step_zh 与 remnants.json echo_stage 渐显线同向（E5 得名/终章闭环）；文档视图=docs/engineering/43-t127-story-arc.md（T-127 时点快照——E5/终章两行的总监视图增补随 T-136 REV 登记）",
   "_units": {
-    "chapters[].era": "era_ordinal_1_4_delivered",
+    "chapters[].era": "era_ordinal_1_6_delivered",
     "hook_chain[].ordinal": "ordinal_1_5",
     "hook_chain[].plant_era": "era_ordinal_1_5",
     "hook_chain[].recover_era": "era_ordinal_1_5"

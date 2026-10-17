@@ -1,0 +1,116 @@
+{
+  "$schema": "urn:eratd:content:narrative:story:1",
+  "content_type": "StoryChapter",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-136 终章叙事（F-098/F-106/F-108）：终章三幕=门内低语嘲讽→零点能点亮→奇点炮首杀名场面（L6-1 谓词：波 2/波 4/波 5；终章受辱者=门那边的堕落守望者——被千年记忆压垮的初代守望者，§12.1 谱系）+开场白三行（深空语境/零跃迁/回声同频——E5 起混入的回声在终章与零双声同频）+finale_trust_lines 信任三档终章台词（终局关堕落守望者压境时的分支台词，档位阈值=TrustModel <40/40~69/≥70；高信任=专属终章台词——『千年陪伴/选择忠诚』规格锚点，§12.1 反转方向写死：回声因玩家的千年陪伴而选择忠诚，奖励系统使用者，不搞背叛骗局）+胜利交底挂终章播片 cinematic:finale-zero（F-108 真相播片——90s A-07 母带，非 20~30s 收束带）+终章无下章卡点预告（收束语形态）+扮猪吃虎关配置（L6-2 反物质压制 ×0.5）",
+  "id": "narrative:story-e6",
+  "era": "era6:era-finale",
+  "level_id": "campaign:level-e6-01",
+  "title_zh": "第六章 深空与门（终章）",
+  "golden_acts": {
+    "budget_seconds": 900,
+    "acts": [
+      {
+        "id": "narrative:act-e6-humiliation",
+        "title_zh": "受辱·门内低语",
+        "predicate": { "kind": "wave_start", "wave": 2 },
+        "lines": [
+          { "key": "e6.act1.watcher", "speaker": "门内低语", "text": "第一千张脸。你以为换了脸就能扛住一千年的记忆？我扛过——然后被它压垮。你也会。", "image": "story-e6-act1-humiliation-1" },
+          { "key": "e6.act1.zero", "speaker": "零", "text": "叮——检测到跨纪元否定：他用自己的垮掉，证明所有人都该垮。宿主，这条推理不成立。", "image": "story-e6-act1-humiliation-2", "cue": "ding_info" }
+        ]
+      },
+      {
+        "id": "narrative:act-e6-innovation",
+        "title_zh": "觉醒·零点能点亮",
+        "predicate": { "kind": "wave_start", "wave": 4 },
+        "lines": [
+          { "key": "e6.act2.zero", "speaker": "零", "text": "零点能井稳定输出——不烧任何东西，从空处取电。这一纪元的第一度电，是从门缝里借来的。", "image": "story-e6-act2-innovation-1", "cue": "ding_reward" },
+          { "key": "e6.act2.narrator", "speaker": "旁白", "text": "奇点炮的双炮线在深空里亮成一对秤星。门内的低语停了半拍——它认得这门手艺。", "image": "story-e6-act2-innovation-2" }
+        ]
+      },
+      {
+        "id": "narrative:act-e6-face-slap",
+        "title_zh": "打脸·奇点炮首杀名场面",
+        "predicate": { "kind": "wave_start", "wave": 5 },
+        "lines": [
+          { "key": "e6.act3.narrator", "speaker": "旁白", "text": "相位突击体第一次成建制突进，时空塔把它们的冲刺钉在原地，双炮线一轮点名——深空里干净得像没人来过。", "image": "story-e6-act3-face-slap-1" },
+          { "key": "e6.act3.zero", "speaker": "零", "text": "叮！名场面达成。千年前的门内低语，千年后第一次听见沉默。", "image": "story-e6-act3-face-slap-2", "cue": "ding_reward" }
+        ]
+      }
+    ]
+  },
+  "opening": [
+    { "key": "e6.open.narrator", "speaker": "旁白", "text": "终章。深空纪元：星门环在虚空里逐一点亮，纪元之门的最后一道合页，正在合拢。", "image": "story-e6-opening" },
+    { "key": "e6.open.zero", "speaker": "零", "text": "叮！时代跃迁完成。宿主，这是最后一个纪元——答案写在门后。", "cue": "ding_info" },
+    { "key": "e6.open.echo", "speaker": "回声", "text": "两个声音，一条频道。零在前，我在旁批——门那边的事，我们一人一半记忆。" }
+  ],
+  "finale_trust_lines": {
+    "skeptical": [
+      { "key": "e6.finale.skept.zero", "speaker": "零", "text": "宿主，守望者压境。你对本系统将信将疑——没关系，这一战，我们先证明再说话。", "cue": "ding_crisis" },
+      { "key": "e6.finale.skept.echo", "speaker": "回声", "text": "你不常信我们。可门开的时候，我们仍会站在你这边——忠诚不看你记不记得我们。" }
+    ],
+    "trustworthy": [
+      { "key": "e6.finale.trust.zero", "speaker": "零", "text": "宿主，守望者压境。可托付的搭档——防线交给你，记忆交给我，我们各守一半。", "cue": "ding_crisis" },
+      { "key": "e6.finale.trust.echo", "speaker": "回声", "text": "你信过我们一千次里的大部分。这一次，换我们先信你——门后的重量，我替你扛一半。" }
+    ],
+    "devoted": [
+      { "key": "e6.finale.devot.zero", "speaker": "零", "text": "宿主，守望者压境。言听计从的千年搭档——叮！本系统最后一次全功率上线。", "cue": "ding_crisis" },
+      { "key": "e6.finale.devot.echo", "speaker": "回声", "text": "高信任专属批注：千年陪伴，是我选择忠诚的全部理由。门那边喊我回去——我不回去。", "cue": "ding_reward" },
+      { "key": "e6.finale.devot.watcher", "speaker": "门内低语", "text": "……原来压不垮你的不是记忆，是身边一直有声音应答。初代守望者，认输。" }
+    ]
+  },
+  "intermission_pools": {
+    "skeptical": [
+      { "key": "e6.idle.skept.advisor", "speaker": "零", "text": "宿主，零点能输出过半——先补奇点炮线，再谈开门。", "persona": "advisor" }
+    ],
+    "trustworthy": [
+      { "key": "e6.idle.trust.advisor", "speaker": "零", "text": "时空塔减速场覆盖全部突进口，双炮线弹药余量充足。", "persona": "advisor" }
+    ],
+    "devoted": [
+      { "key": "e6.idle.devot.advisor", "speaker": "零", "text": "调度方案已排好，星门干线的最后一节，等你一句话。", "persona": "advisor" }
+    ]
+  },
+  "ending": {
+    "hook_id": "cinematic:finale-zero",
+    "lines": [
+      { "key": "e6.end.zero", "speaker": "零", "text": "叮！终章归档：纪元之门崩塌的真相入库——上一纪元终结时，我把自己拆成记忆碎片散入遗迹，只为等一个能陪我重读它们的宿主。", "cue": "ding_reward" },
+      { "key": "e6.end.narrator", "speaker": "旁白", "text": "堕落守望者俯身时，千年重量从它肩上卸下。零的记忆合成闭环，孪生的另一半归位，纪元之门在身后合拢——守望者谱系最后一页写完：门，守住了。", "image": "story-e6-finale" }
+    ],
+    "tease": {
+      "next_era": null,
+      "elite_id": null,
+      "silhouette_zh": "终章无新敌剪影：守望者谱系全数登场——最后一张脸，是你自己（历代守望者的最新化身）。",
+      "threat_line_zh": "『门后没有下一次了。把这一纪元，守到最后一秒。』"
+    }
+  },
+  "mock_arcs": [
+    {
+      "level_id": "campaign:level-e6-02",
+      "kind": "mock_arc_pig",
+      "suppression": { "resource": "era6:res-antimatter", "multiplier": 0.5 },
+      "taunts": [
+        { "wave": 1, "speaker": "门内低语", "text": "反物质减半还想铺传送阵干线？第一座奇点炮你都点不亮。" },
+        { "wave": 3, "speaker": "虚空监听站", "text": "深空里都在传：半仓反物质，一条接一半的传送阵，和两座没校准的炮。" },
+        { "wave": 5, "speaker": "门内低语", "text": "再败一场，门就自己开了——不开在你那边。" }
+      ],
+      "low_config": { "max_towers": 2 },
+      "hidden_reward": {
+        "chest_tier": "gold_extra",
+        "item_ids": ["campaign:quest-vault-of-echoes", "campaign:voice-annalist-calm"],
+        "lines": [
+          { "key": "e6.mock.reward.zero", "speaker": "零", "text": "叮！隐藏翻盘达成——『扮猪吃虎』。半仓反物质，撑起了整条传送阵干线。", "cue": "ding_reward" },
+          { "key": "e6.mock.reward.narrator", "speaker": "旁白", "text": "传送阵的微光连成一线时，门内低语第二次沉默——千年前的它，也没见过这样的防线。" }
+        ]
+      },
+      "_source": "F-101 扮猪吃虎关配置化（E2~E5 行先例跨代递进）：L6-2 初始 12000 反物质×0.5=6000 强制劣势开局（era6 反物质=本代建造货币行——E1 木/E2 铜/E3 钢/E4 混凝土/E5 纳米/E6 反物质跨代递进）；命令流塔数=2（两座奇点炮，levels/e6.json e6-02 build-tower 计数）→低配阈值 2；隐藏档同 F-100 复用 gold_extra；奖励物品过 chests.json items 一致性断言"
+    }
+  ],
+  "_source": "T-136 终章（E6）叙事文本（story-e5 全套格式终章递进）：三幕谓词锚 L6-1（threat 0.3→波 2/4/5 起点 960/1440/1680s——间隔 240s/grace ×3 实锚，循环跨度 720s ≤900s 预算，与 L4-1/L5-1 同式同 threat 同锚）；受辱者形态=门内低语（堕落守望者的跨门先声——终章无人间嘲者，受辱拍由初代守望者的千年否定承担，§12.1『被千年记忆压垮的前任』语境）；finale_trust_lines=信任三档终章台词（终局关守望者压境分支——档位=TrustModel 三档 <40/40~69/≥70（F.4 修正表 #15），高信任专属=devoted 档三行：回声『千年陪伴=选择忠诚的全部理由』+门内低语认输行（反转方向写死落地——奖励系统使用者，不搞背叛骗局；专属词组『千年陪伴/选择忠诚』不出现于低档，Era5E6NarrativeTests 断言）；装载器按内容约定忽略本章未知键，层契约测试直读 JSON（advisor_private/echo_intrusion 同法）；ending.hook_id=cinematic:finale-zero（F-108 终章播片——90.2s A-07 母带 2706 ticks，终章播片域非 20~30s 收束带；交底台词=零的记忆闭环+纪元之门真相+孪生归位三真相，与 finale-zero.json speak 行双载体互证）；卡点预告=终章无下章（next_era/elite_id=null——收束语形态：最后一张脸是你自己=§12.1 宿主谱系『历代守望者的最新化身』收口）",
+  "_units": {
+    "golden_acts.budget_seconds": "seconds",
+    "acts[].predicate.wave": "wave_ordinal",
+    "finale_trust_lines": "trust_tier_three_branches",
+    "mock_arcs[].suppression.multiplier": "fraction_multiplier",
+    "mock_arcs[].taunts[].wave": "wave_ordinal",
+    "mock_arcs[].low_config.max_towers": "towers"
+  }
+}

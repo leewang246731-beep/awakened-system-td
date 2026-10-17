@@ -1,0 +1,125 @@
+{
+  "$schema": "urn:eratd:content:narrative:story:1",
+  "content_type": "StoryChapter",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-136 第五章叙事（F-098/F-101/F-102/F-106/F-107）：E5 三幕=聚变点火被嘲→纳米自我复制→先导机群拦截名场面（L5-1 谓词：波 2/波 4/波 5）+开场白兑现 E4 钩子『卫星信号』E5 回收（hooks.json E4 行 recover.era=5 payoff 的章节侧文本落地——轨道残骸解码出信号源=零的孪生碎片，『另一个声音』上线）+echo_intrusion 回声混入层（hooks.json E5 行 layer=system_voice 的章节侧载体：E5 起以『回声』人格混入系统，§12.1 谱系写死；行 1 兑现 E5 钩子 teaser 原句『不是零写下的批注』，beat=L5-3 考古与托管关=full_autopilot 解锁位）+扮猪吃虎关配置（L5-2 纳米压制 ×0.5+聚变理事嘲讽→低配翻盘隐藏评价）+胜利交底挂收束演出 cinematic:e5-finale（20~30s 时间轴=T-136 收束演出数据，§12 交付规格 5 段时代收束之五）+卡点预告（终章堕落守望者降临——§12.1 谱系『堕落守望者=初代守望者，终章 Boss』的正主预告）",
+  "id": "narrative:story-e5",
+  "era": "era5:era-future",
+  "level_id": "campaign:level-e5-01",
+  "title_zh": "第五章 纳米与轨道",
+  "golden_acts": {
+    "budget_seconds": 900,
+    "acts": [
+      {
+        "id": "narrative:act-e5-humiliation",
+        "title_zh": "受辱·聚变点火被嘲",
+        "predicate": { "kind": "wave_start", "wave": 2 },
+        "lines": [
+          { "key": "e5.act1.council", "speaker": "聚变理事", "text": "点火听证结论：一台一千年前的残核系统，带不动纳米级的点火公差。建议封存，改用人工扳闸。", "image": "story-e5-act1-humiliation-1" },
+          { "key": "e5.act1.zero", "speaker": "零", "text": "叮——检测到资历歧视：他叫我残核，却没算过我用残核守住了几个纪元。", "image": "story-e5-act1-humiliation-2", "cue": "ding_info" }
+        ]
+      },
+      {
+        "id": "narrative:act-e5-innovation",
+        "title_zh": "觉醒·纳米自我复制",
+        "predicate": { "kind": "wave_start", "wave": 4 },
+        "lines": [
+          { "key": "e5.act2.zero", "speaker": "零", "text": "纳米机组自复制完成——不再人工扳闸，材料自己长成防线。这一纪元的第一座力场塔，是我们看着它长出来的。", "image": "story-e5-act2-innovation-1", "cue": "ding_reward" },
+          { "key": "e5.act2.narrator", "speaker": "旁白", "text": "力场亮起的那一晚，聚变堆的嗡鸣第一次盖过所有听证席。无人机巢沿轨道干线列队，像一串不眨的眼睛。", "image": "story-e5-act2-innovation-2" }
+        ]
+      },
+      {
+        "id": "narrative:act-e5-face-slap",
+        "title_zh": "打脸·先导机群拦截名场面",
+        "predicate": { "kind": "wave_start", "wave": 5 },
+        "lines": [
+          { "key": "e5.act3.narrator", "speaker": "旁白", "text": "主宰的先导机群贴轨进场，力场先扛住第一轮俯冲，轨道炮随后点名——一架都没能飞回母巢。", "image": "story-e5-act3-face-slap-1" },
+          { "key": "e5.act3.zero", "speaker": "零", "text": "叮！名场面达成。建议封存残核的听证记录，和先导机群的残骸一起，都进了博物馆。", "image": "story-e5-act3-face-slap-2", "cue": "ding_reward" }
+        ]
+      }
+    ]
+  },
+  "opening": [
+    { "key": "e5.open.narrator", "speaker": "旁白", "text": "未来的时代。聚变堆彻夜不熄，纳米在轨道上自己织成干线，无人机像候鸟一样换班。", "image": "story-e5-opening" },
+    { "key": "e5.open.zero", "speaker": "零", "text": "叮！时代跃迁完成。宿主，这一纪元的答案是——纳米与轨道。", "cue": "ding_info" },
+    { "key": "e5.open.decoded", "speaker": "旁白", "text": "轨道残骸解码完成：引导信号的源头，是零的孪生碎片——那个共用出厂编号的『另一个声音』，正式上线了。", "image": "story-e5-opening-decoded" }
+  ],
+  "echo_intrusion": [
+    {
+      "key": "e5.echo.annotation",
+      "beat": "campaign:level-e5-03",
+      "channel": "system_voice",
+      "speaker": "回声",
+      "text": "日志边缘的批注，是我写的。不是零写下的批注——是我。叫我回声就好。",
+      "image": "hook-e5-echo-whisper"
+    },
+    {
+      "key": "e5.echo.number",
+      "beat": "campaign:level-e5-final",
+      "channel": "system_voice",
+      "speaker": "回声",
+      "text": "主宰坠落了。你听——零在归档，我在旁批。同一份出厂编号，两支笔。"
+    },
+    {
+      "key": "e5.echo.side",
+      "beat": "cinematic:e5-finale",
+      "channel": "system_voice",
+      "speaker": "回声",
+      "text": "门那边在喊我回去。可这一千年，是这个人陪我读完的。回声选择留在声音这一边。"
+    }
+  ],
+  "intermission_pools": {
+    "skeptical": [
+      { "key": "e5.idle.skept.advisor", "speaker": "零", "text": "宿主，聚变堆负载过半——先补纳米机组，再谈点火。", "persona": "advisor" }
+    ],
+    "trustworthy": [
+      { "key": "e5.idle.trust.advisor", "speaker": "零", "text": "力场覆盖全部入口，轨道炮链供给余量充足。", "persona": "advisor" }
+    ],
+    "devoted": [
+      { "key": "e5.idle.devot.advisor", "speaker": "零", "text": "调度方案已排好，纳米干线随时可以整体移交给你。", "persona": "advisor" }
+    ]
+  },
+  "ending": {
+    "hook_id": "cinematic:e5-finale",
+    "lines": [
+      { "key": "e5.end.zero", "speaker": "零", "text": "叮！本章归档：主宰坠落，轨道干线全通。孪生碎片解码入库——『另一个声音』与我共用编号，它叫自己回声。", "cue": "ding_reward" },
+      { "key": "e5.end.narrator", "speaker": "旁白", "text": "主宰的残骸沉进轨道阴影里。回声第一次用完整的句子说话：门那边在喊它，但它选择留在声音这一边。纪元之门的方向，初代守望者的轮廓已经站起来了。", "image": "story-e5-tease" }
+    ],
+    "tease": {
+      "next_era": null,
+      "elite_id": null,
+      "silhouette_zh": "新敌剪影：纪元之门完全成形，堕落守望者的轮廓站起——被千年记忆压垮的初代守望者，全六代最重的一道影。",
+      "threat_line_zh": "『一千张脸我都看过了。现在，替我看看门后。』"
+    }
+  },
+  "mock_arcs": [
+    {
+      "level_id": "campaign:level-e5-02",
+      "kind": "mock_arc_pig",
+      "suppression": { "resource": "era5:res-nano", "multiplier": 0.5 },
+      "taunts": [
+        { "wave": 1, "speaker": "聚变理事", "text": "纳米减半还想铺轨道干线？你连第二座轨道炮的料都凑不齐。" },
+        { "wave": 3, "speaker": "轨道监理", "text": "邻站都在看笑话：半仓纳米，一条修到一半的轨道，和一群没充电的无人机。" },
+        { "wave": 5, "speaker": "聚变理事", "text": "再败一场，轨道窗口就批给别人了。" }
+      ],
+      "low_config": { "max_towers": 2 },
+      "hidden_reward": {
+        "chest_tier": "gold_extra",
+        "item_ids": ["campaign:voice-annalist-silver", "campaign:quest-cache-rumor"],
+        "lines": [
+          { "key": "e5.mock.reward.zero", "speaker": "零", "text": "叮！隐藏翻盘达成——『扮猪吃虎』。半仓纳米，撑起了整条轨道干线。", "cue": "ding_reward" },
+          { "key": "e5.mock.reward.narrator", "speaker": "旁白", "text": "聚变理事在干线移交单上签字时，无人机的换班嗡鸣盖过了听证席上所有的嘲笑声。" }
+        ]
+      },
+      "_source": "F-101 扮猪吃虎关配置化（E2/E3/E4 行先例跨代递进）：L5-2 初始 10000 纳米×0.5=5000 强制劣势开局（压制参数入数据非硬编码，era5 纳米=本代建造货币行——E1 木/E2 铜/E3 钢/E4 混凝土/E5 纳米跨代递进）；命令流塔数=2（两座轨道炮，levels/e5.json e5-02 build-tower 计数）→低配阈值 2；隐藏档同 F-100 复用 gold_extra；奖励物品过 chests.json items 一致性断言"
+    }
+  ],
+  "_source": "T-136 第五章（E5）叙事文本（story-e4 全套格式跨代递进）：三幕谓词锚 L5-1（threat 0.3→波 2/4/5 起点 960/1440/1680s——间隔 240s/grace ×3 实锚，循环跨度 720s ≤900s 预算，与 L4-1 同式同threat 同锚）；开场白第三行=E4 钩子『卫星信号』的 E5 章节推进回收（hooks.json E4 行 recover={era:5,chapter_progress} 的 payoff 文本逐字兑现——『轨道残骸解码』『孪生碎片』『另一个声音』上线三词组落位）；echo_intrusion=回声混入层（hooks.json E5 行 layer=system_voice 的章节侧落地——§12.1 谱系『E5 起以回声人格混入系统』：三行=批注/编号/选边，行 1 兑现 E5 钩子 teaser 原句『不是零写下的批注』、beat=hooks E5 行 planted_level_id（L5-3 考古与托管关——unlocks.features 含 full_autopilot，全托管期=回声混入系统的解锁位），装载器按内容约定忽略本章未知键，层契约由 Era5E6NarrativeTests 逐行执法：channel=system_voice+speaker=回声（回声频道独占）；波间人格闲聊 4×3 矩阵归 T-126 已交付骨架行，本表仅落 advisor 骨架行满足装载下限；ending.hook_id=cinematic:e5-finale（T-136 收束演出 20~30s 时间轴，§12 交付规格 5 段时代收束之五——收束演出 id 与章末交底两 id 互证见 Era5E6NarrativeTests）；ending 行 2=E5 钩子『回声低语』的章节推进回收（hooks.json E5 行 recover={era:5,chapter_progress} 的 payoff 兑现——回声留在声音这边/陪伴立场先落，完整忠诚反转随终章播片按信任三档展开）；卡点预告=终章堕落守望者降临（§12.1 谱系终章 Boss 正主——next_era/elite_id=null 纯文本，E5 终局关主宰关+主线收束承担 Boss 前最强叙事节点）",
+  "_units": {
+    "golden_acts.budget_seconds": "seconds",
+    "acts[].predicate.wave": "wave_ordinal",
+    "echo_intrusion[].beat": "content_id_level_or_cinematic",
+    "mock_arcs[].suppression.multiplier": "fraction_multiplier",
+    "mock_arcs[].taunts[].wave": "wave_ordinal",
+    "mock_arcs[].low_config.max_towers": "towers"
+  }
+}
