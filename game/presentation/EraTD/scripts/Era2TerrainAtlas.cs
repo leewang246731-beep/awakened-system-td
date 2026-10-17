@@ -127,7 +127,9 @@ internal static class Era2TerrainAtlas
         var present = new List<string>();
         foreach (string path in files)
         {
-            if (Godot.FileAccess.FileExists(path))
+            // 同 Era4ArtPack：ResourceLoader.Exists 走导入 remap，导出件内
+            // 源 png 不在 pck，FileAccess.FileExists 会假阴性。
+            if (ResourceLoader.Exists(path))
             {
                 present.Add(path);
             }

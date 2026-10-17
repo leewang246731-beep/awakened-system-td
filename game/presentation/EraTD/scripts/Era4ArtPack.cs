@@ -224,7 +224,10 @@ internal static class Era4ArtPack
         var present = new List<string>();
         foreach (string path in files)
         {
-            if (Godot.FileAccess.FileExists(path))
+            // ResourceLoader.Exists 走导入 remap——导出件里源 png 不在 pck
+            // （只有 .godot/imported 的 .ctex+.remap），FileAccess.FileExists
+            // 对源路径恒 false（v1.0 出包实测 ART4 0/30 假阴性）。
+            if (ResourceLoader.Exists(path))
             {
                 present.Add(path);
             }
