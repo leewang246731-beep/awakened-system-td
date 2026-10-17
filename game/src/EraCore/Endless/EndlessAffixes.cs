@@ -255,6 +255,9 @@ public static class EndlessAffixes
     /// (radius/damage) stays unscaled (it is the flat grant, the SCALING is
     /// the multipliers). Second-domain conversion is
     /// <see cref="TicksPerSecond"/>, rounded AwayFromZero (deterministic).
+    /// Direct body (no delegation): this is the T-080 fixed-schedule hot
+    /// path — zero added allocations versus the pre-T-143 code (perf
+    /// discipline, REV-20261017-T143 §5a).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">wave is negative.</exception>
     /// <exception cref="ArgumentNullException">tuning is null.</exception>
@@ -291,6 +294,118 @@ public static class EndlessAffixes
             SuicideBaseRadiusCells: suicide ? tuning.SuicideBaseRadiusCells : 0.0,
             SuicideBaseDamage: suicide ? tuning.SuicideBaseDamage : 0.0);
     }
+
+    /// <summary>
+    /// Resolves the multiplier set from an EXPLICIT active-kind list with
+    /// optional per-kind repeat intensities (T-143 每 10 波滚词缀: the rolling
+    /// schedule resolves its kinds via <see cref="EndlessAffixRolls"/> and
+    /// hands them here — the channel composition, the frozen 81+ stack
+    /// intensity, the neutral-absent rule and the tick conversion are the
+    /// SAME frozen machinery as the fixed SP-7b schedule; rolling replaces
+    /// the activation schedule only). A kind absent from
+    /// <paramref name="activeKinds"/> stays neutral even past its frozen
+    /// activation wave; <paramref name="repeatIntensity"/> (may be null)
+    /// multiplies its kind's intensity once per consecutive re-roll.
+    /// Allocation-light single pass (bool mask, no LINQ/closure — the rolled
+    /// path runs once per wave plan, keep it clean anyway).
+    /// </summary>
+    /// <param name="wave">Wave the modifiers are resolved for (≥ 0).</param>
+    /// <param name="tuning">Affix magnitude table (SP-7b 生产默认档 or host tier).</param>
+    /// <param name="activeKinds">Explicit active kinds (rolled schedule; ordinal order expected).</param>
+    /// <param name="repeatIntensity">Per-kind repeat-intensity multipliers (T-143 叠加规则; null = none).</param>
+    /// <exception cref="ArgumentOutOfRangeException">wave is negative.</exception>
+    /// <exception cref="ArgumentNullException">tuning or activeKinds is null.</exception>
+    /// <exception cref="ArgumentException">activeKinds carries None or a duplicate kind.</exception>
+    public static EndlessEnemyModifiers Modifiers(
+        int wave,
+        EndlessAffixTuning tuning,
+        IReadOnlyList<EndlessAffixKind> activeKinds,
+        IReadOnlyDictionary<EndlessAffixKind, double>? repeatIntensity)
+    {
+        ArgumentNullException.ThrowIfNull(tuning);
+        ArgumentNullException.ThrowIfNull(activeKinds);
+        if (wave < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(wave), wave, "Waves are never negative.");
+        }
+
+        bool swift = false, harden = false, phase = false, suicide = false;
+        foreach (EndlessAffixKind kind in activeKinds)
+        {
+            switch (kind)
+            {
+                case EndlessAffixKind.Swift:
+                    if (swift)
+                    {
+                        throw Duplicate(kind);
+                    }
+
+                    swift = true;
+                    break;
+                case EndlessAffixKind.Harden:
+                    if (harden)
+                    {
+                        throw Duplicate(kind);
+                    }
+
+                    harden = true;
+                    break;
+                case EndlessAffixKind.Phase:
+                    if (phase)
+                    {
+                        throw Duplicate(kind);
+                    }
+
+                    phase = true;
+                    break;
+                case EndlessAffixKind.SuicideEmpower:
+                    if (suicide)
+                    {
+                        throw Duplicate(kind);
+                    }
+
+                    suicide = true;
+                    break;
+                default:
+                    throw new ArgumentException("None is not a rolling affix kind.", nameof(activeKinds));
+            }
+        }
+
+        int stacks = Stacks(wave);
+        double baseIntensity = Intensity(stacks, tuning);
+        double swiftGain = GainOf(repeatIntensity, EndlessAffixKind.Swift, baseIntensity);
+        double hardenGain = GainOf(repeatIntensity, EndlessAffixKind.Harden, baseIntensity);
+        double phaseGain = GainOf(repeatIntensity, EndlessAffixKind.Phase, baseIntensity);
+        double suicideGain = GainOf(repeatIntensity, EndlessAffixKind.SuicideEmpower, baseIntensity);
+
+        return new EndlessEnemyModifiers(
+            Wave: wave,
+            ActiveKinds: activeKinds.ToList(),
+            Stacks: stacks,
+            SpeedMultiplier: swift ? 1.0 + ((tuning.SwiftSpeedMultiplier - 1.0) * swiftGain) : 1.0,
+            ArmorMultiplier: harden ? 1.0 + ((tuning.HardenArmorMultiplier - 1.0) * hardenGain) : 1.0,
+            HpMultiplier: harden ? 1.0 + ((tuning.HardenHpMultiplier - 1.0) * hardenGain) : 1.0,
+            PhasePeriodTicks: phase ? SecondsToTicks(tuning.PhasePeriodSeconds) : 0,
+            PhaseInvulnerableTicks: phase
+                ? SecondsToTicks(tuning.PhaseInvulnerableSeconds * phaseGain)
+                : 0,
+            SuicideRadiusMultiplier: suicide ? tuning.SuicideRadiusMultiplier * suicideGain : 1.0,
+            SuicideDamageMultiplier: suicide ? tuning.SuicideDamageMultiplier * suicideGain : 1.0,
+            SuicideBaseRadiusCells: suicide ? tuning.SuicideBaseRadiusCells : 0.0,
+            SuicideBaseDamage: suicide ? tuning.SuicideBaseDamage : 0.0);
+
+        static ArgumentException Duplicate(EndlessAffixKind kind) =>
+            new($"Active kinds must be distinct ('{kind}' repeats).");
+    }
+
+    /// <summary>Per-kind intensity: base × repeat gain when present (no closure).</summary>
+    private static double GainOf(
+        IReadOnlyDictionary<EndlessAffixKind, double>? repeatIntensity,
+        EndlessAffixKind kind,
+        double baseIntensity) =>
+        repeatIntensity is not null && repeatIntensity.TryGetValue(kind, out double gain)
+            ? baseIntensity * gain
+            : baseIntensity;
 
     private static int SecondsToTicks(double seconds) =>
         (int)Math.Round(seconds * TicksPerSecond, MidpointRounding.AwayFromZero);

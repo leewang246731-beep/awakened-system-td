@@ -71,11 +71,15 @@ public sealed record EndlessSpawn(string EnemyId, int EraIndex, EndlessEnemyRole
 
 /// <summary>
 /// Configuration of one endless run (T-080 入口规则, SP-7「任选时代、混编
-/// 敌人、奇观带入」+ T-118 开局参与档): the starting era (chosen freely), its
-/// wave shape for the ≤40 regular segment, the threat level driving the
+/// 敌人、奇观带入」+ T-118 开局参与档 + T-143 深化档): the starting era
+/// (chosen freely among the loaded content sets — 时代枚举经
+/// <see cref="EndlessEntry.AvailableStartEras"/> 动态读取，时代数不落码面),
+/// its wave shape for the ≤40 regular segment, the threat level driving the
 /// multipliers, the cross-era enemy pool, the affix tuning, the boss cadence,
-/// the carried-in wonder ids, the score weights and the LOCKED opening
-/// participation mode (开局档——T-118 三榜分记的路由口径). Validated once at
+/// the carried-in wonder ids, the score weights, the LOCKED opening
+/// participation mode (开局档——T-118 三榜分记的路由口径), the starting-era
+/// baseline (初始资源/解锁面), the cross-era mixing schedule (高波次混编) and
+/// the rolling affix schedule (每 10 波滚词缀). Validated once at
 /// construction; pure data, host-supplied (RL7); the caller seeds its rng from
 /// <see cref="Seed"/> (determinism root).
 /// </summary>
@@ -85,12 +89,14 @@ public sealed class EndlessRunConfig
     /// Validates the entry rules and freezes the configuration: era 1..6,
     /// non-negative threat, positive boss cadence, elite/boss sub-pools
     /// present (the uncapped elite line and the boss cadence are always
-    /// reached in an endless run), unique non-blank wonder ids.
+    /// reached in an endless run), unique non-blank wonder ids, a start
+    /// baseline matching the start era, and valid mix/roll policies.
     /// </summary>
     /// <exception cref="ArgumentNullException">A member is null.</exception>
     /// <exception cref="ArgumentException">
     /// Era outside 1..6, negative threat, non-positive boss cadence, a
-    /// missing Elite/Boss sub-pool, or blank/duplicate wonder ids.
+    /// missing Elite/Boss sub-pool, blank/duplicate wonder ids, a baseline
+    /// era mismatch, or an invalid policy (policies self-validate).
     /// </exception>
     public EndlessRunConfig(
         long seed,
@@ -105,7 +111,10 @@ public sealed class EndlessRunConfig
         EndlessAffixTuning affixes,
         EndlessScoreWeights scores,
         IReadOnlyList<string> wonderIds,
-        EndlessParticipationMode participation = EndlessParticipationMode.Manual)
+        EndlessParticipationMode participation = EndlessParticipationMode.Manual,
+        EndlessStartEraBaseline? startBaseline = null,
+        EndlessMixPolicy? mixPolicy = null,
+        EndlessAffixRollPolicy? affixRolls = null)
     {
         ArgumentNullException.ThrowIfNull(pool);
         ArgumentNullException.ThrowIfNull(affixes);
@@ -149,6 +158,13 @@ public sealed class EndlessRunConfig
                 nameof(pool));
         }
 
+        if (startBaseline is not null && startBaseline.EraIndex != startEraIndex)
+        {
+            throw new ArgumentException(
+                $"The start baseline belongs to era {startBaseline.EraIndex} but the run starts in {startEraIndex}.",
+                nameof(startBaseline));
+        }
+
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (string wonder in wonderIds)
         {
@@ -176,6 +192,9 @@ public sealed class EndlessRunConfig
         Scores = scores;
         WonderIds = wonderIds.ToList();
         Participation = participation;
+        StartEraBaseline = startBaseline;
+        MixPolicy = mixPolicy;
+        AffixRolls = affixRolls;
     }
 
     /// <summary>Run seed — the caller's <see cref="IRng"/> is seeded with it (determinism root).</summary>
@@ -222,6 +241,27 @@ public sealed class EndlessRunConfig
     /// </summary>
     public EndlessParticipationMode Participation { get; }
 
+    /// <summary>
+    /// T-143 起始时代基准 (初始资源/解锁面): null = the host owns the opening
+    /// surface entirely; non-null must match <see cref="StartEraIndex"/>.
+    /// </summary>
+    public EndlessStartEraBaseline? StartEraBaseline { get; }
+
+    /// <summary>
+    /// T-143 混编档 (高波次跨时代混编——权重参数驱动): null = T-118 semantics
+    /// (whole pool by frozen weights from wave 1); non-null = start-era
+    /// baseline below <see cref="EndlessMixPolicy.MixFromWave"/>, weighted
+    /// cross-era mixing from it on.
+    /// </summary>
+    public EndlessMixPolicy? MixPolicy { get; }
+
+    /// <summary>
+    /// T-143 滚词缀档 (每 10 波滚词缀——重复/叠加规则参数化): null = the frozen
+    /// SP-7b activation table (production default, W3 exit ruling); non-null =
+    /// the seed-derived rolling schedule replaces the activation table.
+    /// </summary>
+    public EndlessAffixRollPolicy? AffixRolls { get; }
+
     /// <summary>Threat multiplier triple of the run (v3.2 appendix F.2).</summary>
     public ThreatMultipliers Threat => Balance.Threat.Multipliers(ThreatLevel);
 }
@@ -247,7 +287,12 @@ public static class EndlessRules
     /// (<see cref="EndlessWaveFormula.EliteCount"/> units), boss (one when
     /// <c>wave % BossEveryWaves == 0</c>). The plan carries the SP-7b
     /// modifier set and the SP-7a interval (120 s × 间隔乘子, reused from
-    /// <see cref="Campaign.WaveIntervalSeconds"/> — 不放宽).
+    /// <see cref="Campaign.WaveIntervalSeconds"/> — 不放宽). T-143 deepening:
+    /// with a <see cref="EndlessMixPolicy"/> configured the draws follow the
+    /// mixing schedule (开局时代基准 → 高波次跨时代混编); with an
+    /// <see cref="EndlessAffixRollPolicy"/> configured the modifiers follow
+    /// the rolling schedule (每 10 波滚词缀, seed-derived — the roster rng
+    /// stream is untouched either way).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">wave is negative.</exception>
     /// <exception cref="ArgumentNullException">config or rng is null.</exception>
@@ -274,22 +319,25 @@ public static class EndlessRules
         var roster = new List<EndlessSpawn>(regular + elite + boss);
         for (int i = 0; i < regular; i++)
         {
-            EndlessEnemyPoolEntry entry = config.Pool.Pick(rng, EndlessEnemyRole.Regular);
+            EndlessEnemyPoolEntry entry = PickEntry(wave, config, rng, EndlessEnemyRole.Regular);
             roster.Add(new EndlessSpawn(entry.EnemyId, entry.EraIndex, EndlessEnemyRole.Regular));
         }
 
         for (int i = 0; i < elite; i++)
         {
-            EndlessEnemyPoolEntry entry = config.Pool.Pick(rng, EndlessEnemyRole.Elite);
+            EndlessEnemyPoolEntry entry = PickEntry(wave, config, rng, EndlessEnemyRole.Elite);
             roster.Add(new EndlessSpawn(entry.EnemyId, entry.EraIndex, EndlessEnemyRole.Elite));
         }
 
         for (int i = 0; i < boss; i++)
         {
-            EndlessEnemyPoolEntry entry = config.Pool.Pick(rng, EndlessEnemyRole.Boss);
+            EndlessEnemyPoolEntry entry = PickEntry(wave, config, rng, EndlessEnemyRole.Boss);
             roster.Add(new EndlessSpawn(entry.EnemyId, entry.EraIndex, EndlessEnemyRole.Boss));
         }
 
+        EndlessEnemyModifiers modifiers = config.AffixRolls is null
+            ? EndlessAffixes.Modifiers(wave, config.Affixes)
+            : EndlessAffixRolls.Modifiers(config.Seed, wave, config.Affixes, config.AffixRolls);
         return new EndlessWavePlan(
             Wave: wave,
             RegularCount: regular,
@@ -297,9 +345,20 @@ public static class EndlessRules
             BossCount: boss,
             IntervalSeconds: Campaign.WaveIntervalSeconds(config.ThreatLevel),
             HpMultiplier: threat.Hp,
-            Modifiers: EndlessAffixes.Modifiers(wave, config.Affixes),
+            Modifiers: modifiers,
             Roster: roster);
     }
+
+    /// <summary>
+    /// One roster draw: the plain role pick (T-118 semantics — whole sub-pool
+    /// by frozen weights) or the T-143 mixing-schedule pick; exactly one rng
+    /// double either way.
+    /// </summary>
+    private static EndlessEnemyPoolEntry PickEntry(
+        int wave, EndlessRunConfig config, IRng rng, EndlessEnemyRole role) =>
+        config.MixPolicy is null
+            ? config.Pool.Pick(rng, role)
+            : config.Pool.Pick(rng, role, wave, config.StartEraIndex, config.MixPolicy);
 
     /// <summary>
     /// Boss cadence [NEW-原型校准]: one boss when the wave is a multiple of
@@ -335,12 +394,63 @@ public static class EndlessRules
     }
 
     /// <summary>
+    /// Affix bonus points under the T-143 ROLLING schedule (每 10 波滚词缀):
+    /// same weighted sum, but the per-wave kind count comes from
+    /// <see cref="EndlessAffixRolls"/> (seed-derived). Computed per BLOCK —
+    /// kinds are constant inside a block, so each full block contributes
+    /// <c>kinds × RollEveryWaves × points</c> and the trailing partial block
+    /// prorates by its wave count (O(blocks), not O(waves)).
+    /// </summary>
+    /// <param name="waves">Survived waves of the run.</param>
+    /// <param name="seed">Run seed (the roll derivation root).</param>
+    /// <param name="weights">Score weights (AffixKindPoints per kind per wave).</param>
+    /// <param name="policy">Rolling schedule (non-null).</param>
+    /// <exception cref="ArgumentNullException">weights or policy is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">waves is negative.</exception>
+    public static long AffixBonusPoints(int waves, long seed, EndlessScoreWeights weights, EndlessAffixRollPolicy policy)
+    {
+        ArgumentNullException.ThrowIfNull(weights);
+        ArgumentNullException.ThrowIfNull(policy);
+        if (waves < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(waves), waves, "Survived waves are never negative.");
+        }
+
+        if (waves < policy.RollStartWave)
+        {
+            return 0;
+        }
+
+        long total = 0;
+        long block = 0;
+        for (long blockStart = policy.RollStartWave; blockStart <= waves; blockStart += policy.RollEveryWaves, block++)
+        {
+            // blockStart 走 long 域：RollEveryWaves=1 的极端大波下 int 累加会回绕。
+            int blockWaves = (int)Math.Min((long)policy.RollEveryWaves, waves - blockStart + 1);
+            int kinds = EndlessAffixRolls.KindsAt(seed, (int)blockStart, policy).Count;
+            total += (long)kinds * blockWaves * weights.AffixKindPoints;
+        }
+
+        return total;
+    }
+
+    /// <summary>
     /// Three-board score of one settled run (SP-7c 冻结式 + T-080 词缀加权):
     /// <c>存活波数×WavePoints + 精英击杀×ElitePoints + Boss 击杀×BossPoints
     /// + 词缀加权分</c>. Negative kills are rejected (no negative tallies).
+    /// The affix bonus follows the run's schedule: fixed SP-7b table by
+    /// default, the T-143 rolling schedule when
+    /// <paramref name="affixRolls"/> is supplied (seed-derived).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">A kill tally is negative.</exception>
-    public static long Score(int wavesSurvived, long eliteKills, long bossKills, EndlessScoreWeights weights)
+    /// <exception cref="ArgumentNullException">weights is null.</exception>
+    public static long Score(
+        int wavesSurvived,
+        long eliteKills,
+        long bossKills,
+        EndlessScoreWeights weights,
+        long seed = 0,
+        EndlessAffixRollPolicy? affixRolls = null)
     {
         ArgumentNullException.ThrowIfNull(weights);
         if (eliteKills < 0 || bossKills < 0)
@@ -353,9 +463,12 @@ public static class EndlessRules
             throw new ArgumentOutOfRangeException(nameof(wavesSurvived), wavesSurvived, "Survived waves are never negative.");
         }
 
+        long affixBonus = affixRolls is null
+            ? AffixBonusPoints(wavesSurvived, weights)
+            : AffixBonusPoints(wavesSurvived, seed, weights, affixRolls);
         return (wavesSurvived * weights.WavePoints)
             + (eliteKills * weights.ElitePoints)
             + (bossKills * weights.BossPoints)
-            + AffixBonusPoints(wavesSurvived, weights);
+            + affixBonus;
     }
 }

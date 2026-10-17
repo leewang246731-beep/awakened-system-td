@@ -240,4 +240,83 @@ public sealed class EndlessEnemyPool
         ArgumentNullException.ThrowIfNull(rng);
         return Pick(rng.NextDouble() * _roleWeights[role], role);
     }
+
+    /// <summary>
+    /// Seeded pick under the T-143 mixing schedule (混编敌人: 高波次跨时代
+    /// 混编敌池——权重参数驱动): waves below <paramref name="mix.MixFromWave"/>
+    /// draw from the STARTING ERA's entries of the role sub-pool only (敌池
+    /// 基准=开局时代); waves from it on draw the whole sub-pool with each
+    /// entry's weight scaled by its era factor (开局时代
+    /// ×<paramref name="mix.StartEraWeight"/>, 其他时代
+    /// ×<paramref name="mix.OtherEraWeight"/>). Honest fallback: when the
+    /// starting era carries NO entry of this role (e.g. an era without a
+    /// boss row) the baseline segment draws the whole sub-pool unscaled —
+    /// the line must still spawn. Exactly ONE rng double per pick, same as
+    /// <see cref="Pick(Contracts.Foundation.IRng, EndlessEnemyRole)"/> —
+    /// same seed + same policy ⇒ same roster (determinism unchanged).
+    /// </summary>
+    /// <param name="rng">Injected rng (CS-1.4).</param>
+    /// <param name="role">Role sub-pool to draw from.</param>
+    /// <param name="wave">Wave being planned (1-based).</param>
+    /// <param name="startEraIndex">The run's starting era (baseline owner).</param>
+    /// <param name="mix">Mixing schedule (T-143, non-null).</param>
+    /// <exception cref="ArgumentNullException">rng or mix is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">wave is negative.</exception>
+    /// <exception cref="ArgumentException">The role has no entries.</exception>
+    public EndlessEnemyPoolEntry Pick(
+        Contracts.Foundation.IRng rng,
+        EndlessEnemyRole role,
+        int wave,
+        int startEraIndex,
+        EndlessMixPolicy mix)
+    {
+        ArgumentNullException.ThrowIfNull(rng);
+        ArgumentNullException.ThrowIfNull(mix);
+        if (wave < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(wave), wave, "Waves are never negative.");
+        }
+
+        if (!_byRole.TryGetValue(role, out List<EndlessEnemyPoolEntry>? bucket))
+        {
+            throw new ArgumentException($"The pool carries no {role} entries.", nameof(role));
+        }
+
+        bool baseline = wave < mix.MixFromWave;
+        double total = 0;
+        var effective = new double[bucket.Count];
+        for (int i = 0; i < bucket.Count; i++)
+        {
+            EndlessEnemyPoolEntry entry = bucket[i];
+            bool isStartEra = entry.EraIndex == startEraIndex;
+            double weight = baseline
+                ? (isStartEra ? entry.Weight : 0.0)
+                : entry.Weight * (isStartEra ? mix.StartEraWeight : mix.OtherEraWeight);
+            effective[i] = weight;
+            total += weight;
+        }
+
+        if (!(total > 0))
+        {
+            // 守卫回退：开局时代在该线无行（缺 Boss 行的合成集）——整桶原权重混编。
+            for (int i = 0; i < bucket.Count; i++)
+            {
+                effective[i] = bucket[i].Weight;
+                total += effective[i];
+            }
+        }
+
+        double draw = rng.NextDouble() * total;
+        double cumulative = 0;
+        for (int i = 0; i < bucket.Count; i++)
+        {
+            cumulative += effective[i];
+            if (draw < cumulative)
+            {
+                return bucket[i];
+            }
+        }
+
+        return bucket[^1];
+    }
 }

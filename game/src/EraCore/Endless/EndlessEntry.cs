@@ -6,11 +6,14 @@ using EraCore.Units;
 namespace EraCore.Endless;
 
 /// <summary>
-/// One era's playable contribution to an endless entry (T-118 任选时代): the
-/// enemy rows plus the era's wave shape (基数/起/间隔/成长 — the ≤40 regular
-/// segment owner, SP-7a). The START era's shape drives the run; every
-/// provided era's rows feed the 混编池. Caller owns the IO (parsed content
-/// handed over); pure data record, host-supplied (RL7).
+/// One era's playable contribution to an endless entry (T-118 任选时代 +
+/// T-143 起始基准): the enemy rows, the era's wave shape (基数/起/间隔/成长
+/// — the ≤40 regular segment owner, SP-7a) and the era's opening surface
+/// (初始资源 rows + 解锁面 tower ids — frozen as the START era's
+/// <see cref="EndlessStartEraBaseline"/> when this era opens the run; T-143
+/// 任选时代起始影响). Every provided era's rows feed the 混编池. Caller owns
+/// the IO (parsed content handed over); pure data record, host-supplied
+/// (RL7).
 /// </summary>
 /// <param name="EraIndex">Era index (1..6).</param>
 /// <param name="Enemies">Parsed enemy rows of the era (e.g. era3 = the current four-level content set).</param>
@@ -18,21 +21,30 @@ namespace EraCore.Endless;
 /// <param name="WaveBegin">Wave 起 of the ramp.</param>
 /// <param name="WaveSpacing">Wave 间隔 of the ramp (≤0 disables).</param>
 /// <param name="WaveScaling">成长 divisor of the ramp.</param>
+/// <param name="InitialResources">初始资源 rows of the era (T-143; default empty = host starts bare).</param>
+/// <param name="Towers">解锁面: the era's tower ids (T-143; default empty = host owns the surface).</param>
 public sealed record EndlessEraContent(
     int EraIndex,
     IReadOnlyList<EnemySpec> Enemies,
     int WaveBaseCount,
     int WaveBegin,
     int WaveSpacing,
-    double WaveScaling);
+    double WaveScaling,
+    IReadOnlyList<EndlessResourceStock>? InitialResources = null,
+    IReadOnlyList<string>? Towers = null);
 
 /// <summary>
 /// 无尽入口请求（T-118 入口正式化，SP-7 入口规则行「任选时代、混编敌人、
-/// 奇观带入」+ T-118 开局选档）: everything the entry composes the run from —
-/// the chosen era, the LOCKED opening participation mode (三档之一——开局
-/// 声明，整局锁榜), the loaded era content sets (任选时代=已装载内容集中的
-/// 任一时代), the threat level, the carried-in wonder ids and the optional
-/// tuning overrides (词缀照 SP-7 生产默认档 <see cref="EndlessAffixTuning.Default"/>).
+/// 奇观带入」+ T-118 开局选档 + T-143 深化档）: everything the entry composes
+/// the run from — the chosen era (任选时代=已装载内容集中的任一时代，时代枚举
+/// 见 <see cref="EndlessEntry.AvailableStartEras"/>，动态读取零硬编码), the
+/// LOCKED opening participation mode (三档之一——开局声明，整局锁榜), the loaded
+/// era content sets, the threat level, the carried-in wonder ids with the
+/// optional campaign built-wonder linkage (T-143 奇观带入——只读消费), and the
+/// optional tuning overrides (词缀照 SP-7 生产默认档
+/// <see cref="EndlessAffixTuning.Default"/>; 混编档缺省=T-143 生产档
+/// <see cref="EndlessMixPolicy.Default"/>; 滚词缀档缺省=null 即 SP-7b 冻结
+/// 激活表——W3 出口裁定生产默认）.
 /// </summary>
 public sealed record EndlessEntryRequest(
     long Seed,
@@ -44,7 +56,10 @@ public sealed record EndlessEntryRequest(
     int ElitesPerEra = EndlessEraPools.DefaultElitesPerEra,
     EndlessAffixTuning? Affixes = null,
     EndlessScoreWeights? Scores = null,
-    int? BossEveryWaves = null);
+    int? BossEveryWaves = null,
+    IReadOnlyList<string>? BuiltWonderIds = null,
+    EndlessMixPolicy? MixPolicy = null,
+    EndlessAffixRollPolicy? AffixRolls = null);
 
 /// <summary>
 /// 无尽会话状态（T-118 死亡终局→记分→返回 的最小会话流）：Running（波次
@@ -92,17 +107,40 @@ public static class EndlessEntry
     public const int DefaultBossEveryWaves = 10; // ci-allow: R7 T-080 [NEW-原型校准] Boss 节奏（T-118 入口默认档沿用）
 
     /// <summary>
-    /// Assembles the endless session: resolves the start era's wave shape,
-    /// builds the cross-era pool from every provided set (任选时代的内容
-    /// 边界=装载集），freezes the run config（含开局参与档锁）and hands
-    /// the deps through — port/campaignMeta wire the K-7 落账, scoreSink
-    /// receives the T-081 autopilot entries.
+    /// 时代枚举（T-143 任选时代——动态读取，时代数不落码面）: the ascending
+    /// era indexes present in the loaded content sets. 今天装载 era1~era4 ⇒
+    /// E1~E4；T-134 落 era5 内容后宿主多装一个集合 ⇒ E5 自动出现，Endless
+    /// 侧零改动零冲突（验收口径：任选时代限于本枚举）.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">eraContent is null.</exception>
+    public static IReadOnlyList<int> AvailableStartEras(IReadOnlyList<EndlessEraContent> eraContent)
+    {
+        ArgumentNullException.ThrowIfNull(eraContent);
+        return eraContent.Where(era => era is not null)
+            .Select(era => era.EraIndex)
+            .Distinct()
+            .OrderBy(era => era)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Assembles the endless session: resolves the start era's wave shape and
+    /// opening baseline (初始资源/解锁面——起始时代影响，T-143), builds the
+    /// cross-era pool from every provided set (任选时代的内容边界=装载集),
+    /// resolves the carried-in wonders against the optional campaign linkage
+    /// (奇观带入——只读消费，未解锁拒绝), freezes the run config（含开局参与档
+    /// 锁+T-143 混编/滚词缀档；混编缺省=<see cref="EndlessMixPolicy.Default"/>
+    /// 生产档，滚词缀缺省=SP-7b 冻结激活表）and hands the deps through —
+    /// port/campaignMeta wire the K-7 落账, scoreSink receives the T-081
+    /// autopilot entries.
     /// </summary>
     /// <exception cref="ArgumentNullException">request or rng is null.</exception>
     /// <exception cref="ArgumentException">
     /// Start era not among the provided content sets, no content sets, an
-    /// undefined participation mode, or via <see cref="EndlessEraPools.Build"/>/
-    /// <see cref="EndlessRunConfig"/> validation.
+    /// undefined participation mode, a wonder not built in the campaign
+    /// linkage, or via <see cref="EndlessWonderCarry.Resolve"/>/
+    /// <see cref="EndlessEraPools.Build"/>/<see cref="EndlessRunConfig"/>
+    /// validation.
     /// </exception>
     public static EndlessSession Begin(
         EndlessEntryRequest request,
@@ -126,15 +164,21 @@ public static class EndlessEntry
         {
             throw new ArgumentException(
                 $"Start era {request.StartEraIndex} is not among the loaded endless content sets " +
-                $"[{string.Join(", ", request.EraContent.Select(era => era?.EraIndex.ToString() ?? "null"))}] — 任选时代限于已装载内容集.",
+                $"[{string.Join(", ", AvailableStartEras(request.EraContent))}] — 任选时代限于已装载内容集.",
                 nameof(request));
         }
+
+        IReadOnlyList<string> wonders = EndlessWonderCarry.Resolve(request.WonderIds, request.BuiltWonderIds);
 
         EndlessEnemyPool pool = EndlessEraPools.Build(
             request.EraContent.Where(era => era is not null)
                 .Select(era => new EndlessEraEnemySet(era.EraIndex, era.Enemies))
                 .ToList(),
             request.ElitesPerEra);
+        var baseline = new EndlessStartEraBaseline(
+            startEra.EraIndex,
+            startEra.InitialResources ?? Array.Empty<EndlessResourceStock>(),
+            startEra.Towers ?? Array.Empty<string>());
         var config = new EndlessRunConfig(
             request.Seed,
             request.StartEraIndex,
@@ -147,8 +191,11 @@ public static class EndlessEntry
             pool,
             request.Affixes ?? EndlessAffixTuning.Default,
             request.Scores ?? EndlessScoreWeights.Default,
-            request.WonderIds,
-            request.Participation);
+            wonders,
+            request.Participation,
+            baseline,
+            request.MixPolicy ?? EndlessMixPolicy.Default,
+            request.AffixRolls);
         return new EndlessSession(new EndlessRun(config, rng, port, campaignMeta, scoreSink));
     }
 }

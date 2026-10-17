@@ -342,8 +342,11 @@ public sealed class EndlessRun
         IsOver = true;
         _active = null;
 
-        long affixBonus = EndlessRules.AffixBonusPoints((int)WavesSurvived, _config.Scores);
-        long score = EndlessRules.Score((int)WavesSurvived, EliteKills, BossKills, _config.Scores);
+        long affixBonus = _config.AffixRolls is null
+            ? EndlessRules.AffixBonusPoints((int)WavesSurvived, _config.Scores)
+            : EndlessRules.AffixBonusPoints((int)WavesSurvived, _config.Seed, _config.Scores, _config.AffixRolls);
+        long score = EndlessRules.Score(
+            (int)WavesSurvived, EliteKills, BossKills, _config.Scores, _config.Seed, _config.AffixRolls);
         EndlessBoardKind board = Board;
         string channelId = EndlessBoardChannels.Of(board);
         EndlessBoardKind shareImplied = RouteBoard(AutopilotActions, ActionsTotal);
@@ -423,6 +426,9 @@ public sealed class EndlessRun
         writer.Write(_config.BossEveryWaves);
         WriteStringList(writer, _config.WonderIds);
         writer.Write((int)_config.Participation);
+        WriteBaseline(writer, _config.StartEraBaseline);
+        WriteMixPolicy(writer, _config.MixPolicy);
+        WriteRollPolicy(writer, _config.AffixRolls);
 
         writer.Write(_participationSwitches.Count);
         foreach (EndlessParticipationSwitch participationSwitch in _participationSwitches)
@@ -530,5 +536,55 @@ public sealed class EndlessRun
         {
             WriteString(writer, value);
         }
+    }
+
+    /// <summary>T-143 起始基准入账: era + 初始资源行 + 解锁面 (null = 0 行).</summary>
+    private static void WriteBaseline(BinaryWriter writer, EndlessStartEraBaseline? baseline)
+    {
+        writer.Write(baseline is not null);
+        if (baseline is null)
+        {
+            return;
+        }
+
+        writer.Write(baseline.EraIndex);
+        writer.Write(baseline.InitialResources.Count);
+        foreach (EndlessResourceStock row in baseline.InitialResources)
+        {
+            WriteString(writer, row.ResourceId);
+            writer.Write(row.Amount);
+        }
+
+        WriteStringList(writer, baseline.UnlockedTowers);
+    }
+
+    /// <summary>T-143 混编档入账 (null = T-118 语义全池混编).</summary>
+    private static void WriteMixPolicy(BinaryWriter writer, EndlessMixPolicy? mix)
+    {
+        writer.Write(mix is not null);
+        if (mix is null)
+        {
+            return;
+        }
+
+        writer.Write(mix.MixFromWave);
+        writer.Write(mix.StartEraWeight);
+        writer.Write(mix.OtherEraWeight);
+    }
+
+    /// <summary>T-143 滚词缀档入账 (null = SP-7b 冻结激活表).</summary>
+    private static void WriteRollPolicy(BinaryWriter writer, EndlessAffixRollPolicy? rolls)
+    {
+        writer.Write(rolls is not null);
+        if (rolls is null)
+        {
+            return;
+        }
+
+        writer.Write(rolls.RollEveryWaves);
+        writer.Write(rolls.RollStartWave);
+        writer.Write(rolls.KindsPerRoll);
+        writer.Write(rolls.AllowConsecutiveRepeat);
+        writer.Write(rolls.RepeatIntensityGain);
     }
 }
