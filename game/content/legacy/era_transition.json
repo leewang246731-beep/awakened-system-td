@@ -1,7 +1,7 @@
 {
   "$schema": "urn:eratd:content:legacy:era-transition:1",
   "content_type": "Era",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；本文件=C-20 时代跃迁事务参数表（E1→E2=T-074 冻结；E2→E3 扩展=T-117，F-003/F-011；E3→E4 扩展=T-125 遗迹映射正式版域）",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/溯源）；本文件=C-20 时代跃迁事务参数表（E1→E2=T-074 冻结；E2→E3 扩展=T-117，F-003/F-011；E3→E4 扩展=T-125 遗迹映射正式版域；E4→E5 扩展=T-134 E5 未来章域——本文件参数（levy/warehouse/final_levels）为全代共用冻结值，E4→E5 只扩排期行）",
   "preconditions": {
     "requires_final_level": true,
     "requires_wonder": true,
@@ -23,7 +23,7 @@
     "2": "campaign:level-e2-final",
     "3": "campaign:level-e3-final",
     "4": "campaign:level-e4-final",
-    "_source": "各时代终局关 id（键=被离开的时代序号，Precheck 以 FinalLevels[FromEraIndex] 硬校验占领）。E1 行=T-074 占位；E2 行=T-117 落位；E3 行=T-125 落位（E3→E4 跃迁扩展）——id 裁定=沿用 E1/E2 行命名约定 campaign:level-e{n}-final（n=被离开时代；e3-finale.json 演出脚本同款命名约定引用）。E3 实关行（levels/e3.json）由 T-124 战役关卡域落位后 Precheck 在真实游戏可达（先例=final_levels[2] 引用先行、实关行随后）；【T-125/T-124 并行缝】若 T-124 以其它 id 落 E3 终局关行，以其实关行为准同步本行（一行字符串的协调缝，后提交者消解）——T-124 已按本行 id 落实关 campaign:level-e3-final（levels/e3.json slot 5 堡垒号 Boss 关），缝已消解。E4 行=T-124 落位（键=被离开时代 4——E4→E5 跃迁=T-134 域的引用先行）且实关行同任务齐备（levels/e4.json slot 5 夜枭 Boss 关）——a58c86f『引用先行、实关缺失致 Precheck 不可达』教训的反面先例：本行引用不悬空，FinalLevelTransitionReachability 断言两侧行 id 双向相等"
+    "_source": "各时代终局关 id（键=被离开的时代序号，Precheck 以 FinalLevels[FromEraIndex] 硬校验占领）。E1 行=T-074 占位；E2 行=T-117 落位；E3 行=T-125 落位（E3→E4 跃迁扩展）——id 裁定=沿用 E1/E2 行命名约定 campaign:level-e{n}-final（n=被离开时代；e3-finale.json 演出脚本同款命名约定引用）。E3 实关行（levels/e3.json）由 T-124 战役关卡域落位后 Precheck 在真实游戏可达（先例=final_levels[2] 引用先行、实关行随后）；【T-125/T-124 并行缝】若 T-124 以其它 id 落 E3 终局关行，以其实关行为准同步本行（一行字符串的协调缝，后提交者消解）——T-124 已按本行 id 落实关 campaign:level-e3-final（levels/e3.json slot 5 堡垒号 Boss 关），缝已消解。E4 行=T-124 落位（键=被离开时代 4——E4→E5 跃迁=T-134 域的引用先行）且实关行同任务齐备（levels/e4.json slot 5 夜枭 Boss 关）——a58c86f『引用先行、实关缺失致 Precheck 不可达』教训的反面先例：本行引用不悬空，FinalLevelTransitionReachability 断言两侧行 id 双向相等。E4→E5 跃迁域=T-134 落地（era5 内容+排期行+E4ToE5 回归齐备——final_levels[4] 行值不变，本任务清偿其『引用先行』状态：E5 目标域实体化，跃迁在真实游戏可达）；E5 行（E5→终章）=T-135 域，终章实关行落地前不预置（悬空引用禁律）"
   },
   "first_three_schedule": [
     {
@@ -97,6 +97,30 @@
       "focus": "archaeology_hero_system",
       "focus_zh": "考古+英雄+系统新能力",
       "_source": "T-125 E3→E4 扩展：v3.2 §4 L67 关 3 考古+英雄+系统新能力——逐值对齐 era4/levels.json slot 3 行"
+    },
+    {
+      "slot": 1,
+      "target_era": 5,
+      "level_id": "campaign:level-e5-01",
+      "focus": "new_energy",
+      "focus_zh": "新能源",
+      "_source": "T-134 E4→E5 扩展（E5 未来章域）：v3.2 §4 L67 关 1 新能源——逐值对齐 era5/levels.json slot 1 行（T-134 冻结排期侧；聚变开放）"
+    },
+    {
+      "slot": 2,
+      "target_era": 5,
+      "level_id": "campaign:level-e5-02",
+      "focus": "new_logistics",
+      "focus_zh": "新物流",
+      "_source": "T-134 E4→E5 扩展：v3.2 §4 L67 关 2 新物流——逐值对齐 era5/levels.json slot 2 行（无人机 20/s 物流档）"
+    },
+    {
+      "slot": 3,
+      "target_era": 5,
+      "level_id": "campaign:level-e5-03",
+      "focus": "archaeology_hero_system",
+      "focus_zh": "考古+英雄+系统新能力",
+      "_source": "T-134 E4→E5 扩展：v3.2 §4 L67 关 3 考古+英雄+系统新能力——逐值对齐 era5/levels.json slot 3 行（全托管可选解锁位）"
     }
   ],
   "_units": {

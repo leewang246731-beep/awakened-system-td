@@ -1,0 +1,117 @@
+{
+  "$schema": "urn:eratd:content:recipe:1",
+  "content_type": "Resource",
+  "era": "era5:era-future",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E5 配方集锚点=v3.2 §5 L74~L76（链深 ≤3；1 件弹药=10 发；T1 采集 0.5 件/s/坐席）+§4 L62 E5 资源行（稀土/纳米/聚变燃料）+era4/recipes.json 行形先例（T-123）；K-2 15 类封闭枚举无 Recipe 类——配方行随资源经济族走，content_type 薄版声明为 Resource（先例=era2/recipes.json，T-079）；行形状对齐 AmmoRecipe（inputs 篮子/AmmoResource/CraftTicks，一 craft 产 1 件）；全部篮子/时长 [NEW] 待原型校准",
+  "raw_resources": [
+    { "resource": "era5:res-rare-earth", "name_zh": "稀土" },
+    { "resource": "era4:res-oil", "name_zh": "石油（传承刷新）" },
+    { "resource": "era2:res-iron", "name_zh": "铁（传承刷新）" }
+  ],
+  "_raw_note": "深度 1 原料集=本代可采原料三件（稀土=本代新矿（稀土矿脉）；石油/铁=上代（E4）2 种基础资源传承刷新，§4 跨代资源行——E4 原料集=石油/煤/铁，取石油（E4 本代新矿）+铁（连续第三代刷新）；煤不再续刷=无用途旧资源 3:1 折算文明基金）。纳米、聚变燃料（era.json 资源行成员，§4 L62 点名）均为炼链制品（era5:recipe-nano / era5:recipe-fusion-fuel 输出）——SupplyChain one key one meaning：制品不入原料表（era3『钢』/era4『电子·混凝土』分立先例）",
+  "chain_depth_max": 3,
+  "_chain_note": "v3.2 §5 L74 链深 ≤3（原料=1，制品=1+最深输入）——本表最深=轨道弹丸/无人机组/力场单元 3（稀土/铁(1)→纳米(2)→弹药(3)；稀土/石油(1)→聚变燃料(2)→力场单元(3)），守卫=SupplyChain.Validate（T-034），Era5ContentTests 装载校验",
+  "items": [
+    {
+      "id": "era5:recipe-nano",
+      "content_type": "Resource",
+      "kind": "intermediate",
+      "era_index": 5,
+      "name_zh": "纳米",
+      "name_en": "Nano",
+      "aliases": ["纳米", "纳米材料", "纳米体", "nano"],
+      "inputs": [
+        { "resource": "era5:res-rare-earth", "amount": 2 },
+        { "resource": "era4:res-oil", "amount": 1 }
+      ],
+      "output": { "resource": "era5:res-nano", "amount": 1 },
+      "craft_ticks": 150,
+      "chain_depth": 2,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "稀土→纳米炼链主件（§4 L62 资源=稀土/纳米/聚变燃料+T-134 任务卡『纳米灾变·湮灭时代』章设）[NEW 数值标注]——篮子 2 稀土+1 石油→1 纳米（稀土=催化晶格位；石油=分散介质/聚合物载体——传承刷新石油的本代用途落位）、时长 150 ticks（5 s@30 Hz，对齐 E3 炼钢/E4 电子档）待原型校准；链位=中间件（深度 2：稀土/石油(1)→纳米(2)），轨道弹丸/无人机组的前置+本代建造货币（E1 木/E2 铜/E3 钢/E4 混凝土/E5 纳米跨代货币递进——era5/levels 行 initial_stock 货币位）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era5:recipe-fusion-fuel",
+      "content_type": "Resource",
+      "kind": "intermediate",
+      "era_index": 5,
+      "name_zh": "聚变燃料",
+      "name_en": "Fusion Fuel",
+      "aliases": ["聚变燃料", "氘氚燃料", "聚变芯", "fusion fuel"],
+      "inputs": [
+        { "resource": "era5:res-rare-earth", "amount": 2 },
+        { "resource": "era2:res-iron", "amount": 1 }
+      ],
+      "output": { "resource": "era5:res-fusion-fuel", "amount": 1 },
+      "craft_ticks": 180,
+      "chain_depth": 2,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "稀土→聚变燃料炼链主件（§4 L62 资源行第三资源；能源=聚变的燃料件位）[NEW 数值标注]——篮子 2 稀土+1 铁→1 聚变燃料（稀土=氘氚增殖催化位、铁=磁约束壳体——传承刷新铁的本代用途落位）、时长 180 ticks（6 s@30 Hz，大质量低速档，E4 混凝土同值档）待原型校准；链位=中间件（深度 2：稀土/铁(1)→聚变燃料(2)），力场单元的前置（力场=聚变供能的对策工事位）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era5:recipe-rail-slug",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 5,
+      "name_zh": "轨道弹丸",
+      "name_en": "Rail Slug",
+      "aliases": ["轨道弹丸", "弹丸", "电磁弹丸", "rail slug"],
+      "inputs": [
+        { "resource": "era5:res-nano", "amount": 1 },
+        { "resource": "era2:res-iron", "amount": 2 },
+        { "resource": "era4:res-oil", "amount": 1 }
+      ],
+      "output": { "resource": "era5:ammo-rail-slug", "amount": 1 },
+      "craft_ticks": 210,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era5:tower-railgun 弹药位（era5/towers.json）[NEW 数值标注]——篮子 1 纳米+2 铁+1 石油→1 件（纳米=超导弹托、铁=弹芯、石油=发射衬管润滑）、时长 210 ticks（7 s@30 Hz，重于 E4 导弹 210 同档大质量低速档）待原型校准；链位=链深天花板锚（稀土/石油(1)→纳米(2)→轨道弹丸(3)=§5 链深 ≤3 恰用满，SupplyChain 边界行）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era5:recipe-drone-pack",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 5,
+      "name_zh": "无人机组",
+      "name_en": "Drone Pack",
+      "aliases": ["无人机组", "机组", "蜂群组", "drone pack"],
+      "inputs": [
+        { "resource": "era5:res-nano", "amount": 2 },
+        { "resource": "era5:res-rare-earth", "amount": 1 }
+      ],
+      "output": { "resource": "era5:ammo-drone-pack", "amount": 1 },
+      "craft_ticks": 120,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era5:tower-drone-nest 弹药位（era5/towers.json）[NEW 数值标注]——篮子 2 纳米+1 稀土→1 件（纳米=机体复材、稀土=电机磁体——速射蜂群的高消耗补给位）、时长 120 ticks（4 s@30 Hz，轻量快循环档——无人机巢 reload 2 ticks 高射速的供弹节奏，E4 电容组 120 同值档）待原型校准；链位=链深天花板锚（稀土(1)→纳米(2)→无人机组(3)恰用满）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era5:recipe-field-cell",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 5,
+      "name_zh": "力场单元",
+      "name_en": "Field Cell",
+      "aliases": ["力场单元", "力场电池", "斥力单元", "field cell"],
+      "inputs": [
+        { "resource": "era5:res-fusion-fuel", "amount": 2 },
+        { "resource": "era5:res-nano", "amount": 1 }
+      ],
+      "output": { "resource": "era5:ammo-field-cell", "amount": 1 },
+      "craft_ticks": 150,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era5:tower-force-field 弹药位（era5/towers.json）[NEW 数值标注]——篮子 2 聚变燃料+1 纳米→1 件（聚变燃料=场源供能、纳米=场发射阵列——聚变燃料的消费落位：湮灭对策工事的供能位）、时长 150 ticks（5 s@30 Hz）待原型校准；链位=链深天花板锚（稀土/铁(1)→聚变燃料(2)→力场单元(3)恰用满）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    }
+  ]
+}

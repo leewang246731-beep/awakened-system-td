@@ -160,9 +160,22 @@ internal static class HandcraftedLevelContent
             .ToDictionary(row => row.GetProperty("slot").GetInt32());
     }
 
-    /// <summary>The era directory segment of a level row ("era1"/"era2"/"era3"/"era4" from its era id).</summary>
+    /// <summary>
+    /// The frozen T-134 E5 schedule rows (era5/levels.json — the 排期侧 file;
+    /// map blocks live in levels/e5.json, T-134) keyed by slot. Same
+    /// non-disposing convention as <see cref="Era4ScheduleRows"/>.
+    /// </summary>
+    public static IReadOnlyDictionary<int, JsonElement> Era5ScheduleRows()
+    {
+        var doc = JsonDocument.Parse(ReadText("era5", "levels.json"));
+        return doc.RootElement.GetProperty("items").EnumerateArray()
+            .ToDictionary(row => row.GetProperty("slot").GetInt32());
+    }
+
+    /// <summary>The era directory segment of a level row ("era1".."era5" from its era id).</summary>
     public static string EraDir(HandcraftedLevel level) => level.Era switch
     {
+        string era when era.StartsWith("era5:", StringComparison.Ordinal) => "era5",
         string era when era.StartsWith("era4:", StringComparison.Ordinal) => "era4",
         string era when era.StartsWith("era3:", StringComparison.Ordinal) => "era3",
         string era when era.StartsWith("era2:", StringComparison.Ordinal) => "era2",

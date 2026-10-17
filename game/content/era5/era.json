@@ -1,0 +1,170 @@
+{
+  "$schema": "urn:eratd:content:era:1",
+  "content_type": "Era",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；E5 时代行锚点=v3.2 §4 L62（docs/我在游戏觉醒系统-游戏设计方案.md）+§4 能源阶梯行/跨代资源行+§5 L78~L79（物流阶梯、仓库等级）；格式先例=era1/era.json（T-049）+era2/era.json（T-079）+era3/era.json（T-112）+era4/era.json（T-123）",
+  "items": [
+    {
+      "id": "era5:era-future",
+      "content_type": "Era",
+      "era_index": 5,
+      "name_zh": "未来",
+      "name_en": "Future",
+      "aliases": ["E5", "未来", "未来时代"],
+      "resources": [
+        { "id": "era5:res-rare-earth", "name_zh": "稀土", "name_en": "Rare Earth" },
+        {
+          "id": "era4:res-oil",
+          "name_zh": "石油",
+          "name_en": "Oil",
+          "legacy_refresh": { "from_era": 4, "abundance_multiplier": 0.5 }
+        },
+        {
+          "id": "era2:res-iron",
+          "name_zh": "铁",
+          "name_en": "Iron",
+          "legacy_refresh": { "from_era": 4, "abundance_multiplier": 0.5 }
+        },
+        { "id": "era5:res-nano", "name_zh": "纳米", "name_en": "Nano" },
+        { "id": "era5:res-fusion-fuel", "name_zh": "聚变燃料", "name_en": "Fusion Fuel" }
+      ],
+      "_resources_note": "§4 L62 E5 资源=稀土/纳米/聚变燃料（本代行三资源：稀土=本代新矿（稀土矿脉）；纳米/聚变燃料=炼链制品（era5/recipes.json era5:recipe-nano / era5:recipe-fusion-fuel 的输出件，非原料——SupplyChain one key one meaning，era3『钢』/era4『电子·混凝土』同款分立先例））。石油+铁=上代（E4）2 种基础资源传承刷新（§4 跨代资源行『上代 2 种基础资源刷新（丰度 ×0.5）』：E4 原料集=石油/煤/铁（era4/recipes.json raw_resources），取石油（E4 本代新矿·基础位）+铁（连续第三代刷新 E2→E3→E4→E5，from_era 逐代表记紧邻前代）；煤不再续刷（E4 用途=煅烧/推进剂，E5 弹链本代化后无用途→无用途旧资源 3:1 折算文明基金，见 legacy/era_transition.json levy）",
+      "energy": {
+        "type": "fusion",
+        "name_zh": "聚变",
+        "levels": [
+          { "tier": 1, "name_zh": "聚变电池组", "output": 100000, "_new": true },
+          { "tier": 2, "name_zh": "聚变堆", "output": 400000, "_new": true },
+          {
+            "tier": 3,
+            "name_zh": "湮灭芯堆",
+            "output": 2000000,
+            "dangerous_position": {
+              "confirm_class": "build_confirm",
+              "requires_confirm": true,
+              "never_auto_allow": true
+            },
+            "_new": true,
+            "_dangerous_position_source": "§11.4/F.4 危险位先例（E4 核电站同族数据位，era4/era.json T-123 首例）——湮灭芯堆=能源 L3 终档且携带 SP-4 L148 湮灭后果的建筑位前置闸：系统 BuildPlan 建造须玩家确认、永不入关卡级自动允许清单",
+            "_new_fields": ["dangerous_position"]
+          }
+        ],
+        "ladder_multiplier_min": 3.0,
+        "ladder_multiplier_max": 5.0,
+        "risk_events": true,
+        "risk": {
+          "kind": "overheat_explosion",
+          "name_zh": "过热爆炸",
+          "trigger": {
+            "overload_threshold_percent": 100,
+            "sustained_s": 30,
+            "heat_capacity": 100
+          },
+          "heat_dynamics": {
+            "gain_per_s_overloaded": 2,
+            "overload_step_percent": 10,
+            "bonus_gain_per_s_per_extra_10pct_overload": 1,
+            "decay_per_s_unloaded": 5,
+            "min_seconds_to_full_heat_at_sustained_overload": 50
+          },
+          "explosion_radius_cells": 4,
+          "consequences": {
+            "building_damage_fraction_of_max_hp": 0.5,
+            "enemy_damage": 300,
+            "culprit_outage_s": 60,
+            "culprit_degraded_output_fraction": 0.5,
+            "culprit_degraded_duration_s": 30
+          },
+          "_source": "SP-4 L146『E3 过热爆炸』行全值沿用（docs/engineering/11-spec-tables.md 表体 [NEW-原型校准]，已定案待 Wave 1 金样回归校准）——适用代=E3 起（SP-4 L142），E5 聚变（电池组/聚变堆档）沿用同表（E3 蒸汽/E4 电网/E5 聚变同源行，era4/era.json 同款沿用注）；配套口径③（SP-4 L150）：阈值入内容数据禁止硬编码（RL7）"
+        },
+        "annihilation": {
+          "kind": "annihilation",
+          "name_zh": "湮灭",
+          "trigger": {
+            "overload_threshold_percent": 150,
+            "sustained_s": 10,
+            "fusion_hp_zero": true
+          },
+          "countdown_s": 0,
+          "explosion_radius_cells": 8,
+          "consequences": {
+            "unit_damage": 2000,
+            "chain_reaction": {
+              "enabled": true,
+              "damage_decay_per_chain": 0.6
+            },
+            "force_field_radius_multiplier": 0.5,
+            "wreck_recovery_cost_fraction": 0.3
+          },
+          "_source": "SP-4 L148『E5 湮灭』行全值（[NEW-原型校准] 已定案）——触发=聚变建筑 HP 归零时（fusion_hp_zero=true：世界层观测聚变建筑血量归零→即时触发通道，引擎位=EnergyRiskEngine 湮灭档 fusion HpZero 输入位），或负载率 ≥150% 连续 10 s；无倒计时（即时，countdown_s=0 与 E4 熔毁 45s 倒计时的行差）；半径 8 格；后果=半径内一切单位受 2000 伤害（unit_damage 对『一切单位』的平伤值；E3 过热对敌 300 行的对位升级）+连锁引爆半径内其他能源建筑（每连锁一栋伤害 ×0.6 衰减，damage_decay_per_chain）+力场塔在场则半径减半（force_field_radius_multiplier=0.5，SP-1b L54 力场塔『可吸收湮灭 50% 半径（联动 SP-4）』两文件同源）+wreck_recovery_cost_fraction=0.3（湮灭芯堆损毁成残骸的修复口径=原成本 ×30%，§十①/F-004 残骸修复同族 [NEW-T-134]——SP-4 L148 未列此行，内容侧补位供引擎载荷）。世界层消费（AOE 落格/连锁链）=T-134 EnergyRiskEngine 湮灭档+EnergyRiskWorldConsumer 链式消费；配套口径③（SP-4 L150）：阈值入内容数据禁止硬编码（RL7）"
+        }
+      },
+      "logistics": {
+        "tier": 4,
+        "carrier": "drone",
+        "carrier_zh": "无人机",
+        "throughput_items_per_s": 20.0,
+        "ladder_items_per_s": [0.3, 0.6, 10.0, 15.0, 20.0, null],
+        "drone": {
+          "available": true,
+          "name_zh": "无人机",
+          "name_en": "Drone"
+        },
+        "_ladder_note": "末位 null=∞（v3.2 §5 L78 物流阶梯 0.3→0.6→10→15→20→∞ 件/s；E5 处于第 4 档=无人机 20/s）。§4 L62 E5 行『无人机 20/s』——无人机=直线飞行运输形态（TransportTiers.Drone trip 类 TripFlight 档，T-064 全量已实装：容量 20、航速 20 px/tick、7+7 服务窗，160 px 参考距恰 20 件/s），本行=内容侧档位声明与引擎档位表同值对齐",
+        "_drone_source": "v3.2 §4 L62『无人机 20/s』逐字锚点（ladder 第 4 档位值）"
+      },
+      "warehouse_level": 5,
+      "towers": [
+        "era5:tower-railgun",
+        "era5:tower-drone-nest",
+        "era5:tower-force-field"
+      ],
+      "_towers_note": "§4 L62 塔防特色=轨道炮/无人机巢/力场塔（三塔对齐 era5/towers.json 实存行；定类=SP-1b L52~L54 预归类经 T-134 章节设计复核追认：轨道炮=能量、无人机巢=穿刺、力场塔=减速——round 2 处置 #9 挂接的 E5 归类复核于本行落定）——本数组与 towers.json ids 恰等",
+      "boss": {
+        "enemy_id": "era5:enemy-boss",
+        "name_zh": "主宰",
+        "name_en": "Dominator",
+        "hp": 45000,
+        "armor": 30
+      },
+      "system_stage": "full_hosting_optional",
+      "system_stage_zh": "全托管可选",
+      "system_stage_features": ["full_autopilot_optional"],
+      "_system_stage_note": "§4 L62 系统形态=全托管可选（设计既定）——full_autopilot_optional=全托管档可选开启（T-081 AutopilotDirector 全托管导演+E5 战役通道解锁位 AutopilotEraGate：主线战役域 E5 起可 Engage，无尽三榜（SP-7 手动/系统辅助/全托管）不受此闸门约束）；19 动作封闭清单无 E5 新动词（ActionCatalog 全体 UnlockEra≤E2，三源矩阵见 Era5ContentTests），全托管可选=授权形态升级非动作扩员（era3 自主期/era4 多核期同款注记）",
+      "_new": true,
+      "_new_fields": [
+        "energy.levels[0].output",
+        "energy.levels[1].output",
+        "energy.levels[2].output",
+        "energy.levels[2].dangerous_position",
+        "energy.annihilation",
+        "logistics.drone"
+      ],
+      "_source": "v3.2 §4 L62 E5 行（资源=稀土/纳米/聚变燃料；能源=聚变；物流=无人机 20/s；塔防特色=轨道炮/无人机巢/力场塔；Boss=主宰 HP45000/甲30；系统形态=全托管可选）+§4 能源阶梯行（×3~5/级；E5 湮灭=SP-4 负载率类阶梯风险）+§4 跨代资源行（上代 2 种基础资源刷新 丰度 ×0.5）+§5 L78~L79（物流阶梯 E5=第 4 档 20；仓库等级跃迁自动 +1：E4=4→E5=5）——能源 L1=100000（聚变电池组）/L2=400000（聚变堆）/L3=2000000（湮灭芯堆）为 T-134 任务卡锚点（倍率 400000/100000=4、2000000/400000=5 均 ∈[3,5]，v3.2 未定逐级绝对值，_new 待原型校准；E4 核电 20000→E5 聚变电池组 100000=×5 跨代步）；energy.risk 全值=SP-4 L146 表体（沿用行）；energy.annihilation 全值=SP-4 L148 表体（E5 行）；Boss HP/甲为 §4 逐字锚点（与 era5/enemies.json e5_boss 行同值，不得漂移）",
+      "_units": {
+        "energy_output": "energy_points_per_second",
+        "throughput_items_per_s": "items_per_second",
+        "abundance_multiplier": "fraction_of_e4_abundance",
+        "hp": "points",
+        "armor": "points",
+        "warehouse_level": "levels",
+        "overload_threshold_percent": "percent",
+        "sustained_s": "seconds",
+        "heat_capacity": "heat_points",
+        "gain_per_s_overloaded": "heat_points_per_second",
+        "decay_per_s_unloaded": "heat_points_per_second",
+        "min_seconds_to_full_heat_at_sustained_overload": "seconds",
+        "explosion_radius_cells": "cells",
+        "building_damage_fraction_of_max_hp": "fraction_of_max_hp",
+        "enemy_damage": "points",
+        "culprit_outage_s": "seconds",
+        "culprit_degraded_output_fraction": "fraction_of_rated_output",
+        "culprit_degraded_duration_s": "seconds",
+        "countdown_s": "seconds",
+        "unit_damage": "points",
+        "damage_decay_per_chain": "damage_multiplier_per_chained_building",
+        "force_field_radius_multiplier": "radius_multiplier",
+        "wreck_recovery_cost_fraction": "fraction_of_original_cost"
+      }
+    }
+  ]
+}

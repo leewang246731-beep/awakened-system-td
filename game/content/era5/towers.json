@@ -1,0 +1,129 @@
+{
+  "$schema": "urn:eratd:content:building:1",
+  "content_type": "Building",
+  "era": "era5:era-future",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；数值锚点出处见各 item 的 _source 字段（T-134；格式先例=era1/towers.json T-049+era2/towers.json T-065+era3/towers.json T-112+era4/towers.json T-123）；F.5 基准表仅钉 E2 行——E5 全部数值为 F.5 类推锚带 [NEW]（标注推导式），待原型校准",
+  "ammo_convention": {
+    "shots_per_ammo_item": 10,
+    "_source": "v3.2 §5 L78「1 件弹药 = 10 发」（docs/我在游戏觉醒系统-游戏设计方案.md）"
+  },
+  "items": [
+    {
+      "id": "era5:tower-railgun",
+      "content_type": "Building",
+      "class": "energy",
+      "name_zh": "轨道炮",
+      "name_en": "Railgun",
+      "aliases": ["轨道炮", "电磁轨道炮", "轨道", "railgun"],
+      "tier": 1,
+      "max_tier": 2,
+      "upgrades_to": "era5:tower-drone-nest",
+      "tier_line": "standard",
+      "cost_total": 2430,
+      "dps": 960.0,
+      "damage_per_shot": 160,
+      "reload_ticks": 5,
+      "range_cells": 12.5,
+      "hp": 1280,
+      "ammo_item": "era5:ammo-rail-slug",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "armor_pierce": true
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item", "traits.armor_pierce"],
+      "_source": "定类锚点 SP-1b L52「E5 轨道炮=能量（预归类 [NEW-章节设计复核]）」——T-134 复核追认（高能直射：超远程电磁投射位；对重甲/护盾）。标准线 T1（upgrades_to=无人机巢）。F.5 类推锚带 [NEW]：成本 2430=E4 T1 810×3（跨代基点步恰一级 ×3 阶梯，E2→E3→E4→E5 同式重演 30→90→270→810→2430）；DPS 960=E4 标准线 T2 终点 960（跨代基点=前代标准线终点——新时代 T1 不弱于前代任何塔，E3→E4 同性质重演）；射程 12.5=E4 T1 10.0×1.25（半格网格合法值）；单发/攻速拆分 d=160@6 发/s（reload 5 ticks@30 Hz，160×30/5=960 自洽）→ [NEW]；traits.armor_pierce=true=SP-1a L28 能量类『穿甲』标记（可打断护盾再生 v3.2 §6『穿甲打断』——E4 激光塔同款类标记，主宰盾 2400 的反制位）；hp/弹药件（轨道弹丸=era5:ammo-rail-slug）无文档锚点 → _new（hp 1280=E4 导弹塔 640×2 跨代步）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era5:tower-drone-nest",
+      "content_type": "Building",
+      "class": "pierce",
+      "name_zh": "无人机巢",
+      "name_en": "Drone Nest",
+      "aliases": ["无人机巢", "机巢", "蜂巢塔", "drone nest"],
+      "tier": 2,
+      "max_tier": 2,
+      "tier_line": "standard",
+      "cost_total": 7290,
+      "dps": 1920.0,
+      "damage_per_shot": 128,
+      "reload_ticks": 2,
+      "range_cells": 15.5,
+      "hp": 1520,
+      "ammo_item": "era5:ammo-drone-pack",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {},
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item"],
+      "_source": "定类锚点 SP-1b L53「E5 无人机巢=穿刺（预归类 [NEW-章节设计复核]）」——T-134 复核追认（速射蜂群：单发低·射速高·成本最低类职责；对无甲/轻甲群）。标准线 T2 终点（upgrades_to 无后继行，不发明 T3）。F.5 类推锚带 [NEW]：成本 7290=2430×3（严格 ×3/级，F.5 90→270→810→2430→7290 阶梯同带重演）；DPS 1920=960×2（严格 ×2/级）；射程 15.5=12.5×1.25=15.625 取带内半格网格合法值（±15% 设计带内取值，v3.2 §6『射程 +25%/级（±15% 设计带内取值）』）；单发/攻速拆分 d=128@15 发/s（reload 2 ticks@30 Hz，128×30/2=1920 自洽；E3 加特林 reload 2 同档速射）→ [NEW]；hp/弹药件（无人机组=era5:ammo-drone-pack）无文档锚点 → _new（hp 1520=E4 激光塔 760×2 跨代步）。T2 同级无标准单体参照行→类带以自身基准断言（E4 激光塔同款先例，Era5ContentTests.Class_bands）",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era5:tower-force-field",
+      "content_type": "Building",
+      "class": "slow",
+      "name_zh": "力场塔",
+      "name_en": "Force Field Tower",
+      "aliases": ["力场塔", "力场", "斥力场塔", "force field"],
+      "tier": 1,
+      "max_tier": 1,
+      "cost_total": 1215,
+      "dps": 192.0,
+      "damage_per_shot": 96,
+      "reload_ticks": 15,
+      "range_cells": 5.5,
+      "hp": 960,
+      "ammo_item": "era5:ammo-field-cell",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "slow_percent": 30,
+        "slow_ticks": 120,
+        "force_field_annihilation_radius_multiplier": 0.5
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item", "traits.slow_percent", "traits.slow_ticks", "traits.force_field_annihilation_radius_multiplier"],
+      "_source": "定类锚点 SP-1b L54「E5 力场塔=减速——预归类；可吸收湮灭 50% 半径（联动 SP-4）[NEW-原型校准]」——T-134 复核落定：减速类控制场（不以外伤为主；DPS 按 0.2×同级单体带校验 SP-1a L29——192=0.2×960 恰带内）；traits.force_field_annihilation_radius_multiplier=0.5=SP-4 L148 后果列『力场塔在场则半径减半』与 era.json energy.annihilation.consequences.force_field_radius_multiplier 两文件同源（湮灭对策位——E4 熔毁『卸载 ≥30% 可中断』对策行的对位升级：E5 湮灭无倒计时，力场塔=建筑位前置对策）。max_tier 1（控制场设施不升级，无后继行不发明）。F.5 类推锚带 [NEW]：成本 1215=同级武器塔 T1 2430×0.5（支援/控制档折半——E4 雷达 405/810=0.5 同带）；单发/攻速拆分 d=96@2 发/s（reload 15 ticks@30 Hz，96×30/15=192 自洽）→ [NEW]；减速 30%×120 ticks（4 s）=E1 陷阱 slow_percent 30/slow_ticks 120 行锚跨代沿用；射程 5.5（控制场近中距）；hp 960；弹药件（力场单元=era5:ammo-field-cell，era5/recipes.json era5:recipe-field-cell 输出）无文档锚点 → _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points",
+        "slow_percent": "percent",
+        "slow_ticks": "ticks_at_30hz",
+        "force_field_annihilation_radius_multiplier": "radius_multiplier"
+      }
+    }
+  ]
+}
