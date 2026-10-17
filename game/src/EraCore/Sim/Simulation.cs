@@ -1988,7 +1988,6 @@ public sealed class Simulation
                 // path (flat damage inside the link radius).
                 bool forceFieldPresent = _config.AnnihilationForceFieldTowerId is not null
                     && _groups.Towers.Any(tower => tower.Spec.Id == _config.AnnihilationForceFieldTowerId);
-                double radiusMultiplier = forceFieldPresent ? outcome.ForceFieldRadiusMultiplier : 1.0;
 
                 IReadOnlyList<AnnihilationChainLink> chain = EnergyRiskWorldConsumer.PlanAnnihilationChain(
                     outcome,

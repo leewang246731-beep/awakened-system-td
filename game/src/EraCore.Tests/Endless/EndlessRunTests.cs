@@ -279,7 +279,7 @@ public class EndlessRunTests
 
         Assert.Equal(run.EliteKills, settlement.EliteKills);
         Assert.Equal(run.BossKills, settlement.BossKills);
-        Assert.Equal(EndlessRules.Score(55, run.EliteKills, run.BossKills, EndlessScoreWeights.Default), settlement.Score);
+        Assert.Equal(EndlessRules.Score(55, run.EliteKills, run.BossKills, EndlessScoreWeights.Default, 0), settlement.Score);
         Assert.Equal(settlement.Score, settlement.Record.Score);
         Assert.Equal(55, settlement.Record.WavesSurvived);
     }

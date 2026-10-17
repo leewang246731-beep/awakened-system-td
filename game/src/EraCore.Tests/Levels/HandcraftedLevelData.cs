@@ -329,8 +329,8 @@ internal static class HandcraftedLevelData
         bool era3 = era.StartsWith("era3:", StringComparison.Ordinal);
         if (rock != 0.0 && !era3)
         {
-                throw new HandcraftedLevelSchemaException(
-                    $"{id}: E1/E2/E4/E5 手工关固定布局要求 rock_ratio=0（命令流对任意 seed 可建）；E3 关 rock_ratio>0=矿位（煤）分布声明（T-115 §四，F-025；E4/E5 矿位稀缺声明通道随 T-115 §四跨代扩展另落，本批零声明）");
+            throw new HandcraftedLevelSchemaException(
+                $"{id}: E1/E2/E4/E5 手工关固定布局要求 rock_ratio=0（命令流对任意 seed 可建）；E3 关 rock_ratio>0=矿位（煤）分布声明（T-115 §四，F-025；E4/E5 矿位稀缺声明通道随 T-115 §四跨代扩展另落，本批零声明）");
         }
 
         if (rock < 0.0 || rock > 1.0)

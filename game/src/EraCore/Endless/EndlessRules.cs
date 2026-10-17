@@ -449,7 +449,7 @@ public static class EndlessRules
         long eliteKills,
         long bossKills,
         EndlessScoreWeights weights,
-        long seed = 0,
+        long seed,
         EndlessAffixRollPolicy? affixRolls = null)
     {
         ArgumentNullException.ThrowIfNull(weights);

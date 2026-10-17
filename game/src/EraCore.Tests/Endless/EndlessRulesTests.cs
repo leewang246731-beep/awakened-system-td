@@ -106,7 +106,7 @@ public class EndlessRulesTests
     public void Score_formula_sp7c_plus_affix_weighting(int waves, int elites, int bosses, long expectedAffix)
     {
         Assert.Equal(expectedAffix, EndlessRules.AffixBonusPoints(waves, EndlessScoreWeights.Default));
-        long score = EndlessRules.Score(waves, elites, bosses, EndlessScoreWeights.Default);
+        long score = EndlessRules.Score(waves, elites, bosses, EndlessScoreWeights.Default, 0);
         Assert.Equal((waves * 100L) + (elites * 20L) + (bosses * 200L) + expectedAffix, score);
     }
 
@@ -128,15 +128,15 @@ public class EndlessRulesTests
     public void Score_rejects_negative_tallies()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => EndlessRules.Score(10, -1, 0, EndlessScoreWeights.Default));
+            () => EndlessRules.Score(10, -1, 0, EndlessScoreWeights.Default, 0));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => EndlessRules.Score(10, 0, -1, EndlessScoreWeights.Default));
+            () => EndlessRules.Score(10, 0, -1, EndlessScoreWeights.Default, 0));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => EndlessRules.Score(-1, 0, 0, EndlessScoreWeights.Default));
+            () => EndlessRules.Score(-1, 0, 0, EndlessScoreWeights.Default, 0));
         Assert.Throws<ArgumentOutOfRangeException>(
             () => EndlessRules.AffixBonusPoints(-1, EndlessScoreWeights.Default));
         Assert.Throws<ArgumentNullException>(
-            () => EndlessRules.Score(10, 0, 0, null!));
+            () => EndlessRules.Score(10, 0, 0, null!, 0));
     }
 
     // ------------------------------------------------ 入口规则校验 -----

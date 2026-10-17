@@ -483,13 +483,16 @@ public sealed class EnergyLedger
                 ApplyRiskOutcome(tick, outcome);
             }
 
-            // T-134: the fusion HP-zero fact is level-triggered per settle —
-            // the detonation (or a row-less grid) consumes it; the world
-            // layer re-raises it on the next death it observes.
-            _fusionHpZero = false;
-
             PruneExpiredDerates(tick);
         }
+
+        // T-134: the fusion HP-zero fact is level-triggered per settle —
+        // the detonation (or a row-less grid) consumes it; the world layer
+        // re-raises it on the next death it observes. Reset outside the
+        // risk-engine branch too: a risk-less ledger must never keep a
+        // stale flag (hash only folds it when rows exist, but the bit
+        // itself should not outlive the settle that consumed it).
+        _fusionHpZero = false;
 
         _lastTick = tick;
         _settledTicks++;
@@ -520,13 +523,6 @@ public sealed class EnergyLedger
         }
     }
 
-    /// <summary>
-    /// Effective output of one node at <paramref name="tick"/>: producers
-    /// inside a live derate window read 0 (downtime) or
-    /// <c>rate × fraction</c> (derate); everything else reads its base rate.
-    /// Pure — expired windows are pruned once per settle by
-    /// <see cref="PruneExpiredDerates"/>, never here.
-    /// </summary>
     /// <summary>
     /// Effective output of one node at <paramref name="tick"/>: producers
     /// inside a live derate window read 0 (downtime) or
