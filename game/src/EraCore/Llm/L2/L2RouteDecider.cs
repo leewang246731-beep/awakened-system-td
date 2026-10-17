@@ -72,6 +72,9 @@ public static class L2RouteDecider
             L2RuntimePhase.Downloading or L2RuntimePhase.Starting or L2RuntimePhase.Idle
                 => L2RouteDecision.DegradeToL1(L2DegradationReason.NotReady),
             L2RuntimePhase.ProcessDead => L2RouteDecision.DegradeToL1(L2DegradationReason.ProcessDead),
+            // Unnamed/future phase values must not be silently absorbed into a
+            // degradation reason — throw like the outer selection switch (batch-4 review #2).
+            _ => throw new ArgumentOutOfRangeException(nameof(runtime.Phase), runtime.Phase, "unknown runtime phase."),
         };
     }
 }
