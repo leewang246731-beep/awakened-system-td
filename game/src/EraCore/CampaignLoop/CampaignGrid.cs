@@ -97,8 +97,9 @@ public sealed class CampaignGrid
     private readonly CampaignCellKind[,] _kinds;
     private readonly bool[,] _occupied;
     private readonly List<CampaignCell> _occupiedInOrder = new();
-    private readonly ResourceStock _pool;
+    private ResourceStock _pool;
     private readonly CampaignGridOptions _options;
+    private readonly IRng _rng;
 
     /// <summary>
     /// Generates the continent layout: rng reseeded with
@@ -145,24 +146,51 @@ public sealed class CampaignGrid
         WorldSeed = worldSeed;
         _options = options;
         _pool = pool;
+        _rng = rng;
         _kinds = new CampaignCellKind[width, height];
         _occupied = new bool[width, height];
 
-        rng.Reseed(worldSeed);
-        for (int y = 0; y < height; y++)
+        Redraw();
+    }
+
+    /// <summary>
+    /// Redraws the continent layout on the frozen seed and resets occupancy
+    /// to the home cell (T-134, CampaignState era host face): an era jump
+    /// moves the campaign to a NEW continent and a document reload enters a
+    /// fresh shell — in both cases the grid replays the exact same
+    /// seed-deterministic draw as construction (IRng replay contract) and
+    /// the reward banking switches to the (new-era) pool instance handed in.
+    /// </summary>
+    /// <param name="pool">Pool the redrawn grid banks rewards into (replaces the old reference).</param>
+    /// <exception cref="ArgumentNullException">pool is null.</exception>
+    public void ResetToHome(ResourceStock pool)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+        _pool = pool;
+        Array.Clear(_kinds);
+        Array.Clear(_occupied);
+        _occupiedInOrder.Clear();
+        Redraw();
+    }
+
+    /// <summary>Seed-deterministic layout draw + home occupation (construction and <see cref="ResetToHome"/> share it).</summary>
+    private void Redraw()
+    {
+        _rng.Reseed(WorldSeed);
+        for (int y = 0; y < Height; y++)
         {
-            for (int x = 0; x < width; x++)
+            for (int x = 0; x < Width; x++)
             {
-                double draw = rng.NextDouble();
-                _kinds[x, y] = draw < options.EnemyCampRatio
+                double draw = _rng.NextDouble();
+                _kinds[x, y] = draw < _options.EnemyCampRatio
                     ? CampaignCellKind.EnemyCamp
-                    : draw < options.EnemyCampRatio + options.LevelRatio
+                    : draw < _options.EnemyCampRatio + _options.LevelRatio
                         ? CampaignCellKind.Level
                         : CampaignCellKind.Empty;
             }
         }
 
-        Home = new CampaignCell(options.HomeX ?? (width / 2), options.HomeY ?? (height / 2), CampaignCellKind.Level);
+        Home = new CampaignCell(_options.HomeX ?? (Width / 2), _options.HomeY ?? (Height / 2), CampaignCellKind.Level);
         _kinds[Home.X, Home.Y] = CampaignCellKind.Level;
         _occupied[Home.X, Home.Y] = true;
         _occupiedInOrder.Add(Home);
@@ -184,8 +212,8 @@ public sealed class CampaignGrid
     /// <summary>Layout seed (replay key of the whole grid).</summary>
     public long WorldSeed { get; }
 
-    /// <summary>The main-city cell (Level, occupied from construction).</summary>
-    public CampaignCell Home { get; }
+    /// <summary>The main-city cell (Level, occupied from construction; redrawn on <see cref="ResetToHome"/>).</summary>
+    public CampaignCell Home { get; private set; } = new(0, 0, CampaignCellKind.Level); // ctor 内 Redraw() 立即覆写（占位非观测值）
 
     /// <summary>Occupied cells in occupation order (home first).</summary>
     public IReadOnlyList<CampaignCell> OccupiedCells => _occupiedInOrder;

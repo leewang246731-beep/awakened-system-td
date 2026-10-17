@@ -66,6 +66,8 @@ public sealed class EnergyLedger
     private double _cumulativeSurplus;
     private double _loadRatio;
     private bool _coolantSupplied = true;
+    private bool _fusionHpZero; // E5 湮灭通道输入位（T-134）：无湮灭行的账本恒 false——哈希只在有行时折入
+    private double _outputMultiplier = 1.0;
 
     /// <summary>
     /// Creates an empty ledger. The E1 ladder band [3,5] is asserted here
@@ -221,6 +223,46 @@ public sealed class EnergyLedger
     /// coolant-started countdown (对策：冷却液供给可避免).
     /// </summary>
     public void SetCoolantSupplied(bool supplied) => _coolantSupplied = supplied;
+
+    /// <summary>
+    /// Sets the GLOBAL energy-output multiplier channel (T-134, 附录 F.3
+    /// 奇观链第五个：戴森云=E5 奇观, 能源 ×2). Every producer's effective
+    /// output — the settle sums, the satisfaction numerator and the load
+    /// ratio denominator alike — scales by <paramref name="multiplier"/>
+    /// (1.0 = no wonder; the value is derived from content by
+    /// <c>Legacy.WonderEnergyOutputBoard</c> — the ledger itself stays
+    /// wonder-agnostic, T-117 throughput-channel discipline mirrored on the
+    /// energy side). Doubled output halves the load ratio at unchanged
+    /// demand — the E5 annihilation-risk counterplay surface.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// multiplier is not finite or below 1 (F.3: the channel only boosts).
+    /// </exception>
+    public void SetOutputMultiplier(double multiplier)
+    {
+        if (!double.IsFinite(multiplier) || multiplier < 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(multiplier), multiplier,
+                "The global energy-output multiplier must be finite and >= 1 (F.3: only boosts).");
+        }
+
+        _outputMultiplier = multiplier;
+    }
+
+    /// <summary>The current global output multiplier (1.0 = no energy wonder built).</summary>
+    public double OutputMultiplier => _outputMultiplier;
+
+    /// <summary>
+    /// Reports the fusion-building HP-zero fact of the era's grid (T-134, E5
+    /// 湮灭通道, SP-4 L148「聚变建筑 HP 归零时」): the world layer — the only
+    /// side that sees building HP — raises this on the settle a fusion plant
+    /// dies on; an attached engine with an annihilation row detonates
+    /// IMMEDIATELY (无倒计时). Grids without the row ignore the flag
+    /// (E3/E4 behaviour and hashes unchanged). Default false; the flag is
+    /// level-triggered per settle (the detonation consumes it).
+    /// </summary>
+    public void SetFusionHpZero(bool hpZero) => _fusionHpZero = hpZero;
 
     /// <summary>
     /// Registers a producer node. The output is pinned by the era anchor
@@ -435,11 +477,16 @@ public sealed class EnergyLedger
         if (_risk is not null)
         {
             foreach (EnergyRiskOutcome outcome in _risk.OnSettle(
-                         tick, dt, _loadRatio, _coolantSupplied, LargestProducerId()))
+                         tick, dt, _loadRatio, _coolantSupplied, _fusionHpZero, LargestProducerId()))
             {
                 _riskEvents.Add(outcome);
                 ApplyRiskOutcome(tick, outcome);
             }
+
+            // T-134: the fusion HP-zero fact is level-triggered per settle —
+            // the detonation (or a row-less grid) consumes it; the world
+            // layer re-raises it on the next death it observes.
+            _fusionHpZero = false;
 
             PruneExpiredDerates(tick);
         }
@@ -452,9 +499,10 @@ public sealed class EnergyLedger
     /// <summary>
     /// Applies one fired outcome's in-domain consequence: the E3 culprit
     /// producer gets its downtime/derate window (consequences visible from
-    /// the NEXT settle); the E4 culprit producer is unregistered outright
-    /// (永久损毁 — the wreck, its repair-recovery cost and the radiation
-    /// zone are world-layer payloads carried by the outcome record).
+    /// the NEXT settle); the E4 meltdown and E5 annihilation culprits are
+    /// unregistered outright (永久损毁 — the wreck, its repair-recovery cost,
+    /// the radiation zone and the E5 chain detonation are world-layer
+    /// payloads carried by the outcome record).
     /// </summary>
     private void ApplyRiskOutcome(long tick, EnergyRiskOutcome outcome)
     {
@@ -468,7 +516,7 @@ public sealed class EnergyLedger
         }
         else
         {
-            _ = Unregister(outcome.Culprit);
+            _ = Unregister(outcome.Culprit); // 熔毁（E4）/湮灭（E5）：肇事机永久损毁
         }
     }
 
@@ -479,27 +527,42 @@ public sealed class EnergyLedger
     /// Pure — expired windows are pruned once per settle by
     /// <see cref="PruneExpiredDerates"/>, never here.
     /// </summary>
+    /// <summary>
+    /// Effective output of one node at <paramref name="tick"/>: producers
+    /// inside a live derate window read 0 (downtime) or
+    /// <c>rate × fraction</c> (derate); everything else reads its base rate.
+    /// The global output multiplier (<see cref="SetOutputMultiplier"/>,
+    /// 戴森云 ×2 channel) scales every producer's reading — the same channel
+    /// therefore flows into the settle sums, the satisfaction numerator and
+    /// the load-ratio denominator. Pure — expired windows are pruned once
+    /// per settle by <see cref="PruneExpiredDerates"/>, never here.
+    /// </summary>
     private double EffectiveOutput(Node node, long tick)
     {
-        if (!node.IsProducer || !_derates.TryGetValue(node.Id, out DerateWindow? window))
+        if (!node.IsProducer)
         {
             return node.RatePerSecond;
         }
 
-        long elapsed = tick - window.FireTick;
-        if (elapsed <= 0)
+        double rate = node.RatePerSecond;
+        if (_derates.TryGetValue(node.Id, out DerateWindow? window))
         {
-            return node.RatePerSecond;
+            long elapsed = tick - window.FireTick;
+            if (elapsed > 0)
+            {
+                if (elapsed <= window.DowntimeTicks)
+                {
+                    return 0.0;
+                }
+
+                if (elapsed <= window.DowntimeTicks + window.DerateTicks)
+                {
+                    rate *= window.DerateFraction;
+                }
+            }
         }
 
-        if (elapsed <= window.DowntimeTicks)
-        {
-            return 0.0;
-        }
-
-        return elapsed <= window.DowntimeTicks + window.DerateTicks
-            ? node.RatePerSecond * window.DerateFraction
-            : node.RatePerSecond;
+        return rate * _outputMultiplier;
     }
 
     /// <summary>
@@ -597,11 +660,18 @@ public sealed class EnergyLedger
 
         // T-113: risk state folds in ONLY when an engine is attached — an
         // E1/E2 ledger (risk_events=false) contributes nothing and keeps
-        // its pre-T-113 hash bit-for-bit (golden stability).
+        // its pre-T-113 hash bit-for-bit (golden stability). T-134: the
+        // fusion HP-zero input folds in only when the engine actually has
+        // an annihilation row (E5) — E3/E4 hashes stay bit-identical.
         if (_risk is not null)
         {
             hash = Mix(hash, (ulong)_risk.ComputeStateHash());
             hash = Mix(hash, _coolantSupplied ? 1UL : 0UL);
+            if (_risk.HasAnnihilation)
+            {
+                hash = Mix(hash, _fusionHpZero ? 1UL : 0UL);
+            }
+
             hash = Mix(hash, BitConverter.DoubleToUInt64Bits(_loadRatio));
             hash = Mix(hash, (ulong)_derates.Count);
             foreach (Node node in _nodes)
@@ -623,6 +693,15 @@ public sealed class EnergyLedger
                 hash = Mix(hash, (ulong)outcome.Kind);
                 hash = Mix(hash, (ulong)outcome.Culprit.Value);
             }
+        }
+
+        // T-134: the dyson-cloud output multiplier folds in ONLY when it is
+        // actually engaged (≠1) — every existing ledger (E1~E4, no energy
+        // wonder) contributes nothing and keeps its pre-T-134 hash
+        // bit-for-bit (golden stability, coolant/risk fold precedent).
+        if (_outputMultiplier != 1.0)
+        {
+            hash = Mix(hash, BitConverter.DoubleToUInt64Bits(_outputMultiplier));
         }
 
         return unchecked((long)hash);

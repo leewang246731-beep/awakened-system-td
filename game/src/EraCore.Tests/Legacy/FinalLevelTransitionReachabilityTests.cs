@@ -239,6 +239,72 @@ public class FinalLevelTransitionReachabilityTests : SqliteSavePortTestBase
         Assert.Contains(finalId, tech.CapturedLevelIds); // 终局关占领入树（链收口物证）
     }
 
+    [Fact] // [F-003] legal — E4 全五关（含 e4-final 夜枭）真通关→占领→E4→E5 Precheck 放行
+    public void E4_full_clear_including_the_final_boss_level_unlocks_the_transition_to_e5()
+    {
+        // T-134 清账（REV-20261017-v10-fullclear §八5 勘正注收口）：
+        // final_levels[4]=campaign:level-e4-final 的『引用先行』状态在本任务
+        // 清偿——era5 目标域实体化（era5 五件套+levels/e5.json+排期三行），
+        // E4→E5 事务在真实游戏可达：E4 全五关 headless 真通关（终局关=第 19 波
+        // 夜枭）后 Precheck 放行（互联网奇观=E4 硬前置侧）；排期=target_era=5
+        // 行（T-134 落位、逐值对齐 era5/levels.json 冻结侧）。
+        var transition = Transition();
+        Assert.Equal("campaign:level-e4-final", transition.FinalLevels[4]);
+
+        IReadOnlyList<HandcraftedLevel> levels = LevelsOf("e4.json");
+        Assert.Equal(5, levels.Count);
+        string finalId = transition.FinalLevels[4];
+        Assert.Contains(levels, level => level.Id == finalId); // 引用不悬空（T-124 落位，本任务域引用侧不变）
+        Assert.Contains(LevelsOf("e5.json"), level => level.Id == "campaign:level-e5-final"); // E5 目标域实锚（终章=e5 压轴关）
+
+        // 全五关 headless 真通关（终局关=第 19 波夜枭），逐关占领入树。
+        var pool = new ResourceStock(new SimClock(), warehouseLevel: 4);
+        _ = pool.Deposit(new ResourceKey("era4:res-concrete"), 4000);
+        _ = pool.Deposit(new ResourceKey("era4:res-oil"), 600);
+        _ = pool.Deposit(new ResourceKey("era2:res-iron"), 300);
+        var tech = Tree(4);
+        foreach (HandcraftedLevel level in levels)
+        {
+            (int winWaves, long victoryTick, int towers) = PlayThrough(level, "era4", pool);
+            Assert.Equal(level.WinWaves, winWaves);
+            Assert.True(victoryTick > 0);
+            Assert.True(towers > 0);
+            tech.RegisterCapture(level.Id);
+        }
+
+        var ledger = new LegacyLedger(Archaeology(), Shop());
+        ledger.MarkWonderBuilt(Wonders().Single(wonder => wonder.EraIndex == 4).Id); // 互联网=E4→E5 硬前置
+
+        var policy = CrossEraResourcePolicy.Parse(
+            File.ReadAllText(Path.Combine(EraDir("era5"), "era.json")));
+        var request = new EraTransitionRequest(
+            Seed,
+            FromEraIndex: 4,
+            pool,
+            tech,
+            ledger,
+            CityFacts(13, 26, 9, Mapping().Orientations),
+            Anchor,
+            policy.NewEraResources,
+            new SimClock(),
+            new LcgRng(Seed + 4),
+            new CountingSavePort(CreatePort()),
+            EmptyMeta(Seed, 4),
+            Mapping(),
+            transition,
+            Wonders());
+
+        EraTransitionResult result = new EraTransitionService().Execute(request);
+
+        Assert.Equal(4, result.FromEraIndex);
+        Assert.Equal(5, result.ToEraIndex); // Precheck 放行：终局关+奇观双前置皆真（真前置链通）
+        Assert.Equal(5, result.NewPool.WarehouseLevel); // 仓库 4+1=5（§5 自动 +1）
+        Assert.Equal(
+            new[] { "campaign:level-e5-01", "campaign:level-e5-02", "campaign:level-e5-03" },
+            result.Schedule.Select(slot => slot.LevelId).ToArray()); // E4→E5 排期=e5 行
+        Assert.Contains(finalId, tech.CapturedLevelIds); // 终局关占领入树（链收口物证）
+    }
+
     [Fact] // [F-003] illegal — 占领全部非终局关仍硬拒：缺的恰是终局关一行
     public void Capturing_every_non_final_level_still_refuses_every_jump()
     {
@@ -246,13 +312,14 @@ public class FinalLevelTransitionReachabilityTests : SqliteSavePortTestBase
         // API，EraTransitionIntegrationTests 先例）：各时代的全部非终局关
         // id 逐一注册（id 全部来自真实关卡行）——终局关未占，Precheck 必拒
         // 且点名 final_levels 引用值（T-117 守卫的可达性版：别关都打完也
-        // 不能替代终局关；E3 行=T-124 扩展——e3-final 补齐后负向面同步覆盖）。
+        // 不能替代终局关；E3/E4 行=T-124/T-134 扩展——补齐后负向面同步覆盖）。
         var transition = Transition();
         foreach (var (eraIndex, file, finalId, nextEraDir) in new[]
                  {
                      (1, "e1.json", "campaign:level-e1-final", "era2"),
                      (2, "e2.json", "campaign:level-e2-final", "era3"),
                      (3, "e3.json", "campaign:level-e3-final", "era4"),
+                     (4, "e4.json", "campaign:level-e4-final", "era5"),
                  })
         {
             var tech = Tree(eraIndex);

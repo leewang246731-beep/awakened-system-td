@@ -140,7 +140,7 @@ public class LegacyContentTests
 
     // ---- era_transition.json ------------------------------------------ legal
 
-    [Fact] // legal — F-003/F-011 跃迁参数锚点：30% 带走 + 3:1 折算 + 仓库+1 + 终局关 E1/E2/E3 行 + 三目标时代前三关排期（T-117/T-125）
+    [Fact] // legal — F-003/F-011 跃迁参数锚点：30% 带走 + 3:1 折算 + 仓库+1 + 终局关 E1/E2/E3/E4 行 + 四目标时代前三关排期（T-117/T-125/T-134）
     public void era_transition_params_match_frozen_anchors()
     {
         EraTransitionSpec spec = LegacyDataLoader.ParseEraTransition(Load("era_transition.json"));
@@ -153,10 +153,11 @@ public class LegacyContentTests
         Assert.Equal("campaign:level-e1-final", spec.FinalLevels[1]);
         Assert.Equal("campaign:level-e2-final", spec.FinalLevels[2]); // T-117 E2→E3 行（id 裁定=E1 行同款约定，见 _source）
         Assert.Equal("campaign:level-e3-final", spec.FinalLevels[3]); // T-125 E3→E4 行（e3-finale.json 演出同款命名约定）
-        Assert.Equal("campaign:level-e4-final", spec.FinalLevels[4]); // T-124 E4 行（E4→E5 引用先行+实关同落——levels/e4.json slot 5 夜枭 Boss 关，引用不悬空）
+        Assert.Equal("campaign:level-e4-final", spec.FinalLevels[4]); // T-124 E4 行（T-134 域清账：E5 目标域实体化后 E4→E5 跃迁真实可达）
+        Assert.False(spec.FinalLevels.ContainsKey(5)); // E5→终章=T-135 域：终章实关行落地前不预置（悬空引用禁律）
 
-        // 排期=三个目标时代各三行（target_era 2=E1→E2 冻结行；3=T-117；4=T-125）
-        Assert.Equal(9, spec.FirstThreeSchedule.Count);
+        // 排期=四个目标时代各三行（target_era 2=E1→E2 冻结行；3=T-117；4=T-125；5=T-134）
+        Assert.Equal(12, spec.FirstThreeSchedule.Count);
         IReadOnlyList<EraFirstThreeSlot> e2 = spec.ScheduleFor(2);
         Assert.Equal(3, e2.Count);
         Assert.Equal("new_energy", e2.Single(s => s.Slot == 1).Focus); // 关 1 新能源
@@ -181,7 +182,16 @@ public class LegacyContentTests
         Assert.Equal("new_logistics", e4.Single(s => s.Slot == 2).Focus);
         Assert.Equal("campaign:level-e4-03", e4.Single(s => s.Slot == 3).LevelId);
         Assert.Equal("archaeology_hero_system", e4.Single(s => s.Slot == 3).Focus);
-        Assert.Empty(spec.ScheduleFor(6)); // 未声明目标时代=空（E5→终章行属未来内容）
+
+        IReadOnlyList<EraFirstThreeSlot> e5 = spec.ScheduleFor(5); // T-134：E4→E5 前三关=e5-01..03（逐值对齐 era5/levels.json 冻结侧）
+        Assert.Equal(3, e5.Count);
+        Assert.Equal("campaign:level-e5-01", e5.Single(s => s.Slot == 1).LevelId);
+        Assert.Equal("new_energy", e5.Single(s => s.Slot == 1).Focus);
+        Assert.Equal("campaign:level-e5-02", e5.Single(s => s.Slot == 2).LevelId);
+        Assert.Equal("new_logistics", e5.Single(s => s.Slot == 2).Focus);
+        Assert.Equal("campaign:level-e5-03", e5.Single(s => s.Slot == 3).LevelId);
+        Assert.Equal("archaeology_hero_system", e5.Single(s => s.Slot == 3).Focus);
+        Assert.Empty(spec.ScheduleFor(6)); // 未声明目标时代=空（终章排期行属 T-135 域）
     }
 
     [Fact] // illegal — 前三关槽位重复拒绝（同 target_era 内 (era, slot) 重复）
