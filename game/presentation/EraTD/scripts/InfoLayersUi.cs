@@ -644,8 +644,11 @@ public sealed partial class InfoLayersUi : Control
     private string _personaId = "advisor";
 
     /// <summary>
-    /// F-122 切换人格：持久化+chip 态+叙事导演即时生效（台词池按人格加权，
-    /// 能力不变）。返回是否成功切换（未知 id 拒绝）。
+    /// F-122 切换人格：持久化+chip 态+三联动即时生效（T-126——台词/音色/立绘
+    /// 三臂同拍：①NarrativeDirector.SetPersona 台词池按人格加权；②切入自报行
+    /// 展示+人格语音 token（OnPersonaApplied 内 PlayLineVoice——音色随人格切换，
+    /// 时代行经 VoiceEra 缝）；③人格立绘展示缝换图）。能力面零变更
+    /// （§10.7 只改表达不改能力）。返回是否成功切换（未知 id 拒绝）。
     /// </summary>
     internal bool SwitchPersona(string personaId)
     {
@@ -667,8 +670,17 @@ public sealed partial class InfoLayersUi : Control
             pair.Value.SetPressedNoSignal(pair.Key == personaId);
         }
 
+        EraCore.Narrative.SystemPersona persona = PersonaChoice.TryParse(personaId)!.Value;
+
+        // ①+②台词臂与音色臂：导演人格加权（即时生效）+切入自报行展示+语音
+        // token（音色解析=当前时代 {era}:{persona} 行，off 模式恒中性旁白）
         var narrative = _main.GetNodeOrNull<Narrative.NarrativeHud>("NarrativeHud");
-        narrative?.Director?.SetPersona(PersonaChoice.TryParse(personaId)!.Value); // 即时生效
+        narrative?.Director?.SetPersona(persona);
+        narrative?.OnPersonaApplied(persona);
+
+        // ③立绘臂：人格立绘展示缝（缺图自动隐藏——键级联动仍成立）
+        _main.GetNodeOrNull<Expand.VisualExpansionDirector>("VisualExpansionDirector")
+            ?.ShowPersonaPortrait(persona);
     }
 
     /// <summary>当前人格 id（smoke 探针）。</summary>

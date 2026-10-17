@@ -33,12 +33,16 @@ public enum VoiceWave
 }
 
 /// <summary>
-/// One voice timbre row (T-092, F-137): the synthesis facts behind one
-/// speaker's audible identity. Four personas + the neutral narrator row the
-/// off-mode downgrade switches to (关闭系统换中性旁白, v3.2 §10.7/§14).
+/// One voice timbre row (T-092, F-137; v2=T-126 full era×persona banks):
+/// the synthesis facts behind one speaker's audible identity. Sixteen
+/// persona rows — four personas × four eras (时代×人格音色变体, v1.0 E1~E4
+/// 冻结口径) — plus the neutral narrator row the off-mode downgrade
+/// switches to (关闭系统换中性旁白, v3.2 §10.7/§14).
 /// </summary>
-/// <param name="Id">Timbre id (<c>advisor</c>/<c>snarky</c>/<c>goofy</c>/<c>tsundere</c>/<c>narrator</c>).</param>
+/// <param name="Id">Timbre id (<c>{era}:{persona}</c>, e.g. <c>era3:snarky</c>; narrator = <c>narrator</c>).</param>
 /// <param name="Zh">Chinese label (UI decoration).</param>
+/// <param name="Era">Era key of the row (<c>era1</c>~<c>era4</c>); null on the narrator row (era-agnostic).</param>
+/// <param name="PersonaId">Persona id of the row; null on the narrator row.</param>
 /// <param name="BaseFreqHz">Fundamental of the first syllable (Hz).</param>
 /// <param name="Contour">Pitch contour family.</param>
 /// <param name="Wave">Waveform family.</param>
@@ -51,6 +55,8 @@ public enum VoiceWave
 public sealed record PersonaTimbre(
     string Id,
     string Zh,
+    string? Era,
+    string? PersonaId,
     double BaseFreqHz,
     VoiceContour Contour,
     VoiceWave Wave,
@@ -63,15 +69,16 @@ public sealed record PersonaTimbre(
 
 /// <summary>
 /// Strict parser of the persona timbre table (schema
-/// <c>urn:eratd:content:audio:persona-timbres:1</c>, T-092 参数表数据化):
-/// closed marker, exactly the four personas + the narrator row, ids matching
-/// the closed <see cref="SystemPersona"/> name set plus
-/// <see cref="NarratorId"/>, bounded frequencies/timings/gains.
+/// <c>urn:eratd:content:audio:persona-timbres:2</c>, T-092 参数表数据化,
+/// T-126 v2 加 era 列与 16 人格行): closed marker, exactly one row per
+/// (era, persona) pair of the frozen sets plus the narrator row, ids
+/// matching the closed <see cref="SystemPersona"/> name set, bounded
+/// frequencies/timings/gains.
 /// </summary>
 public sealed class PersonaTimbreTable
 {
-    /// <summary>Content schema URN of the persona timbre table.</summary>
-    public const string SchemaUrn = "urn:eratd:content:audio:persona-timbres:1";
+    /// <summary>Content schema URN of the persona timbre table (v2: era column).</summary>
+    public const string SchemaUrn = "urn:eratd:content:audio:persona-timbres:2";
 
     /// <summary>Content type marker the loader requires.</summary>
     public const string ContentTypeMarker = "PersonaTimbreTable";
@@ -79,8 +86,14 @@ public sealed class PersonaTimbreTable
     /// <summary>Timbre id of the neutral narrator (off-mode downgrade target).</summary>
     public const string NarratorId = "narrator";
 
-    /// <summary>Frozen row count: four personas + the narrator (T-092; full banks are T-126).</summary>
-    public const int RowCount = 5; // ci-allow: R7 T-092 冻结口径=4 人格+1 中性旁白（§14；扩容走 T-126 改表）
+    /// <summary>Frozen era set of the voice table (v1.0 = E1~E4; T-126 全量口径).</summary>
+    public static readonly IReadOnlyList<string> FrozenEras = new[] { "era1", "era2", "era3", "era4" };
+
+    /// <summary>Frozen persona-row count: four eras × four personas (T-126; smoke tones=16).</summary>
+    public const int PersonaRowCount = 16; // ci-allow: R7 T-126 冻结口径=时代×人格 4×4=16 行（§14；E5 扩容走改表）
+
+    /// <summary>Frozen row count: 16 era×persona rows + the narrator (T-126).</summary>
+    public const int RowCount = PersonaRowCount + 1; // ci-allow: R7 T-126 冻结口径=16 人格行+1 中性旁白（§14；扩容走改表）
 
     private readonly Dictionary<string, PersonaTimbre> _byId;
 
@@ -89,6 +102,7 @@ public sealed class PersonaTimbreTable
         SampleRateHz = sampleRateHz;
         PeakAmplitude = peakAmplitude;
         Timbres = timbres;
+        PersonaRows = timbres.Where(row => row.PersonaId is not null).ToArray();
         _byId = timbres.ToDictionary(timbre => timbre.Id, StringComparer.Ordinal);
     }
 
@@ -101,15 +115,28 @@ public sealed class PersonaTimbreTable
     /// <summary>All timbre rows in file order.</summary>
     public IReadOnlyList<PersonaTimbre> Timbres { get; }
 
-    /// <summary>Timbre by id; null when absent.</summary>
+    /// <summary>The sixteen era×persona rows (narrator excluded).</summary>
+    public IReadOnlyList<PersonaTimbre> PersonaRows { get; }
+
+    /// <summary>The closed era set the table must cover (frozen, <see cref="FrozenEras"/>).</summary>
+    public static IReadOnlyList<string> Eras => FrozenEras;
+
+    /// <summary>Timbre by composed id; null when absent.</summary>
     public PersonaTimbre? Find(string id) =>
         _byId.TryGetValue(id, out PersonaTimbre? timbre) ? timbre : null;
 
-    /// <summary>Timbre of one persona enum value (closed set).</summary>
-    /// <exception cref="ArgumentException">persona has no timbre row.</exception>
-    public PersonaTimbre Of(SystemPersona persona) =>
-        Find(persona.Name()) ?? throw new ArgumentException(
-            $"人格 {persona} 无音色行（表须含 {NarratorId} + 四人格）", nameof(persona));
+    /// <summary>Timbre of one persona in one era (closed sets).</summary>
+    /// <exception cref="ArgumentException">persona/era pair has no timbre row.</exception>
+    public PersonaTimbre Of(SystemPersona persona, string era)
+    {
+        if (!FrozenEras.Contains(era, StringComparer.Ordinal))
+        {
+            throw new ArgumentException($"未登记音色时代 {era}（封闭表 {string.Join("/", FrozenEras)}）", nameof(era));
+        }
+
+        return Find($"{era}:{persona.Name()}") ?? throw new ArgumentException(
+            $"人格 {persona}@{era} 无音色行（表须含 时代×人格 16 行）", nameof(persona));
+    }
 
     /// <summary>The neutral narrator timbre (off-mode downgrade target).</summary>
     /// <exception cref="AudioSchemaException">Table was parsed without a narrator row (parser forbids this).</exception>
@@ -117,9 +144,11 @@ public sealed class PersonaTimbreTable
         Find(NarratorId) ?? throw new AudioSchemaException($"音色表缺 {NarratorId} 行（解析器应已拦截）");
 
     /// <summary>
-    /// Strict parse: closed marker, one row per persona id +
-    /// <see cref="NarratorId"/>, bounded values, contour/wave names from the
-    /// closed enums.
+    /// Strict parse: closed marker, exactly one row per (era, persona) pair
+    /// of the frozen sets plus the <see cref="NarratorId"/> row, bounded
+    /// values, contour/wave names from the closed enums. Persona rows carry
+    /// an <c>era</c> key from <see cref="FrozenEras"/>; the narrator row
+    /// carries none (era-agnostic off-mode target).
     /// </summary>
     /// <param name="json">Raw table JSON text.</param>
     /// <param name="sourceName">Source label for error messages.</param>
@@ -163,11 +192,11 @@ public sealed class PersonaTimbreTable
 
         if (rowsEl.GetArrayLength() != RowCount)
         {
-            throw new AudioSchemaException($"{sourceName}: timbres 必须 {RowCount} 行（4 人格+1 中性旁白）");
+            throw new AudioSchemaException($"{sourceName}: timbres 必须 {RowCount} 行（时代×人格 16 行+1 中性旁白）");
         }
 
-        var closedIds = new HashSet<string>(Narrative.DialogueLine.PersonaNames(), StringComparer.Ordinal) { NarratorId };
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var closedPersonas = new HashSet<string>(Narrative.DialogueLine.PersonaNames(), StringComparer.Ordinal);
+        var seenPairs = new HashSet<string>(StringComparer.Ordinal);
         var timbres = new List<PersonaTimbre>(RowCount);
         foreach (JsonElement row in rowsEl.EnumerateArray())
         {
@@ -177,21 +206,51 @@ public sealed class PersonaTimbreTable
             }
 
             string id = RequireString(row, "id", sourceName);
-            if (!closedIds.Contains(id))
-            {
-                throw new AudioSchemaException($"{sourceName}: 音色 id {id} 不在封闭集（四人格+{NarratorId}）");
-            }
-
-            if (!seen.Add(id))
-            {
-                throw new AudioSchemaException($"{sourceName}: 音色 id 重复 {id}");
-            }
-
             string zh = RequireString(row, "zh", sourceName);
+
+            // era column (v2): persona rows must carry a frozen-era key; the
+            // narrator row must not (era-agnostic downgrade target).
+            string? era = null;
+            if (row.TryGetProperty("era", out JsonElement eraEl) && eraEl.ValueKind == JsonValueKind.String)
+            {
+                era = eraEl.GetString();
+            }
+
+            string? personaId;
+            if (id == NarratorId)
+            {
+                if (era is not null)
+                {
+                    throw new AudioSchemaException($"{sourceName}: {NarratorId} 行不得携带 era（中性旁白不分时代）");
+                }
+
+                personaId = null;
+            }
+            else
+            {
+                if (!closedPersonas.Contains(id))
+                {
+                    throw new AudioSchemaException($"{sourceName}: 音色 id {id} 不在封闭集（四人格+{NarratorId}）");
+                }
+
+                if (era is null || !FrozenEras.Contains(era, StringComparer.Ordinal))
+                {
+                    throw new AudioSchemaException(
+                        $"{sourceName}: 人格行 {id} 缺 era 或 era 未登记（{era ?? "缺失"}，封闭表 {string.Join("/", FrozenEras)}）");
+                }
+
+                personaId = id;
+                if (!seenPairs.Add($"{era}:{id}"))
+                {
+                    throw new AudioSchemaException($"{sourceName}: 音色时代对重复 {era}:{id}");
+                }
+            }
+
+            string rowLabel = personaId is null ? NarratorId : $"{era}:{personaId}";
             double baseFreq = RequireNumber(row, "base_freq_hz", sourceName);
             if (baseFreq is < 80.0 or > 1000.0)
             {
-                throw new AudioSchemaException($"{sourceName}: {id} base_freq_hz={baseFreq} 越界（80~1000）");
+                throw new AudioSchemaException($"{sourceName}: {rowLabel} base_freq_hz={baseFreq} 越界（80~1000）");
             }
 
             VoiceContour contour = ParseEnum<VoiceContour>(RequireString(row, "contour", sourceName), sourceName);
@@ -199,40 +258,47 @@ public sealed class PersonaTimbreTable
             double syllableMs = RequireNumber(row, "syllable_ms", sourceName);
             if (syllableMs is < 40.0 or > 300.0)
             {
-                throw new AudioSchemaException($"{sourceName}: {id} syllable_ms={syllableMs} 越界（40~300）");
+                throw new AudioSchemaException($"{sourceName}: {rowLabel} syllable_ms={syllableMs} 越界（40~300）");
             }
 
             double gapMs = RequireNumber(row, "gap_ms", sourceName);
             if (gapMs is < 0.0 or > 200.0)
             {
-                throw new AudioSchemaException($"{sourceName}: {id} gap_ms={gapMs} 越界（0~200）");
+                throw new AudioSchemaException($"{sourceName}: {rowLabel} gap_ms={gapMs} 越界（0~200）");
             }
 
             double vibratoHz = RequireNumber(row, "vibrato_hz", sourceName);
             double vibratoDepth = RequireNumber(row, "vibrato_depth", sourceName);
             if (vibratoHz < 0 || vibratoHz > 12 || vibratoDepth < 0 || vibratoDepth > 0.1)
             {
-                throw new AudioSchemaException($"{sourceName}: {id} 颤音参数越界（0~12 Hz / 0~0.1）");
+                throw new AudioSchemaException($"{sourceName}: {rowLabel} 颤音参数越界（0~12 Hz / 0~0.1）");
             }
 
             double stepRatio = RequireNumber(row, "step_ratio", sourceName);
             if (stepRatio is < 1.0 or > 2.0)
             {
-                throw new AudioSchemaException($"{sourceName}: {id} step_ratio={stepRatio} 越界（1.0~2.0）");
+                throw new AudioSchemaException($"{sourceName}: {rowLabel} step_ratio={stepRatio} 越界（1.0~2.0）");
             }
 
             double gain = RequireNumber(row, "gain", sourceName);
             if (gain is <= 0.0 or > 1.0)
             {
-                throw new AudioSchemaException($"{sourceName}: {id} gain={gain} 越界（(0,1]）");
+                throw new AudioSchemaException($"{sourceName}: {rowLabel} gain={gain} 越界（(0,1]）");
             }
 
             timbres.Add(new PersonaTimbre(
-                id, zh, baseFreq, contour, wave,
+                personaId is null ? NarratorId : $"{era}:{personaId}",
+                zh, era, personaId, baseFreq, contour, wave,
                 syllableMs / 1000.0, gapMs / 1000.0, vibratoHz, vibratoDepth, stepRatio, gain));
         }
 
-        if (!seen.Contains(NarratorId))
+        if (seenPairs.Count != PersonaRowCount)
+        {
+            throw new AudioSchemaException(
+                $"{sourceName}: 时代×人格行必须 {PersonaRowCount} 行（得到 {seenPairs.Count}——每对恰好一行）");
+        }
+
+        if (timbres.All(row => row.PersonaId is not null))
         {
             throw new AudioSchemaException($"{sourceName}: 缺少中性旁白行 {NarratorId}（关闭系统降级目标）");
         }
@@ -389,16 +455,19 @@ public static class PersonaVoiceSynth
 
 /// <summary>
 /// Off-mode voice downgrade policy (T-092, v3.2 §10.7/§14 关闭系统换中性旁白):
-/// resolves the effective timbre id — the active persona while the system is
-/// on, the neutral narrator row once it is off. Pure mapping; the alarm
-/// channel (危机警报) is NOT downgraded (警报不缺失 — that seam lives in
-/// OffModeDowngrade of the panel domain).
+/// resolves the effective timbre id — the active persona's era row while
+/// the system is on, the neutral narrator row once it is off (T-126 v2:
+/// era×persona resolution). Pure mapping; the alarm channel (危机警报) is
+/// NOT downgraded (警报不缺失 — that seam lives in OffModeDowngrade of the
+/// panel domain).
 /// </summary>
 public static class VoiceDowngrade
 {
     /// <summary>
-    /// Effective timbre id for the advisor voice under the system switch.
+    /// Effective timbre id for the advisor voice under the system switch
+    /// (era-aware since T-126 v2: <c>{era}:{persona}</c> or
+    /// <see cref="PersonaTimbreTable.NarratorId"/>).
     /// </summary>
-    public static string Resolve(SystemPersona persona, bool systemEnabled) =>
-        systemEnabled ? persona.Name() : PersonaTimbreTable.NarratorId;
+    public static string Resolve(SystemPersona persona, string era, bool systemEnabled) =>
+        systemEnabled ? $"{era}:{persona.Name()}" : PersonaTimbreTable.NarratorId;
 }

@@ -82,25 +82,29 @@ public class AudioContentTests
         }
     }
 
-    [Fact] // legal — the shipped timbre table covers the four personas + narrator
+    [Fact] // legal — the shipped v2 timbre table covers 16 era×persona rows + narrator (T-126)
     public void Shipped_timbre_table_covers_closed_set()
     {
         PersonaTimbreTable table = AudioContent.Timbres();
 
-        Assert.Equal(5, table.Timbres.Count);
+        Assert.Equal(PersonaTimbreTable.RowCount, table.Timbres.Count);
+        Assert.Equal(PersonaTimbreTable.PersonaRowCount, table.PersonaRows.Count);
         Assert.NotNull(table.Narrator);
         foreach (SystemPersona persona in Enum.GetValues<SystemPersona>())
         {
-            _ = table.Of(persona); // throws when a persona row is missing
+            foreach (string era in PersonaTimbreTable.Eras)
+            {
+                _ = table.Of(persona, era); // throws when an (era, persona) row is missing
+            }
         }
 
-        // the four personas are pairwise distinct on a real E1 line key
-        var distinct = Enum.GetValues<SystemPersona>()
-            .Select(persona => Convert.ToBase64String(PersonaVoiceSynth.SynthesizePcm(
-                table.Of(persona), "e1.open.narrator", table.SampleRateHz, table.PeakAmplitude)))
+        // the sixteen persona rows are pairwise distinct on a real E1 line key
+        var distinct = table.PersonaRows
+            .Select(row => Convert.ToBase64String(PersonaVoiceSynth.SynthesizePcm(
+                row, "e1.open.narrator", table.SampleRateHz, table.PeakAmplitude)))
             .Distinct()
             .Count();
-        Assert.Equal(4, distinct);
+        Assert.Equal(16, distinct);
     }
 
     [Fact] // legal — every narration anchor is a real line key of its story chapter (F-138 ↔ T-089)

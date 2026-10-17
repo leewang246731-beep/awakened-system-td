@@ -5,12 +5,14 @@ using Xunit;
 namespace EraCore.Tests.Audio;
 
 /// <summary>
-/// Tests of the persona timbre table and voice-token renderer (T-092,
-/// F-137): strict parsing of the closed id set, four-persona separability
-/// through real signal measures (per-syllable zero-crossing rates), the
-/// narrator/off-mode downgrade policy, determinism, and the guards.
+/// Tests of the persona timbre table and voice-token renderer (T-092
+/// F-137; v2=T-126 era×persona full banks): strict parsing of the closed
+/// era/persona sets (16 rows + narrator), sixteen-row separability through
+/// real signal measures (per-syllable zero-crossing rates), per-persona
+/// contour signatures that hold across all four eras, the narrator/off-mode
+/// downgrade policy, determinism, and the guards.
 /// </summary>
-// [C-25][F-137] 军师人格语音音色：参数表+合成+中性旁白降级
+// [C-25][F-137] 军师人格语音音色（T-126 v2：时代×人格 16 行）：参数表+合成+降级
 public class PersonaVoiceTests
 {
     private const string LegalJson = """
@@ -19,11 +21,23 @@ public class PersonaVoiceTests
           "sample_rate_hz": 16000,
           "peak_amplitude": 0.6,
           "timbres": [
-            { "id": "advisor",  "zh": "参谋", "base_freq_hz": 440.0, "contour": "steady",  "wave": "sine",     "syllable_ms": 90,  "gap_ms": 45, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.0,   "gain": 0.5 },
-            { "id": "snarky",   "zh": "毒舌", "base_freq_hz": 660.0, "contour": "sharp",   "wave": "square",   "syllable_ms": 60,  "gap_ms": 25, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.06,  "gain": 0.28 },
-            { "id": "goofy",    "zh": "沙雕", "base_freq_hz": 392.0, "contour": "bounce",  "wave": "triangle", "syllable_ms": 70,  "gap_ms": 35, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.335, "gain": 0.5 },
-            { "id": "tsundere", "zh": "傲娇", "base_freq_hz": 494.0, "contour": "wobble",  "wave": "sine",     "syllable_ms": 100, "gap_ms": 40, "vibrato_hz": 6.0, "vibrato_depth": 0.04, "step_ratio": 1.0,   "gain": 0.5 },
-            { "id": "narrator", "zh": "旁白", "base_freq_hz": 262.0, "contour": "steady",  "wave": "sine",     "syllable_ms": 140, "gap_ms": 60, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.0,   "gain": 0.45 }
+            { "id": "advisor",  "era": "era1", "zh": "参谋", "base_freq_hz": 415.3, "contour": "steady",  "wave": "sine",     "syllable_ms": 95,  "gap_ms": 50, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.0,   "gain": 0.5 },
+            { "id": "advisor",  "era": "era2", "zh": "参谋", "base_freq_hz": 440.0, "contour": "steady",  "wave": "sine",     "syllable_ms": 88,  "gap_ms": 44, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.0,   "gain": 0.5 },
+            { "id": "advisor",  "era": "era3", "zh": "参谋", "base_freq_hz": 392.0, "contour": "steady",  "wave": "sine",     "syllable_ms": 82,  "gap_ms": 40, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.0,   "gain": 0.5 },
+            { "id": "advisor",  "era": "era4", "zh": "参谋", "base_freq_hz": 466.2, "contour": "steady",  "wave": "sine",     "syllable_ms": 76,  "gap_ms": 36, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.0,   "gain": 0.5 },
+            { "id": "snarky",   "era": "era1", "zh": "毒舌", "base_freq_hz": 622.3, "contour": "sharp",   "wave": "square",   "syllable_ms": 64,  "gap_ms": 28, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.06,  "gain": 0.30 },
+            { "id": "snarky",   "era": "era2", "zh": "毒舌", "base_freq_hz": 660.0, "contour": "sharp",   "wave": "square",   "syllable_ms": 58,  "gap_ms": 25, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.06,  "gain": 0.30 },
+            { "id": "snarky",   "era": "era3", "zh": "毒舌", "base_freq_hz": 587.3, "contour": "sharp",   "wave": "square",   "syllable_ms": 54,  "gap_ms": 22, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.06,  "gain": 0.30 },
+            { "id": "snarky",   "era": "era4", "zh": "毒舌", "base_freq_hz": 740.0, "contour": "sharp",   "wave": "square",   "syllable_ms": 50,  "gap_ms": 20, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.06,  "gain": 0.30 },
+            { "id": "goofy",    "era": "era1", "zh": "沙雕", "base_freq_hz": 349.2, "contour": "bounce",  "wave": "triangle", "syllable_ms": 76,  "gap_ms": 38, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.335, "gain": 0.5 },
+            { "id": "goofy",    "era": "era2", "zh": "沙雕", "base_freq_hz": 392.0, "contour": "bounce",  "wave": "triangle", "syllable_ms": 70,  "gap_ms": 35, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.335, "gain": 0.5 },
+            { "id": "goofy",    "era": "era3", "zh": "沙雕", "base_freq_hz": 369.9, "contour": "bounce",  "wave": "triangle", "syllable_ms": 64,  "gap_ms": 32, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.335, "gain": 0.48 },
+            { "id": "goofy",    "era": "era4", "zh": "沙雕", "base_freq_hz": 440.0, "contour": "bounce",  "wave": "triangle", "syllable_ms": 58,  "gap_ms": 28, "vibrato_hz": 0.0, "vibrato_depth": 0.0,  "step_ratio": 1.335, "gain": 0.48 },
+            { "id": "tsundere", "era": "era1", "zh": "傲娇", "base_freq_hz": 466.2, "contour": "wobble",  "wave": "sine",     "syllable_ms": 104, "gap_ms": 44, "vibrato_hz": 5.5, "vibrato_depth": 0.04,  "step_ratio": 1.0,   "gain": 0.5 },
+            { "id": "tsundere", "era": "era2", "zh": "傲娇", "base_freq_hz": 494.0, "contour": "wobble",  "wave": "sine",     "syllable_ms": 98,  "gap_ms": 41, "vibrato_hz": 6.0, "vibrato_depth": 0.04,  "step_ratio": 1.0,   "gain": 0.5 },
+            { "id": "tsundere", "era": "era3", "zh": "傲娇", "base_freq_hz": 440.0, "contour": "wobble",  "wave": "sine",     "syllable_ms": 92,  "gap_ms": 38, "vibrato_hz": 6.5, "vibrato_depth": 0.045, "step_ratio": 1.0,   "gain": 0.5 },
+            { "id": "tsundere", "era": "era4", "zh": "傲娇", "base_freq_hz": 523.3, "contour": "wobble",  "wave": "sine",     "syllable_ms": 86,  "gap_ms": 34, "vibrato_hz": 7.0, "vibrato_depth": 0.05,  "step_ratio": 1.0,   "gain": 0.5 },
+            { "id": "narrator", "zh": "旁白", "base_freq_hz": 262.0, "contour": "steady", "wave": "sine", "syllable_ms": 140, "gap_ms": 60, "vibrato_hz": 0.0, "vibrato_depth": 0.0, "step_ratio": 1.0, "gain": 0.45 }
           ]
         }
         """;
@@ -68,39 +82,78 @@ public class PersonaVoiceTests
 
     // ---------------------------------------------------------------- legal
 
-    [Fact] // legal — the closed five-row set parses and maps the persona enum
-    public void Legal_table_parses()
+    [Fact] // legal — v2 装载：16 时代×人格行+1 旁白行，(era,persona) 全对解析
+    public void Legal_table_parses_the_sixteen_era_persona_rows()
     {
         PersonaTimbreTable table = Table();
 
-        Assert.Equal(5, table.Timbres.Count);
+        Assert.Equal(17, table.Timbres.Count);
+        Assert.Equal(16, table.PersonaRows.Count);
+        Assert.Equal(4, PersonaTimbreTable.Eras.Count);
         Assert.NotNull(table.Find("narrator"));
+        Assert.NotNull(table.Find("era1:advisor"));
         foreach (SystemPersona persona in Enum.GetValues<SystemPersona>())
         {
-            Assert.NotNull(table.Of(persona));
+            foreach (string era in PersonaTimbreTable.Eras)
+            {
+                Assert.Equal($"{era}:{EraCore.Presentation.PersonaChoice.IdOf(persona)}", table.Of(persona, era).Id);
+            }
         }
 
-        Assert.Equal("参谋", table.Of(SystemPersona.Advisor).Zh);
+        Assert.Equal("参谋", table.Of(SystemPersona.Advisor, "era2").Zh);
         Assert.Same(table.Find("narrator"), table.Narrator);
     }
 
-    [Fact] // legal — the four personas render four byte-distinct tokens on one line
-    public void Personas_are_byte_distinct()
+    [Fact] // legal — 16 人格行两两字节相异（同一行 key 上时代×人格全可分）
+    public void All_sixteen_persona_rows_are_byte_distinct()
     {
         PersonaTimbreTable table = Table();
 
-        var distinct = Enum.GetValues<SystemPersona>()
-            .Select(persona => Convert.ToBase64String(Render(table.Of(persona), "e1.end.handover")))
+        var distinct = table.PersonaRows
+            .Select(row => Convert.ToBase64String(Render(row, "e1.end.handover")))
             .Distinct()
             .Count();
 
-        Assert.Equal(4, distinct);
+        Assert.Equal(16, distinct);
+        Assert.All(table.PersonaRows, row =>
+        {
+            bool audible = Render(row, "e1.end.handover").Any(b => b != 0);
+            Assert.True(audible);
+        });
     }
 
-    [Fact] // legal — 参谋 steady: every syllable carries the same pitch
-    public void Advisor_contour_is_steady()
+    [Fact] // legal — 时代身份：同人格跨四时代互异；人格身份：同时代跨四人格互异
+    public void Era_and_persona_identities_both_hold()
     {
-        PersonaTimbre advisor = Table().Of(SystemPersona.Advisor);
+        PersonaTimbreTable table = Table();
+
+        foreach (SystemPersona persona in Enum.GetValues<SystemPersona>())
+        {
+            int eras = PersonaTimbreTable.Eras
+                .Select(era => Convert.ToBase64String(Render(table.Of(persona, era), "e1.open.narrator")))
+                .Distinct()
+                .Count();
+            Assert.Equal(4, eras); // 时代变体真实可闻，非复制行
+        }
+
+        foreach (string era in PersonaTimbreTable.Eras)
+        {
+            int personas = Enum.GetValues<SystemPersona>()
+                .Select(persona => Convert.ToBase64String(Render(table.Of(persona, era), "e1.open.narrator")))
+                .Distinct()
+                .Count();
+            Assert.Equal(4, personas);
+        }
+    }
+
+    [Theory] // legal — 参谋 steady：每时代每音节同高（轮廓身份跨时代恒定）
+    [InlineData("era1")]
+    [InlineData("era2")]
+    [InlineData("era3")]
+    [InlineData("era4")]
+    public void Advisor_contour_is_steady_in_every_era(string era)
+    {
+        PersonaTimbre advisor = Table().Of(SystemPersona.Advisor, era);
         short[] s = Samples(Render(advisor, "e1.end.handover"));
         (int start, int length) = SyllableWindow(advisor, "e1.end.handover", 0);
         double first = Zcr(s, start, length);
@@ -110,10 +163,14 @@ public class PersonaVoiceTests
         Assert.Equal(first, second, 1); // same frequency ⇒ same crossing rate
     }
 
-    [Fact] // legal — 毒舌 sharp: pitch climbs syllable over syllable
-    public void Snarky_contour_climbs()
+    [Theory] // legal — 毒舌 sharp：每时代音节逐个爬升
+    [InlineData("era1")]
+    [InlineData("era2")]
+    [InlineData("era3")]
+    [InlineData("era4")]
+    public void Snarky_contour_climbs_in_every_era(string era)
     {
-        PersonaTimbre snarky = Table().Of(SystemPersona.Snarky);
+        PersonaTimbre snarky = Table().Of(SystemPersona.Snarky, era);
         string key = "e1.end.handover";
         short[] s = Samples(Render(snarky, key));
         int syllables = PersonaVoiceSynth.SyllableCount(key);
@@ -123,13 +180,17 @@ public class PersonaVoiceTests
         double first = Zcr(s, firstStart, firstLen);
         double last = Zcr(s, lastStart, lastLen);
 
-        Assert.True(last > first * 1.1, $"last {last:0} vs first {first:0} — sharp contour must climb");
+        Assert.True(last > first * 1.1, $"last {last:0} vs first {first:0} — sharp contour must climb ({era})");
     }
 
-    [Fact] // legal — 沙雕 bounce: odd syllables jump a fourth over the even ones
-    public void Goofy_contour_bounces()
+    [Theory] // legal — 沙雕 bounce：每时代奇数音节跳纯四度
+    [InlineData("era1")]
+    [InlineData("era2")]
+    [InlineData("era3")]
+    [InlineData("era4")]
+    public void Goofy_contour_bounces_in_every_era(string era)
     {
-        PersonaTimbre goofy = Table().Of(SystemPersona.Goofy);
+        PersonaTimbre goofy = Table().Of(SystemPersona.Goofy, era);
         string key = "e1.end.handover";
         short[] s = Samples(Render(goofy, key));
 
@@ -142,17 +203,17 @@ public class PersonaVoiceTests
         Assert.InRange(oddHz / evenHz, 1.335 * 0.8, 1.335 * 1.2);
     }
 
-    [Fact] // legal — the neutral narrator is distinct from every persona timbre
-    public void Narrator_is_distinct_from_personas()
+    [Fact] // legal — 中性旁白与全部 16 人格行相异（off 模式降级目标独立可辨）
+    public void Narrator_is_distinct_from_every_persona_row()
     {
         PersonaTimbreTable table = Table();
         byte[] narrator = Render(table.Narrator, "e1.end.handover");
 
-        foreach (SystemPersona persona in Enum.GetValues<SystemPersona>())
+        foreach (PersonaTimbre row in table.PersonaRows)
         {
             Assert.False(
-                Render(table.Of(persona), "e1.end.handover").SequenceEqual(narrator),
-                $"{persona} token equals the narrator token");
+                Render(row, "e1.end.handover").SequenceEqual(narrator),
+                $"{row.Id} token equals the narrator token");
         }
     }
 
@@ -175,15 +236,18 @@ public class PersonaVoiceTests
         }
     }
 
-    [Theory] // legal — the off-mode downgrade: system off ⇒ narrator row, on ⇒ the persona row
+    [Theory] // legal — off-mode 降级（era 感知）：系统开={era}:{persona}，关=旁白
+    [InlineData(SystemPersona.Advisor)]
     [InlineData(SystemPersona.Snarky)]
     [InlineData(SystemPersona.Goofy)]
     [InlineData(SystemPersona.Tsundere)]
-    [InlineData(SystemPersona.Advisor)]
     public void Offmode_downgrade_resolves(SystemPersona persona)
     {
-        Assert.Equal(PersonaTimbreTable.NarratorId, VoiceDowngrade.Resolve(persona, systemEnabled: false));
-        Assert.Equal(Table().Of(persona).Id, VoiceDowngrade.Resolve(persona, systemEnabled: true));
+        foreach (string era in PersonaTimbreTable.Eras)
+        {
+            Assert.Equal(PersonaTimbreTable.NarratorId, VoiceDowngrade.Resolve(persona, era, systemEnabled: false));
+            Assert.Equal($"{era}:{EraCore.Presentation.PersonaChoice.IdOf(persona)}", VoiceDowngrade.Resolve(persona, era, systemEnabled: true));
+        }
     }
 
     // -------------------------------------------------------------- boundary
@@ -192,7 +256,7 @@ public class PersonaVoiceTests
     [InlineData("")]
     [InlineData("a")]
     [InlineData("e1.open.narrator")]
-    [InlineData("sys-alarm-integrity")]
+    [InlineData("advisor.sys.alarm")]
     [InlineData("mock.e1.taunt.w3")]
     public void Syllable_count_stays_bounded(string key)
     {
@@ -211,7 +275,7 @@ public class PersonaVoiceTests
     [Fact] // boundary — rendering is deterministic: same timbre+key ⇒ identical bytes
     public void Synthesis_is_deterministic()
     {
-        PersonaTimbre timbre = Table().Of(SystemPersona.Tsundere);
+        PersonaTimbre timbre = Table().Of(SystemPersona.Tsundere, "era3");
 
         Assert.True(
             Render(timbre, "e1.open.narrator").SequenceEqual(Render(timbre, "e1.open.narrator")));
@@ -219,10 +283,17 @@ public class PersonaVoiceTests
             Render(timbre, "e1.open.narrator").SequenceEqual(Render(timbre, "e1.end.handover"))); // key drives the token
     }
 
+    [Fact] // boundary — 未知时代解析拒绝（Of 的封闭时代集）
+    public void Unknown_era_resolution_is_rejected()
+    {
+        Assert.Throws<ArgumentException>(() => Table().Of(SystemPersona.Advisor, "era5"));
+        Assert.Throws<ArgumentException>(() => Table().Of(SystemPersona.Advisor, "e1"));
+    }
+
     [Fact] // boundary — WAV images wrap the PCM payload at the table rate
     public void Wav_image_wraps_payload()
     {
-        PersonaTimbre timbre = Table().Of(SystemPersona.Advisor);
+        PersonaTimbre timbre = Table().Of(SystemPersona.Advisor, "era1");
         byte[] pcm = Render(timbre, "e1.end.handover");
         byte[] wav = PersonaVoiceSynth.SynthesizeWav(timbre, "e1.end.handover", 16000, 0.6);
 
@@ -242,27 +313,35 @@ public class PersonaVoiceTests
     [InlineData("\"gain\": 1.5")]
     public void Illegal_schema_rejected(string mutation)
     {
-        string json = MutateAdvisorRow(LegalJson, mutation);
+        string json = MutateFirstRow(LegalJson, mutation);
 
-        Assert.Throws<EraCore.Audio.AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
+        Assert.Throws<AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
     }
 
-    /// <summary>Applies one mutation to the advisor row (first timbre) of the legal fixture.</summary>
-    private static string MutateAdvisorRow(string json, string mutation)
+    [Fact] // illegal — era 列封闭集：era5 拒绝
+    public void Illegal_era_rejected()
     {
-        string key = mutation.Split(':')[0].Trim().Trim('"');
-        string original = key switch
-        {
-            "content_type" => "\"content_type\": \"PersonaTimbreTable\"",
-            "syllable_ms" => "\"syllable_ms\": 90",
-            "base_freq_hz" => "\"base_freq_hz\": 440.0",
-            "contour" => "\"contour\": \"steady\"",
-            "wave" => "\"wave\": \"sine\"",
-            "gain" => "\"gain\": 0.5",
-            _ => throw new InvalidOperationException($"unhandled mutation key {key}"),
-        };
+        string json = LegalJson.Replace("\"era\": \"era1\"", "\"era\": \"era5\"", StringComparison.Ordinal);
 
-        return json.Replace(original, mutation);
+        Assert.Throws<AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
+    }
+
+    [Fact] // illegal — 人格行缺 era 列拒绝（v2 必填）
+    public void Persona_row_without_era_is_rejected()
+    {
+        string json = LegalJson.Replace(
+            "{ \"id\": \"advisor\",  \"era\": \"era1\",", "{ \"id\": \"advisor\", ", StringComparison.Ordinal);
+
+        Assert.Throws<AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
+    }
+
+    [Fact] // illegal — narrator 行不得携带 era（中性旁白不分时代）
+    public void Narrator_row_with_era_is_rejected()
+    {
+        string json = LegalJson.Replace(
+            "{ \"id\": \"narrator\", \"zh\": \"旁白\"", "{ \"id\": \"narrator\", \"era\": \"era1\", \"zh\": \"旁白\"", StringComparison.Ordinal);
+
+        Assert.Throws<AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
     }
 
     [Fact] // illegal — an id outside the closed set (4 personas + narrator)
@@ -270,16 +349,7 @@ public class PersonaVoiceTests
     {
         string json = LegalJson.Replace("\"id\": \"narrator\"", "\"id\": \"pirate\"");
 
-        Assert.Throws<EraCore.Audio.AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
-    }
-
-    [Fact] // illegal — row count is frozen at 5 with unique ids, which structurally
-            // forces the narrator row (renaming it trips the closed-set guard)
-    public void Narrator_row_cannot_be_replaced()
-    {
-        string json = LegalJson.Replace("\"id\": \"narrator\"", "\"id\": \"tsundere\"");
-
-        Assert.Throws<EraCore.Audio.AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
+        Assert.Throws<AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
     }
 
     [Fact] // illegal — wrong row count
@@ -287,10 +357,19 @@ public class PersonaVoiceTests
     {
         int insertAt = LegalJson.LastIndexOf(']'); // closing bracket of the timbres array
         string json = LegalJson.Insert(insertAt,
-            ",{ \"id\": \"extra\", \"zh\": \"额外\", \"base_freq_hz\": 300.0, \"contour\": \"steady\", " +
+            ",{ \"id\": \"extra\", \"era\": \"era1\", \"zh\": \"额外\", \"base_freq_hz\": 300.0, \"contour\": \"steady\", " +
             "\"wave\": \"sine\", \"syllable_ms\": 90, \"gap_ms\": 40, \"vibrato_hz\": 0.0, \"vibrato_depth\": 0.0, \"step_ratio\": 1.0, \"gain\": 0.5 }");
 
-        Assert.Throws<EraCore.Audio.AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
+        Assert.Throws<AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
+    }
+
+    [Fact] // illegal — (era, persona) 对重复：同对两行拒绝
+    public void Duplicate_era_persona_pair_is_rejected()
+    {
+        string json = LegalJson.Replace(
+            "{ \"id\": \"goofy\",    \"era\": \"era3\",", "{ \"id\": \"goofy\",    \"era\": \"era2\",", StringComparison.Ordinal);
+
+        Assert.Throws<AudioSchemaException>(() => PersonaTimbreTable.Parse(json));
     }
 
     [Fact] // illegal — null timbre / blank key are rejected by the renderer
@@ -300,5 +379,23 @@ public class PersonaVoiceTests
             () => PersonaVoiceSynth.SynthesizePcm(null!, "key", 16000, 0.6));
         Assert.Throws<ArgumentException>(
             () => PersonaVoiceSynth.SynthesizePcm(Table().Narrator, "  ", 16000, 0.6));
+    }
+
+    /// <summary>Applies one mutation to the first timbre row (era1:advisor) of the legal fixture.</summary>
+    private static string MutateFirstRow(string json, string mutation)
+    {
+        string key = mutation.Split(':')[0].Trim().Trim('"');
+        string original = key switch
+        {
+            "content_type" => "\"content_type\": \"PersonaTimbreTable\"",
+            "syllable_ms" => "\"syllable_ms\": 95",
+            "base_freq_hz" => "\"base_freq_hz\": 415.3",
+            "contour" => "\"contour\": \"steady\"",
+            "wave" => "\"wave\": \"sine\"",
+            "gain" => "\"gain\": 0.5",
+            _ => throw new InvalidOperationException($"unhandled mutation key {key}"),
+        };
+
+        return json.Replace(original, mutation);
     }
 }

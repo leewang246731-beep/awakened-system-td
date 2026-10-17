@@ -57,6 +57,7 @@ public sealed partial class AudioDirector : Node
     private AudioStreamPlayer _stingerPlayer = null!;
 
     private string _activeEra = "era1";
+    private string _voiceEra = "era1"; // T-126: voice timbres cover era1~era4 (wider than the shipped BGM rows)
     private bool _bossWave;
     private long _smokeTick;
     private int _statePlays;
@@ -64,7 +65,9 @@ public sealed partial class AudioDirector : Node
     /// <summary>Mount helper (Main.cs single-line wiring, same as the other HUDs).</summary>
     internal static AudioDirector Instantiate(Main main, SimHost host)
     {
-        var director = new AudioDirector { _host = host };
+        // Name 固定（T-126）：代码挂载节点缺省名是 @Node@N——冒烟/音色缝按名
+        // 解析（GetNodeOrNull("AudioDirector")）须有名可寻。
+        var director = new AudioDirector { _host = host, Name = "AudioDirector" };
         main.AddChild(director); // _Ready builds the graph (and smokes headless)
         return director;
     }
@@ -79,6 +82,35 @@ public sealed partial class AudioDirector : Node
 
         _activeEra = era;
     }
+
+    /// <summary>
+    /// T-126 voice-era seam: persona timbres are era×persona (16 rows, era1~era4
+    /// — wider than the shipped BGM rows, E4 voice lands before its BGM). The
+    /// campaign host routes the level's era here; smoke drives it directly.
+    /// </summary>
+    /// <exception cref="ArgumentException">era is outside the timbre table's closed set.</exception>
+    public void SetVoiceEra(string era)
+    {
+        if (!EraCore.Audio.PersonaTimbreTable.Eras.Contains(era, StringComparer.Ordinal))
+        {
+            throw new ArgumentException($"未登记音色时代 {era}", nameof(era));
+        }
+
+        _voiceEra = era;
+    }
+
+    /// <summary>Current voice-era key (smoke probe for the tri-link timbre arm).</summary>
+    internal string VoiceEra => _voiceEra;
+
+    /// <summary>Persona-row count of the loaded timbre table (T-126 smoke: tones=16).</summary>
+    internal int PersonaToneRowCount => _timbres.PersonaRows.Count;
+
+    /// <summary>
+    /// Effective persona-voice timbre id under the system switch at the current
+    /// voice era (tri-link timbre arm probe; off-mode downgrades to narrator).
+    /// </summary>
+    internal string VoiceTimbreIdFor(SystemPersona persona, bool systemEnabled) =>
+        VoiceDowngrade.Resolve(persona, _voiceEra, systemEnabled);
 
     /// <summary>Boss-wave flag from the wave plan seam (WavePlan.HasBoss binding lands with the campaign host; smoke drives it directly).</summary>
     public void SetBossWave(bool active) => _bossWave = active;
@@ -198,11 +230,12 @@ public sealed partial class AudioDirector : Node
     /// Plays the advisor-voice token of one dialogue line under the active
     /// persona — the bubble/subtitle binding surface (T-093/T-126 land the
     /// UI hook; capability/wording stay owned by the narrative domain).
+    /// T-126: resolution is era-aware (16-row table, VoiceEra seam).
     /// </summary>
     public bool PlayLineVoice(DialogueLine line, SystemPersona persona, bool systemEnabled)
     {
         ArgumentNullException.ThrowIfNull(line);
-        string timbreId = VoiceDowngrade.Resolve(persona, systemEnabled);
+        string timbreId = VoiceDowngrade.Resolve(persona, _voiceEra, systemEnabled);
         PersonaTimbre timbre = _timbres.Find(timbreId)
             ?? throw new ArgumentException($"未登记音色 {timbreId}");
         return PlayVoiceToken(timbre, line.Key);
@@ -335,11 +368,12 @@ public sealed partial class AudioDirector : Node
         bool sameTargetNoOp = !_fades.Request(BgmLayerState.Calm, t);
         ApplyBgmGains(); // apply gains once so players reflect the final state
 
-        // 2) four persona timbres — distinct bytes per persona on one line key
+        // 2) persona timbres (T-126: era-aware 16-row table — the four personas
+        //    of the CURRENT voice era stay byte-distinct on one line key)
         var personaBytes = new Dictionary<string, byte[]>();
         foreach (SystemPersona persona in Enum.GetValues<SystemPersona>())
         {
-            PersonaTimbre timbre = _timbres.Of(persona);
+            PersonaTimbre timbre = _timbres.Of(persona, _voiceEra);
             personaBytes[timbre.Id] = PersonaVoiceSynth.SynthesizePcm(
                 timbre, ProbeLineKey, _timbres.SampleRateHz, _timbres.PeakAmplitude);
         }
@@ -351,9 +385,10 @@ public sealed partial class AudioDirector : Node
         bool personaAudible = personaBytes.Values.All(p => p.Any(v => v != 0));
 
         // off-mode downgrade: persona voice swaps to the neutral narrator row
-        bool downgrade = VoiceDowngrade.Resolve(SystemPersona.Snarky, systemEnabled: false) == PersonaTimbreTable.NarratorId
-            && VoiceDowngrade.Resolve(SystemPersona.Snarky, systemEnabled: true) == _timbres.Of(SystemPersona.Snarky).Id;
-        bool narratorDistinct = !personaBytes[_timbres.Of(SystemPersona.Snarky).Id]
+        string snarkyId = _timbres.Of(SystemPersona.Snarky, _voiceEra).Id;
+        bool downgrade = VoiceDowngrade.Resolve(SystemPersona.Snarky, _voiceEra, systemEnabled: false) == PersonaTimbreTable.NarratorId
+            && VoiceDowngrade.Resolve(SystemPersona.Snarky, _voiceEra, systemEnabled: true) == snarkyId;
+        bool narratorDistinct = !personaBytes[snarkyId]
             .SequenceEqual(PersonaVoiceSynth.SynthesizePcm(
                 _timbres.Narrator, ProbeLineKey, _timbres.SampleRateHz, _timbres.PeakAmplitude));
 
@@ -402,7 +437,7 @@ public sealed partial class AudioDirector : Node
         if (ok)
         {
             GD.Print(
-                $"AUDIO_OK bgm=3states persona=4 narrated={narrated} bus=3vol " +
+                $"AUDIO_OK bgm=3states persona=4 tones={_timbres.PersonaRows.Count} voice_era={_voiceEra} narrated={narrated} bus=3vol " +
                 $"cc0={stingers} eras={_programs.Programs.Count} loops={loops} " +
                 $"fade={FadeSeconds:0.#}s states_played={_statePlays} " +
                 $"bgm_vol={bgmVol:0.00} sfx_vol={sfxVol:0.00} voice_vol={voiceVol:0.00} " +

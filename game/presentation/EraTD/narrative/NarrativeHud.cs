@@ -36,6 +36,9 @@ public sealed partial class NarrativeHud : Control
     private CinematicHookRouter? _router;
     private int _lastWave; // 0 = pre-first-wave grace（首帧不误发波拍）
     private EraCore.Cinematics.VisualAssetCatalog? _catalog; // T-152 配图位素材目录
+    private EraCore.Narrative.PersonaLineBank? _personaBank; // T-126 四人格情境库（切换问候/人格行消费面）
+    private Audio.DingAudioPlayer? _ding; // T-126 台词触发接音效位（ding_* 三级）
+    private Audio.AudioDirector? _audioDirector; // T-126 人格语音 token（三联动音色臂）
 
     private Label _bubble = null!;
     private TextureRect _bubbleImage = null!;
@@ -44,10 +47,15 @@ public sealed partial class NarrativeHud : Control
     internal int _imagesShown;
     internal int _imagesDegraded;
 
+    // T-126 冒烟探针：音效位触发计数（台词 cue → ding_* 播放尝试）
+    internal int _cuesPlayed;
+
     /// <summary>Mount helper (Main.cs single-line wiring, same as the other HUDs).</summary>
     internal static NarrativeHud Instantiate(Main main, SimHost host)
     {
-        var hud = new NarrativeHud { _host = host };
+        // Name 固定（T-126）：代码挂载节点缺省名是 @Control@N——切换缝/冒烟按名
+        // 解析（InfoLayersUi 与 Main 的 GetNodeOrNull("NarrativeHud")）须有名可寻。
+        var hud = new NarrativeHud { _host = host, Name = "NarrativeHud" };
         main.AddChild(hud); // _Ready builds the bubble (and smokes headless)
         return hud;
     }
@@ -113,6 +121,28 @@ public sealed partial class NarrativeHud : Control
     /// <summary>Director under direction (smoke probe).</summary>
     internal NarrativeDirector? Director => _director;
 
+    /// <summary>T-126：人格情境库（冒烟探针；装载失败=null——人格行消费面降级）。</summary>
+    internal EraCore.Narrative.PersonaLineBank? PersonaBank => _personaBank;
+
+    /// <summary>
+    /// T-126 三联动台词臂：人格切换后展示切入自报行（bank 的 switch.in 面）
+    /// 并按当前人格播语音 token——InfoLayersUi.ApplyPersona 在
+    /// NarrativeDirector.SetPersona 之后调用本缝，台词/音色/立绘三臂同拍切换。
+    /// </summary>
+    public void OnPersonaApplied(NarrPersona persona)
+    {
+        string key = $"{EraCore.Presentation.PersonaChoice.IdOf(persona)}.switch.in";
+        if (_personaBank?.Find(key) is not { } row)
+        {
+            return; // 库缺行（装载失败面）——切换仍生效，仅问候静默
+        }
+
+        DialogueLine line = row.ToDialogueLine();
+        Show(new[] { line });
+        _audioDirector ??= GetParent().GetNodeOrNull<Audio.AudioDirector>("AudioDirector"); // 晚挂载重解析
+        _audioDirector?.PlayLineVoice(line, persona, systemEnabled: true);
+    }
+
     private void Show(IReadOnlyList<DialogueLine> lines)
     {
         if (lines.Count == 0)
@@ -126,6 +156,15 @@ public sealed partial class NarrativeHud : Control
             : line.BubbleText;
         _bubble.Text = text;
         _bubble.Visible = true;
+
+        // T-126 台词触发接音效位（F-105/F-137 全量）：DialogueLine.SoundCue →
+        // 叮通道三级槽（ding_info/ding_reward/ding_crisis——封闭槽集与
+        // CinematicScript/DingBus 同表；节流归 DingBus，此处只投递）。
+        if (line.SoundCue is { } cue && _ding is not null)
+        {
+            _ = _ding.PlayCueSlot(cue, _host.Simulation.CurrentTick);
+            _cuesPlayed++;
+        }
 
         // T-152 ③b 配图位（31 号 §三 b 位）：DialogueLine.ImageKey→插画贴图；
         // 缺图自动降级纯文本（外部轨 D21-5，U 盘不在机/键未配=隐藏）。
@@ -209,7 +248,7 @@ public sealed partial class NarrativeHud : Control
         }
     }
 
-    /// <summary>Loads the E1 story chapter plus the hook rows and the bound aha script.</summary>
+    /// <summary>Loads the E1 story chapter plus the hook rows, the bound aha script and the persona bank.</summary>
     private bool LoadContent()
     {
         try
@@ -223,6 +262,14 @@ public sealed partial class NarrativeHud : Control
                 new[] { CinematicScript.Parse(ReadContent("cinematics", "e1-aha.json"), "cinematics/e1-aha.json") });
             _catalog = EraCore.Cinematics.VisualAssetCatalog.Parse(
                 ReadContent("cinematics", "visual-assets.json"), "cinematics/visual-assets.json");
+            _personaBank = EraCore.Narrative.PersonaLineBank.Parse(
+                ReadContent("narrative", "persona-lines.json"), "narrative/persona-lines.json");
+
+            // T-126 台词→音效位/语音 token 接线：兄弟节点晚绑定（本 HUD 在
+            // AudioDirector 之前挂载——DingAudio 属场景树恒在，AudioDirector
+            // 可能为 null，切换缝/冒烟段重解析（ApplyPersona 时再取）。
+            _ding = GetParent().GetNodeOrNull<Audio.DingAudioPlayer>("DingAudio");
+            _audioDirector = GetParent().GetNodeOrNull<Audio.AudioDirector>("AudioDirector");
             return true;
         }
         catch (Exception ex)

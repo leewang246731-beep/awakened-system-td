@@ -65,9 +65,12 @@ public sealed partial class VisualExpansionDirector : Control
     /// <summary>Scene entry（Main.cs 单行接线）。</summary>
     internal static VisualExpansionDirector Instantiate(Main main)
     {
+        // Name 固定（T-126）：代码挂载节点缺省名是 @Control@N——三联动立绘缝
+        // 按名解析（InfoLayersUi/Main 的 GetNodeOrNull("VisualExpansionDirector")）。
         var director = new VisualExpansionDirector
         {
             _files = CreateFiles(),
+            Name = "VisualExpansionDirector",
         };
         director.LoadContent();
         main.AddChild(director); // _Ready builds surfaces (and smokes headless)
@@ -315,20 +318,54 @@ public sealed partial class VisualExpansionDirector : Control
 
     // ---- j 位：军师人格立绘 ---------------------------------------------------
 
-    /// <summary>人格→立绘素材键（31 号 §三 立绘位：AI 直用插画，非 sprite）。</summary>
-    internal static string PersonaPortraitKey(NarrPersona persona) => persona switch
-    {
-        NarrPersona.Advisor => "persona-strategist-scholar",
-        NarrPersona.Snarky => "persona-venom-elder",
-        NarrPersona.Goofy => "persona-craftsman-goofy",
-        NarrPersona.Tsundere => "persona-tsundere-youth",
-        _ => "persona-strategist-scholar",
-    };
+    /// <summary>
+    /// 人格→立绘素材键（31 号 §三 立绘位：AI 直用插画，非 sprite）。
+    /// T-126 起委托 <see cref="PersonaChoice.PortraitKeyOf"/>（三联动立绘臂
+    /// 单一来源——本节点与 InfoLayersUi 切换条/冒烟探针共用一张映射表）。
+    /// </summary>
+    internal static string PersonaPortraitKey(NarrPersona persona) =>
+        EraCore.Presentation.PersonaChoice.PortraitKeyOf(persona);
 
     /// <summary>人格立绘贴图（人格切换头像位；缺图 null→调用方降级既有头像）。</summary>
     internal Texture2D? PersonaPortrait(NarrPersona persona) =>
         ExpandAssetPaths.LoadPng(ExpandAssetPaths.ExternalImagePath(
             _catalog, PersonaPortraitKey(persona)));
+
+    /// <summary>当前展示的人格（三联动冒烟探针；null=尚未调用过展示缝）。</summary>
+    internal NarrPersona? ShownPersona { get; private set; }
+
+    /// <summary>最近一次展示缝调用是否真的装载到立绘贴图（缺图=false，键仍生效）。</summary>
+    internal bool PortraitTextureLoaded { get; private set; }
+
+    /// <summary>
+    /// T-126 三联动立绘臂：人格切换时更新立绘展示（1024×1536 竖幅右侧半身位；
+    /// 缺图自动隐藏——D21-5 双轨降级纪律，缺图不阻断切换，仅留键级联动）。
+    /// </summary>
+    internal void ShowPersonaPortrait(NarrPersona persona)
+    {
+        _portraitRect ??= BuildPortraitRect();
+        Texture2D? texture = PersonaPortrait(persona);
+        _portraitRect.Texture = texture;
+        _portraitRect.Visible = texture is not null;
+        ShownPersona = persona;
+        PortraitTextureLoaded = texture is not null;
+    }
+
+    private TextureRect? _portraitRect;
+
+    private TextureRect BuildPortraitRect()
+    {
+        var rect = new TextureRect
+        {
+            Position = new Vector2(1010f, 88f),
+            Size = new Vector2(144f, 216f), // 1024×1536 等比 2/3 缩放位（1/8 屏宽）
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            MouseFilter = MouseFilterEnum.Ignore,
+            Visible = false,
+        };
+        AddChild(rect);
+        return rect;
+    }
 
     // ---- k 位：成就图标 -------------------------------------------------------
 

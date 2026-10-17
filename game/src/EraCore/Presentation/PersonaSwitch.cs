@@ -54,6 +54,27 @@ public static class PersonaChoice
         _ => null,
     };
 
+    /// <summary>
+    /// Portrait asset key of one persona (T-126 tri-link 立绘臂单一来源):
+    /// the P4 persona busts registered in visual-assets.json batch
+    /// <c>personas</c>（31 号 P4 立绘 4 张：蓝灰参谋/红橙毒舌/黄绿沙雕/粉紫傲娇）.
+    /// </summary>
+    /// <exception cref="ArgumentException">personaId is not a frozen id.</exception>
+    public static string PortraitKey(string personaId) => personaId switch
+    {
+        "advisor" => "persona-strategist-scholar",
+        "snarky" => "persona-venom-elder",
+        "goofy" => "persona-craftsman-goofy",
+        "tsundere" => "persona-tsundere-youth",
+        _ => throw new ArgumentException($"'{personaId}' is not a frozen persona id.", nameof(personaId)),
+    };
+
+    /// <summary>Enum overload of <see cref="PortraitKey(string)"/>.</summary>
+    public static string PortraitKeyOf(SystemPersona persona) => PortraitKey(IdOf(persona));
+
+    /// <summary>The four distinct portrait keys in enum order (matrix probes).</summary>
+    public static IReadOnlyList<string> PortraitKeys => FrozenIds.Select(PortraitKey).ToArray();
+
     /// <summary>Enum → id (round-trip twin of <see cref="TryParse"/>).</summary>
     public static string IdOf(SystemPersona persona) => persona switch
     {

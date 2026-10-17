@@ -83,5 +83,54 @@ public class PersonaSwitchTests : IDisposable
         Assert.Throws<ArgumentException>(() => PersonaSettingsStore.Save(_store, "celebrity"));
         Assert.Throws<ArgumentNullException>(() => PersonaSettingsStore.Save(_store, null!));
         Assert.Throws<ArgumentNullException>(() => PersonaSettingsStore.Load(null!));
+        Assert.Throws<ArgumentException>(() => PersonaChoice.PortraitKey("dark-lord"));
+    }
+
+    // ---------------------------------------------- T-126 三联动（F-122/F-137）
+
+    [Fact] // legal — [F-122][F-137] 三联动矩阵：4 人格 × 4 时代——音色行在表、
+            // 立绘键四张互异、切入自报行在库（台词/音色/立绘三臂同拍可解析）
+    public void Every_persona_x_era_resolves_all_three_switch_arms()
+    {
+        EraCore.Audio.PersonaTimbreTable timbres = EraCore.Tests.Audio.AudioContent.Timbres();
+        EraCore.Narrative.PersonaLineBank bank = EraCore.Narrative.PersonaLineBank.Parse(
+            EraCore.Tests.Narrative.NarrativeContent.Read("persona-lines.json"), "narrative/persona-lines.json");
+
+        Assert.Equal(4, EraCore.Audio.PersonaTimbreTable.Eras.Count);
+        foreach (string personaId in PersonaChoice.FrozenIds)
+        {
+            SystemPersona persona = PersonaChoice.TryParse(personaId)!.Value;
+            foreach (string era in EraCore.Audio.PersonaTimbreTable.Eras)
+            {
+                // ①音色臂：{era}:{persona} 行在表（off 模式恒中性旁白）
+                EraCore.Audio.PersonaTimbre timbre = timbres.Of(persona, era);
+                Assert.Equal($"{era}:{personaId}", timbre.Id);
+                Assert.Equal(EraCore.Audio.PersonaTimbreTable.NarratorId,
+                    EraCore.Audio.VoiceDowngrade.Resolve(persona, era, systemEnabled: false));
+
+                // ②立绘臂：P4 立绘键（与 visual-assets personas 批同名，装载侧另证）
+                Assert.StartsWith("persona-", PersonaChoice.PortraitKey(personaId));
+
+                // ③台词臂：切入自报行在库且人格键贯穿
+                EraCore.Narrative.PersonaLineRow row = bank.First(persona, EraCore.Narrative.PersonaLineFace.Switch);
+                Assert.Equal(persona, row.ToDialogueLine().Persona);
+            }
+        }
+
+        // 立绘四键互异（四人格四张脸——P4 立绘 1:1）
+        Assert.Equal(4, PersonaChoice.PortraitKeys.Distinct().Count());
+    }
+
+    [Fact] // legal — [F-137] 立绘键落在 visual-assets.json personas 批（键→素材文件可解析）
+    public void Portrait_keys_resolve_to_registered_visual_assets()
+    {
+        EraCore.Cinematics.VisualAssetCatalog catalog = EraCore.Cinematics.VisualAssetCatalog.Parse(
+            EraCore.Tests.Narrative.NarrativeContent.ReadSibling("cinematics", "visual-assets.json"),
+            "cinematics/visual-assets.json");
+
+        foreach (string key in PersonaChoice.PortraitKeys)
+        {
+            Assert.NotNull(catalog.ImageByKey(key)); // P4 personas 批登记键
+        }
     }
 }

@@ -253,6 +253,13 @@ public sealed partial class Main : Control
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         ReplayUi.Instantiate(this, _host);
 
+        // ---- 5l) T-126 四人格全量+语音 (C-13/C-25, F-109/F-137) ---------------
+        // 人格台词库（4×50=200 行，16 面覆盖矩阵）+ 音色时代×人格 16 行 +
+        // 三联动切换闭环（立绘+音色+台词同拍一致）——headless 冒烟判据打印
+        // PERSONA_OK lines=200 tones=16 switch=linked（失败 Quit(1)）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        RunPersonaFullSmoke();
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.
@@ -695,6 +702,175 @@ public sealed partial class Main : Control
             GD.PushError("RENDER_FAIL " + string.Join("; ", problems));
             GD.Print("RENDER_FAIL " + string.Join("; ", problems));
         }
+    }
+
+    // ------------------------------------------- T-126 四人格全量+语音
+
+    /// <summary>
+    /// T-126 四人格全量+语音 headless acceptance (F-109/F-137): the persona
+    /// line bank loads at its frozen volume (4×50=200 rows, 16 faces per
+    /// persona), the timbre table carries the sixteen era×persona rows, and
+    /// one live persona switch flips all THREE arms in the same beat —
+    /// wording (director persona + switch-in greeting), timbre (era:persona
+    /// resolution) and portrait (P4 key + texture). Prints
+    /// <c>PERSONA_OK lines=200 tones=16 switch=linked</c> or fails the run.
+    /// </summary>
+    private void RunPersonaFullSmoke()
+    {
+        var problems = new List<string>();
+
+        // (1) 台词库全量：4×50=200 行，16 面×4 人格覆盖矩阵（解析器已在装载
+        //     时执法行数与面完备性——这里复核冻结量级并驱动音效位一次）
+        EraCore.Narrative.PersonaLineBank? bank = null;
+        try
+        {
+            bank = EraCore.Narrative.PersonaLineBank.Parse(
+                ReadRepoContent("narrative", "persona-lines.json"), "narrative/persona-lines.json");
+        }
+        catch (Exception ex)
+        {
+            problems.Add($"persona bank load: {ex.Message}");
+        }
+
+        int lines = bank?.Rows.Count ?? 0;
+        int faces = bank is null ? 0 : Enum.GetValues<EraCore.Narrative.PersonaLineFace>().Length;
+        if (bank is not null)
+        {
+            if (lines != 200)
+            {
+                problems.Add($"bank rows {lines} != 200");
+            }
+
+            foreach (EraCore.Narrative.SystemPersona persona in Enum.GetValues<EraCore.Narrative.SystemPersona>())
+            {
+                if (bank.RowsOf(persona).Count != EraCore.Narrative.PersonaLineBank.RowsPerPersona)
+                {
+                    problems.Add($"persona {persona} rows != 50");
+                }
+            }
+
+            // 能力等价冒烟面：sys 槽位语法与中性库一致（L1 填充共用槽位解析；
+            // 键约定 {persona}.{中性键 '.'分隔}，如 advisor.sys.alarm-integrity
+            // ↔ 中性模板 sys-alarm-integrity）
+            EraCore.Narrative.SystemLineLibrary neutral = EraCore.Narrative.SystemLineLibrary.Parse(
+                ReadRepoContent("narrative", "system-lines.json"), "narrative/system-lines.json");
+            foreach (EraCore.Narrative.PersonaLineRow row in bank.RowsOf(EraCore.Narrative.SystemPersona.Snarky,
+                EraCore.Narrative.PersonaLineFace.Sys))
+            {
+                string situation = row.Key[(row.Key.IndexOf('.') + 1)..];
+                EraCore.Narrative.SystemLineTemplate? template = neutral.Find(situation.Replace('.', '-'));
+                if (template is null
+                    || SlotNames(row.Text) is not { } slots
+                    || !slots.SequenceEqual(template.Slots))
+                {
+                    problems.Add($"sys slot drift: {row.Key}");
+                }
+            }
+        }
+
+        // (2) 音色 16 行：时代×人格表（AudioDirector 已装载并过 AUDIO_OK——
+        //     这里断言人格行数与 era 解析）
+        Audio.AudioDirector? audio = GetNodeOrNull<Audio.AudioDirector>("AudioDirector");
+        int tones = audio?.PersonaToneRowCount ?? 0;
+        string voiceEra = audio?.VoiceEra ?? "-";
+        if (tones != 16)
+        {
+            problems.Add($"persona tone rows {tones} != 16");
+        }
+
+        foreach (string era in EraCore.Audio.PersonaTimbreTable.Eras)
+        {
+            audio?.SetVoiceEra(era); // 全时代路由合法（era4 早于其 BGM 行落地）
+        }
+
+        audio?.SetVoiceEra("era1");
+
+        // (3) 三联动：一次切换同拍翻三臂——台词（导演+切入自报行）、音色
+        //     （{era}:{persona} 解析）、立绘（P4 键+贴图装载）
+        var narrative = GetNodeOrNull<Narrative.NarrativeHud>("NarrativeHud");
+        var visual = GetNodeOrNull<Expand.VisualExpansionDirector>("VisualExpansionDirector");
+        string personaFrom = _infoUi.CurrentPersonaId;
+        const string probe = "goofy";
+        bool switched = _infoUi.SwitchPersona(probe);
+        bool linesArm = narrative?.Director?.Persona == EraCore.Narrative.SystemPersona.Goofy;
+        bool timbreArm = audio is not null
+            && audio.VoiceTimbreIdFor(EraCore.Narrative.SystemPersona.Goofy, systemEnabled: true) == $"{voiceEra}:goofy"
+            && audio.VoiceTimbreIdFor(EraCore.Narrative.SystemPersona.Goofy, systemEnabled: false) == EraCore.Audio.PersonaTimbreTable.NarratorId;
+        bool portraitArm = visual is not null
+            && visual.ShownPersona == EraCore.Narrative.SystemPersona.Goofy
+            && Expand.VisualExpansionDirector.PersonaPortraitKey(EraCore.Narrative.SystemPersona.Goofy)
+                == EraCore.Presentation.PersonaChoice.PortraitKey(probe)
+            && visual.PortraitTextureLoaded; // repo 内置 P4 立绘轨真实装载（D21-5）
+        int cues = narrative?._cuesPlayed ?? 0;
+        bool restored = _infoUi.SwitchPersona(personaFrom) && _infoUi.CurrentPersonaId == personaFrom
+            && EraCore.Presentation.PersonaChoice.TryParse(personaFrom) is not null;
+
+        if (!switched || !linesArm || !timbreArm || !portraitArm || !restored)
+        {
+            problems.Add(
+                $"tri-link switched={switched} lines={linesArm} timbre={timbreArm} " +
+                $"portrait={portraitArm} restored={restored}");
+        }
+
+        if (cues < 1)
+        {
+            problems.Add($"cue slots driven {cues} < 1（台词触发接音效位未走到）");
+        }
+
+        if (problems.Count == 0)
+        {
+            GD.Print(
+                $"PERSONA_OK lines={lines} tones={tones} switch=linked " +
+                $"bank=4x{EraCore.Narrative.PersonaLineBank.RowsPerPersona} faces={faces} " +
+                $"eras={EraCore.Audio.PersonaTimbreTable.Eras.Count} voice_era={voiceEra} " +
+                $"cues={cues} portrait=loaded restored={personaFrom} " +
+                "source=persona-lines+persona-timbres-v2");
+        }
+        else
+        {
+            GD.PushError($"persona acceptance failed: {string.Join("; ", problems)}");
+            GD.Print($"PERSONA_FAIL lines={lines} tones={tones} problems={problems.Count}");
+            GetTree().Quit(1);
+        }
+    }
+
+    /// <summary>【槽位名】集 of one template text (slot-syntax probe, sorted in-text order).</summary>
+    private static List<string>? SlotNames(string text)
+    {
+        var names = new List<string>();
+        int i = text.IndexOf('【');
+        while (i >= 0)
+        {
+            int j = text.IndexOf('】', i);
+            if (j < 0)
+            {
+                return null;
+            }
+
+            names.Add(text[(i + 1)..j]);
+            i = text.IndexOf('【', j);
+        }
+
+        return names;
+    }
+
+    /// <summary>Repo walk-up content read (same convention as the mounted HUDs' loaders).</summary>
+    private static string ReadRepoContent(string subDir, string file)
+    {
+        string relative = System.IO.Path.Combine("game", "content", subDir);
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            string probe = System.IO.Path.Combine(dir.FullName, relative);
+            if (Directory.Exists(probe))
+            {
+                return System.IO.File.ReadAllText(System.IO.Path.Combine(probe, file));
+            }
+
+            dir = dir.Parent!;
+        }
+
+        throw new InvalidOperationException($"未找到 game/content/{subDir}（宿主须在仓库内运行）");
     }
 
     // ------------------------------------------------- T-106 Web 约束
