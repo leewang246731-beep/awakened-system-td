@@ -37,12 +37,13 @@ namespace EraTD;
 /// + 特效密度门 + 扫描线/后期开关，能力矩阵驱动) and prints RENDER_OK.</item>
 /// </list>
 /// </summary>
-public sealed partial class Main : Control
+    public sealed partial class Main : Control
 {
     private const int SmokeFrames = 660;  // 22 s of sim time — the milestone stream (last tick 600) completes
     private const int UnitLayerCapacity = 128; // wave-1 budget headroom (grace 108 s ⇒ smoke sees no enemies)
     private const int HudRefreshFrames = 15;   // HUD redraw cadence (0.5 s of sim time)
     private const int AutoProbeFrames = 60;    // T-102: 首次 60 帧测帧率自适应（窗口运行；headless 无帧推进）
+    private const int L2HintRefreshFrames = 45; // T-137: L2 档位提示/降级横幅刷新节奏（1.5 s of sim time）
 
     private SimHost _host = null!;
     private SimSnapshotBridge _bridge = null!;
@@ -53,6 +54,15 @@ public sealed partial class Main : Control
     private SystemPanel _panel = null!;
     private SettingsPanelUi _settingsUi = null!;
     private InfoLayersUi _infoUi = null!;
+
+    // T-137 (F-078): L2 lane — coordinator (settings/download/runtime/route)
+    // + wave-gap service (queue + async fills). Headless binds SMOKE ports
+    // (fake process/probe/fill — zero real downloads, zero real processes);
+    // windowed binds the real lanes.
+    private L2.L2Coordinator? _l2;
+    private L2.WaveGapL2Service? _waveGap;
+    private L2.SmokeFillPort? _l2SmokeFill;
+    private int _lastWaveSeen = -1;
 
     // T-102 (C-21 渲染三档): capability row + current plan the render loop
     // consumes (能力矩阵驱动——renderers never branch on the tier enum).
@@ -259,6 +269,16 @@ public sealed partial class Main : Control
         // PERSONA_OK lines=200 tones=16 switch=linked（失败 Quit(1)）。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         RunPersonaFullSmoke();
+
+        // ---- 5m) T-137 L2 本地推理正式版 (C-27, F-078/F-163) ------------------
+        // L2 通道总装：协调器（档位/下载/进程/路由——EraTD.L2.L2Coordinator）
+        // + 波间异步服务（WaveGapL2Service）绑设置页与军师面板；headless 冒烟
+        // 全程假件（假进程/假探针/假填充口/拒绝 wire——绝不真拉 llama-server、
+        // 绝不下真模型），判据打印 L2_OK route/degrade/wavegap/runtime 四面
+        // （失败 Quit(1)）。窗口运行走 _Process 帧循环（波次变迁开窗+逐帧泵）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        SetupL2Lane();
+        RunL2SmokeAsync().Wait(); // headless synchronous drive (every inner await completes synchronously — fake seams)
 
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
@@ -575,6 +595,8 @@ public sealed partial class Main : Control
     public override void _Process(double delta)
     {
         base._Process(delta);
+        PumpL2Lane(); // T-137: wave-gap pump + runtime health + hint refresh (window lane)
+
         if (_fpsProbeSamples.Count >= AutoProbeFrames)
         {
             return;
@@ -602,6 +624,125 @@ public sealed partial class Main : Control
             $"RENDER_PROBE frames={AutoProbeFrames} avg_fps={average:F1} " +
             $"tier={RenderTierMatrix.TierId(probed)} live_applied=fx-gate+scan+post " +
             "assembly=next-launch");
+    }
+
+    // ------------------------------------------------ T-137 L2 lane wiring
+
+    /// <summary>
+    /// Builds and binds the L2 lane (T-137). Headless binds SMOKE ports —
+    /// the acceptance run must never download the 1.93 GB model nor spawn a
+    /// real llama-server (G4 纪律); windowed binds the real wire/process/
+    /// probe/warmup seams over the shared D-03 store root.
+    /// </summary>
+    private void SetupL2Lane()
+    {
+        var platform = WebConstraints.Availability(OS.HasFeature("web"));
+        bool headless = OS.HasFeature("headless") || DisplayServer.GetName() == "headless";
+
+        var files = new L2.DataRootDownloadFilePort(_host.Store.Root);
+        L2.L2Coordinator coordinator;
+        if (headless)
+        {
+            _l2SmokeFill = new L2.SmokeFillPort();
+            coordinator = new L2.L2Coordinator(
+                _host.Store,
+                files,
+                () => new L2.UnreachableDownloadWirePort(),
+                () => new L2.L2RuntimeHost(
+                    new L2.SmokeServerProcess(), new L2.SmokeHealthProbe(), (_, _) => Task.FromResult(true)),
+                platform);
+            _waveGap = new L2.WaveGapL2Service(
+                () => DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond,
+                new EraCore.Llm.L2.WaveGapFillQueue(
+                    () => DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond),
+                () => _l2SmokeFill);
+        }
+        else
+        {
+            coordinator = new L2.L2Coordinator(
+                _host.Store,
+                files,
+                () => new L2.GodotDownloadWirePort(this),
+                () => new L2.L2RuntimeHost(
+                    new L2.RealLlamaServerProcess(),
+                    new L2.GodotHealthProbePort(this),
+                    (port, ct) => WarmupLocalServerAsync(port, ct)),
+                platform);
+            _waveGap = new L2.WaveGapL2Service(
+                () => DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond,
+                new EraCore.Llm.L2.WaveGapFillQueue(
+                    () => DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond),
+                () => L2.GatewayIntentFillPort.ForLocalLane(this, coordinator.Settings.Port));
+        }
+
+        _l2 = coordinator;
+        _settingsUi.BindL2(coordinator);
+        _panel.BindL2(coordinator, _waveGap);
+        _lastWaveSeen = _host.Simulation.CurrentWave;
+    }
+
+    /// <summary>
+    /// Frame pump (window lane, T-137): wave transitions open the wave-gap
+    /// window (async fills — the sim tick never waits on them); every frame
+    /// pumps completions/timeouts, refreshes runtime health (a dead process
+    /// flips the snapshot → 降级矩阵) and mirrors the tier hint on cadence.
+    /// </summary>
+    private void PumpL2Lane()
+    {
+        if (_l2 is null || _waveGap is null)
+        {
+            return;
+        }
+
+        int wave = _host.Simulation.CurrentWave;
+        if (wave != _lastWaveSeen)
+        {
+            _lastWaveSeen = wave;
+            _ = _waveGap.OnWaveGapOpened(); // 波间开窗：派发异步填充（不阻塞帧循环）
+        }
+
+        _waveGap.PumpFrame(); // 完成回投/超时放弃（主线统一落地）
+        _l2.RefreshRuntimeHealth();
+        if (Engine.GetProcessFrames() % L2HintRefreshFrames == 0)
+        {
+            _panel.RefreshL2Surfaces();
+        }
+    }
+
+    /// <summary>One minimal chat request against the local OpenAI endpoint (47-t129 §3.2① warm-up).</summary>
+    private async Task<bool> WarmupLocalServerAsync(int port, CancellationToken cancellationToken)
+    {
+        var request = new Godot.HttpRequest
+        {
+            MaxRedirects = 0,
+            Timeout = 120d,
+            UseThreads = true,
+        };
+        AddChild(request);
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        request.RequestCompleted += (result, code, headers, body) =>
+            completion.TrySetResult(
+                result == (long)Godot.HttpRequest.Result.Success && code is >= 200 and <= 299);
+        cancellationToken.Register(() =>
+        {
+            request.CancelRequest();
+            completion.TrySetResult(false);
+        });
+
+        Error sent = request.Request(
+            $"http://127.0.0.1:{port}/v1/chat/completions",
+            ["Content-Type: application/json"],
+            Godot.HttpClient.Method.Post,
+            """{"messages":[{"role":"user","content":"ping"}],"max_tokens":1}""");
+        if (sent != Error.Ok)
+        {
+            request.QueueFree();
+            return false;
+        }
+
+        bool ok = await completion.Task.ConfigureAwait(true);
+        request.QueueFree();
+        return ok;
     }
 
     /// <summary>
@@ -1155,6 +1296,258 @@ public sealed partial class Main : Control
             GetTree().Quit(1);
         }
     }
+
+    // ------------------------------------------------- T-137 L2 acceptance
+
+    /// <summary>
+    /// T-137 headless acceptance (I 级, F-078/F-163): proves the L2 lane
+    /// inside THIS engine process with SMOKE fakes only — no real model
+    /// download, no real llama-server process (G4 纪律):
+    /// <list type="number">
+    /// <item>route matrix mirrors (L1 floor / L2 ready / L3 desktop / Web 行);</item>
+    /// <item>degradation regression matrix（验收判据）: 模型缺 → L1 横幅；
+    /// 进程死（真实状态机路径：假进程先 Ready 再退出 → RefreshRuntimeHealth
+    /// 翻 ProcessDead）→ L1 横幅；波间超时（假时钟推过 25 s 预算）→ 放弃本轮
+    /// 横幅——三路全部落 L1 且玩家可见；</item>
+    /// <item>wave-gap happy lane: L1 澄清军令入队 → 波间开窗 → 异步填充
+    /// （LookAround 候选）→ 泵回主线 → 五段管线 HandleSystemAction → 军师
+    /// 气泡出 [L2 波间] 报告；开窗派发不等填充（不阻塞断言）；</item>
+    /// <item>runtime state machine: spawn→/health→warm-up→Ready→死亡→降级。</item>
+    /// </list>
+    /// Prints L2_OK / L2_FAIL; failure quits non-zero BEFORE SMOKE_OK.
+    /// </summary>
+    private async Task RunL2SmokeAsync()
+    {
+        if (_l2 is null || _waveGap is null || _l2SmokeFill is null)
+        {
+            GD.PushError("L2_FAIL lane not initialized");
+            GetTree().Quit(1);
+            return; // synchronous headless caller (.Wait()) — no task leaks
+        }
+
+        var problems = new List<string>();
+        var desktop = WebConstraints.Availability(isWeb: false);
+        var web = WebConstraints.Availability(isWeb: true);
+
+        // ---- (1) 路由矩阵镜像（纯表——与面板每次下令同源同判） -----------------
+        var readySnapshot = new EraCore.Llm.L2.L2RuntimeSnapshot(
+            EraCore.Llm.L2.L2RuntimePhase.Ready, ModelPresent: true, RuntimePresent: true);
+        if (EraCore.Llm.L2.L2RouteDecider.Decide(EraCore.Llm.L2.LlmTierKind.L1Grammar, readySnapshot, desktop)
+                is not { EffectiveTier: EraCore.Llm.L2.LlmTierKind.L1Grammar, Downgraded: false }
+            || EraCore.Llm.L2.L2RouteDecider.Decide(EraCore.Llm.L2.LlmTierKind.L2Local, readySnapshot, desktop)
+                is not { EffectiveTier: EraCore.Llm.L2.LlmTierKind.L2Local, Downgraded: false }
+            || EraCore.Llm.L2.L2RouteDecider.Decide(EraCore.Llm.L2.LlmTierKind.L3Cloud, readySnapshot, desktop)
+                is not { EffectiveTier: EraCore.Llm.L2.LlmTierKind.L3Cloud, Downgraded: false })
+        {
+            problems.Add("路由矩阵桌面行镜像不符（L1/L2/L3 三选直通）");
+        }
+
+        EraCore.Llm.L2.L2RouteDecision l2Web = EraCore.Llm.L2.L2RouteDecider.Decide(
+            EraCore.Llm.L2.LlmTierKind.L2Local, readySnapshot, web);
+        EraCore.Llm.L2.L2RouteDecision l3Web = EraCore.Llm.L2.L2RouteDecider.Decide(
+            EraCore.Llm.L2.LlmTierKind.L3Cloud, readySnapshot, web);
+        if (l2Web is not { Downgraded: true, Reason: EraCore.Llm.L2.L2DegradationReason.WebTier }
+            || l3Web is not { Downgraded: true, Reason: EraCore.Llm.L2.L2DegradationReason.WebTier })
+        {
+            problems.Add($"Web 行未降级 L2/L3：l2={l2Web} l3={l3Web}");
+        }
+
+        // ---- (2) 降级回归矩阵：沙盒协调器（.tmp-tests 根——绝不写真模型进真根） --
+        string l2Root = System.IO.Path.Combine(
+            EraCore.IO.DevFileStore.DefaultDevRoot, ".tmp-tests", "l2-smoke");
+        if (System.IO.Directory.Exists(l2Root))
+        {
+            System.IO.Directory.Delete(l2Root, recursive: true);
+        }
+
+        var l2Store = new EraCore.IO.DevFileStore(l2Root);
+        var smokeProcess = new L2.SmokeServerProcess();
+        var smokeProbe = new L2.SmokeHealthProbe();
+        var sandbox = new L2.L2Coordinator(
+            l2Store,
+            new L2.DataRootDownloadFilePort(l2Root),
+            () => new L2.UnreachableDownloadWirePort(),
+            () => new L2.L2RuntimeHost(smokeProcess, smokeProbe, (_, _) => Task.FromResult(true)),
+            desktop);
+
+        long clockNow = 0;
+        var fillPort = new L2.SmokeFillPort();
+        var sandboxWaveGap = new L2.WaveGapL2Service(
+            () => clockNow,
+            new EraCore.Llm.L2.WaveGapFillQueue(() => clockNow),
+            () => fillPort);
+        _panel.BindL2(sandbox, sandboxWaveGap);
+
+        // (2a) 模型缺：L2 选中但无模型文件 → 降 L1 + 中性横幅（玩家可见）
+        sandbox.SelectTier(EraCore.Presentation.L2TierSelection.L2);
+        EraCore.Llm.L2.L2RouteDecision modelMissing = sandbox.DecideRoute();
+        if (modelMissing is not
+            {
+                EffectiveTier: EraCore.Llm.L2.LlmTierKind.L1Grammar,
+                Reason: EraCore.Llm.L2.L2DegradationReason.ModelMissing,
+                Downgraded: true,
+            })
+        {
+            problems.Add($"模型缺路径未降 L1/ModelMissing：{modelMissing}");
+        }
+
+        _panel.RefreshL2Surfaces();
+        if (_panel.L2BannerText != EraCore.Presentation.L2DegradationNotices.BannerZh(
+                EraCore.Llm.L2.L2DegradationReason.ModelMissing))
+        {
+            problems.Add($"模型缺横幅文案不符：{_panel.L2BannerText}");
+        }
+
+        PipelineOutcomeKind? clarified = SubmitSmokeOrder("整个银河系帮我搬砖头"); // L1 澄清军令
+        if (clarified != PipelineOutcomeKind.Clarification)
+        {
+            problems.Add($"L2 降级态军令未走 L1 澄清卡：{clarified}");
+        }
+
+        if (sandboxWaveGap.Queue.Count != 0)
+        {
+            problems.Add("降级态军令不应入波间队列");
+        }
+
+        // (2b) 就绪全链：哑模型/运行时文件（沙盒根内，仅满足路径存在性探测）→ 选 L2 自动拉起（假
+        // 进程+假探针）→ Ready；档位提示切 L2；澄清军令入队 → 波间开窗 →
+        // 异步填充 → 泵回 → 五段管线 → [L2 波间] 报告；开窗不阻塞断言。
+        System.IO.Directory.CreateDirectory(System.IO.Path.Combine(l2Root, "models"));
+        System.IO.Directory.CreateDirectory(System.IO.Path.Combine(l2Root, "runtime", "unpacked"));
+        System.IO.File.WriteAllText(
+            System.IO.Path.Combine(l2Root, "models", EraCore.Llm.L2.L2Facts.Model.FileName), "smoke-dummy-model");
+        System.IO.File.WriteAllText(
+            System.IO.Path.Combine(l2Root, "runtime", "unpacked", "llama-server.exe"), "smoke-dummy-exe");
+
+        sandbox.SelectTier(EraCore.Presentation.L2TierSelection.L2);
+        L2.L2RuntimeStartResult start = sandbox.RuntimeStartTask is { } starting
+            ? await starting.ConfigureAwait(true)
+            : new L2.L2RuntimeStartResult(false, "auto-start missing");
+        if (!start.Ok || sandbox.Snapshot.Phase != EraCore.Llm.L2.L2RuntimePhase.Ready)
+        {
+            problems.Add($"假进程启动未到 Ready：{start.Detail} phase={sandbox.Snapshot.Phase}");
+        }
+
+        if (smokeProbe.Calls == 0)
+        {
+            problems.Add("健康探针未被调用（探测循环未执行）");
+        }
+
+        _panel.RefreshL2Surfaces();
+        if (!_panel.L2TierHintText.Contains("L2 本地模型"))
+        {
+            problems.Add($"就绪档位提示未切 L2：{_panel.L2TierHintText}");
+        }
+
+        fillPort.Enqueue(EraCore.Llm.L2.L2IntentFillResult.Succeeded("""{"action":"LookAround"}"""));
+        PipelineOutcomeKind? queuedOutcome = SubmitSmokeOrder("北边那坨啥情况给我瞅瞅"); // L1 澄清 → 入队
+        if (queuedOutcome != PipelineOutcomeKind.Clarification || sandboxWaveGap.Queue.Count != 1)
+        {
+            problems.Add($"就绪态澄清军令未入波间队列：outcome={queuedOutcome} queue={sandboxWaveGap.Queue.Count}");
+        }
+
+        clockNow = 1_000;
+        EraCore.Llm.L2.L2QueuedFill? opened = sandboxWaveGap.OnWaveGapOpened();
+        if (opened is null)
+        {
+            problems.Add("波间开窗未派发填充");
+        }
+
+        if (_panel.ReportText.Contains("[L2 波间]"))
+        {
+            problems.Add("开窗即同步渲染（填充不得阻塞开窗调用）");
+        }
+
+        sandboxWaveGap.PumpFrame(); // 填充已同步落 _landed → 主线泵回五段管线
+        if (!_panel.ReportText.Contains("[L2 波间]"))
+        {
+            problems.Add($"波间填充未回投五段管线：{_panel.ReportText}");
+        }
+
+        // (2c) 波间超时：悬挂填充口（队列空=永不返回）→ 开窗 → 时钟推过 25 s
+        // 预算 → 泵 → 放弃本轮（横幅+不入管线）。
+        EraCore.Llm.L2.L2QueuedFill? timeoutOrder = SubmitForWaveGap(sandboxWaveGap, "这道令你慢慢想不着急");
+        clockNow += 1_000;
+        _ = sandboxWaveGap.OnWaveGapOpened();
+        clockNow += EraCore.Llm.L2.WaveGapFillQueue.BudgetMs; // 推过预算线
+        bool stillInFlight = sandboxWaveGap.Queue.InFlight is not null;
+        sandboxWaveGap.PumpFrame();
+        if (sandboxWaveGap.Queue.InFlight is not null || !stillInFlight)
+        {
+            problems.Add("超时未放弃在飞单（放弃本轮不卡波）");
+        }
+
+        if (_panel.L2BannerText != EraCore.Presentation.L2DegradationNotices.BannerZh(
+                EraCore.Llm.L2.L2DegradationReason.FillTimeout))
+        {
+            problems.Add($"超时横幅文案不符：{_panel.L2BannerText}");
+        }
+
+        // (2d) 进程死（真实状态机路径）：Ready 后假进程退出 → RefreshRuntimeHealth
+        // 翻 ProcessDead → 降 L1 横幅。
+        smokeProcess.ExitNow();
+        sandbox.RefreshRuntimeHealth();
+        EraCore.Llm.L2.L2RouteDecision dead = sandbox.DecideRoute();
+        if (dead is not
+            {
+                EffectiveTier: EraCore.Llm.L2.LlmTierKind.L1Grammar,
+                Reason: EraCore.Llm.L2.L2DegradationReason.ProcessDead,
+                Downgraded: true,
+            })
+        {
+            problems.Add($"进程死路径未降 L1/ProcessDead：{dead}");
+        }
+
+        _panel.RefreshL2Surfaces();
+        if (!_panel.L2BannerText.Contains("进程已退出"))
+        {
+            problems.Add($"进程死横幅文案不符：{_panel.L2BannerText}");
+        }
+
+        // 停机清理：Stop 后快照回 Idle（文件仍在）——不再占用进程位。
+        sandbox.StopRuntime();
+        if (sandbox.Snapshot.Phase != EraCore.Llm.L2.L2RuntimePhase.Idle)
+        {
+            problems.Add($"停机后快照未回 Idle：{sandbox.Snapshot.Phase}");
+        }
+
+        // 沙盒清场（dev 根 .tmp-tests 下，gitignored）
+        sandbox.Dispose();
+        if (System.IO.Directory.Exists(l2Root))
+        {
+            System.IO.Directory.Delete(l2Root, recursive: true);
+        }
+
+        // 还原绑定（headless 随后退出——保持接线一致性）
+        _panel.BindL2(_l2, _waveGap);
+
+        if (problems.Count == 0)
+        {
+            GD.Print(
+                "L2_OK route=matrix-desktop+web degrade=model-missing+process-dead+fill-timeout" +
+                " wavegap=enqueue-open-pump-nonblocking runtime=spawn-health-warmup-ready-death-idle" +
+                " ui=tier-hint+neutral-banner dataflow=compare-sync tier=persisted-l2-tier-json" +
+                " download=engine-g1-tested(fake-wire) real-model=absent-by-design");
+        }
+        else
+        {
+            GD.PushError("L2_FAIL " + string.Join("; ", problems));
+            GD.Print("L2_FAIL " + string.Join("; ", problems));
+            GetTree().Quit(1);
+        }
+    }
+
+    /// <summary>Submits one order through the REAL panel signal path (smoke helper).</summary>
+    private PipelineOutcomeKind? SubmitSmokeOrder(string order)
+    {
+        _panel.OrderInput.Text = order;
+        _panel.OrderInput.EmitSignal(LineEdit.SignalName.TextSubmitted, order);
+        return _panel.LastOutcome;
+    }
+
+    /// <summary>Enqueues one order straight into a wave-gap queue without the panel gate (timeout-lane helper).</summary>
+    private static EraCore.Llm.L2.L2QueuedFill? SubmitForWaveGap(L2.WaveGapL2Service service, string order) =>
+        service.Enqueue(order);
 
     /// <summary>
     /// ILogSink collector (K-1): captures lines so smoke assertions can read

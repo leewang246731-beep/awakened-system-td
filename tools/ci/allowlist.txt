@@ -79,3 +79,7 @@ R9: game/content/cinematics/visual-assets.json | T-152 素材目录内容：exte
 
 R9: docs/engineering/47-t129-l2-spike.md | T-129 L2 spike report: D:\ llama.cpp/model/toolchain paths are the measured environment facts of the spike (记录性环境事实，同 24/28/40 号先例类；环境事实以 07 §三（附）为准）— T-129 committed the doc without the entry (bd0fc2d), registered here by T-136 to unblock run_all（T-115/T-078 补登记先例）
 T2: game/src/EraCore/Cinematics/FinalePlayback.cs | T-136 终章播片纯决策（开关二选一+信任档键+真相锚词常量，零状态零 I/O）：由 FinaleCinematicsTests 全覆盖（开关/信任键/锚词 parity/钩子单发四面断言）——内容域测试名与文件域对齐，不另立同名测试文件
+
+# —— T-137（L2 本地推理正式版）新增声明 ——
+# 纯契约文件（K 端口纪律，行为经端口实现与引擎测试覆盖）：
+T2: game/src/EraCore/Llm/L2/L2DownloadPorts.cs | K-端口纯契约（IL2DownloadWirePort/IL2DownloadFilePort+L2RangeReply）：行为由 L2DownloadEngineTests（引擎全量：续传/校验/取消/失配重试）与 G4 冒烟 Godot 实现面（L2DownloadPorts.cs 表现层侧）覆盖——EraCore 内零实现（LlmLayerGuard 同律），不另立同名测试文件
