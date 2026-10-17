@@ -1,0 +1,96 @@
+{
+  "$schema": "urn:eratd:content:era:1",
+  "content_type": "Era",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；终章时代行锚点=v3.2 §4 L63（docs/我在游戏觉醒系统-游戏设计方案.md 终章 深空 行）+§4 能源阶梯行/跨代资源行+§4 L68（E=6 公式代入）+§5 L78~L79（物流阶梯、仓库等级）；格式先例=era1/era.json（T-049）+era2（T-079）+era3（T-112）+era4（T-123）+era5（T-134）",
+  "items": [
+    {
+      "id": "era6:era-finale",
+      "content_type": "Era",
+      "era_index": 6,
+      "name_zh": "深空",
+      "name_en": "Deep Space",
+      "aliases": ["E6", "终章", "深空", "深空时代"],
+      "resources": [
+        { "id": "era6:res-dark-matter", "name_zh": "暗物质", "name_en": "Dark Matter" },
+        { "id": "era6:res-antimatter", "name_zh": "反物质", "name_en": "Antimatter" },
+        {
+          "id": "era5:res-rare-earth",
+          "name_zh": "稀土",
+          "name_en": "Rare Earth",
+          "legacy_refresh": { "from_era": 5, "abundance_multiplier": 0.5 }
+        },
+        {
+          "id": "era2:res-iron",
+          "name_zh": "铁",
+          "name_en": "Iron",
+          "legacy_refresh": { "from_era": 5, "abundance_multiplier": 0.5 }
+        }
+      ],
+      "_resources_note": "§4 L63 终章资源=反物质/暗物质（本代行两资源：暗物质=本代新矿（暗物质矿脉——仅引力可测的深空矿位）；反物质=炼链制品（era6/recipes.json era6:recipe-antimatter 的输出件，非原料——SupplyChain one key one meaning，era3『钢』/era4『电子·混凝土』/era5『纳米·聚变燃料』同款分立先例）+反物质=本代建造货币（E1 木/E2 铜/E3 钢/E4 混凝土/E5 纳米/E6 反物质跨代货币递进——levels/e6.json initial_stock 货币位））。稀土+铁=上代（E5）2 种基础资源传承刷新（§4 跨代资源行『上代 2 种基础资源刷新（丰度 ×0.5）』：E5 原料集=稀土/石油/铁（era5/recipes.json raw_resources），取稀土（E5 本代新矿·基础位）+铁（连续第四代刷新 E2→E3→E4→E5→E6，from_era 逐代表记紧邻前代）；石油不再续刷（E5 用途=纳米分散介质/弹托衬管，E6 弹链本代化后无用途→无用途旧资源 3:1 折算文明基金，见 legacy/era_transition.json levy；E5 制品纳米/聚变燃料同理折基金）",
+      "energy": {
+        "type": "zero_point",
+        "name_zh": "零点能",
+        "levels": [
+          { "tier": 1, "name_zh": "零点能电池组", "output": 10000000, "_new": true },
+          { "tier": 2, "name_zh": "零点能矩阵", "output": 40000000, "_new": true },
+          { "tier": 3, "name_zh": "真空涨落井", "output": 200000000, "_new": true }
+        ],
+        "ladder_multiplier_min": 3.0,
+        "ladder_multiplier_max": 5.0,
+        "risk_events": false,
+        "_risk_note": "零点能=无风险能源（终章风险口径依据：v3.2 §4 能源阶梯行『E1 粮仓满溢、E3 过热爆炸/E4 熔毁/E5 湮灭风险；E2 无』——终章未列风险项，与 E2 同为无风险档；SP-4 L142 适用代=E3 起的负载率类阶梯风险表，表体仅 E3/E4/E5 三行，无终章行——两处真相源一致：终章零点能不携带任何负载率类风险通道，故本文件无 risk/annihilation/meltdown 块、危险位不设（E4 核电/E5 湮灭芯堆的危险位=风险后果建筑位的前置闸，无风险能源无后果即无闸——era4/era5 反例对照））；risk_events=false 与 era1/era2 同形（E1/E2 人力/水力无负载率风险先例）",
+        "_ladder_source": "能源 L1=10000000（零点能电池组）/L2=40000000（零点能矩阵）/L3=200000000（真空涨落井）为 T-135 任务卡锚带推导（v3.2 §4 能源阶梯行只冻结 ×3~5/级与各代独立计量，未定逐级绝对值）：跨代步=E5 湮灭芯堆 2000000×5=10000000（E4 核电 20000→E5 聚变电池组 100000=×5 跨代步同式）、级内步 40000000/10000000=4、200000000/40000000=5 均 ∈[3,5]（era5 4/5 级内步式同构）——_new 待原型校准"
+      },
+      "logistics": {
+        "tier": 5,
+        "carrier": "teleporter",
+        "carrier_zh": "传送阵",
+        "throughput_items_per_s": null,
+        "ladder_items_per_s": [0.3, 0.6, 10.0, 15.0, 20.0, null],
+        "teleporter": {
+          "available": true,
+          "name_zh": "传送阵",
+          "name_en": "Teleporter"
+        },
+        "_ladder_note": "终章=物流阶梯第 6 档（末位）=∞ 件/s（v3.2 §5 L78 物流阶梯 0.3→0.6→10→15→20→∞ 件/s 的末位 null=∞ 即终章档锚点——任务卡『设计案终章行未标速率则查全文』的查全文结论：§4 L63 终章行物流列只写『传送阵』未标速率，§5 阶梯行六值恰对六代、末位 ∞ 无他代可指，故传送阵=∞ 件/s（非与无人机 20/s 同档——20=E5 无人机档位值）；throughput_items_per_s=null=∞ 的装载器表示，与 ladder 末位 null 同义）。引擎档位=TransportTiers.Teleporter（T-064 已实装：TransportForm.Teleport 即时转移、无行程无服务窗、唯一限制器=TeleporterLink 逐件耗能钩子——『∞耗能』§5 L44）；关卡命令流=drone 20/s 干线（传送阵非 trip 形态、不属 assign-carrier 封闭档位表，e4 传送带 data-first 同款先例：era4/era.json 注记+e4.json 命令流 mine-rail 干线）",
+        "_teleporter_source": "v3.2 §5 L78 物流阶梯末位 ∞（终章档位值）；§4 L63 终章行『传送阵』"
+      },
+      "warehouse_level": 6,
+      "towers": [
+        "era6:tower-spacetime",
+        "era6:tower-singularity"
+      ],
+      "_towers_note": "§4 L63 塔防特色=时空塔/奇点炮（两塔对齐 era6/towers.json 实存行；定类=SP-1b L56~L57 预归类经 T-135 章节设计复核追认：时空塔=减速、奇点炮=能量——A17 预归类占位的终章复核于本行落定）——本数组与 towers.json ids 恰等",
+      "boss": {
+        "enemy_id": "era6:enemy-boss",
+        "name_zh": "堕落守望者",
+        "name_en": "Fallen Watcher",
+        "hp": 120000,
+        "armor": 40
+      },
+      "system_stage": "truth_revelation",
+      "system_stage_zh": "真相揭示（播片对话）",
+      "system_stage_features": ["truth_revelation"],
+      "_system_stage_note": "§4 L63 系统形态=真相揭示（播片对话）——truth_revelation=终章叙事形态位（播片对话本体=T-136 终章叙事与播片任务域，本行只落内容数据位：era6/levels.json slot 3 unlocks features 同源、T-136 落台词/播片脚本时挂接）；全托管可选档 E5 起延续（AutopilotEraGate.FullAutopilotUnlockEra=E5 的 >=谓词自然覆盖 E6——『E5 开』的授权在终章不收回，系统形态阶梯=授权形态升级非降级；19 动作封闭清单无终章新动词（ActionCatalog 全体 UnlockEra≤E2，三源矩阵见 Era6ContentTests），era3/era4/era5 同款注记）",
+      "_narrative_anchor": "终章叙事锚（内容数据位，台词/播片本体=T-136 域）：①堕落守望者=初代守望者（被千年记忆压垮的 predecessor，v3.2 §12 L190——enemies.json era6:enemy-boss 行 _narrative 同源）；②『另一个声音』=零的孪生碎片、终章堕落守望者的内核，E5 起以『回声』人格混入系统（v3.2 §12 L189——E5 起混入的回声在终章收束）；③反转方向=回声因玩家的千年陪伴而选择忠诚，高信任解锁专属终章台词（v3.2 §12 L191——信任 ≥70『言听计从』档的终章专属台词位，台词本体 T-136）；④零=纪元之门崩塌时把自己拆成记忆碎片散入遗迹的上一纪元指挥官 AI 残核（v3.2 §12 L188——纪元之门奇观与零的身世同一锚）",
+      "_formula_substitution": "§4 L68 时代序号代入（E=6）：系统点 1+2×6=13（SystemPointLedger）、卷轴常驻上限 6+2×6=18（ScrollEngine）、BuildPlan cells≤4+2×6=16（JsonSchemaValidator/ActionSchemaTable）、批量建造同限 16（PlayerBuildLane）——四公式全部时代序号参数化，引擎零改动自动到值（Era6ContentTests 公式族断言钉死）",
+      "_new": true,
+      "_new_fields": [
+        "energy.levels[0].output",
+        "energy.levels[1].output",
+        "energy.levels[2].output",
+        "logistics.teleporter",
+        "logistics.throughput_items_per_s"
+      ],
+      "_source": "v3.2 §4 L63 终章行（资源=反物质/暗物质；能源=零点能；物流=传送阵；塔防特色=时空塔/奇点炮；Boss=堕落守望者 HP120000/甲40；系统形态=真相揭示（播片对话））+§4 能源阶梯行（×3~5/级；风险列无终章项→零点能=无风险能源）+§4 跨代资源行（上代 2 种基础资源刷新 丰度 ×0.5）+§4 L68 公式代入（E=6：系统点 13/卷轴 18/BuildPlan 16）+§5 L78~L79（物流阶梯终章=第 6 档 ∞；仓库等级跃迁自动 +1：E5=5→终章=6）——Boss HP/甲为 §4 逐字锚点（与 era6/enemies.json e6_boss 行同值，不得漂移）；仓库等级 6（池上限 2000×6×(1+金字塔 0.2)=12000，附录 F.3）",
+      "_units": {
+        "energy_output": "energy_points_per_second",
+        "throughput_items_per_s": "items_per_second_null_is_unbounded",
+        "abundance_multiplier": "fraction_of_e5_abundance",
+        "hp": "points",
+        "armor": "points",
+        "warehouse_level": "levels"
+      }
+    }
+  ]
+}

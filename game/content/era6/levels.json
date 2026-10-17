@@ -1,0 +1,112 @@
+{
+  "$schema": "urn:eratd:content:level:1",
+  "content_type": "Level",
+  "era": "era6:era-finale",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；终章前三关排期锚点=v3.2 §4 L67（新时代前三关排期：关 1 新能源、关 2 新物流、关 3 考古+英雄+系统新能力）+§11.8（逐关排期：对话级→建造级→巡逻/托管级）+附录 G.2（19 动作解锁时代列）；关卡行属战役命名空间 campaign:（techtree 终章节点=后续内容/进度任务落位、legacy/era_transition.json E5→终章扩展=T-135 落位——本表为排期侧冻结源）；威胁度/胜波公式=v3.2 §7（clamp(0.3+0.3×邻接敌营,0.3,1.2)；胜波 10+⌊威胁度×10⌋）",
+  "first_three_schedule_anchor": {
+    "source": "v3.2 §4 L67 + §11.8（E5→终章跃迁的 era_transition first_three_schedule target_era=6 扩展=T-135，本表为排期侧冻结源）",
+    "slots": [
+      { "slot": 1, "focus": "new_energy", "focus_zh": "新能源" },
+      { "slot": 2, "focus": "new_logistics", "focus_zh": "新物流" },
+      { "slot": 3, "focus": "archaeology_hero_system", "focus_zh": "考古+英雄+系统新能力" }
+    ]
+  },
+  "items": [
+    {
+      "id": "campaign:level-e6-01",
+      "content_type": "Level",
+      "era": "era6:era-finale",
+      "slot": 1,
+      "name_zh": "零点曙光",
+      "name_en": "Zero-Point Dawn",
+      "aliases": ["终章第一关", "零点能关", "零点能教学关"],
+      "focus": "new_energy",
+      "focus_zh": "新能源",
+      "schedule_tier": "dialogue",
+      "schedule_tier_zh": "对话级",
+      "adjacent_enemy_camps": 0,
+      "threat": 0.3,
+      "win_waves": 13,
+      "first_wave_grace_multiplier": 3.0,
+      "teaching_level": true,
+      "awakening_cinematic": false,
+      "unlocks": {
+        "actions": [],
+        "features": ["zero_point_energy"]
+      },
+      "_new": true,
+      "_new_fields": ["adjacent_enemy_camps", "first_wave_grace_multiplier", "unlocks.actions", "name_zh", "name_en"],
+      "_source": "§4 L67 关 1=新能源（零点能开放：era.json energy zero_point L1 零点能电池组 10000000）+零点能教学=T-135 任务卡『关 1 零点能教学』——zero_point_energy=无风险能源（era.json energy.risk_events=false+无 risk/annihilation 块：终章未列风险项→零点能=无风险能源，v3.2 §4 能源阶梯行+SP-4 L142 适用代两处真相源一致——E5 湮灭通道到 E5 止，终章关卡装配 EnergyRisk=null，Era6LevelPlaythroughTests 装配面）+§11.8 对话级+§6 教学关首波宽限 ×3→grace 3.0；unlocks.actions=[]——19 动作封闭清单已于 E2 全解锁（ActionCatalog 全体 UnlockEra≤E2，三源矩阵见 Era6ContentTests），终章无新动词，真相揭示=授权形态升级非动作扩员；邻接敌营 0→威胁度 clamp(0.3+0.3×0)=0.3、胜波 10+⌊0.3×10⌋=13（§7 公式，[NEW] 选值为历代首关最低档，E2~E5 同式递进 13→16→19）；关名 [NEW]；awakening_cinematic=false（§10.4 觉醒演出为 E2 第一关专属锚点）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier"
+      }
+    },
+    {
+      "id": "campaign:level-e6-02",
+      "content_type": "Level",
+      "era": "era6:era-finale",
+      "slot": 2,
+      "name_zh": "传送阵路网",
+      "name_en": "Teleporter Grid",
+      "aliases": ["终章第二关", "传送阵关", "物流关"],
+      "focus": "new_logistics",
+      "focus_zh": "新物流",
+      "schedule_tier": "build",
+      "schedule_tier_zh": "建造级",
+      "adjacent_enemy_camps": 1,
+      "threat": 0.6,
+      "win_waves": 16,
+      "first_wave_grace_multiplier": 2.0,
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "unlocks": {
+        "actions": [],
+        "features": ["teleporter_logistics"]
+      },
+      "_new": true,
+      "_new_fields": ["adjacent_enemy_camps", "first_wave_grace_multiplier", "unlocks.actions", "name_zh", "name_en"],
+      "_source": "§4 L67 关 2=新物流（传送阵 ∞/s 开放：era.json logistics tier 5 carrier teleporter——物流阶梯第 6 档末位 ∞，v3.2 §5 L78 锚点）+T-135 任务卡『传送阵』——∞ 档引擎位=TransportTiers.Teleporter（T-064 已实装 TransportForm.Teleport/TeleporterLink 逐件耗能钩子）；传送阵非 trip 形态、不属 assign-carrier 封闭档位表（e4 传送带 data-first 同款先例：era4/era.json 注记+e4.json 命令流 mine-rail 干线），本批命令流干线=drone 20/s+cart 支线（e2~e5 干线递进先例延续）+§11.8 建造级+§6 首波宽限带 ×1.5~2 上沿 2.0 [NEW]；邻接敌营 1→威胁度 clamp(0.3+0.3×1)=0.6、胜波 10+⌊0.6×10⌋=16（§7 公式）；关名 [NEW]；unlocks.actions=[]（同关 1 注）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier"
+      }
+    },
+    {
+      "id": "campaign:level-e6-03",
+      "content_type": "Level",
+      "era": "era6:era-finale",
+      "slot": 3,
+      "name_zh": "回响考古",
+      "name_en": "Echoes and Digs",
+      "aliases": ["终章第三关", "考古关", "英雄关", "真相关"],
+      "focus": "archaeology_hero_system",
+      "focus_zh": "考古+英雄+系统新能力",
+      "schedule_tier": "patrol",
+      "schedule_tier_zh": "巡逻/托管级",
+      "adjacent_enemy_camps": 2,
+      "threat": 0.9,
+      "win_waves": 19,
+      "first_wave_grace_multiplier": 1.5,
+      "teaching_level": false,
+      "awakening_cinematic": false,
+      "unlocks": {
+        "actions": [],
+        "features": ["archaeology", "hero_recruit", "truth_revelation"]
+      },
+      "_new": true,
+      "_new_fields": ["adjacent_enemy_camps", "first_wave_grace_multiplier", "unlocks.actions", "name_zh", "name_en"],
+      "_source": "§4 L67 关 3=考古+英雄+系统新能力——考古=legacy/archaeology.json 三通道本代续开（F-058，e2~e5-03 同位先例；知识残卷=系统丢失的记忆碎片，考古进度=系统人格成长进度，v3.2 §8 叙事联动在终章=『零』身世收束位）；英雄=每代第 3 关解锁招募（G.2 HeroOrder 行+SP-6『每代第 3 关』——终章英雄行 SP-6 占位、随章节设计定案落位，era6 无 heroes.json，hero_recruit=排期位先行冻结）；系统新能力=truth_revelation（§4 L63 系统形态=真相揭示（播片对话）『设计既定』——era.json system_stage_features 同源；播片对话本体=T-136 终章叙事与播片任务域，本行只落解锁数据位；全托管可选=E5 起延续开启（AutopilotEraGate >=E5 谓词覆盖 E6）；§11.8 巡逻/托管级末档位）+§6 首波宽限带下沿 1.5 [NEW]；邻接敌营 2→威胁度 clamp(0.3+0.3×2)=0.9、胜波 10+⌊0.9×10⌋=19（§7 公式，前三关递进 13→16→19）；关名 [NEW]；unlocks.actions=[]（同关 1 注）",
+      "_units": {
+        "threat": "dimensionless_clamped_0.3_1.2",
+        "adjacent_enemy_camps": "camp_nodes",
+        "win_waves": "waves",
+        "first_wave_grace_multiplier": "multiplier"
+      }
+    }
+  ]
+}

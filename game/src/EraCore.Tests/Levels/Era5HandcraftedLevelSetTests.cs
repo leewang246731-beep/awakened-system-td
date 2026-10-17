@@ -12,8 +12,8 @@ namespace EraCore.Tests.Levels;
 // 解锁链对位、三重目标实例化（SP-8 池+E5 敌特性适配——主宰重力脉冲/湮灭对策
 // 语境）、命令流引用闭合（塔/敌/配方→era5 内容表；drone 20/s 干线=E5 新物流
 // 档的可玩面、力场塔=湮灭对策位首发）、终局关 Boss 行与 era_transition
-// final_levels 缝合边界（E5→终章引用=T-135 域不预置——悬空引用禁律）、装载
-// 确定性。期望值全部锚在内容表/冻结公式（出处写在各断言处注释），解析或校验
+// final_levels 缝合边界（E5→终章引用=T-135 随终章实关行落位——两侧行 id
+// 相等即缝合）、装载确定性。期望值全部锚在内容表/冻结公式（出处写在各断言处注释），解析或校验
 // 失败即红。
 public class Era5HandcraftedLevelSetTests
 {
@@ -395,17 +395,16 @@ public class Era5HandcraftedLevelSetTests
     // ---- 5) 终局关 Boss 行 + 跃迁缝合边界（era_transition ↔ 关卡集） ------
 
     [Fact]
-    public void Final_boss_row_carries_the_boss_wave_and_stays_out_of_the_undelivered_E6_reference()
+    public void Final_boss_row_carries_the_boss_wave_and_matches_the_T135_landed_E6_reference()
     {
-        // [F-003][F-055] 跃迁缝合边界（T-134 口径）：e5-final 是 E5 章压轴 Boss
-        // 关，但 E5→终章跃迁=T-135 域——final_levels[5] 引用必须由 T-135 随终章
-        // 实关行一并落位（本断言钉死『不预置悬空引用』：键 5 不存在，a58c86f
-        // 『引用先行、实关缺失』教训的防复发面——与 E4 行的反面先例相对照：
-        // final_levels[4]=campaign:level-e4-final 引用与实关两侧行 id 相等）。
+        // [F-003][F-055] 跃迁缝合边界（T-135 清账口径）：e5-final 是 E5 章压轴 Boss
+        // 关=E5→终章（第五跳）的 final_levels[5] 引用值——T-135 随终章实关行
+        //（levels/e6.json，本批）落位本引用：引用与实关两侧齐备不悬空
+        //（a58c86f『引用先行、实关缺失』教训的防复发面——与 E4 行的反面先例
+        // 相对照：两侧行 id 相等即缝合）。
         var transition = EraCore.Tests.Legacy.LegacyFixture.Transition();
         Assert.Equal("campaign:level-e4-final", transition.FinalLevels[4]); // E4→E5 硬前置（T-124 落位，本任务域引用侧不变）
-        Assert.False(transition.FinalLevels.ContainsKey(5),
-            "final_levels[5]（E5→终章）=T-135 域——终章实关行落地前不得预置悬空引用");
+        Assert.Equal("campaign:level-e5-final", transition.FinalLevels[5]); // E5→终章硬前置（T-135 落位：实关行=本文件 slot 5 主宰 Boss 关）
 
         var bossRows = E5().Items.Where(l => l.Waves.BossEnemyId is not null).ToList();
         HandcraftedLevel final = Assert.Single(bossRows); // 每文件恰一 Boss 行

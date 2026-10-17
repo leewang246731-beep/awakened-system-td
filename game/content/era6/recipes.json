@@ -1,0 +1,77 @@
+{
+  "$schema": "urn:eratd:content:recipe:1",
+  "content_type": "Resource",
+  "era": "era6:era-finale",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；终章配方集锚点=v3.2 §5 L74~L76（链深 ≤3；1 件弹药=10 发；T1 采集 0.5 件/s/坐席）+§4 L63 终章资源行（反物质/暗物质）+era5/recipes.json 行形先例（T-134）；K-2 15 类封闭枚举无 Recipe 类——配方行随资源经济族走，content_type 薄版声明为 Resource（先例=era2/recipes.json，T-079）；行形状对齐 AmmoRecipe（inputs 篮子/AmmoResource/CraftTicks，一 craft 产 1 件）；全部篮子/时长 [NEW] 待原型校准",
+  "raw_resources": [
+    { "resource": "era6:res-dark-matter", "name_zh": "暗物质" },
+    { "resource": "era5:res-rare-earth", "name_zh": "稀土（传承刷新）" },
+    { "resource": "era2:res-iron", "name_zh": "铁（传承刷新）" }
+  ],
+  "_raw_note": "深度 1 原料集=本代可采原料三件（暗物质=本代新矿（暗物质矿脉——仅引力可测的深空矿位）；稀土/铁=上代（E5）2 种基础资源传承刷新，§4 跨代资源行——E5 原料集=稀土/石油/铁，取稀土（E5 本代新矿）+铁（连续第四代刷新）；石油不再续刷=无用途旧资源 3:1 折算文明基金）。反物质（era.json 资源行成员，§4 L63 点名）为炼链制品（era6:recipe-antimatter 输出）——SupplyChain one key one meaning：制品不入原料表（era3『钢』/era4『电子·混凝土』/era5『纳米·聚变燃料』分立先例）；反物质=本代建造货币（E1 木/E2 铜/E3 钢/E4 混凝土/E5 纳米/E6 反物质跨代货币递进）",
+  "chain_depth_max": 3,
+  "_chain_note": "v3.2 §5 L74 链深 ≤3（原料=1，制品=1+最深输入）——本表最深=奇点弹/时序单元 3（暗物质/稀土(1)→反物质(2)→弹药(3)），守卫=SupplyChain.Validate（T-034），Era6ContentTests 装载校验",
+  "items": [
+    {
+      "id": "era6:recipe-antimatter",
+      "content_type": "Resource",
+      "kind": "intermediate",
+      "era_index": 6,
+      "name_zh": "反物质",
+      "name_en": "Antimatter",
+      "aliases": ["反物质", "反物质单元", "湮灭料", "antimatter"],
+      "inputs": [
+        { "resource": "era6:res-dark-matter", "amount": 2 },
+        { "resource": "era5:res-rare-earth", "amount": 1 }
+      ],
+      "output": { "resource": "era6:res-antimatter", "amount": 1 },
+      "craft_ticks": 150,
+      "chain_depth": 2,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "暗物质→反物质炼链主件（§4 L63 资源=反物质/暗物质+T-135 任务卡『终章 深空』章设）[NEW 数值标注]——篮子 2 暗物质+1 稀土→1 反物质（暗物质=引力囚禁位（反物质的深空囤积形态——本代新矿的本代用途落位）；稀土=磁约束阱催化位（传承刷新稀土的本代用途落位——E5 磁约束壳体用铁、E6 稀土位对调）、时长 150 ticks（5 s@30 Hz，对齐 E3 炼钢/E4 电子/E5 纳米档）待原型校准；链位=中间件（深度 2：暗物质/稀土(1)→反物质(2)），奇点弹/时序单元的前置+本代建造货币（E6 反物质=levels/e6.json initial_stock 货币位）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era6:recipe-singularity-shell",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 6,
+      "name_zh": "奇点弹",
+      "name_en": "Singularity Shell",
+      "aliases": ["奇点弹", "奇点弹丸", "坍缩弹", "singularity shell"],
+      "inputs": [
+        { "resource": "era6:res-antimatter", "amount": 1 },
+        { "resource": "era2:res-iron", "amount": 2 },
+        { "resource": "era6:res-dark-matter", "amount": 1 }
+      ],
+      "output": { "resource": "era6:ammo-singularity-shell", "amount": 1 },
+      "craft_ticks": 210,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era6:tower-singularity 弹药位（era6/towers.json）[NEW 数值标注]——篮子 1 反物质+2 铁+1 暗物质→1 件（反物质=装药、铁=弹芯（传承刷新铁的本代用途落位——连续第五代弹芯位）、暗物质=坍缩引信）、时长 210 ticks（7 s@30 Hz，重于 E4 导弹/E5 轨道弹丸 210 同档大质量低速档）待原型校准；链位=链深天花板锚（暗物质/稀土(1)→反物质(2)→奇点弹(3)=§5 链深 ≤3 恰用满，SupplyChain 边界行）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    },
+    {
+      "id": "era6:recipe-chrono-cell",
+      "content_type": "Resource",
+      "kind": "ammo",
+      "era_index": 6,
+      "name_zh": "时序单元",
+      "name_en": "Chrono Cell",
+      "aliases": ["时序单元", "时序电池", "曲率单元", "chrono cell"],
+      "inputs": [
+        { "resource": "era6:res-dark-matter", "amount": 2 },
+        { "resource": "era6:res-antimatter", "amount": 1 }
+      ],
+      "output": { "resource": "era6:ammo-chrono-cell", "amount": 1 },
+      "craft_ticks": 150,
+      "chain_depth": 3,
+      "_new": true,
+      "_new_fields": ["inputs", "craft_ticks"],
+      "_source": "era6:tower-spacetime 弹药位（era6/towers.json）[NEW 数值标注]——篮子 2 暗物质+1 反物质→1 件（暗物质=曲率场源、反物质=时序激发能——时空曲率场的供能位）、时长 150 ticks（5 s@30 Hz——时空塔 reload 15t/2 发/s 的供弹节奏 0.2 件/s 需求恰等于单转换器产能 1/150t，E5 力场单元 150 同值档）待原型校准；链位=链深天花板锚（暗物质/稀土(1)→反物质(2)→时序单元(3)恰用满）",
+      "_units": { "amount": "items", "craft_ticks": "ticks_at_30hz" }
+    }
+  ]
+}

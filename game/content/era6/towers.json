@@ -1,0 +1,90 @@
+{
+  "$schema": "urn:eratd:content:building:1",
+  "content_type": "Building",
+  "era": "era6:era-finale",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）；数值锚点出处见各 item 的 _source 字段（T-135；格式先例=era1/towers.json T-049+era2 T-065+era3 T-112+era4 T-123+era5 T-134）；F.5 基准表仅钉 E2 行——终章全部数值为 F.5 类推锚带 [NEW]（标注推导式），待原型校准",
+  "ammo_convention": {
+    "shots_per_ammo_item": 10,
+    "_source": "v3.2 §5 L78「1 件弹药 = 10 发」（docs/我在游戏觉醒系统-游戏设计方案.md）"
+  },
+  "items": [
+    {
+      "id": "era6:tower-singularity",
+      "content_type": "Building",
+      "class": "energy",
+      "name_zh": "奇点炮",
+      "name_en": "Singularity Cannon",
+      "aliases": ["奇点炮", "奇点", "黑洞炮", "singularity cannon"],
+      "tier": 1,
+      "max_tier": 1,
+      "tier_line": "standard",
+      "cost_total": 4860,
+      "dps": 1920.0,
+      "damage_per_shot": 640,
+      "reload_ticks": 10,
+      "range_cells": 15.5,
+      "hp": 2560,
+      "ammo_item": "era6:ammo-singularity-shell",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "armor_pierce": true
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item", "traits.armor_pierce"],
+      "_source": "定类锚点 SP-1b L57「终章 奇点炮=能量（预归类 [NEW-章节设计复核]）」——T-135 复核追认（定向坍缩弹：超远程奇点投射位；对重甲/护盾）。max_tier 1（终章两塔对齐 §4 L63 塔防特色两名——不发明 T2 行，E5 力场塔 max_tier 1 同款纪律）。F.5 类推锚带 [NEW]：DPS 1920=E5 标准线 T2 终点 1920（跨代基点=前代标准线终点——新时代 T1 不弱于前代任何塔，E3→E4→E5 同性质重演第三步）；射程 15.5=E5 轨道炮 12.5×1.25=15.625 取带内半格网格合法值（±15% 设计带内取值，v3.2 §6『射程 +25%/级（±15% 设计带内取值）』；与 E5 无人机巢 15.5 同值=跨代基点对齐）；单发/攻速拆分 d=640@3 发/s（reload 10 ticks@30 Hz，640×30/10=1920 自洽；攻速档=E4 导弹塔/E5 轨道炮 reload 10 同档——弹链供给速率对齐前两代，供弹经济学不因跨代翻倍：满射 0.6 件/s 与 E5 轨道炮同需）→ [NEW-T-135 原型校准]；成本 4860=E5 T1 2430×2（[NEW-T-135 原型校准：跨代基点步由 ×3 阶梯改 ×2——池上限公式 2000×等级 线性增长 vs 成本 ×3 跨代链指数增长在终章相交破产：×3 链值 7290×2 塔=14580=仓库 6 池上限 12000 的 121.5%，双炮压轴线不可建造；×2 步=敌表 HP×2/塔 DPS×2 同幅（单位 EHP 造价持平），4860×2=9720=池上限 81%（E5 终局 3 塔 9720/10000=97% 同形）；×3/级严格律=F.5 线内档步的冻结律（本代无线内步），跨代基点=E5『30→90→270→810→2430』类推惯例 [NEW] 可校准——推导链留档 Era6ContentTests）；traits.armor_pierce=true=SP-1a L28 能量类『穿甲』标记（可打断护盾再生 v3.2 §6『穿甲打断』——E4 激光塔/E5 轨道炮同款类标记，堕落守望者盾 4800 的反制位）；hp 2560（=E5 轨道炮 1280×2 跨代步）；弹药件（奇点弹=era6:ammo-singularity-shell）无文档锚点 → _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points"
+      }
+    },
+    {
+      "id": "era6:tower-spacetime",
+      "content_type": "Building",
+      "class": "slow",
+      "name_zh": "时空塔",
+      "name_en": "Spacetime Tower",
+      "aliases": ["时空塔", "时空", "时间塔", "spacetime tower"],
+      "tier": 1,
+      "max_tier": 1,
+      "cost_total": 2430,
+      "dps": 384.0,
+      "damage_per_shot": 192,
+      "reload_ticks": 15,
+      "range_cells": 6.5,
+      "hp": 1920,
+      "ammo_item": "era6:ammo-chrono-cell",
+      "ammo_per_shot": 1,
+      "tier_growth": {
+        "dps_multiplier_per_tier": 2.0,
+        "cost_multiplier_per_tier": 3.0,
+        "range_multiplier_per_tier": 1.25
+      },
+      "traits": {
+        "slow_percent": 30,
+        "slow_ticks": 120
+      },
+      "_new": true,
+      "_new_fields": ["cost_total", "dps", "damage_per_shot", "reload_ticks", "range_cells", "hp", "ammo_item", "traits.slow_percent", "traits.slow_ticks"],
+      "_source": "定类锚点 SP-1b L56「终章 时空塔=减速（预归类 [NEW-章节设计复核]）」——T-135 复核落定：减速类控制场（不以外伤为主；DPS 按 0.2×同级单体带校验 SP-1a L29——384=0.2×1920 恰带内，E5 力场塔 192=0.2×960 同式）；时空曲率场主题=相位突击体（era6:enemy-phase-striker，克减速行）的对位反制位（E5 力场塔↔掠空突击体同构）。max_tier 1（控制场设施不升级，E5 力场塔同款）。F.5 类推锚带 [NEW]：成本 2430=同级武器塔 4860×0.5（支援/控制档折半——E4 雷达/E5 力场塔同带）；单发/攻速拆分 d=192@2 发/s（reload 15 ticks@30 Hz，192×30/15=384 自洽，E5 力场塔 reload 15 同档）→ [NEW]；减速 30%×120 ticks（4 s）=E1 陷阱 slow_percent 30/slow_ticks 120 行锚跨代沿用（E5 力场塔同值沿用先例）；射程 6.5（控制场近中距，E5 力场塔 5.5 跨代步 +1 半格档）；hp 1920（=E5 力场塔 960×2 跨代步）；弹药件（时序单元=era6:ammo-chrono-cell，era6/recipes.json era6:recipe-chrono-cell 输出）无文档锚点 → _new",
+      "_units": {
+        "cost_total": "resource_points",
+        "dps": "points_per_second",
+        "damage_per_shot": "points",
+        "reload_ticks": "ticks_at_30hz",
+        "range_cells": "cells",
+        "hp": "points",
+        "slow_percent": "percent",
+        "slow_ticks": "ticks_at_30hz"
+      }
+    }
+  ]
+}
