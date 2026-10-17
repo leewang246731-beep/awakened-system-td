@@ -160,7 +160,7 @@ public sealed class TtsChannel
             "未配置 API Key：密钥只存本机凭据存储，无 Key 不发任何请求。",
         TtsChannelStatus.NotImplemented =>
             "语音通道已预留，功能随后续版本开放：本次调用未发出任何网络请求。",
-        _ => "语音合成完成。",
+        _ => throw new ArgumentOutOfRangeException(nameof(status), status, "unknown tts channel status."),
     };
 
     private static string EnFor(TtsChannelStatus status) => status switch
@@ -173,6 +173,6 @@ public sealed class TtsChannel
             "No API key configured: keys live only in this machine's credential store; no request is sent without one.",
         TtsChannelStatus.NotImplemented =>
             "Voice channel reserved: the feature ships in a later release; no network request was sent.",
-        _ => "Speech synthesized.",
+        _ => throw new ArgumentOutOfRangeException(nameof(status), status, "unknown tts channel status."),
     };
 }

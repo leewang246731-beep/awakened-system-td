@@ -25,7 +25,8 @@ public enum L2DownloadOutcome
 /// <param name="Outcome">Terminal state.</param>
 /// <param name="ArtifactId">Which artifact.</param>
 /// <param name="Detail">Diagnostic line (exception type / digest mismatch fact; no secrets exist on this lane).</param>
-public sealed record L2DownloadResult(L2DownloadOutcome Outcome, string ArtifactId, string Detail)
+/// <param name="DigestMismatch">Typed retry signal — true only for a sha256 gate failure (a clean restart can help); size-gate and second-mismatch results stay false.</param>
+public sealed record L2DownloadResult(L2DownloadOutcome Outcome, string ArtifactId, string Detail, bool DigestMismatch = false)
 {
     /// <summary>True only when the artifact is usable now.</summary>
     public bool IsUsable => Outcome == L2DownloadOutcome.Completed;
@@ -100,9 +101,9 @@ public sealed class L2DownloadEngine
                 // must not shadow the retry).
                 _files.Delete(FinalPath(artifact));
                 _files.Delete(PartPath(artifact));
-                if (attempt == 0 && result.Detail.Contains("digest", StringComparison.Ordinal))
+                if (attempt == 0 && result.DigestMismatch)
                 {
-                    continue; // digest mismatch ⇒ restart once
+                    continue; // digest mismatch ⇒ restart once (typed signal, not diagnostic text)
                 }
 
                 return result; // size-gate failure ⇒ no restart can help
@@ -148,7 +149,8 @@ public sealed class L2DownloadEngine
                 {
                     return new L2DownloadResult(
                         L2DownloadOutcome.VerificationFailed, artifact.Id,
-                        $"digest mismatch at {verifyPath}");
+                        $"digest mismatch at {verifyPath}",
+                        DigestMismatch: true);
                 }
 
                 if (hashingPart)
@@ -218,7 +220,8 @@ public sealed class L2DownloadEngine
         if (!await VerifyDigestAsync(artifact, PartPath(artifact)).ConfigureAwait(false))
         {
             return new L2DownloadResult(
-                L2DownloadOutcome.VerificationFailed, artifact.Id, $"digest mismatch at {PartPath(artifact)}");
+                L2DownloadOutcome.VerificationFailed, artifact.Id, $"digest mismatch at {PartPath(artifact)}",
+                DigestMismatch: true);
         }
 
         _files.Delete(FinalPath(artifact));

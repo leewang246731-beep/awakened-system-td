@@ -72,7 +72,6 @@ public static class L2RouteDecider
             L2RuntimePhase.Downloading or L2RuntimePhase.Starting or L2RuntimePhase.Idle
                 => L2RouteDecision.DegradeToL1(L2DegradationReason.NotReady),
             L2RuntimePhase.ProcessDead => L2RouteDecision.DegradeToL1(L2DegradationReason.ProcessDead),
-            _ => L2RouteDecision.DegradeToL1(L2DegradationReason.ProcessDead),
         };
     }
 }

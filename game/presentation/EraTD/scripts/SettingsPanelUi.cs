@@ -368,7 +368,7 @@ public sealed partial class SettingsPanelUi : Control
 
         // T-137 军师三档下拉（索引=L2TierSelection 枚举序；文案锚 §11.5 三档）
         _advisorTierDropdown.AddItem("L1 军令语法（默认·离线，不发送数据）");  // L1 = 0
-        _advisorTierDropdown.AddItem("L2 本地模型（可选下载 ~1.8 GB，本地推理）"); // L2 = 1
+        _advisorTierDropdown.AddItem($"L2 本地模型（可选下载 {EraCore.Llm.L2.L2Facts.ModelSizeZh}，本地推理）"); // L2 = 1（尺寸措辞单源 L2Facts.ModelSizeZh）
         _advisorTierDropdown.AddItem("L3 云模型（BYOK，设置页配置服务）");     // L3 = 2
 
         // 协议单选（同一 ButtonGroup → 互斥 radio）
