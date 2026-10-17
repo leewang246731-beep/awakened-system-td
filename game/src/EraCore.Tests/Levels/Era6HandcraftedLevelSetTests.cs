@@ -270,9 +270,14 @@ public class Era6HandcraftedLevelSetTests
         Assert.All(E6().Items, level => Assert.Null(level.Map.HeroCell));
 
         // 非觉醒位不带钩子（era6/levels.json awakening_cinematic 恒 false——
-        // §10.4 觉醒演出=E2 第一关专属锚）
+        // §10.4 觉醒演出=E2 第一关专属锚）；唯一例外=e6-final 胜利拍真相播片位
+        //（T-136 F-108：cinematic:finale-zero 的钩子行——FinalePlayback.FinaleHookId 同 id）
         Assert.All(E6().Items, level => Assert.False(level.AwakeningCinematic));
-        Assert.All(E6().Items, level => Assert.Empty(level.CinematicHooks));
+        Assert.All(E6().Items.Where(level => level.Id != "campaign:level-e6-final"),
+            level => Assert.Empty(level.CinematicHooks));
+        CinematicHook truth = Assert.Single(Level(5).CinematicHooks);
+        Assert.Equal("campaign:hook-e6-finale-truth", truth.Id);
+        Assert.Equal("victory", truth.Beat);
 
         foreach (HandcraftedLevel level in E6().Items)
         {

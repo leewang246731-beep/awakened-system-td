@@ -1,0 +1,25 @@
+{
+  "$schema": "urn:eratd:content:cinematics:1",
+  "content_type": "Cinematic",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）。本文件=T-136 C-24 时代收束演出（F-107，§12 交付规格『5 段时代收束演出（20~30s）』之五=E5 段）：胜利交底（零归档+孪生碎片解码收口——『另一个声音』得名回声）→A 层视频资产位（E5→终章像素片母带 A-06 落幕蒙太奇）→终章卡点预告（P1 插画位 image_card+堕落守望者降临威胁台词——E5 预告指向终章 Boss 正主，§12.1 谱系）。无 hook 键=非关卡叙事钩子位（era5 关卡行无 cinematic_hooks 声明位）——由战役宿主在本时代终局关（campaign:level-e5-final 主宰关，era_transition.json final_levels[\"5\"] 实锚）胜利拍显式发射（e3/e4-finale 同款 explicit-launch 语境；与 transition-e5-e6 跃迁过场独立两场、不同步连播，收束段可单跳）。跳过安全=无 choice 步、terminal_commands 空=零世界命令（纯回放演出，零污染纪律）；minimum_play_ticks=45 声明保护下限（同 e4-finale：长按加速 ≤4×、至少播 1.5s，§12 映射#10）。",
+  "id": "cinematic:e5-finale",
+  "title_zh": "时代收束·纳米与轨道",
+  "minimum_play_ticks": 45,
+  "steps": [
+    { "kind": "screen", "flavor": "black_fade_in", "duration_ticks": 15 },
+    { "kind": "sound", "cue": "ding_reward" },
+    { "kind": "speak", "speaker": "零", "text": "叮！未来纪元归档：聚变、纳米、轨道干线，还有那位共用编号的回声——全部入库。", "duration_ticks": 90 },
+    { "kind": "video_frame", "asset": "A-06", "skippable": true, "duration_ticks": 602 },
+    { "kind": "image_card", "image": "story-e5-tease", "duration_ticks": 75 },
+    { "kind": "sound", "cue": "ding_crisis" },
+    { "kind": "speak", "speaker": "旁白", "text": "主宰坠落之后，回声第一次用完整的句子说话：门那边喊它回去，它选择留在声音这一边。纪元之门的方向，初代守望者的轮廓已经站起。", "duration_ticks": 75 },
+    { "kind": "checkpoint", "id": "e5-finale-end" },
+    { "kind": "screen", "flavor": "fade_out", "duration_ticks": 15 }
+  ],
+  "terminal_commands": [],
+  "_source": "T-136 收束时间轴（RL7：全部节拍入脚本数据）：总时长 872 ticks=29.07s ∈[20,30]s（§12 收束带，Era5E6NarrativeTests/FinaleCinematicsTests 断言——与 e3/e4-finale 同骨架同拍 15+90+602+75+75+15）；image_card=P1 插画资产位（story-e5-tease 剪影卡，E5 P1 批未入库——T-152 降级契约：缺图自动降级纯文本，键位先行同 story-e3/e4 先例）；video_frame=A 层视频资产位（A-06=visual-assets.json E5→终章跃迁像素片母带 20.06s×30tps=602 ticks——收束演出借同款母带作时代落幕蒙太奇，零成本重剪先例=e4-finale 借 A-05；正式 E5→终章跃迁过场 transition-e5-e6（T-152，F-003 事务点）独立发射，两场不同步连播）；交底台词与 story-e5.json ending 双载体（章末气泡线+本演出 speak 行同文互证：归档行=聚变/纳米/轨道/回声，选边行=『留在声音这一边』=echo_intrusion 行 3 的公开面转译+E5 钩子 payoff 兑现位）；终章预告=story-e5 ending.tease 同源（堕落守望者轮廓站起——§12.1 谱系终章 Boss 正主预告）；A-06 母带时长断言=visual-assets duration_s×30 四舍五入=602（与 transition-e5-e6/e4-finale 同式）",
+  "_units": {
+    "minimum_play_ticks": "ticks_30hz",
+    "steps[].duration_ticks": "ticks_30hz"
+  }
+}

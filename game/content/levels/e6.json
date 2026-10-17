@@ -572,7 +572,13 @@
         "strategy": ["campaign:obj-s3"],
         "challenge": ["campaign:obj-c4"]
       },
-      "cinematic_hooks": [],
+      "cinematic_hooks": [
+        {
+          "id": "campaign:hook-e6-finale-truth",
+          "trigger": { "beat": "victory" },
+          "_source": "T-136 终章真相播片触发位（F-108）：守望者降临关胜利拍=堕落守望者坠落时刻=真相揭示时刻——CinematicHookRouter 单发接线 cinematic:finale-zero（hook 键同 id 互证，FinalePlayback.FinaleHookId 冻结常量）；与结算演出（victory.json explicit-launch）两场不同步连播（结算先行、播片压轴，e3/e4-finale 同款语境）；关闭系统时宿主按系统开关选播字幕版 cinematic:finale-zero-off（FinalePlayback.ScriptIdFor，R2 硬标准：真相以字幕/旁白载体完整传达）"
+        }
+      ],
       "unlocks": { "actions": [], "features": [] },
       "requires_wonder_note": "纪元之门（campaign:wonder-era-gate，附录 F.3 奇观链第六环=终章通关之门）建成后本关可通——跃迁硬条件语义的终点形态：终章无后继跃迁（final_levels 键域 1..5），奇观门从『跃迁前置』升格为『通关前置』；数据位消费=WonderFinaleGateBoard（wonders.json finale_gate 行 × LegacyLedger 建成态——T-135）",
       "_new": true,

@@ -62,9 +62,17 @@ internal static class CinematicContent
             Read("cinematics", $"transition-{fromEra}-{toEra}.json"),
             $"cinematics/transition-{fromEra}-{toEra}.json");
 
-    /// <summary>The T-152 finale script (A-07 终章播片位).</summary>
+    /// <summary>The T-152/T-136 finale script (A-07 终章播片位, truth wiring by T-136).</summary>
     public static CinematicScript Finale() =>
         CinematicScript.Parse(Read("cinematics", "finale-zero.json"), "cinematics/finale-zero.json");
+
+    /// <summary>The T-136 off-system subtitle variant of the finale (关闭系统字幕版).</summary>
+    public static CinematicScript FinaleOff() =>
+        CinematicScript.Parse(Read("cinematics", "finale-zero-off.json"), "cinematics/finale-zero-off.json");
+
+    /// <summary>The T-136 E5 era-wrap performance (§12 收束之五, 20~30s band).</summary>
+    public static CinematicScript E5Finale() =>
+        CinematicScript.Parse(Read("cinematics", "e5-finale.json"), "cinematics/e5-finale.json");
 
     /// <summary>Repo root (the directory containing game/assets — T-152 入库产物探针).</summary>
     public static string RepoRoot()

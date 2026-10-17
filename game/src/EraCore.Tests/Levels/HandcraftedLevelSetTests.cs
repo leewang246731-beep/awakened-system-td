@@ -472,7 +472,19 @@ public class HandcraftedLevelSetTests
 
         foreach (HandcraftedLevel level in AllLevels().Where(l => !l.AwakeningCinematic))
         {
-            Assert.Empty(level.CinematicHooks);
+            // T-136 终章真相播片位（F-108）：非觉醒关唯一例外=e6-final 胜利拍钩子行
+            //（堕落守望者坠落时刻=真相揭示时刻——awakening_cinematic 仍 false：觉醒位
+            // 语义不变，本行是独立的新钩子类目，FinalePlayback.FinaleHookId 同 id 冻结）
+            if (level.Id == "campaign:level-e6-final")
+            {
+                CinematicHook truth = Assert.Single(level.CinematicHooks);
+                Assert.Equal("campaign:hook-e6-finale-truth", truth.Id);
+                Assert.Equal("victory", truth.Beat);
+            }
+            else
+            {
+                Assert.Empty(level.CinematicHooks);
+            }
         }
     }
 

@@ -1,0 +1,24 @@
+{
+  "$schema": "urn:eratd:content:cinematics:1",
+  "content_type": "Cinematic",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（溯源/口径）。本文件=T-136 F-108 终章播片·关闭系统字幕版（R2 硬标准：关闭系统可全通关全成就警报不缺失——播片面口径=系统关闭时真相以字幕/旁白载体完整传达）：同 A-07 母带+同 e6→e1 回环+同保护下限，三段真相全部由『旁白』字幕承载（OffModeDowngrade 中性横幅同律：无人格措辞、无 ding 音效位——系统关闭=零不出声，事实照常播报）。无 hook 键=开关选择变体（FinalePlayback.ScriptIdFor(systemEnabled) 二选一：hook 路由只认领 on 版=campaign:hook-e6-finale-truth 单场演出语义，宿主在 e6-final 胜利拍按系统开关选播本版）。",
+  "id": "cinematic:finale-zero-off",
+  "title_zh": "终章·零的真相揭示（关闭系统字幕版）",
+  "minimum_play_ticks": 90,
+  "steps": [
+    { "kind": "screen", "flavor": "black_fade_in", "duration_ticks": 20 },
+    { "kind": "video_frame", "asset": "A-07", "skippable": true, "duration_ticks": 2706 },
+    { "kind": "palette_shift", "from_era": "e6", "to_era": "e1", "duration_ticks": 120 },
+    { "kind": "speak", "speaker": "旁白", "text": "字幕：上一纪元崩塌那夜，指挥官 AI『零』把自己拆成记忆碎片，散入每一座守望塔的影子里——不是逃，是等。", "duration_ticks": 120 },
+    { "kind": "speak", "speaker": "旁白", "text": "字幕：孪生的另一半从守望者的躯壳里走出来，回声归位。千年的陪伴换来它的选择：忠诚，不是背叛。", "duration_ticks": 120 },
+    { "kind": "speak", "speaker": "旁白", "text": "字幕：纪元之门在身后合拢。上一纪元的最后一道命令执行完毕：等一个宿主，陪他把门守住——等你，等到了。", "duration_ticks": 120 },
+    { "kind": "checkpoint", "id": "finale-zero-off-end" },
+    { "kind": "screen", "flavor": "fade_out", "duration_ticks": 20 }
+  ],
+  "terminal_commands": [],
+  "_source": "T-136 关闭系统字幕版（R2 播片面）：步骤骨架与 finale-zero.json 逐位同构（screen/video A-07 2706/palette e6→e1/三 speak/checkpoint/screen）——唯一差异=speaker 零→旁白（三段真相前缀『字幕：』明示载体）+无 sound 步（on 版本身无 ding 步，两版同净）；真相 parity=FinalePlayback.TruthAnchors 四锚词（记忆碎片/孪生/忠诚/纪元之门）两版逐词齐（关闭系统不掉真相——T-130 offsystem 硬验收的终章延伸位）；全片 3206 ticks=106.9s 与 on 版同拍；跳过安全=无 choice 步+terminal_commands 空+minimum_play_ticks=90 同保护下限",
+  "_units": {
+    "minimum_play_ticks": "ticks_30hz",
+    "steps[].duration_ticks": "ticks_30hz"
+  }
+}
