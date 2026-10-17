@@ -236,17 +236,27 @@ public class Era5HandcraftedLevelSetTests
             Assert.True(grant <= 2000.0 * WarehouseLevel("era5"), $"{level.Id}: 授予 {grant} 超过仓库池上限");
         }
 
-        // e5-final 升级差价覆盖（轨道炮 2430→无人机巢 7290：差额 4860=
-        // TowerEstateOps DifferentialCost 口径）——授予 10000 ≥ 塔 4860+升级 4860=9720
-        HandcraftedLevel final = Level(5);
-        Assert.Equal(10000.0, final.InitialStock.Sum(line => line.Amount), 9);
-        Assert.Contains(final.CommandScript, step => step.Verb == "upgrade-tower" && step.ToTier == 2);
-        double finalCost = final.CommandScript
+        // e5-02 无人机巢升级差价覆盖（轨道炮 2430→无人机巢 7290：差额 4860=
+        // TowerEstateOps DifferentialCost 口径——升级位=『无人机航路』主题关，
+        // T-134 原型校准布局分工：e5-02=双轨炮+巢换装线、e5-final=纯轨炮三座线）
+        // + e5-final 三轨炮线覆盖。
+        HandcraftedLevel droneLane = Level(2);
+        Assert.Equal(10000.0, droneLane.InitialStock.Sum(line => line.Amount), 9);
+        Assert.Contains(droneLane.CommandScript, step => step.Verb == "upgrade-tower" && step.ToTier == 2);
+        double laneCost = droneLane.CommandScript
             .Where(step => step.Verb == "build-tower")
             .Sum(step => towers[step.Tower!].CostTotal)
             + (7290 - 2430); // 升级差价
+        Assert.True(droneLane.InitialStock.Sum(line => line.Amount) >= laneCost,
+            $"e5-02 授予 8400 须覆盖塔价+升级差价 {laneCost}");
+        HandcraftedLevel final = Level(5);
+        Assert.Equal(10000.0, final.InitialStock.Sum(line => line.Amount), 9);
+        Assert.DoesNotContain(final.CommandScript, step => step.Verb == "upgrade-tower"); // 纯轨炮线
+        double finalCost = final.CommandScript
+            .Where(step => step.Verb == "build-tower")
+            .Sum(step => towers[step.Tower!].CostTotal);
         Assert.True(final.InitialStock.Sum(line => line.Amount) >= finalCost,
-            $"e5-final 授予 10000 须覆盖塔价+升级差价 {finalCost}");
+            $"e5-final 授予 10000 须覆盖塔价 {finalCost}");
     }
 
     // ---- 3) 三重目标实例化（SP-8 池 + E5 敌特性适配） [F-055] -------------

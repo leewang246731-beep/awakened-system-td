@@ -272,4 +272,51 @@ internal static class HandcraftedLevelContent
             .GetProperty("energy").GetProperty("meltdown").GetProperty("consequences")
             .GetProperty("radiation_zone_hp_decay_per_s").GetDouble();
     }
+
+    /// <summary>
+    /// The E5 fusion risk tables of era5/era.json (overheat 沿用 + annihilation),
+    /// assembled into the production <see cref="EnergyRiskTuning"/> (T-134: E5
+    /// 关卡把内容阈值行挂进 SimulationConfig——过热沿用 E3 表值+湮灭通道 E5 起
+    /// 挂入、熔毁通道=null（聚变代无核电，SP-4 行域：E4=熔毁/E5=湮灭）；数值
+    /// 全部出自内容表，CS-2.3).
+    /// </summary>
+    public static EnergyRiskTuning Era5EnergyRisk()
+    {
+        using var doc = JsonDocument.Parse(ReadText("era5", "era.json"));
+        JsonElement energy = doc.RootElement.GetProperty("items").EnumerateArray().Single()
+            .GetProperty("energy");
+        JsonElement row = energy.GetProperty("risk");
+        JsonElement trigger = row.GetProperty("trigger");
+        JsonElement heat = row.GetProperty("heat_dynamics");
+        JsonElement consequences = row.GetProperty("consequences");
+        JsonElement annihilation = energy.GetProperty("annihilation");
+        JsonElement aTrigger = annihilation.GetProperty("trigger");
+        JsonElement aConsequences = annihilation.GetProperty("consequences");
+        var tuning = new EnergyRiskTuning(
+            Overheat: new OverheatTuning(
+                OverloadLoadRatio: trigger.GetProperty("overload_threshold_percent").GetDouble() / 100.0,
+                OverloadSustainedSeconds: trigger.GetProperty("sustained_s").GetDouble(),
+                HeatCapacity: trigger.GetProperty("heat_capacity").GetDouble(),
+                BaseHeatPerSecond: heat.GetProperty("gain_per_s_overloaded").GetDouble(),
+                HeatLoadStepRatio: heat.GetProperty("overload_step_percent").GetDouble() / 100.0,
+                HeatPerLoadStepPerSecond: heat.GetProperty("bonus_gain_per_s_per_extra_10pct_overload").GetDouble(),
+                HeatCooldownPerSecond: heat.GetProperty("decay_per_s_unloaded").GetDouble(),
+                ExplosionRadiusCells: row.GetProperty("explosion_radius_cells").GetDouble(),
+                BuildingDamageMaxHpFraction: consequences.GetProperty("building_damage_fraction_of_max_hp").GetDouble(),
+                EnemyDamage: consequences.GetProperty("enemy_damage").GetDouble(),
+                GeneratorDowntimeSeconds: consequences.GetProperty("culprit_outage_s").GetDouble(),
+                GeneratorDerateFraction: consequences.GetProperty("culprit_degraded_output_fraction").GetDouble(),
+                GeneratorDerateSeconds: consequences.GetProperty("culprit_degraded_duration_s").GetDouble()),
+            Meltdown: null, // E5 聚变代无熔毁通道（SP-4 行域：E4=熔毁/E5=湮灭）
+            Annihilation: new AnnihilationTuning(
+                OverloadLoadRatio: aTrigger.GetProperty("overload_threshold_percent").GetDouble() / 100.0,
+                OverloadSustainedSeconds: aTrigger.GetProperty("sustained_s").GetDouble(),
+                ExplosionRadiusCells: annihilation.GetProperty("explosion_radius_cells").GetDouble(),
+                UnitDamage: aConsequences.GetProperty("unit_damage").GetDouble(),
+                ChainDamageDecayFraction: aConsequences.GetProperty("chain_reaction").GetProperty("damage_decay_per_chain").GetDouble(),
+                ForceFieldRadiusMultiplier: aConsequences.GetProperty("force_field_radius_multiplier").GetDouble(),
+                WreckRecoveryCostFraction: aConsequences.GetProperty("wreck_recovery_cost_fraction").GetDouble()));
+        tuning.Validate();
+        return tuning;
+    }
 }

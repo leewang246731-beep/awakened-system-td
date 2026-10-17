@@ -209,8 +209,44 @@ public sealed class AutopilotDirector
     public static int IterationCap(int wavePoints) =>
         Math.Min(MaxIterationsPerWave, Math.Max(0, wavePoints));
 
-    /// <summary>Player opt-in: arms full autopilot (also the re-arm after a takeover).</summary>
+    /// <summary>
+    /// Player opt-in: arms full autopilot (also the re-arm after a takeover).
+    /// This is the RAW engage of the T-081 lane — the endless tri-board
+    /// (SP-7 手动/系统辅助/全托管, 任选时代) and the test harness use it
+    /// directly; the CAMPAIGN lane must go through the era-gated overload
+    /// below.
+    /// </summary>
     public void EngageFullAutopilot() => Mode = AutopilotMode.FullAutopilot;
+
+    /// <summary>
+    /// Campaign-lane opt-in (T-134, v3.2 §4 L62 系统形态列「E5 全托管可选（设计
+    /// 既定）」): arms full autopilot ONLY from era 5 on — the campaign system
+    /// stage ladder (绑定期→执行期→自主期→多核期→全托管可选) hands the full
+    /// hosting right over at E5 (era5/levels.json slot-3 unlocks feature
+    /// full_autopilot 同源). Before E5 the campaign refuses with
+    /// <see cref="InvalidOperationException"/> and the mode stays unchanged
+    ///（全托管在 E1~E4 主线=未解锁，非可选）；the endless lane is NOT this
+    /// gate's business (its three boards exist at any chosen era, SP-7).
+    /// </summary>
+    /// <param name="campaignEraIndex">Era ordinal of the CAMPAIGN the lane hosts (1=E1 … 5=E5).</param>
+    /// <exception cref="ArgumentOutOfRangeException">campaignEraIndex outside 1..6.</exception>
+    /// <exception cref="InvalidOperationException">Below E5 — the campaign has not unlocked 全托管 yet.</exception>
+    public void EngageFullAutopilot(int campaignEraIndex)
+    {
+        if (campaignEraIndex is < 1 or > 6)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(campaignEraIndex), campaignEraIndex, "Era ordinals run 1 (E1) .. 6 (终章).");
+        }
+
+        if (campaignEraIndex < AutopilotEraGate.FullAutopilotUnlockEra)
+        {
+            throw new InvalidOperationException(
+                $"全托管为 E{AutopilotEraGate.FullAutopilotUnlockEra} 起的可选档（v3.2 §4 系统形态列）：当前战役时代 E{campaignEraIndex} 未解锁（E1 绑定期/E2 执行期/E3 自主期/E4 多核期——按军令与获批计划执行，不全权接管）。");
+        }
+
+        EngageFullAutopilot();
+    }
 
     /// <summary>Host-side off switch: the autopilot lane stops issuing anything.</summary>
     public void Disengage() => Mode = AutopilotMode.Off;

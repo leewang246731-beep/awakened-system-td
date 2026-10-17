@@ -199,7 +199,7 @@ public class Era5ContentTests
         Assert.Equal(45000, boss.Hp);       // §4 L62 逐字锚点
         Assert.Equal(30, boss.Armor);       // §4 L62 逐字锚点
         Assert.Equal(2400, boss.ShieldPoints); // 护盾跨代步（era4 1200×2 [NEW]）
-        Assert.Equal(1.07, boss.SpeedPxPerTick, 9); // 1.0 格/s 移动要塞档 [NEW]
+        Assert.Equal(0.32, boss.SpeedPxPerTick, 9); // 0.3 格/s 历代最重移动要塞档 [NEW-T-134 校准]
     }
 
     // ---- 2) 时代行：v3.2 §4 E5 行逐项 [F-008] [F-009] [F-011] ---------------
@@ -417,8 +417,8 @@ public class Era5ContentTests
     {
         // §4 L62 塔防特色=轨道炮/无人机巢/力场塔（SP-1b L52~L54 预归类经 T-134
         // 章节设计复核追认）；数值=F.5 类推锚带 [NEW]（推导式见 towers.json 各行 _source）
-        { "era5:tower-railgun", 2430, 960.0, 12.5, "energy", 1 },  // 成本 810×3 跨代基点步
-        { "era5:tower-drone-nest", 7290, 1920.0, 15.5, "pierce", 2 }, // 2430×3 严格；960×2 严格
+        { "era5:tower-railgun", 2430, 960.0, 12.5, "energy", 1 },  // 成本 810×3 跨代基点步；320@3 发/s（reload 10=E4 导弹同档）
+        { "era5:tower-drone-nest", 7290, 1920.0, 15.5, "pierce", 2 }, // 2430×3 严格；960×2 严格；256@7.5 发/s
         { "era5:tower-force-field", 1215, 192.0, 5.5, "slow", 1 },   // 控制档=T1 武器塔成本×0.5；DPS 0.2×带
     };
 
@@ -581,7 +581,7 @@ public class Era5ContentTests
         { "e5_barrier_mech", 4800, 24, 0.85 },   // 重甲位（防爆装甲兵 2400×2、甲 18→24、盾 960）
         { "e5_melt_drone", 960, 4, 1.71 },       // 自爆位（自爆无人机 480×2、自爆 480）
         { "e5_nexus_core", 7200, 22, 0.96 },     // 精英光环位（电子战军官 3600×2、甲 16→22）
-        { "e5_boss", 45000, 30, 1.07 },          // Boss（§4 逐字 45000/30；速度 1.0 格/s [NEW]）
+        { "e5_boss", 45000, 30, 0.32 },          // Boss（§4 逐字 45000/30；速度 0.3 格/s 历代最重移动要塞 [NEW-T-134 校准]）
     };
 
     [Theory]
@@ -608,13 +608,14 @@ public class Era5ContentTests
         var boss = FindById(LoadItems("enemies.json"), "era5:enemy-boss");
         Assert.True(boss.GetProperty("is_boss").GetBoolean());
 
-        // 重力脉冲：20 s 周期（600 ticks@30 Hz）半径 3 格 1200 点（E4 夜枭空袭
-        // 30s/2 格/800 行锚对位、半径与伤害上调 [NEW-原型校准]；引擎消费随
+        // 重力脉冲：30 s 周期（900 ticks@30 Hz）半径 3 格 600 点（E4 夜枭空袭
+        // 30s/2 格/800 行锚对位 [NEW-T-134 原型校准：塔线 1520 hp 可受两发，
+        // Boss 33s 亡于第二发前——enemies.json _source 推导]；引擎消费随
         // Boss 战宿主扩展）
         var pulse = ObjectProperty(ObjectProperty(boss, "traits"), "gravity_pulse");
-        Assert.Equal(600, NumberProperty(pulse, "interval_ticks"));
+        Assert.Equal(900, NumberProperty(pulse, "interval_ticks"));
         Assert.Equal(3.0, NumberProperty(pulse, "radius_cells"));
-        Assert.Equal(1200, NumberProperty(pulse, "damage"));
+        Assert.Equal(600, NumberProperty(pulse, "damage"));
 
         // 常规 Boss 尺寸 64~96 px（v3.2 §13.1）→画布取上沿 96（era3/era4 先例）
         Assert.Equal(96, NumberProperty(boss, "canvas_size_px"));

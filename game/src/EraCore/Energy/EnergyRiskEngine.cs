@@ -23,6 +23,15 @@ public enum EnergyRiskEventKind
     /// leaves a radiation zone (地面污染 debuff 地形).
     /// </summary>
     Meltdown = 4,
+
+    /// <summary>
+    /// E5 湮灭 (SP-4 L148): a fusion building's HP hitting zero, or ≥150%
+    /// load sustained 10 s, detonates IMMEDIATELY (无倒计时) — everything
+    /// inside the (force-field-halvable) radius takes the flat unit damage
+    /// and other energy buildings inside chain-detonate (×0.6 decay per
+    /// chain link). T-134.
+    /// </summary>
+    Annihilation = 5,
 }
 
 /// <summary>
@@ -198,6 +207,62 @@ public sealed record MeltdownTuning(
 }
 
 /// <summary>
+/// E5 annihilation parameter row (SP-4 L148; all values [NEW-原型校准],
+/// data-side = era5/era.json <c>energy.annihilation</c>, T-134/RL7).
+/// Semantics: a fusion building's HP reaching zero (the world layer reports
+/// the fact through the <c>fusionHpZero</c> input — the engine is
+/// position-free, it only consumes the flag) OR <c>OverloadLoadRatio</c>
+/// sustained for <c>OverloadSustainedSeconds</c> detonates IMMEDIATELY —
+/// 「无倒计时（即时）」: unlike the E4 meltdown there is NO countdown and NO
+/// interrupt (the counterplay lives on the building side: keep the load
+/// under 150%, keep fusion HP above zero, or stand a force-field tower —
+/// which halves the blast radius, SP-1b L54). The detonation hits
+/// <b>everything</b> inside <c>ExplosionRadiusCells</c> for the flat
+/// <c>UnitDamage</c> (SP-4「半径内一切单位受 2000 伤害」) and
+/// chain-detonates other energy buildings inside the radius with
+/// <c>ChainDamageDecayFraction</c> decay per link (world-layer payload — the
+/// chain needs positions, the engine carries the numbers).
+/// </summary>
+/// <param name="OverloadLoadRatio">Sustained trigger load ratio (1.50 = 150%).</param>
+/// <param name="OverloadSustainedSeconds">Sustained window before the immediate detonation (10 s).</param>
+/// <param name="ExplosionRadiusCells">Detonation radius in cells (8; force-field presence halves it, <see cref="ForceFieldRadiusMultiplier"/>).</param>
+/// <param name="UnitDamage">Flat damage to every unit inside the radius (2000).</param>
+/// <param name="ChainDamageDecayFraction">Per-link damage decay of the chain reaction (0.6 = ×0.6 each).</param>
+/// <param name="ForceFieldRadiusMultiplier">Radius multiplier in force-field presence (0.5 = halved, SP-1b L54).</param>
+/// <param name="WreckRecoveryCostFraction">Wreck repair-recovery fraction of the destroyed fusion plant's original cost (0.3, §十①/F-004 残骸修复同族口径 [NEW-T-134]; SP-4 L148 未列，内容侧补位).</param>
+public sealed record AnnihilationTuning(
+    double OverloadLoadRatio,
+    double OverloadSustainedSeconds,
+    double ExplosionRadiusCells,
+    double UnitDamage,
+    double ChainDamageDecayFraction,
+    double ForceFieldRadiusMultiplier,
+    double WreckRecoveryCostFraction)
+{
+    /// <summary>
+    /// Rejects non-finite values, non-positive durations/radii/damage and
+    /// decay/multiplier fractions outside [0,1] with
+    /// <see cref="ArgumentException"/>; the force-field multiplier must be
+    /// strictly positive (0 would delete the blast, not dampen it).
+    /// </summary>
+    public void Validate()
+    {
+        RiskEnsure.FinitePositive(OverloadLoadRatio, nameof(OverloadLoadRatio));
+        RiskEnsure.FinitePositive(OverloadSustainedSeconds, nameof(OverloadSustainedSeconds));
+        RiskEnsure.FinitePositive(ExplosionRadiusCells, nameof(ExplosionRadiusCells));
+        RiskEnsure.FinitePositive(UnitDamage, nameof(UnitDamage));
+        RiskEnsure.Fraction(ChainDamageDecayFraction, nameof(ChainDamageDecayFraction));
+        RiskEnsure.Fraction(WreckRecoveryCostFraction, nameof(WreckRecoveryCostFraction));
+        if (!double.IsFinite(ForceFieldRadiusMultiplier) || ForceFieldRadiusMultiplier <= 0 || ForceFieldRadiusMultiplier > 1)
+        {
+            throw new ArgumentException(
+                $"Must be a finite multiplier in (0,1] (a dampener, not a deleter), got {ForceFieldRadiusMultiplier}.",
+                nameof(ForceFieldRadiusMultiplier));
+        }
+    }
+}
+
+/// <summary>
 /// One era's energy-risk parameter table (T-113, F-010): the E3 overheat row
 /// is mandatory (SP-4 适用代=E3 起), the E4 meltdown row is nullable — an
 /// era without nuclear plants (E3 蒸汽) passes <c>null</c> and the engine
@@ -205,17 +270,21 @@ public sealed record MeltdownTuning(
 /// of data, 11-spec-tables SP-4 L150 配套口径③「阈值数值入
 /// data/eras/{era}.json，禁止硬编码（RL7）」——the era content loader
 /// constructs this record; the engine reads it, never the reverse).
+/// T-134: the E5 annihilation row is a third nullable channel (E5 聚变;
+/// E4 grids pass <c>null</c> — 熔毁 stays the E4 channel, 湮灭 the E5 one).
 /// </summary>
 /// <param name="Overheat">E3 过热爆炸 parameter row (non-null).</param>
 /// <param name="Meltdown">E4 熔毁 parameter row; null = this era has no meltdown channel.</param>
-public sealed record EnergyRiskTuning(OverheatTuning Overheat, MeltdownTuning? Meltdown)
+/// <param name="Annihilation">E5 湮灭 parameter row (T-134); null = this era has no annihilation channel.</param>
+public sealed record EnergyRiskTuning(OverheatTuning Overheat, MeltdownTuning? Meltdown, AnnihilationTuning? Annihilation = null)
 {
-    /// <summary>Validates both rows (see the row validators).</summary>
+    /// <summary>Validates all rows (see the row validators).</summary>
     public void Validate()
     {
         ArgumentNullException.ThrowIfNull(Overheat);
         Overheat.Validate();
         Meltdown?.Validate();
+        Annihilation?.Validate();
     }
 }
 
@@ -241,6 +310,8 @@ public sealed record EnergyRiskTuning(OverheatTuning Overheat, MeltdownTuning? M
 /// <param name="RadiationZoneSeconds">Ground pollution duration (E4 only).</param>
 /// <param name="RadiationEnemySlowFraction">Speed debuff of enemies crossing the zone (E4 only).</param>
 /// <param name="WreckRecoveryCostFraction">Wreck repair-recovery fraction of the original cost (E4 only).</param>
+/// <param name="ChainDamageDecayFraction">Per-link damage decay of the chain detonation of energy buildings inside the radius (E5 only, T-134; 0 = no chain channel).</param>
+/// <param name="ForceFieldRadiusMultiplier">Blast radius multiplier when a force-field tower stands (E5 only, SP-1b L54; payload — the world layer applies it, the engine is position-free).</param>
 public sealed record EnergyRiskOutcome(
     long Tick,
     EnergyRiskEventKind Kind,
@@ -254,7 +325,9 @@ public sealed record EnergyRiskOutcome(
     double GeneratorDerateSeconds,
     double RadiationZoneSeconds,
     double RadiationEnemySlowFraction,
-    double WreckRecoveryCostFraction);
+    double WreckRecoveryCostFraction,
+    double ChainDamageDecayFraction = 0.0,
+    double ForceFieldRadiusMultiplier = 1.0);
 
 /// <summary>
 /// Parameter-table-driven energy risk engine (C-08, T-113, F-010; SP-4
@@ -300,6 +373,7 @@ public sealed class EnergyRiskEngine
 
     private readonly OverheatTuning _overheat;
     private readonly MeltdownTuning? _meltdown;
+    private readonly AnnihilationTuning? _annihilation;
     private readonly double _ticksPerSecond;
 
     private long _overloadSustainedTicks;
@@ -311,6 +385,9 @@ public sealed class EnergyRiskEngine
     private double _countdownStartLoad;
     private bool _countdownFromCoolantLoss;
     private long _meltdownFires;
+
+    private long _annihilationSustainedTicks;
+    private long _annihilationFires;
 
     /// <summary>
     /// Creates the engine for one era's parameter table. The tuning is
@@ -327,11 +404,15 @@ public sealed class EnergyRiskEngine
 
         _overheat = tuning.Overheat;
         _meltdown = tuning.Meltdown;
+        _annihilation = tuning.Annihilation;
         _ticksPerSecond = ticksPerSecond;
         OverloadSustainTicks = SecondsToTicks(_overheat.OverloadSustainedSeconds);
         MeltdownSustainTicks = _meltdown is null
             ? long.MaxValue
             : SecondsToTicks(_meltdown.OverloadSustainedSeconds);
+        AnnihilationSustainTicks = _annihilation is null
+            ? long.MaxValue
+            : SecondsToTicks(_annihilation.OverloadSustainedSeconds);
     }
 
     /// <summary>Sustained-overload gate of the E3 channel in ticks (30 s = 900).</summary>
@@ -339,6 +420,18 @@ public sealed class EnergyRiskEngine
 
     /// <summary>Sustained-overload gate of the E4 channel in ticks (20 s = 600); long.MaxValue when no meltdown row.</summary>
     public long MeltdownSustainTicks { get; }
+
+    /// <summary>Sustained-overload gate of the E5 channel in ticks (10 s = 300); long.MaxValue when no annihilation row.</summary>
+    public long AnnihilationSustainTicks { get; }
+
+    /// <summary>Whether an E5 annihilation row is attached (hash-fold and ledger-seam gate, T-134).</summary>
+    public bool HasAnnihilation => _annihilation is not null;
+
+    /// <summary>Uninterrupted ≥ annihilation-threshold ticks; any below-threshold settle resets it to 0 (E5 channel state).</summary>
+    public long AnnihilationSustainedTicks => _annihilationSustainedTicks;
+
+    /// <summary>Number of E5 annihilations fired so far (observability, feeds the state hash).</summary>
+    public long AnnihilationFireCount => _annihilationFires;
 
     /// <summary>Heat slot fill 0..<see cref="OverheatTuning.HeatCapacity"/> (E3 channel state).</summary>
     public double Heat => _heat;
@@ -412,6 +505,23 @@ public sealed class EnergyRiskEngine
         long dtTicks,
         double loadRatio,
         bool coolantSupplied,
+        EnergyNodeId? culprit) => OnSettle(tick, dtTicks, loadRatio, coolantSupplied, fusionHpZero: false, culprit);
+
+    /// <summary>
+    /// Full settle including the E5 annihilation channel (T-134, SP-4 L148):
+    /// <paramref name="fusionHpZero"/> is the world layer's report that a
+    /// fusion building's HP reached zero — an IMMEDIATE detonation input
+    /// that bypasses every window (无倒计时). Grids without an annihilation
+    /// row ignore the flag (E3/E4 ledgers call the 5-arg overload, which
+    /// feeds false — their behaviour and hashes are unchanged).
+    /// </summary>
+    /// <param name="fusionHpZero">Whether a fusion building's HP hit zero on this settle (E5 聚变通道).</param>
+    public IReadOnlyList<EnergyRiskOutcome> OnSettle(
+        long tick,
+        long dtTicks,
+        double loadRatio,
+        bool coolantSupplied,
+        bool fusionHpZero,
         EnergyNodeId? culprit)
     {
         if (dtTicks < 1)
@@ -488,7 +598,28 @@ public sealed class EnergyRiskEngine
             }
         }
 
-        if (!overheatArmed && !meltdownArmed)
+        // ---- E5 channel: sustained counter + immediate detonation (SP-4 L148)
+        bool annihilationArmed = false;
+        if (_annihilation is not null)
+        {
+            if (loadRatio >= _annihilation.OverloadLoadRatio)
+            {
+                _annihilationSustainedTicks += dtTicks;
+            }
+            else
+            {
+                _annihilationSustainedTicks = 0;
+            }
+
+            // 无倒计时（即时）: the sustained gate OR a fusion building's HP
+            // hitting zero detonates on THIS settle — no countdown to arm, no
+            // interrupt to grant (counterplay lives on the building side:
+            // load discipline, fusion HP, or a force-field tower halving the
+            // radius at the world layer).
+            annihilationArmed = fusionHpZero || _annihilationSustainedTicks >= AnnihilationSustainTicks;
+        }
+
+        if (!overheatArmed && !meltdownArmed && !annihilationArmed)
         {
             return Array.Empty<EnergyRiskOutcome>();
         }
@@ -499,7 +630,29 @@ public sealed class EnergyRiskEngine
                 $"Energy risk armed at tick {tick} (load {loadRatio:0.###}) but the grid has no producer to be the culprit.");
         }
 
-        fired = new List<EnergyRiskOutcome>(capacity: 2);
+        fired = new List<EnergyRiskOutcome>(capacity: 3);
+
+        if (annihilationArmed && _annihilation is not null)
+        {
+            fired.Add(new EnergyRiskOutcome(
+                Tick: tick,
+                Kind: EnergyRiskEventKind.Annihilation,
+                Culprit: culprit,
+                LoadRatioAtTrigger: loadRatio,
+                RadiusCells: _annihilation.ExplosionRadiusCells,
+                BuildingDamageMaxHpFraction: 0.0, // SP-4 L148: buildings inside take the CHAIN channel, not a max-HP fraction
+                EnemyDamage: _annihilation.UnitDamage, // 半径内一切单位受 2000 伤害（平伤位复用 EnemyDamage 载荷）
+                GeneratorDowntimeSeconds: 0.0,
+                GeneratorDerateFraction: 0.0,
+                GeneratorDerateSeconds: 0.0,
+                RadiationZoneSeconds: 0.0,
+                RadiationEnemySlowFraction: 0.0,
+                WreckRecoveryCostFraction: _annihilation.WreckRecoveryCostFraction, // 残骸修复口径 §十①/F-004 同族（聚变堆损毁成残骸可追回，内容侧行）
+                ChainDamageDecayFraction: _annihilation.ChainDamageDecayFraction, // 连锁引爆 ×0.6 衰减（世界层链式消费）
+                ForceFieldRadiusMultiplier: _annihilation.ForceFieldRadiusMultiplier)); // 力场塔在场半径减半（世界层应用）
+            _annihilationFires++;
+            _annihilationSustainedTicks = 0;
+        }
 
         if (meltdownArmed && _meltdown is not null)
         {
@@ -548,11 +701,13 @@ public sealed class EnergyRiskEngine
     }
 
     /// <summary>
-    /// FNV-1a hash over the full observable engine state (both channels'
+    /// FNV-1a hash over the full observable engine state (the channels'
     /// windows, slot, countdown, counters). Same tuning + same settle
     /// sequence ⇒ equal hashes; folded into the ledger hash only when the
     /// engine is attached (absent engines contribute nothing, so E1/E2
-    /// hashes stay bit-identical).
+    /// hashes stay bit-identical). The E5 annihilation state (T-134) folds
+    /// in ONLY when the row exists — E3/E4 engines keep their pre-T-134
+    /// hashes bit-for-bit (golden stability).
     /// </summary>
     public long ComputeStateHash()
     {
@@ -565,6 +720,12 @@ public sealed class EnergyRiskEngine
         hash = Mix(hash, BitConverter.DoubleToUInt64Bits(_countdownStartLoad));
         hash = Mix(hash, _countdownFromCoolantLoss ? 1UL : 0UL);
         hash = Mix(hash, (ulong)_meltdownFires);
+        if (_annihilation is not null)
+        {
+            hash = Mix(hash, (ulong)_annihilationSustainedTicks);
+            hash = Mix(hash, (ulong)_annihilationFires);
+        }
+
         return unchecked((long)hash);
 
         static ulong Mix(ulong hash, ulong value)

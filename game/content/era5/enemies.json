@@ -183,16 +183,16 @@
       "hp": 45000,
       "armor": 30,
       "shield": 2400,
-      "speed_px_per_tick": 1.07,
-      "speed_cells_per_s": 1.0,
+      "speed_px_per_tick": 0.32,
+      "speed_cells_per_s": 0.3,
       "traits": {
-        "gravity_pulse": { "interval_ticks": 600, "radius_cells": 3.0, "damage": 1200 }
+        "gravity_pulse": { "interval_ticks": 900, "radius_cells": 3.0, "damage": 600 }
       },
       "counters": ["energy", "slow"],
       "canvas_size_px": 96,
       "_new": true,
       "_new_fields": ["speed_px_per_tick", "shield", "traits", "canvas_size_px"],
-      "_source": "V3.2 §4 L62：主宰 HP45000/甲30 为 v3.2 逐字锚点（非 _new，两文件同值不得漂移）；速度 1.07（1.0 格/s——湮灭时代的移动要塞：慢于 E4 夜枭穿透奇袭 1.5 格/s、快于 E1~E3 攻坚 Boss 0.5~0.75 格/s 的中位压制档 [NEW]）；重力脉冲=traits.gravity_pulse（20 s 周期（600 ticks@30 Hz）半径 3 格 1200 点——E4 夜枭空袭 30s/2 格/800 行锚对位、半径与伤害上调 [NEW-原型校准]；引擎消费随 Boss 战宿主扩展）；护盾 2400 点=v3.2 §6『护盾 E3 起』跨代步（era4 夜枭 1200×2；穿甲打断=轨道炮 armor_pierce 反制）[NEW]；画布 96 px（v3.2 §13.1 常规 Boss 尺寸 64~96 上沿，era4 同值先例）；克能量+减速（轨道炮=穿甲伤害位、力场塔=减速/湮灭对策位——Boss 与本代塔组的双向克制锚；『可吸收湮灭 50% 半径』的力场塔在 Boss 关=湮灭语境的对策面）",
+      "_source": "V3.2 §4 L62：主宰 HP45000/甲30 为 v3.2 逐字锚点（非 _new，两文件同值不得漂移）；速度 0.32（0.3 格/s——湮灭主宰=历代最重的移动要塞：慢于 E1~E4 全部 Boss（0.5~1.5 格/s）[NEW-T-134 原型校准两轮：初版 1.07 实测 23 s 抵基地泊位（到场敌不入塔目标集优先序，满血泊死）；0.43（62 s 窗）实测过境仅伤 45%（弹药经济约束下双塔有效 DPS~560）；定档 0.3 格/s=83 s 过境窗，三轨炮线在弹链缓冲内 ≥82 K 出场 EHP 击杀预算——DiagE5Final 探针实证链]）；重力脉冲=traits.gravity_pulse（30 s 周期（900 ticks@30 Hz）半径 3 格 600 点——E4 夜枭空袭 30s/2 格/800 行锚对位 [NEW-T-134 原型校准：初版 600t/1200 点两发即毁轨道炮（hp 1280/1520），Boss 战塔线存活窗不足（Era5LevelPlaythroughTests 实测 e5-final Boss 不死），调至 800 伤害带的下沿 600+30s 周期——塔线 1520 hp 可受两发，Boss 78750 HP 在 2563 有效 DPS 下 ~33s 亡于第二发前]；引擎消费随 Boss 战宿主扩展）；护盾 2400 点=v3.2 §6『护盾 E3 起』跨代步（era4 夜枭 1200×2；穿甲打断=轨道炮 armor_pierce 反制）[NEW]；画布 96 px（v3.2 §13.1 常规 Boss 尺寸 64~96 上沿，era4 同值先例）；克能量+减速（轨道炮=穿甲伤害位、力场塔=减速/湮灭对策位——Boss 与本代塔组的双向克制锚；『可吸收湮灭 50% 半径』的力场塔在 Boss 关=湮灭语境的对策面）",
       "_units": { "hp": "points", "armor": "points", "shield": "points", "speed_px_per_tick": "px_per_tick_at_30hz", "speed_cells_per_s": "cells_per_second", "gravity_pulse_interval_ticks": "ticks_at_30hz", "gravity_pulse_radius_cells": "cells", "gravity_pulse_damage": "points" }
     }
   ]

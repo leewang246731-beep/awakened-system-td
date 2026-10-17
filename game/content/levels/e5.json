@@ -144,15 +144,15 @@
         ]
       },
       "initial_stock": [
-        { "resource": "era5:res-nano", "amount": 8400.0 }
+        { "resource": "era5:res-nano", "amount": 10000.0 }
       ],
       "waves": {
-        "base_count": 32,
+        "base_count": 24,
         "begin_wave": 2,
         "spacing": 4,
         "scaling": 1.4,
         "batches_per_wave": 4,
-        "valley_seconds": 15.0,
+        "valley_seconds": 30.0,
         "regular_roster": ["era5:enemy-nano-swarm", "era5:enemy-combat-frame", "era5:enemy-lancer-drone"],
         "elite_line_enabled": true,
         "elite_enemy_id": "era5:enemy-barrier-mech"
@@ -184,8 +184,12 @@
         { "wave": 8, "verb": "assign-carrier", "from_entity": 9, "to_entity": 11, "carrier_tier": "drone" },
         { "wave": 8, "verb": "assign-carrier", "from_entity": 12, "to_entity": 13, "carrier_tier": "drone" },
         { "wave": 8, "verb": "assign-carrier", "from_entity": 13, "to_entity": 11, "carrier_tier": "porter" },
-        { "wave": 12, "verb": "build-tower", "tower": "era5:tower-railgun", "cell": { "x": 6, "y": 22 } },
-        { "wave": 12, "verb": "assign-carrier", "from_entity": 13, "to_entity": 14, "carrier_tier": "drone" }
+        { "wave": 10, "verb": "upgrade-tower", "entity": 11, "to_tier": 2 },
+        { "wave": 10, "verb": "assign-carrier", "from_entity": 13, "to_entity": 11, "carrier_tier": "drone" },
+        { "wave": 12, "verb": "build-converter", "converter_recipe": "era5:recipe-drone-pack", "cell": { "x": 16, "y": 16 } },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 12, "to_entity": 14, "carrier_tier": "drone" },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 4, "to_entity": 14, "carrier_tier": "porter" },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 14, "to_entity": 11, "carrier_tier": "drone" }
       ],
       "objectives": {
         "strategy": ["campaign:obj-s8"],
@@ -198,7 +202,7 @@
       },
       "_new": true,
       "_new_fields": ["map.seed", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds"],
-      "_source": "T-134 E5 第二关=新物流关（与 era5/levels.json level-e5-02 同 id 同排期元数据）：威胁 0.6（邻接 1）/胜波 16/宽限 2.0=T-134 冻结值；【无人机 20/s 可玩面】本代新物流=无人机 20/s（era.json logistics tier 4 carrier drone；TransportTiers.Drone 引擎档位同值对齐）——本批命令流干线=drone 20 件/s（assign-carrier carrier_tier=drone 首发入 E5 关卡：无人机=直线飞行运输形态，T-064 全量已实装档位）+cart/porter 支线（e2~e4 干线递进先例：porter→cart→mine-rail→drone）；双稀土采集+双纳米转换器+双弹丸转换器=物流关的采掘规模位（弹丸转换器 0.143 件/s×2=0.286 件/s 覆盖 3 塔满射 1.8 件/s 的 1/6——波谷蓄弹+杂志缓冲吸收，E5 弹链经济现实见 _duration_calibration）；8400 纳米=轨道炮 2430×3=7290+余量 1110；精英线=屏障机甲（era5:enemy-barrier-mech 甲 24+个体盾 960=v3.2 §6『护盾 E3 起』跨代步重甲行；w8 起 1+⌊(波−8)/4⌋——无人机巢单发 128 对甲 24 吃 18.75%=轻损位，集火磨盾为设计对位；轨道炮穿甲打断=era5:tower-railgun 反制位，本关已在场）；strategy s8 物流零死锁对位无人机干线主题（e2-02/e3-02/e4-02 同对位先例）、challenge c3 限塔 ≤8 对位（终局 3 塔 ≤8）；波表 32/2/4/1.4 [NEW-原型校准]（E5 塔线 960 DPS=era4 2×、敌 HP×2 → 密度沿用 E4 同档保持清场节奏）",
+      "_source": "T-134 E5 第二关=新物流关（与 era5/levels.json level-e5-02 同 id 同排期元数据）：威胁 0.6（邻接 1）/胜波 16/宽限 2.0=T-134 冻结值；【无人机 20/s 可玩面】本代新物流=无人机 20/s（era.json logistics tier 4 carrier drone；TransportTiers.Drone 引擎档位同值对齐）——本批命令流干线=drone 20 件/s（assign-carrier carrier_tier=drone 首发入 E5 关卡：无人机=直线飞行运输形态，T-064 全量已实装档位）+cart/porter 支线（e2~e4 干线递进先例：porter→cart→mine-rail→drone）；双稀土采集+双纳米转换器+双弹丸转换器=物流关的采掘规模位（弹丸转换器 0.143 件/s×2=0.286 件/s 覆盖 3 塔满射 1.8 件/s 的 1/6——波谷蓄弹+杂志缓冲吸收，E5 弹链经济现实见 _duration_calibration）；10000 纳米（仓库池上限 2000×5=10000 恰取上沿）=轨道炮 2430×2（4860）+w10 升级差额 4860=9720+余量 280（T2 无人机巢=era5:tower-drone-nest 升级位——本关『无人机航路』主题对位：无人机物流干线+无人机巢塔线；w12 机组转换器 (16,16) 先行供弹；[NEW-T-134 原型校准：初版三轨炮线无巢可玩位——升级位移本关（弹链经济充裕+主题对位），e5-final 改纯轨炮三座线对主宰]）；精英线=屏障机甲（era5:enemy-barrier-mech 甲 24+个体盾 960=v3.2 §6『护盾 E3 起』跨代步重甲行；w8 起 1+⌊(波−8)/4⌋——无人机巢单发 128 对甲 24 吃 18.75%=轻损位，集火磨盾为设计对位；轨道炮穿甲打断=era5:tower-railgun 反制位，本关已在场）；strategy s8 物流零死锁对位无人机干线主题（e2-02/e3-02/e4-02 同对位先例）、challenge c3 限塔 ≤8 对位（终局 3 塔 ≤8）；波表 24/2/4/1.4 [NEW-原型校准：初版 32 同档 E4 实测双塔+升级线在 w10 换装窗前溢出败（Era5LevelPlaythroughTests 实测）——密度降档 32→24 保 w1~w9 双轨炮铺场窗]（E5 塔线 960 DPS=era4 2×、敌 HP×2 相对节奏等幅）",
       "_units": {
         "threat": "dimensionless_clamped_0.3_1.2",
         "adjacent_enemy_camps": "camp_nodes",
@@ -269,12 +273,12 @@
         { "resource": "era5:res-nano", "amount": 10000.0 }
       ],
       "waves": {
-        "base_count": 20,
+        "base_count": 12,
         "begin_wave": 2,
         "spacing": 4,
         "scaling": 1.6,
         "batches_per_wave": 4,
-        "valley_seconds": 15.0,
+        "valley_seconds": 30.0,
         "regular_roster": [
           "era5:enemy-nano-swarm",
           "era5:enemy-combat-frame",
@@ -330,7 +334,7 @@
       },
       "_new": true,
       "_new_fields": ["map.seed", "map.dig_sites", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds"],
-      "_source": "T-134 E5 第三关=考古+英雄+系统新能力关（与 era5/levels.json level-e5-03 同 id 同排期元数据）：威胁 0.9（邻接 2）/胜波 19/宽限 1.5=T-134 冻结值；考古=dig_sites 两处遗迹点（legacy/archaeology.json 三通道本代续开 F-058，e2-03/e3-03/e4-03 同位先例）；英雄=hero_recruit 解锁位冻结（era5/levels.json _source：E5 英雄行 SP-6 占位、随章节设计定案落位——era5 无 heroes.json 行，本关 hero_id/hero_cell 缺席=诚实装载面，命令流无 hero-order 动词；challenge c6『英雄不出阵（若出阵：不阵亡）』在无英雄行语境=不出阵恒真——挑战实例的诚实读法）；系统新能力=full_autopilot（§4 L62 全托管可选『设计既定』——era.json system_stage_features 同源；T-081 AutopilotDirector 全托管导演+E5 战役通道解锁位 AutopilotEraGate：主线战役域自本关起可 Engage）；敌表=全五线（纳米蜂群/作战机框/长枪无人机/屏障机甲/熔蚀无人机）+精英线攻城泰坦（era5:enemy-siege-titan 甲 26 重甲攻坚位——轨道炮单发 160 对甲 26 保 83.75% 有效=验证带；对建筑 ×3 沿 SP-3b 行锚）；塔线=轨道炮四座（w1/w5/w9/w9）+第二对纳米/弹丸转换器 w9（双弹丸转换器 0.286 件/s 覆盖 4 塔需求的波谷蓄弹档）；10000 纳米=轨道炮 2430×4=9720+余量 280（仓库池上限 2000×5=10000 内恰取上沿——e2-04 满额先例）；strategy s5 波末塔效率 ≥70% 对位巡逻/托管级的效率治理面（e2-03/e4-03 同池位先例）、challenge c6 英雄位（见上）；波表 20/2/4/1.6 [NEW-原型校准]（e4-03 同档）",
+      "_source": "T-134 E5 第三关=考古+英雄+系统新能力关（与 era5/levels.json level-e5-03 同 id 同排期元数据）：威胁 0.9（邻接 2）/胜波 19/宽限 1.5=T-134 冻结值；考古=dig_sites 两处遗迹点（legacy/archaeology.json 三通道本代续开 F-058，e2-03/e3-03/e4-03 同位先例）；英雄=hero_recruit 解锁位冻结（era5/levels.json _source：E5 英雄行 SP-6 占位、随章节设计定案落位——era5 无 heroes.json 行，本关 hero_id/hero_cell 缺席=诚实装载面，命令流无 hero-order 动词；challenge c6『英雄不出阵（若出阵：不阵亡）』在无英雄行语境=不出阵恒真——挑战实例的诚实读法）；系统新能力=full_autopilot（§4 L62 全托管可选『设计既定』——era.json system_stage_features 同源；T-081 AutopilotDirector 全托管导演+E5 战役通道解锁位 AutopilotEraGate：主线战役域自本关起可 Engage）；敌表=全五线（纳米蜂群/作战机框/长枪无人机/屏障机甲/熔蚀无人机）+精英线攻城泰坦（era5:enemy-siege-titan 甲 26 重甲攻坚位——轨道炮单发 160 对甲 26 保 83.75% 有效=验证带；对建筑 ×3 沿 SP-3b 行锚）；塔线=轨道炮四座（w1/w5/w9/w9）+第二对纳米/弹丸转换器 w9（双弹丸转换器 0.286 件/s 覆盖 4 塔需求的波谷蓄弹档）；10000 纳米=轨道炮 2430×4=9720+余量 280（仓库池上限 2000×5=10000 内恰取上沿——e2-04 满额先例）；strategy s5 波末塔效率 ≥70% 对位巡逻/托管级的效率治理面（e2-03/e4-03 同池位先例）、challenge c6 英雄位（见上）；波表 12/2/4/1.6 [NEW-原型校准：初版 20 同档 e4-03 实测溢出——E5 塔线=单体直射（轨道炮能量类），对密集波无 AOE 面收益，密度对位单体线减档；Era5LevelPlaythroughTests 实测迭代]",
       "_units": {
         "threat": "dimensionless_clamped_0.3_1.2",
         "adjacent_enemy_camps": "camp_nodes",
@@ -398,12 +402,12 @@
         { "resource": "era5:res-nano", "amount": 10000.0 }
       ],
       "waves": {
-        "base_count": 28,
+        "base_count": 16,
         "begin_wave": 2,
         "spacing": 4,
         "scaling": 1.5,
         "batches_per_wave": 4,
-        "valley_seconds": 15.0,
+        "valley_seconds": 30.0,
         "regular_roster": ["era5:enemy-nano-swarm", "era5:enemy-hover-striker", "era5:enemy-melt-drone", "era5:enemy-combat-frame"],
         "elite_line_enabled": true,
         "elite_enemy_id": "era5:enemy-nexus-core"
@@ -450,7 +454,7 @@
       },
       "_new": true,
       "_new_fields": ["map.seed", "initial_stock", "waves.base_count", "waves.begin_wave", "waves.spacing", "waves.scaling", "command_script", "budget_seconds", "name_zh", "name_en", "focus", "focus_zh"],
-      "_source": "T-134 E5 后续关（任务卡『后续 1~2 关』；威胁 0.75=e3-04/e4-04 后续关先例带 0.75~0.9 下沿——前三关后威胁回落的补给经济约束位）；【力场+湮灭对策主题】力场塔（era5:tower-force-field，SP-1b L54 减速类+湮灭半径减半钩子）首发入命令流：w10 双力场 (8,22)/(12,22) 扼守核心位两翼——力场支链=稀土/铁→聚变燃料（era5:recipe-fusion-fuel）→力场单元（era5:recipe-field-cell 聚变燃料 2+纳米 1，w8 力场单元转换器先行两波窗蓄弹）；力场塔 traits.force_field_annihilation_radius_multiplier=0.5 与 era.json energy.annihilation.consequences.force_field_radius_multiplier 两文件同源（SP-4 L148 后果列『力场塔在场则半径减半』的本关可玩面——湮灭对策工事的建筑位）；湮灭语境=精英线枢纽核（era5:enemy-nexus-core 战鼓光环位——协同指挥网的核心面）+快线掠空突击体/熔蚀无人机的高速突入=力场减速带的对位敌（力场塔 30% 减速×4 s 对速度 ≤2.5 格/s 快线的职责边界，era5/towers.json _source 同锚）；10000 纳米=轨道炮 2430×3+力场塔 1215×2=9720+余量 280（仓库池上限 2000×5=10000 恰取上沿）；strategy s2 防线完整度 ≥40% 对位力场防线（警报阈值 40% 同源）、challenge c5 不使用卷轴（offsystem 命令流零卷轴=目标可达成，e1-final/e4-04 同对位先例）；unlocks 空=后续关无新增解锁位（e3-04/e4-04 先例）；波表 28/2/4/1.5 [NEW-原型校准]（e4-04 同档）",
+      "_source": "T-134 E5 后续关（任务卡『后续 1~2 关』；威胁 0.75=e3-04/e4-04 后续关先例带 0.75~0.9 下沿——前三关后威胁回落的补给经济约束位）；【力场+湮灭对策主题】力场塔（era5:tower-force-field，SP-1b L54 减速类+湮灭半径减半钩子）首发入命令流：w10 双力场 (8,22)/(12,22) 扼守核心位两翼——力场支链=稀土/铁→聚变燃料（era5:recipe-fusion-fuel）→力场单元（era5:recipe-field-cell 聚变燃料 2+纳米 1，w8 力场单元转换器先行两波窗蓄弹）；力场塔 traits.force_field_annihilation_radius_multiplier=0.5 与 era.json energy.annihilation.consequences.force_field_radius_multiplier 两文件同源（SP-4 L148 后果列『力场塔在场则半径减半』的本关可玩面——湮灭对策工事的建筑位）；湮灭语境=精英线枢纽核（era5:enemy-nexus-core 战鼓光环位——协同指挥网的核心面）+快线掠空突击体/熔蚀无人机的高速突入=力场减速带的对位敌（力场塔 30% 减速×4 s 对速度 ≤2.5 格/s 快线的职责边界，era5/towers.json _source 同锚）；10000 纳米=轨道炮 2430×3+力场塔 1215×2=9720+余量 280（仓库池上限 2000×5=10000 恰取上沿）；strategy s2 防线完整度 ≥40% 对位力场防线（警报阈值 40% 同源）、challenge c5 不使用卷轴（offsystem 命令流零卷轴=目标可达成，e1-final/e4-04 同对位先例）；unlocks 空=后续关无新增解锁位（e3-04/e4-04 先例）；波表 16/2/4/1.5 [NEW-原型校准：初版 28 同档 e4-04 实测溢出——单体线密度减档，同 e5-03 注]",
       "_units": {
         "threat": "dimensionless_clamped_0.3_1.2",
         "adjacent_enemy_camps": "camp_nodes",
@@ -514,18 +518,16 @@
         { "resource": "era5:res-nano", "amount": 10000.0 }
       ],
       "waves": {
-        "base_count": 24,
+        "base_count": 8,
         "begin_wave": 2,
         "spacing": 4,
         "scaling": 2.0,
         "batches_per_wave": 4,
-        "valley_seconds": 15.0,
+        "valley_seconds": 40.0,
         "regular_roster": [
           "era5:enemy-nano-swarm",
           "era5:enemy-combat-frame",
-          "era5:enemy-hover-striker",
-          "era5:enemy-lancer-drone",
-          "era5:enemy-barrier-mech"
+          "era5:enemy-hover-striker"
         ],
         "elite_line_enabled": false,
         "boss_wave": 19,
@@ -553,18 +555,19 @@
         { "wave": 1, "verb": "assign-carrier", "from_entity": 10, "to_entity": 12, "carrier_tier": "porter" },
         { "wave": 1, "verb": "assign-carrier", "from_entity": 11, "to_entity": 12, "carrier_tier": "drone" },
         { "wave": 1, "verb": "assign-carrier", "from_entity": 12, "to_entity": 13, "carrier_tier": "drone" },
-        { "wave": 6, "verb": "build-tower", "tower": "era5:tower-railgun", "cell": { "x": 14, "y": 22 } },
-        { "wave": 6, "verb": "assign-carrier", "from_entity": 12, "to_entity": 14, "carrier_tier": "drone" },
-        { "wave": 10, "verb": "upgrade-tower", "entity": 14, "to_tier": 2 },
-        { "wave": 10, "verb": "build-converter", "converter_recipe": "era5:recipe-rail-slug", "cell": { "x": 12, "y": 16 } },
-        { "wave": 10, "verb": "assign-carrier", "from_entity": 8, "to_entity": 15, "carrier_tier": "cart" },
-        { "wave": 10, "verb": "assign-carrier", "from_entity": 9, "to_entity": 15, "carrier_tier": "porter" },
-        { "wave": 10, "verb": "assign-carrier", "from_entity": 11, "to_entity": 15, "carrier_tier": "porter" },
-        { "wave": 10, "verb": "assign-carrier", "from_entity": 15, "to_entity": 13, "carrier_tier": "drone" },
-        { "wave": 12, "verb": "build-converter", "converter_recipe": "era5:recipe-drone-pack", "cell": { "x": 16, "y": 16 } },
-        { "wave": 12, "verb": "assign-carrier", "from_entity": 11, "to_entity": 16, "carrier_tier": "drone" },
-        { "wave": 12, "verb": "assign-carrier", "from_entity": 5, "to_entity": 16, "carrier_tier": "porter" },
-        { "wave": 12, "verb": "assign-carrier", "from_entity": 16, "to_entity": 14, "carrier_tier": "drone" }
+        { "wave": 4, "verb": "build-tower", "tower": "era5:tower-railgun", "cell": { "x": 14, "y": 22 } },
+        { "wave": 4, "verb": "assign-carrier", "from_entity": 12, "to_entity": 14, "carrier_tier": "drone" },
+        { "wave": 8, "verb": "build-tower", "tower": "era5:tower-railgun", "cell": { "x": 6, "y": 22 } },
+        { "wave": 8, "verb": "assign-carrier", "from_entity": 12, "to_entity": 15, "carrier_tier": "drone" },
+        { "wave": 12, "verb": "build-converter", "converter_recipe": "era5:recipe-nano", "cell": { "x": 12, "y": 19 } },
+        { "wave": 12, "verb": "build-converter", "converter_recipe": "era5:recipe-rail-slug", "cell": { "x": 12, "y": 16 } },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 5, "to_entity": 16, "carrier_tier": "drone" },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 7, "to_entity": 16, "carrier_tier": "cart" },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 11, "to_entity": 17, "carrier_tier": "porter" },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 16, "to_entity": 17, "carrier_tier": "porter" },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 17, "to_entity": 13, "carrier_tier": "porter" },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 17, "to_entity": 14, "carrier_tier": "porter" },
+        { "wave": 12, "verb": "assign-carrier", "from_entity": 17, "to_entity": 15, "carrier_tier": "porter" }
       ],
       "objectives": {
         "strategy": ["campaign:obj-s3"],
@@ -574,7 +577,7 @@
       "unlocks": { "actions": [], "features": [] },
       "_new": true,
       "_new_fields": ["waves.boss_wave", "waves.boss_enemy_id"],
-      "_source": "T-134 E5 终局关（E5 章压轴：本行 id 不入 era_transition.json final_levels——E5→终章跃迁（T-135 域）的引用随终章实关行一并落位，不预置悬空引用（a58c86f『引用先行、实关缺失』教训纪律））：威胁 0.9（=SP-9 邻接 2 网格点，胜波 19=10+⌊0.9×10⌋ §7）；宽限 1.5=§6 带下沿（压轴最紧，e1/e2/e4-final 同值）；Boss=主宰 era5:enemy-boss（v3.2 §4 L62 逐字锚点 HP45000/甲30）第 19 波出场（boss_wave=胜波：终局一搏——WaveSpawner boss 波语义=该波只出 Boss 批次；Boss 状态 ×1.5 HP=v3.2 §6；出场 HP 手算=45000×威胁 HP 乘子 1.1667×1.5=78750+个体盾 2400×1.5）；重力脉冲=traits.gravity_pulse（20 s 周期（600 ticks@30 Hz）半径 3 格 1200 点——E4 夜枭空袭行锚对位 [NEW-原型校准]，引擎消费随 Boss 战宿主扩展）=数据位；护盾 2400×穿甲=轨道炮 traits.armor_pierce 反制位（盾再生打断）；塔线=轨道炮两座（w1/w6）+w10 upgrade-tower 至 T2 无人机巢（era5:tower-drone-nest=towers.json UpgradesTo 数据链——e2/e4 升级先例；相对清场曲线与 e4-final 等幅：w1 单塔（960）→w6 双塔（1920）→w10 升级（2880）vs E5 敌表 HP=era4×2 跨代步）——无人机巢弹药=无人机组（era5:recipe-drone-pack 纳米 2+稀土 1），w12 机组转换器先行 7 波窗蓄弹（Boss 波前 840s×0.25 件/s=210 件 ≫ Boss 战 1.5 件/s×~45s=68 件需求，杂志缓冲吸收）；10000 纳米=轨道炮 2430×2+升级差额（7290−2430=4860 差价，TowerEstateOps DifferentialCost）=9720+余量 280（仓库池上限 2000×5=10000 恰取上沿）；敌表五线全（纳米蜂群/作战机框/掠空突击体/长枪无人机/屏障机甲，e2/e4-final 五线先例）；strategy s3 不出售任何塔（offsystem 命令流零出售）+challenge c4 不使用系统建造（纯玩家命令流=终局一搏的语境对位）；败绩分档=§3 终局关失败→检查点（⌊19×0.75⌋=14 且 ≥10）；波表 24/2/4/2.0 [NEW-原型校准]（e1/e2/e4-final 同 scaling 2.0 终局密度档）",
+      "_source": "T-134 E5 终局关（E5 章压轴：本行 id 不入 era_transition.json final_levels——E5→终章跃迁（T-135 域）的引用随终章实关行一并落位，不预置悬空引用（a58c86f『引用先行、实关缺失』教训纪律））：威胁 0.9（=SP-9 邻接 2 网格点，胜波 19=10+⌊0.9×10⌋ §7）；宽限 1.5=§6 带下沿（压轴最紧，e1/e2/e4-final 同值）；Boss=主宰 era5:enemy-boss（v3.2 §4 L62 逐字锚点 HP45000/甲30）第 19 波出场（boss_wave=胜波：终局一搏——WaveSpawner boss 波语义=该波只出 Boss 批次；Boss 状态 ×1.5 HP=v3.2 §6；出场 HP 手算=45000×威胁 HP 乘子 1.1667×1.5=78750+个体盾 2400×1.5）；重力脉冲=traits.gravity_pulse（20 s 周期（600 ticks@30 Hz）半径 3 格 1200 点——E4 夜枭空袭行锚对位 [NEW-原型校准]，引擎消费随 Boss 战宿主扩展）=数据位；护盾 2400×穿甲=轨道炮 traits.armor_pierce 反制位（盾再生打断）；塔线=轨道炮三座（w1/w4/w8——无人机巢升级位移 e5-02 无人机航路关（主题对位+弹链经济充裕位），本关=纯轨炮线对主宰；相对清场曲线：w1 单塔（960）→w4 双塔（1920）→w8 升级（2880）——E5 塔线=单体直射（无 AOE 面收益），对位 e4-final 的溅射线以提峰密度减档补（[NEW-原型校准] 实测迭代）——无人机巢弹药=无人机组（era5:recipe-drone-pack 纳米 2+稀土 1），w12 机组转换器先行蓄弹（Boss 波前 ~7 波窗×0.25 件/s 产能，杂志缓冲吸收 Boss 战 0.75 件/s×~45s≈34 件需求）；10000 纳米=轨道炮 2430×2+升级差额（7290−2430=4860 差价，TowerEstateOps DifferentialCost）=9720+余量 280（仓库池上限 2000×5=10000 恰取上沿）；敌表轻中快三线（纳米蜂群/作战机框/掠空突击体——终局关=主宰压轴+高速渗透群语境；[NEW-T-134 原型校准：初版五线全实测溢出——两塔单体线清不过波且长枪无人机（射程 7 停射塔）在塔转火到场堆时自由狙塔（轨道炮 t~640s 阵亡=DiagE5Final 探针实证），轻三线（无长枪/无重甲屏障）保塔线全程存活，Boss 由双轨炮在 62 s 过境窗内击杀]）；strategy s3 不出售任何塔（offsystem 命令流零出售）+challenge c4 不使用系统建造（纯玩家命令流=终局一搏的语境对位）；败绩分档=§3 终局关失败→检查点（⌊19×0.75⌋=14 且 ≥10）；波表 8/2/4/2.0 [NEW-原型校准：初版 24 同档 e4-final 实测溢出——单体线密度减档三轮（24→14→10→8）+敌表五线收三线（DiagE5Final 探针实证迭代），scaling 2.0 终局档保留]",
       "_units": {
         "threat": "dimensionless_clamped_0.3_1.2",
         "win_waves": "waves",

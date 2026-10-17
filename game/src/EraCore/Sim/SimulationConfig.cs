@@ -104,6 +104,14 @@ public sealed record BuildCostPolicy(
 /// decay batch is off (E1~E3 callers stay bit-identical — no zone ever
 /// exists without a meltdown outcome anyway).
 /// </param>
+/// <param name="AnnihilationForceFieldTowerId">
+/// Tower content id whose standing rows count as the force-field presence
+/// that halves an E5 annihilation blast radius (T-134, SP-1b L54「力场塔
+/// 可吸收湮灭 50% 半径」; data-side = era5/towers.json
+/// <c>era5:tower-force-field</c>). Null (default) = no force-field row —
+/// the counterplay is absent and blasts keep full radius (E1~E4 callers
+/// stay bit-identical; the channel only reads on Annihilation outcomes).
+/// </param>
 public sealed record SimulationConfig(
     int Width,
     int Height,
@@ -127,4 +135,5 @@ public sealed record SimulationConfig(
     bool ProjectileTwinsEnabled = false,
     int WarehouseLevel = 1,
     EnergyRiskTuning? EnergyRisk = null,
-    double RadiationZoneHpDecayPerSecond = 0.0);
+    double RadiationZoneHpDecayPerSecond = 0.0,
+    string? AnnihilationForceFieldTowerId = null);

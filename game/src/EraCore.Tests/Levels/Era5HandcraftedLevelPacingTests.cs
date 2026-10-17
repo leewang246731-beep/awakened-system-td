@@ -40,17 +40,17 @@ public class Era5HandcraftedLevelPacingTests
         var estimates = Enumerable.Range(1, 5).Select(Estimate).OrderBy(estimate => estimate.DurationMinutes).ToList();
         Assert.Equal(5, estimates.Count);
 
-        double median = estimates[2].DurationMinutes; // 五关中位=第三序统计量
-        Assert.InRange(median, 15.0, 40.0);
-        Assert.All(estimates, estimate => Assert.InRange(estimate.DurationMinutes, 15.0, 40.0));
-
-        foreach (int slot in Enumerable.Range(1, 5))
+        foreach (int slot in Enumerable.Range(1, 5)) // 表先行输出（断言红时仍可读数——诚实披露面）
         {
             _output.WriteLine(
                 $"L5-{slot} {Level(slot).NameZh}: win={Level(slot).WinWaves} threat={Level(slot).Threat} " +
                 $"interval={Estimate(slot).IntervalSeconds:F0}s grace={Estimate(slot).GraceSeconds:F0}s " +
                 $"estimate={Estimate(slot).DurationMinutes:F2} min");
         }
+
+        double median = estimates[2].DurationMinutes; // 五关中位=第三序统计量
+        Assert.InRange(median, 15.0, 40.0);
+        Assert.All(estimates, estimate => Assert.InRange(estimate.DurationMinutes, 15.0, 40.0));
     }
 
     // ---- 2) 每关节奏结构（宽限/间隔/波谷/不触顶） ---------------------------
@@ -123,8 +123,8 @@ public class Era5HandcraftedLevelPacingTests
     {
         // [F-055][F-032] E5 敌特性适配：甲 24 屏障机甲精英线（L5-2）与甲 26
         // 攻城泰坦精英线（L5-3）的关必须有晚于首波的轨道炮增线（160 单发对甲
-        // 24/26 保 83.75~85% 有效=验证带）；无人机巢（T2 巢 128 单发速射=
-        // 高消耗补给位）只经 upgrade-tower 在 e5-final w10 入场（升级沿
+        // 24/26 保 83.75~85% 有效=验证带）；无人机巢（T2 巢 256 单发速射）
+        // 只经 upgrade-tower 在 e5-final w8 入场（升级沿
         // towers.json UpgradesTo 数据链——e2/e4 升级先例；不得直建 tier 2 行）；
         // 力场塔（湮灭对策位）只在 L5-4 首发。
         foreach (int slot in new[] { 2, 3 })
@@ -144,10 +144,12 @@ public class Era5HandcraftedLevelPacingTests
         // 无人机巢=升级步专属（全 e5 文件无 build-tower era5:tower-drone-nest 直建行）
         Assert.All(E5().Items, level => Assert.DoesNotContain(level.CommandScript,
             step => step.Verb == "build-tower" && step.Tower == "era5:tower-drone-nest"));
-        HandcraftedLevel final = Level(5);
-        ScriptStep upgrade = Assert.Single(final.CommandScript, step => step.Verb == "upgrade-tower");
-        Assert.Equal(10, upgrade.Wave); // Boss 波（19）前 9 波窗=机组蓄弹位
+        HandcraftedLevel droneLane = Level(2); // 无人机航路=无人机巢升级位（主题对位）
+        ScriptStep upgrade = Assert.Single(droneLane.CommandScript, step => step.Verb == "upgrade-tower");
+        Assert.Equal(10, upgrade.Wave); // 后段升级：前段双轨炮铺场后换装 T2
         Assert.Equal(2, upgrade.ToTier);
+        Assert.All(E5().Items.Where(level => level.Slot != 2),
+            level => Assert.DoesNotContain(level.CommandScript, step => step.Verb == "upgrade-tower"));
 
         // 五关估算两两可比（时长表非退化：min≠max——波表/塔线差异真实生效）
         var durations = Enumerable.Range(1, 5).Select(slot => Estimate(slot).DurationMinutes).ToList();

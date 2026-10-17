@@ -1977,6 +1977,50 @@ public sealed class Simulation
                     $"Energy risk outcome at tick {tick} (culprit node {outcome.Culprit.Value}) has no registered anchor cell — the producer map is incomplete.");
             }
 
+            if (outcome.Kind == EnergyRiskEventKind.Annihilation)
+            {
+                // T-134 (SP-4 L148): the annihilation blast halves its radius
+                // when a force-field tower stands (SP-1b L54) and chains
+                // through the OTHER energy buildings inside the radius —
+                // each chained producer detonates (×0.6 damage decay per
+                // link, plan in node-id order) and leaves the grid. The
+                // unit damage of every link settles through the same blast
+                // path (flat damage inside the link radius).
+                bool forceFieldPresent = _config.AnnihilationForceFieldTowerId is not null
+                    && _groups.Towers.Any(tower => tower.Spec.Id == _config.AnnihilationForceFieldTowerId);
+                double radiusMultiplier = forceFieldPresent ? outcome.ForceFieldRadiusMultiplier : 1.0;
+
+                IReadOnlyList<AnnihilationChainLink> chain = EnergyRiskWorldConsumer.PlanAnnihilationChain(
+                    outcome,
+                    anchor,
+                    _producerCells.Select(row => (row.Key, row.Value)).ToList(),
+                    forceFieldPresent);
+                foreach (AnnihilationChainLink link in chain)
+                {
+                    if (link.LinkDepth > 0)
+                    {
+                        // 连锁引爆：chained energy buildings leave the grid
+                        // (the ledger side of the detonation; their world
+                        // rows stay as wrecks — estate semantics, e4 mine
+                        // precedent).
+                        _ = _ledger.Unregister(link.NodeId);
+                        _ = _producerCells.Remove(link.NodeId);
+                    }
+
+                    _ = _riskWorld.ApplyBlast(
+                        outcome with { EnemyDamage = link.UnitDamage, RadiusCells = link.RadiusCells },
+                        tick,
+                        link.Cell,
+                        _groups.Buildings,
+                        (index, damaged) => _groups.Buildings.ReplaceAt(index, damaged),
+                        _groups.Units,
+                        onKill: _ => _kills++,
+                        radiusMultiplier: 1.0); // radius already halved at plan time
+                }
+
+                continue; // no radiation zone on the annihilation channel (SP-4 L148 has none)
+            }
+
             _ = _riskWorld.ApplyBlast(
                 outcome,
                 tick,

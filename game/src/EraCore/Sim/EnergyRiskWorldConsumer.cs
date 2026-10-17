@@ -31,7 +31,7 @@ public sealed record RadiationZone(
 /// host and the tests (hand-computed anchors), no gameplay authority.
 /// </summary>
 /// <param name="Tick">Tick the blast settled on.</param>
-/// <param name="Kind">Overheat explosion or meltdown.</param>
+/// <param name="Kind">Overheat explosion, meltdown or annihilation.</param>
 /// <param name="Anchor">World anchor cell of the blast.</param>
 /// <param name="BuildingsHit">Buildings inside the radius that took damage.</param>
 /// <param name="EnemiesHit">Enemies inside the radius that took damage.</param>
@@ -43,6 +43,26 @@ public sealed record RiskBlastReport(
     int BuildingsHit,
     int EnemiesHit,
     int EnemyDamageSettled);
+
+/// <summary>
+/// One link of an E5 annihilation chain plan (T-134, SP-4 L148「连锁引爆半径内
+/// 其他能源建筑（每连锁一栋伤害 ×0.6 衰减）」): the detonating energy building,
+/// its chain depth (culprit = 0), and the flat unit damage its own detonation
+/// carries (<c>UnitDamage × decay^depth</c>) at the (force-field-halvable)
+/// radius. Pure plan — the host applies the links; deterministic by construction
+/// (BFS in node-id order, each building detonates at most once).
+/// </summary>
+/// <param name="NodeId">The energy node that detonates on this link.</param>
+/// <param name="Cell">Its world cell (the link's blast anchor).</param>
+/// <param name="LinkDepth">Chain depth (0 = the culprit; k = k-th chained building).</param>
+/// <param name="UnitDamage">Flat damage this link's detonation deals inside its radius.</param>
+/// <param name="RadiusCells">This link's blast radius (already force-field-halved when applicable).</param>
+public sealed record AnnihilationChainLink(
+    Energy.EnergyNodeId NodeId,
+    CellCoord Cell,
+    int LinkDepth,
+    double UnitDamage,
+    double RadiusCells);
 
 /// <summary>
 /// World-layer consumer of <see cref="EnergyRiskOutcome"/> (T-123, F-010;
@@ -143,6 +163,7 @@ public sealed class EnergyRiskWorldConsumer
     /// <param name="replaceBuilding">Applies a damaged row at its index (Sim 替换 seam, upgrade-path precedent).</param>
     /// <param name="units">Group-order units (read-only scan).</param>
     /// <param name="onKill">Optional kill callback (Sim 击杀计数 seam).</param>
+    /// <param name="radiusMultiplier">Blast radius multiplier (E5 annihilation: <see cref="EnergyRiskOutcome.ForceFieldRadiusMultiplier"/> when a force-field tower stands; default 1.0 = every earlier channel).</param>
     public RiskBlastReport ApplyBlast(
         EnergyRiskOutcome outcome,
         long tick,
@@ -150,14 +171,21 @@ public sealed class EnergyRiskWorldConsumer
         IReadOnlyList<SimBuilding> buildings,
         Action<int, SimBuilding> replaceBuilding,
         IReadOnlyList<Unit> units,
-        Action<Unit>? onKill = null)
+        Action<Unit>? onKill = null,
+        double radiusMultiplier = 1.0)
     {
         ArgumentNullException.ThrowIfNull(outcome);
         ArgumentNullException.ThrowIfNull(anchor);
         ArgumentNullException.ThrowIfNull(buildings);
         ArgumentNullException.ThrowIfNull(replaceBuilding);
         ArgumentNullException.ThrowIfNull(units);
+        if (!double.IsFinite(radiusMultiplier) || radiusMultiplier <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(radiusMultiplier), radiusMultiplier, "Blast radius multiplier must be finite and positive.");
+        }
 
+        double radius = outcome.RadiusCells * radiusMultiplier;
         int buildingsHit = 0;
         int enemiesHit = 0;
         int enemyDamage = 0;
@@ -167,7 +195,7 @@ public sealed class EnergyRiskWorldConsumer
             SimBuilding building = buildings[i];
             double dx = building.Cell.X - anchor.X;
             double dy = building.Cell.Y - anchor.Y;
-            if (Math.Sqrt((dx * dx) + (dy * dy)) > outcome.RadiusCells)
+            if (Math.Sqrt((dx * dx) + (dy * dy)) > radius)
             {
                 continue;
             }
@@ -195,7 +223,7 @@ public sealed class EnergyRiskWorldConsumer
             int raw = (int)Math.Round(outcome.EnemyDamage, MidpointRounding.AwayFromZero);
             foreach (Unit unit in units)
             {
-                if (!unit.Alive || !IsInside(unit, anchor, outcome.RadiusCells))
+                if (!unit.Alive || !IsInside(unit, anchor, radius))
                 {
                     continue;
                 }
@@ -210,6 +238,83 @@ public sealed class EnergyRiskWorldConsumer
         }
 
         return new RiskBlastReport(tick, outcome.Kind, anchor, buildingsHit, enemiesHit, enemyDamage);
+    }
+
+    /// <summary>
+    /// Plans the E5 annihilation chain reaction (T-134, SP-4 L148「连锁引爆
+    /// 半径内其他能源建筑（每连锁一栋伤害 ×0.6 衰减）」): a breadth-first
+    /// detonation plan starting at the culprit (<paramref name="culpritCell"/>)
+    /// — every energy building inside the (force-field-halvable) radius of a
+    /// detonated anchor joins the chain at its parent's depth + 1, its own
+    /// detonation dealing <c>UnitDamage × decay^depth</c>. Deterministic: the
+    /// frontier and <paramref name="energyBuildings"/> both process in
+    /// node-id order and each building detonates at most once. Pure — the
+    /// host applies the links (unit damage per link + chained-producer loss).
+    /// </summary>
+    /// <param name="outcome">The fired annihilation outcome (magnitudes are its own).</param>
+    /// <param name="culpritCell">World cell of the annihilated fusion plant (link 0).</param>
+    /// <param name="energyBuildings">Standing energy buildings (node id + cell); the culprit need not be among them.</param>
+    /// <param name="forceFieldPresent">Whether a force-field tower stands (SP-1b L54: halves the blast radius).</param>
+    public static IReadOnlyList<AnnihilationChainLink> PlanAnnihilationChain(
+        EnergyRiskOutcome outcome,
+        CellCoord culpritCell,
+        IReadOnlyList<(Energy.EnergyNodeId Id, CellCoord Cell)> energyBuildings,
+        bool forceFieldPresent)
+    {
+        ArgumentNullException.ThrowIfNull(outcome);
+        ArgumentNullException.ThrowIfNull(culpritCell);
+        ArgumentNullException.ThrowIfNull(energyBuildings);
+        if (outcome.Kind != EnergyRiskEventKind.Annihilation)
+        {
+            throw new ArgumentException(
+                $"Chain planning is the annihilation channel's (got {outcome.Kind}).", nameof(outcome));
+        }
+
+        double radius = outcome.RadiusCells
+            * (forceFieldPresent ? outcome.ForceFieldRadiusMultiplier : 1.0);
+        double decay = outcome.ChainDamageDecayFraction;
+
+        // Node-id-ordered candidate list: deterministic frontier regardless
+        // of the caller's registration order.
+        var candidates = energyBuildings
+            .OrderBy(row => row.Id.Value, Comparer<long>.Default)
+            .ToList();
+
+        var links = new List<AnnihilationChainLink> { new(outcome.Culprit, culpritCell, 0, outcome.EnemyDamage, radius) };
+        var detonated = new HashSet<Energy.EnergyNodeId> { outcome.Culprit };
+        var frontier = new List<AnnihilationChainLink>(links);
+
+        while (frontier.Count > 0 && decay > 0)
+        {
+            var next = new List<AnnihilationChainLink>();
+            foreach (AnnihilationChainLink origin in frontier)
+            {
+                foreach ((Energy.EnergyNodeId id, CellCoord cell) in candidates)
+                {
+                    if (detonated.Contains(id))
+                    {
+                        continue; // each building detonates at most once
+                    }
+
+                    double dx = cell.X - origin.Cell.X;
+                    double dy = cell.Y - origin.Cell.Y;
+                    if (Math.Sqrt((dx * dx) + (dy * dy)) > radius)
+                    {
+                        continue;
+                    }
+
+                    var link = new AnnihilationChainLink(
+                        id, cell, origin.LinkDepth + 1, outcome.EnemyDamage * Math.Pow(decay, origin.LinkDepth + 1), radius);
+                    detonated.Add(id);
+                    links.Add(link);
+                    next.Add(link);
+                }
+            }
+
+            frontier = next;
+        }
+
+        return links;
     }
 
     /// <summary>

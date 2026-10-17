@@ -255,6 +255,37 @@ public class BeltRenderDecisionsTests
         Assert.Equal(12.5, BeltRenderDecisions.SkinSwitchItemsPerSecond); // 冻结边界=(10+15)/2
     }
 
+    // ------------------------------------------------ legal — E5 20/s 档位（T-134）
+
+    [Fact] // legal — [F-042] E5 无人机档 20/s：档位常量=冻结阶梯第 5 档位值；
+    // 皮肤 stem 在 T-142 era5 美术包落地前乘最新已交付皮肤（era4）——勿造贴图文件
+    public void E5_drone_gear_declares_the_ladder_rung_and_rides_the_newest_delivered_skin()
+    {
+        // v3.2 §4 L62 E5 行「无人机 20/s」=阶梯第 5 档（§5 L78 15→20）；era5/era.json
+        // logistics tier=4 throughput_items_per_s 同值（Era5ContentTests 侧互证）。
+        Assert.Equal(20.0, BeltRenderDecisions.Era5GearItemsPerSecond);
+
+        // 未交付上档乘最新皮肤：era5 stem 随 T-142 art pack 入表，之前恒 era4
+        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era5GearItemsPerSecond));
+
+        // 上沿边界=(15+20)/2：era5 档与其切换点同值侧（≥17.5 全为未交付上档带）
+        Assert.Equal(17.5, BeltRenderDecisions.SkinSwitchUpperItemsPerSecond);
+        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.SkinSwitchUpperItemsPerSecond));
+        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(17.49)); // 边界内仍 era4 现行下沿
+    }
+
+    [Theory] // legal — [F-042] E5 档全速域快照（20/s 与 ∞ 全域乘 era4——T-142 前的冻结行为面）
+    [InlineData(20.0)]
+    [InlineData(25.0)]
+    [InlineData(100.0)]
+    [InlineData(double.MaxValue)]
+    public void E5_and_above_gears_stay_on_the_era4_skin_until_the_T142_pack_lands(double gear)
+    {
+        // era5 纹理 stem 不在 T-134 交付面（T-142 美术包域）——本组断言把
+        // 「未交付上档乘最新皮肤」的现行行为冻结：T-142 落包时本组改红提醒扩表。
+        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(gear));
+    }
+
     // ------------------------------------------------ illegal
 
     [Fact] // illegal — NaN 速率拒绝（垃圾速率无皮肤，不静默回落）

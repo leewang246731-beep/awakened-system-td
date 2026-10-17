@@ -238,11 +238,29 @@ public static class BeltRenderDecisions
     public const double Era4GearItemsPerSecond = 15.0;
 
     /// <summary>
+    /// E5 belt-adjacent gear of the frozen logistics ladder (T-134, v3.2
+    /// §4 L62/§5 L78 第 5 档位值 20.0 件/s): the DRONE rung — a trip-flight
+    /// form, not a belt form, but the belt-skin decision table stays the
+    /// single throughput→texture authority for every moving-carrier rung
+    /// （e5.json 命令流 drone 干线的渲染档位走本表）.
+    /// </summary>
+    public const double Era5GearItemsPerSecond = 20.0;
+
+    /// <summary>
     /// Skin-switch boundary (件/s) between the two delivered belt-skin gears:
     /// the midpoint of the ladder rungs 10 and 15. Rates at/above it wear the
     /// E4 skin; rates below wear the E3 skin.
     /// </summary>
     public const double SkinSwitchItemsPerSecond = 12.5;
+
+    /// <summary>
+    /// Upper switch boundary (件/s) of the E5 gear: the midpoint of the rungs
+    /// 15 and 20. The E5 pack (textures/era5/belt/) lands with W8 T-142 —
+    /// until then rates at/above this boundary RIDE THE NEWEST DELIVERED SKIN
+    /// (era4, 未交付上档乘最新皮肤 rule); when the pack lands the table
+    /// grows one rung and this constant marks its switch point.
+    /// </summary>
+    public const double SkinSwitchUpperItemsPerSecond = 17.5;
 
     /// <summary>
     /// Throughput gear → belt-skin texture stem under
@@ -251,10 +269,11 @@ public static class BeltRenderDecisions
     /// palette reskin; 10 件/s (E3 mine-rail gear) keeps the <c>era3</c> skin
     /// — the same frozen geometry law (<see cref="PhasePx"/> /
     /// <see cref="FrameIndexFor"/>) drives both, only the palette differs
-    /// (doc 44 §3 带速不烙进纹理). Undelivered upper rungs (20/∞ = E5+)
-    /// ride the newest delivered skin until their packs land (W8 T-142).
-    /// The Godot side mirrors this table, never re-derives it
-    /// (RendererDecisionMap 先例).
+    /// (doc 44 §3 带速不烙进纹理). Undelivered upper rungs (20 = E5 drone
+    /// gear, T-134; ∞ = 终章) ride the newest DELIVERED skin until their
+    /// packs land (W8 T-142) — the <c>era5</c> stem joins the table with the
+    /// art pack, never before (勿造贴图文件). The Godot side mirrors this
+    /// table, never re-derives it (RendererDecisionMap 先例).
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="throughputItemsPerSecond"/> is NaN (a garbage rate has no skin).</exception>
     public static string BeltSkinStem(double throughputItemsPerSecond)
