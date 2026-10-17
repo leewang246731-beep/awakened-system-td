@@ -30,6 +30,11 @@ game/data/
 
 # --- T-078: era2 CC0 raw download zips (untracked archive; intake subset in game/assets/era2/) ---
 game/assets/*/downloads/
+game/assets/downloads/
+
+# --- T-133: dotnet test artifacts + runtime-generated audition audio (MakeDirRecursive at run) ---
+**/TestResults/
+game/presentation/EraTD/audio/generated/
 
 # --- T-027: python bytecode from self-test imports ---
 __pycache__/
