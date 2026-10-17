@@ -151,6 +151,22 @@ public static class LlmConfigLoader
             errors.Add("logging.log_retention 必须 ≥ 1");
         }
 
+        // T-138 (F-140) 预留 tts 段：仅当玩家显式启用时才要求其引用完整——
+        // 默认 off 的出厂段（含手写缺省）零约束通过。
+        if (config.Tts is { Enable: true } tts)
+        {
+            if (string.IsNullOrWhiteSpace(tts.Provider)
+                || string.IsNullOrWhiteSpace(tts.Model)
+                || string.IsNullOrWhiteSpace(tts.Voice))
+            {
+                errors.Add("tts 已启用但 provider/model/voice 不完整");
+            }
+            else if (config.FindProvider(tts.Provider) is null)
+            {
+                errors.Add($"tts.provider '{tts.Provider}' 不在 providers 列表中");
+            }
+        }
+
         return errors;
     }
 
@@ -169,6 +185,7 @@ public static class LlmConfigLoader
             .Select(NormalizeProvider)
             .ToArray(),
         Logging = config.Logging ?? new LlmLoggingConfig(),
+        Tts = NormalizeTts(config.Tts),
     };
 
     /// <summary>
@@ -185,6 +202,23 @@ public static class LlmConfigLoader
             Model = provider.Model ?? string.Empty,
             Note = provider.Note ?? string.Empty,
         };
+
+    /// <summary>
+    /// tts-section normalization counterpart (T-138, F-140): an absent
+    /// section becomes the factory default (off); absent string fields
+    /// fall back to their schema defaults (model → the reserved
+    /// mimo-v2.5-tts value) so a hand-minimized <c>"tts": {"enable": true}</c>
+    /// behaves identically to a fully written one.
+    /// </summary>
+    internal static LlmTtsConfig NormalizeTts(LlmTtsConfig? tts) =>
+        tts is null
+            ? new LlmTtsConfig()
+            : tts with
+            {
+                Provider = tts.Provider ?? string.Empty,
+                Model = tts.Model ?? TtsProviderPresets.MimoTtsModelId,
+                Voice = tts.Voice ?? string.Empty,
+            };
 
     private static void ValidateNumericFields(LlmProviderConfig provider, List<string> errors)
     {

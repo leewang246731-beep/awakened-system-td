@@ -132,6 +132,12 @@ public sealed class SettingsFormState
     public const string MissingKeyWarningZh =
         "未录入 API Key：配置仍可保存，但调用会被拒绝（missing-key）；密钥仅存本机凭据存储，可稍后在设置界面录入。";
 
+    /// <summary>T-138 语音（预留）行标题——设置页灰置条目，纯说明非开关（F-140）。</summary>
+    public const string TtsReservedCaptionZh = "语音（预留）";
+
+    /// <summary>T-138 语音（预留）行说明文案（任务卡 verbatim 口径；渲染层原样上屏）。</summary>
+    public const string TtsReservedNoticeZh = "语音通道已预留，功能随后续版本开放";
+
     private static readonly LlmProviderConfig[] TemplateRows =
     [
         LlmProviderPresets.ZhipuGlm(),
@@ -325,6 +331,9 @@ public sealed class SettingsFormState
             ActiveProvider = active,
             Providers = providers,
             Logging = ToLogging(_fields),
+            // T-138 (F-140): the reserved tts section is not a form field —
+            // save carries the loaded baseline's section through verbatim.
+            Tts = baseline.Tts ?? new LlmTtsConfig(),
         };
     }
 

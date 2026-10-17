@@ -151,6 +151,35 @@ public sealed record LlmLoggingConfig
 }
 
 /// <summary>
+/// The reserved <c>tts</c> section of llm.config.json (T-138, F-140; 语音
+/// 通道预留). Schema reservation ONLY — nothing here triggers network
+/// activity: <c>enable</c> ships false and <see cref="TtsChannel"/> refuses
+/// every call with an explicit status. Key discipline is BYOK-identical to
+/// the provider rows: there is deliberately NO key field — the key of the
+/// referenced provider row (<c>provider</c> = providers[].id) stays in
+/// <see cref="EraCore.Secrets.ISecretStore"/> (F-084 / RL5), so a hand-edited
+/// tts section gains nothing the chat lane does not already have.
+/// </summary>
+public sealed record LlmTtsConfig
+{
+    /// <summary>False（出厂默认）= the voice channel stays dormant; zero network.</summary>
+    [JsonPropertyName("enable")]
+    public bool Enable { get; init; }
+
+    /// <summary>Chat provider row id whose ISecretStore key the future channel would use.</summary>
+    [JsonPropertyName("provider")]
+    public string Provider { get; init; } = string.Empty;
+
+    /// <summary>TTS model id; ships with the reserved mimo-v2.5-tts value.</summary>
+    [JsonPropertyName("model")]
+    public string Model { get; init; } = TtsProviderPresets.MimoTtsModelId;
+
+    /// <summary>Voice selector; concrete voice ids arrive with the endpoint's launch.</summary>
+    [JsonPropertyName("voice")]
+    public string Voice { get; init; } = string.Empty;
+}
+
+/// <summary>
 /// Root of <c>llm.config.json</c> (F-080; 方案 §11.6). Immutable snapshot;
 /// the gateway freezes its domain whitelist from it at construction.
 /// </summary>
@@ -172,6 +201,10 @@ public sealed record LlmConfig
     [JsonPropertyName("logging")]
     public LlmLoggingConfig Logging { get; init; } = new();
 
+    /// <summary>Reserved voice-channel section (T-138, F-140); off by default.</summary>
+    [JsonPropertyName("tts")]
+    public LlmTtsConfig? Tts { get; init; } = new();
+
     /// <summary>Looks up one provider by exact id.</summary>
     public LlmProviderConfig? FindProvider(string id) =>
         Providers.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.Ordinal));
@@ -186,6 +219,7 @@ public sealed record LlmConfig
 [JsonSerializable(typeof(LlmConfig))]
 [JsonSerializable(typeof(LlmProviderConfig))]
 [JsonSerializable(typeof(LlmLoggingConfig))]
+[JsonSerializable(typeof(LlmTtsConfig))]
 public sealed partial class LlmJsonContext : JsonSerializerContext
 {
 }

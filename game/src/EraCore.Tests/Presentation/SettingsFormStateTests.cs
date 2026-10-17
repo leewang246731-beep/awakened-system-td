@@ -169,6 +169,29 @@ public class SettingsFormStateTests
         Assert.False(saved.FindProvider("xiaomi-mimo")!.Enable);
     }
 
+    [Fact]
+    public void BuildConfig_carries_the_reserved_tts_section_through_verbatim()
+    {
+        // [F-140][C-16] T-138 legal: tts 预留段非表单字段——保存逐字保留基线段，
+        // 不因 BYOK 行编辑而丢失/重置
+        var state = new SettingsFormState();
+        state.Edit(f => f with { Temperature = 0.2 });
+        var baseline = LlmProviderPresets.DefaultConfig() with
+        {
+            Tts = new LlmTtsConfig
+            {
+                Enable = false,
+                Provider = "xiaomi-mimo",
+                Model = "mimo-v2.5-tts",
+                Voice = "narrator-a",
+            },
+        };
+
+        var saved = state.BuildConfig(baseline);
+
+        Assert.Equal(baseline.Tts, saved.Tts);
+    }
+
     // ---- 校验矩阵 -----------------------------------------------------------
 
     public static TheoryData<string, bool, bool> BaseUrlRows => new()
