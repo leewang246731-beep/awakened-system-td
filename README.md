@@ -27,9 +27,9 @@
 
 ## 快速开始（玩家）
 
-1. 到 [Releases](https://github.com/leewang246731-beep/awakened-system-td/releases) 下载最新 `EraTD-v0.2.0-alpha-win64.zip`（免登录，直接点即下；另附可选的 480p 视频母片合集）。
+1. 到 [Releases](https://github.com/leewang246731-beep/awakened-system-td/releases) 下载最新 `EraTD-v1.0.0-win64.zip`（Windows）或 `EraTD-v1.0.0-linux64.zip`（Linux x86_64；均免登录直接点即下；另附可选的 480p 视频母片合集）。
 2. 解压到任意可写目录（不要放进 `Program Files`）。
-3. 双击 `EraTD.exe` 运行。存档与战报写在 exe 旁的 `saves\` 目录，卸载=删目录。
+3. Windows 双击 `start-game.bat`、Linux 运行 `./start-game.sh` 启动（启动器会把存档/战报目录指到包内 data\；卸载=删目录）。
 4. 玩不动了？游戏内按帮助（`F1`）看三层信息层；对系统下一句"守住东门"试试。
 
 **AI 对话档（可选）**：设置页填入你自己的 OpenAI 兼容 API Key（智谱 GLM / MiMo 等已预置模板）。不配 Key 时军令语法档完整可玩。首次启用前会弹一次**数据流向声明**（对话内容只发往你配置的服务、不收集遥测、随时可关），设置页常驻"你的话发给谁"三档对比条。**注意：Coding Plan（套餐包月）密钥不能用于本游戏**——服务端会返回错误码 1315，请使用按量计费的 API Key；详见下方[免责与科普](#免责与科普ai-档说明)。
