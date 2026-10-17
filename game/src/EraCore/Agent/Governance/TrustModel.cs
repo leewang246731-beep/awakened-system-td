@@ -19,6 +19,23 @@ public enum TrustBadge
 }
 
 /// <summary>
+/// Content-facing tier keys — the single source of the badge→lowercase-key
+/// mapping (story tables' tier names / finale trust lines). Strict: unknown
+/// tiers throw (callers wanting a lenient fallback wrap this themselves —
+/// see TrustBadgeNarrativeExtensions.PoolName).
+/// </summary>
+public static class TrustBadgeKeys
+{
+    public static string StrictKey(TrustBadge badge) => badge switch
+    {
+        TrustBadge.Skeptical => "skeptical",
+        TrustBadge.Trustworthy => "trustworthy",
+        TrustBadge.Devoted => "devoted",
+        _ => throw new ArgumentOutOfRangeException(nameof(badge), badge, "unknown trust badge tier."),
+    };
+}
+
+/// <summary>
 /// Trust model (T-050, C-14 / feature F-076), frozen rules (v3.2
 /// appendix F.4):
 /// <list type="bullet">

@@ -234,10 +234,18 @@ public sealed partial class CinematicDirector : Control
         // T-136：钩子行不在 dev 装载集（e1+e2）的脚本不进路由——finale-zero 的
         // e6-final 胜利拍绑定与单发由 FinaleCinematicsTests 以 levels/e6.json 全
         // 行构造路由执法；dev 会话内 finale 走显式通道（回看/战役宿主发射）。
-        List<CinematicScript> routable = scripts
-            .Where(script => script.HookId is null
-                || hookRows.Any(row => row.HookId == script.HookId))
-            .ToList();
+        // 过滤不静默（审查批 3 #3）：每个被移出路由的脚本留一行日志——未来
+        // hook id 笔误会在这里显形，而不是无声丢演出。
+        List<CinematicScript> routable = new(scripts);
+        foreach (CinematicScript script in scripts)
+        {
+            if (script.HookId is not null
+                && hookRows.All(row => row.HookId != script.HookId))
+            {
+                routable.Remove(script);
+                GD.Print($"cinematics: 脚本 {script.Id} 的钩子 {script.HookId} 不在当前装载集——移出路由（显式通道/测试执法面覆盖）");
+            }
+        }
         _router = new CinematicHookRouter(hookRows, routable);
         _progress = CinematicProgressStore.Load(_files);
         _victoryArchive = VictorySettlementStore.Load(_files); // 结算状态入存档（重进不重播、可回看）

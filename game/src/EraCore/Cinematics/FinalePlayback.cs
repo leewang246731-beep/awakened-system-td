@@ -57,11 +57,6 @@ public static class FinalePlayback
     /// the content table's tier names exactly.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">Unknown badge tier.</exception>
-    public static string TrustTierKey(TrustBadge badge) => badge switch
-    {
-        TrustBadge.Skeptical => "skeptical",
-        TrustBadge.Trustworthy => "trustworthy",
-        TrustBadge.Devoted => "devoted",
-        _ => throw new ArgumentOutOfRangeException(nameof(badge), badge, "unknown trust badge tier."),
-    };
+    public static string TrustTierKey(TrustBadge badge) =>
+        EraCore.Agent.Governance.TrustBadgeKeys.StrictKey(badge);
 }

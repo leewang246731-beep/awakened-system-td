@@ -521,11 +521,8 @@ public sealed record StoryChapter(
 /// <summary>Trust-badge pool names (content-facing, closed set of three tiers).</summary>
 internal static class TrustBadgeNarrativeExtensions
 {
-    public static string PoolName(this TrustBadge badge) => badge switch
-    {
-        TrustBadge.Skeptical => "skeptical",
-        TrustBadge.Trustworthy => "trustworthy",
-        TrustBadge.Devoted => "devoted",
-        _ => badge.ToString(),
-    };
+    public static string PoolName(this TrustBadge badge) =>
+        badge is TrustBadge.Skeptical or TrustBadge.Trustworthy or TrustBadge.Devoted
+            ? EraCore.Agent.Governance.TrustBadgeKeys.StrictKey(badge)
+            : badge.ToString();
 }

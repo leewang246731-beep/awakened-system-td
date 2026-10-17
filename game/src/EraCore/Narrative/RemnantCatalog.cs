@@ -130,7 +130,7 @@ public sealed class RemnantCatalog
                 throw new NarrativeSchemaException($"{sourceName}: 缺 items 数组");
             }
 
-                Require(
+            Require(
                 itemsEl.GetArrayLength() == RemnantCount,
                 $"{sourceName}: items 须恰好 {RemnantCount} 条（得到 {itemsEl.GetArrayLength()}——T-089 首批 8 条+T-120 E3 增量 3 条+T-127 E4 增量 4 条+T-136 E5/终章增量 7 条）");
 
