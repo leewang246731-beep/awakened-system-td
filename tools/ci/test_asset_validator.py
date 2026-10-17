@@ -153,13 +153,15 @@ def test_size_rules() -> None:
         write(root, "ok-32.png", png_bytes(32, 32, 8, 2))
         write(root, "ok-48.png", png_bytes(48, 48, 8, 2))  # 清单内非 2 幂例外
         write(root, "ok-64.png", png_bytes(64, 64, 8, 2))
+        # T-136 终章 Boss 96×112（设计案 §13.1 升格——宽 96/高 112 两维分别入清单）
+        write(root, "ok-96.png", png_bytes(96, 112, 8, 2))
         write(root, "bad-1.png", png_bytes(1, 1, 8, 6, pixels=b"\x00\xff\x00\x00\xff"))
         write(root, "bad-20.png", png_bytes(20, 20, 8, 2))   # 16 的 1.25 倍
         write(root, "bad-24.png", png_bytes(24, 24, 8, 2))   # 非 2 幂且不在清单
         write(root, "bad-128.png", png_bytes(128, 16, 8, 2))  # 2 幂但不在清单
         report = av.run([root], av.DEFAULT_ALLOWED_SIZES, 64, False)
         by_name = {os.path.basename(r["path"]): r for r in report["results"]}
-        for name in ("ok-16.png", "ok-32.png", "ok-48.png", "ok-64.png"):
+        for name in ("ok-16.png", "ok-32.png", "ok-48.png", "ok-64.png", "ok-96.png"):
             check(not rules_of(by_name[name]) & {"SIZE-ALLOWLIST"},
                   f"{name} 过尺寸清单")
         for name in ("bad-1.png", "bad-20.png", "bad-24.png", "bad-128.png"):

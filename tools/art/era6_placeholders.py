@@ -25,9 +25,10 @@ T-119 双层动画全套几何契约）、终章面板色板（C-22 换肤底稿
 特殊形态裁定（任务卡口径，同 era4/era5 裁先例）：
   时空塔=星门环静态底稿——canonical=塔顶展开环+裂缝注记（星门母题件），
   时间涟漪/脉冲属渲染层（SpriteRotationQuarters/着色器先例同律）。
-  堕落守望者 Boss 画布=64（28 号 §5「常规 Boss 64~96」下限重演：内容表
-  canvas_size_px=96 超校验器清单；设计案 §13.1「终章 Boss 96×112」升格
-  须随 SIZE-ALLOWLIST 扩展走 REV——本包先落合规下限，REV 登记挂账）。
+  堕落守望者 Boss 画布=96×112（设计案 §13.1「终章 Boss 96×112」逐字锚点，
+  T-136 升格：内容表 canvas_size_px=96+canvas_height_px=112 双字段对齐；
+  SIZE-ALLOWLIST 扩 96/112 随 REV-20261018-T136 登记——28 号 §5「常规 Boss
+  64~96」带上沿 96=宽、112=终章专属纵幅）。
 
 传送带终章皮肤（∞ 档，era6/era.json logistics tier5=teleporter null=∞——
 trip 传送形态的皮肤对位）：纹理色板换装，几何与帧律逐字节复用 T-119 冻结
@@ -56,7 +57,7 @@ BeltRenderDecisions.cs 常量一致，C# 侧 Era6ArtMappingTests 逐像素复验
   towers/tower-singularity-l1.png                48×48 奇点炮（高能档）
   towers/tower-spacetime-l1.png                  32×32 时空塔（星门母题，max1 单档）
   enemies/enemy-void-swarm.png … 8 种            32×32 常规敌
-  enemies/boss-fallen-watcher.png                64×64 堕落守望者（28 §5 下限）
+  enemies/boss-fallen-watcher.png                96×112 堕落守望者（§13.1 终章锚点）
   units/teleporter-right.png                     32×32 传送阵（终章载具）
   ui/panel-era6.png                              32×32 面板色板
   tiles/floor-voidstone / -nebula / road-lightray{,-alt} /
@@ -69,7 +70,8 @@ BeltRenderDecisions.cs 常量一致，C# 侧 Era6ArtMappingTests 逐像素复验
 包文件数=26（era6 内容 id 对齐：两塔均 max_tier=1 → 2 升级位文件——
 era4 30/era5 29 的同构异数，槽类结构一致，REV 登记）。
 
-全部输出须过 tools/ci/asset_validator.py（尺寸 16/32/48/64 白名单、≤64 色、
+全部输出须过 tools/ci/asset_validator.py（尺寸 16/32/48/64/96/112 白名单
+（96/112=T-136 终章 Boss 96×112 升格扩展）、≤64 色、
 kebab 命名）。--self-test 另做四类强校验：①asset_validator 全目录；②转弯 8 帧
 帧边界对齐（u 律+双臂逐像素平移+循环闭合+八帧两两不同+带边零重叠）；③静态层/
 动画层透明区互斥（双层叠加契约）；④确定性（二次生成 sha256 逐字节全等）。
@@ -616,64 +618,67 @@ def enemy_choir_core():
 
 
 def boss_fallen_watcher():
-    """堕落守望者（era6:enemy-boss）64×64：被千年记忆压垮的初代守望者——
-    宽体暗物质蒙皮+胸口守望者之眼（星门环口径+靛蓝瞳）+重力脉冲同心弧
-    （gravity_pulse 辨识）+双肩坍缩塔+顶冠残环（星门母题的堕落形态——环已
-    破裂）。画布 64（28 §5 下限重演：内容表 canvas_size_px=96 超校验器清单，
-    设计案 §13.1「终章 Boss 96×112」升格须随 SIZE-ALLOWLIST 扩展走 REV）。"""
-    c = Canvas(64, 64)
-    _shadow(c, 6, 60, 52)
-    span = (  # 悬浮宽体平面形（行, x0, x1）——菱形前缘+展肩
-        (18, 28, 35), (19, 25, 38), (20, 22, 41), (21, 19, 44), (22, 16, 47),
-        (23, 13, 50), (24, 11, 52), (25, 9, 54), (26, 8, 55), (27, 7, 56),
-        (28, 7, 56), (29, 7, 56), (30, 7, 56), (31, 8, 55), (32, 9, 54),
-        (33, 11, 52), (34, 13, 50), (35, 16, 47), (36, 20, 43), (37, 25, 38),
+    """堕落守望者（era6:enemy-boss）96×112（设计案 §13.1 终章 Boss 逐字锚点：
+    canvas_size_px=96 宽 + canvas_height_px=112 高双字段对齐，T-136 升格——
+    SIZE-ALLOWLIST 扩 96/112 随 REV-20261018-T136 登记）：被千年记忆压垮的
+    初代守望者——宽体暗物质蒙皮+胸口守望者之眼（星门环口径+靛蓝瞳）+重力
+    脉冲同心弧（gravity_pulse 辨识）+双肩坍缩塔+顶冠残环（星门母题的堕落
+    形态——环已破裂）。纵向 112=终章专属纵幅：冠环-舰体-脉冲弧三段拉满
+    （千年重量的视觉高度）。"""
+    c = Canvas(96, 112)
+    _shadow(c, 12, 106, 72)
+    span = (  # 悬浮宽体平面形（行 y, 半宽 hw；cx=48）——菱形前缘+展肩
+        (34, 6), (35, 9), (36, 13), (37, 17), (38, 21), (39, 25), (40, 28),
+        (41, 31), (42, 33), (43, 35), (44, 36), (45, 37), (46, 37), (47, 37),
+        (48, 37), (49, 37), (50, 37), (51, 37), (52, 37), (53, 36), (54, 35),
+        (55, 33), (56, 31), (57, 28), (58, 25), (59, 21), (60, 17), (61, 13),
+        (62, 9),
     )
-    for (yy, x0, x1) in span:
-        c.hline(x0, yy, x1 - x0 + 1, PALETTE["void_dark"])  # 暗物质蒙皮
-    for (yy, x0, x1) in span:  # 前缘星云层积缝（上缘两行铺层带）
-        c.hline(x0, yy, 1, PALETTE["void_mid"])
-        c.hline(x1, yy, 1, PALETTE["void_mid"])
-    c.fill(22, 20, 20, 18, PALETTE["void_dark"])            # 中央舰体隆起
-    for i in range(8):                                      # 舰体层积缝
-        c.set(22 + i, 20 + i, PALETTE["void_mid"])
-        c.set(41 - i, 20 + i, PALETTE["void_mid"])
+    for (yy, hw) in span:
+        c.hline(48 - hw, yy, hw * 2 + 1, PALETTE["void_dark"])   # 暗物质蒙皮
+    for (yy, hw) in span:  # 前缘星云层积缝（两缘竖铺层带）
+        c.set(48 - hw, yy, PALETTE["void_mid"])
+        c.set(48 + hw, yy, PALETTE["void_mid"])
+    c.fill(33, 38, 30, 26, PALETTE["void_dark"])            # 中央舰体隆起
+    for i in range(11):                                     # 舰体层积缝
+        c.set(33 + i, 38 + i, PALETTE["void_mid"])
+        c.set(62 - i, 38 + i, PALETTE["void_mid"])
     # 守望者之眼：星门环口径 + 靛蓝瞳（重力脉冲源）——守望塔六形态之眼
-    c.fill(28, 24, 8, 8, PALETTE["nebula_dark"])            # 眼窝（星云暗）
-    c.hline(27, 28, 10, PALETTE["indigo_main"])             # 眼环（上）
-    c.hline(27, 27, 10, PALETTE["indigo_main"])             # 眼环（下）
-    c.set(28, 26, PALETTE["indigo_light"])
-    c.set(35, 26, PALETTE["indigo_light"])
-    c.fill(30, 29, 4, 2, PALETTE["indigo_main"])            # 瞳（星门靛蓝）
-    c.set(31, 29, PALETTE["indigo_light"])
-    rift_mark(c, 30, 24, 3, "frost_light")                  # 眼上裂缝（千年记忆）
-    gate_ring(c, 32, 16, 10, "indigo_dark", rift=True)      # 顶冠残环（已破裂）
-    c.set(22, 16, PALETTE["indigo_main"])
-    c.set(42, 16, PALETTE["indigo_main"])
-    c.vline(32, 17, 3, PALETTE["void_mid"])                 # 冠杆
-    for px_ in (14, 48):                                    # 双肩坍缩塔
-        c.fill(px_ - 2, 22, 5, 8, PALETTE["void_mid"])
-        c.hline(px_ - 2, 22, 5, PALETTE["indigo_main"])
-        c.set(px_, 30, PALETTE["indigo_light"])
-    for (ex, ey) in ((18, 33), (44, 33)):                   # 两侧相位推进口
-        c.fill(ex, ey, 3, 4, PALETTE["indigo_dark"])
-        c.set(ex + 1, ey + 4, PALETTE["indigo_main"])
+    c.fill(41, 44, 14, 12, PALETTE["nebula_dark"])          # 眼窝（星云暗）
+    c.hline(40, 45, 16, PALETTE["indigo_main"])             # 眼环（上）
+    c.hline(40, 46, 16, PALETTE["indigo_main"])             # 眼环（下）
+    c.set(40, 44, PALETTE["indigo_light"])
+    c.set(55, 44, PALETTE["indigo_light"])
+    c.fill(44, 49, 8, 4, PALETTE["indigo_main"])            # 瞳（星门靛蓝）
+    c.set(45, 49, PALETTE["indigo_light"])
+    rift_mark(c, 44, 43, 4, "frost_light")                  # 眼上裂缝（千年记忆）
+    gate_ring(c, 48, 24, 15, "indigo_dark", rift=True)      # 顶冠残环（已破裂）
+    c.set(33, 24, PALETTE["indigo_main"])
+    c.set(63, 24, PALETTE["indigo_main"])
+    c.vline(48, 25, 5, PALETTE["void_mid"])                 # 冠杆
+    for px_ in (24, 72):                                    # 双肩坍缩塔
+        c.fill(px_ - 2, 40, 7, 12, PALETTE["void_mid"])
+        c.hline(px_ - 2, 40, 7, PALETTE["indigo_main"])
+        c.set(px_, 51, PALETTE["indigo_light"])
+    for (ex, ey) in ((28, 58), (64, 58)):                   # 两侧相位推进口
+        c.fill(ex, ey, 5, 7, PALETTE["indigo_dark"])
+        c.set(ex + 2, ey + 7, PALETTE["indigo_main"])
     # 重力脉冲同心弧（gravity_pulse：900t 周期 3.5 格压制——canonical 双弧注记）
-    for (ay, k) in ((44, "indigo_dark"), (47, "indigo_main")):
-        c.hline(24, ay, 16, PALETTE[k])
-        c.set(22, ay - 1, PALETTE[k])
-        c.set(41, ay - 1, PALETTE[k])
-        c.set(20, ay - 2, PALETTE["indigo_dark"])
-        c.set(43, ay - 2, PALETTE["indigo_dark"])
-    c.hline(27, 50, 10, PALETTE["indigo_dark"])             # 第三弧（收束）
-    c.set(25, 49, PALETTE["indigo_dark"])
-    c.set(38, 49, PALETTE["indigo_dark"])
-    for (sx, sy) in ((16, 27), (24, 23), (39, 23), (47, 27)):
+    for (ay, k) in ((76, "indigo_dark"), (82, "indigo_main")):
+        c.hline(34, ay, 28, PALETTE[k])
+        c.set(31, ay - 1, PALETTE[k])
+        c.set(65, ay - 1, PALETTE[k])
+        c.set(28, ay - 2, PALETTE["indigo_dark"])
+        c.set(69, ay - 2, PALETTE["indigo_dark"])
+    c.hline(38, 88, 20, PALETTE["indigo_dark"])             # 第三弧（收束）
+    c.set(35, 87, PALETTE["indigo_dark"])
+    c.set(59, 87, PALETTE["indigo_dark"])
+    for (sx, sy) in ((24, 50), (36, 44), (58, 44), (69, 50)):
         c.set(sx, sy, PALETTE["lens_mid"])                  # 蒙皮透镜微光
-    for (dx_, dy_) in ((12, 30), (50, 30), (20, 36)):       # 记忆光尘（飘散）
+    for (dx_, dy_) in ((18, 54), (76, 54), (30, 66)):       # 记忆光尘（飘散）
         c.set(dx_, dy_, PALETTE["dust_mid"])
-    c.set(31, 13, PALETTE["frost_main"])                    # 机顶频闪（贴残环）
-    c.set(32, 13, PALETTE["frost_light"])
+    c.set(47, 22, PALETTE["frost_main"])                    # 机顶频闪（贴残环）
+    c.set(48, 22, PALETTE["frost_light"])
     return c
 
 

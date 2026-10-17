@@ -47,12 +47,19 @@ internal static class Era6ArtPack
     public const string BossStem = "boss-fallen-watcher";
 
     /// <summary>
-    /// Boss canvas edge in px — the 64~96 band lower bound ruling of 28 号 §5
-    /// (content canvas_size_px=96 exceeds the SIZE-ALLOWLIST；设计案 §13.1
-    /// 「终章 Boss 96×112」升格须随 SIZE-ALLOWLIST 扩展走 REV——挂账见
-    /// REV-20261018-T142).
+    /// Boss canvas width in px — 设计案 §13.1「终章 Boss 96×112」的宽 96
+    /// (=28 号 §5 常规 Boss 64~96 带上沿)。T-136 升格落地：内容表
+    /// canvas_size_px=96 + 校验器 SIZE-ALLOWLIST 扩 96/112（REV-20261018-T136
+    /// 处置 T-142 挂账 DEBT①）。
     /// </summary>
-    public const int BossCanvasPx = 64;
+    public const int BossCanvasPx = 96;
+
+    /// <summary>
+    /// Boss canvas height in px — 设计案 §13.1「终章 Boss 96×112」的高 112
+    /// （终章专属纵幅：冠环-舰体-脉冲弧三段拉满）。与
+    /// <see cref="BossCanvasPx"/> 成对，对齐内容表 canvas_height_px=112。
+    /// </summary>
+    public const int BossCanvasHeightPx = 112;
 
     /// <summary>Content-id prefix every era6 tower/enemy row carries (era6:tower-singularity …).</summary>
     private const string ContentPrefix = "era6:";

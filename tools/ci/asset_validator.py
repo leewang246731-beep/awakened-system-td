@@ -9,10 +9,13 @@ Kenney Tiny Dungeon 为 16×16 CC0 tile 包（14 §1.1 A1），进 32px 网格�
 
 规则（severity: REJECT=拒绝入库 / WARN=放行但报告 / INFO=仅报告）：
   PNG-STRUCTURE  REJECT  PNG 签名/IHDR/分块 CRC 损坏（含截断文件）
-  SIZE-ALLOWLIST REJECT  宽或高不在允许清单 {16,32,48,64}（首版=Kenney
-                        Tiny Dungeon 16×16 及其整数放大；"非 2 的幂或不在
-                        允许清单"的尺寸拒绝入库——48 为清单内显式允许的
-                        非 2 幂例外，清单本身即判据）
+  SIZE-ALLOWLIST REJECT  宽或高不在允许清单 {16,32,48,64,96,112}（首版=
+                        Kenney Tiny Dungeon 16×16 及其整数放大；"非 2 的幂
+                        或不在允许清单"的尺寸拒绝入库——48 为清单内显式允许
+                        的非 2 幂例外，清单本身即判据；T-136 扩 96/112=设计案
+                        §13.1「终章 Boss 96×112」升格（宽 96=常规 Boss 64~96
+                        带上沿、高 112=终章专属纵幅），28 号 §5 第三次重演
+                        本次直接扩+REV-20261018-T136 登记）
   FILENAME-KEBAB REJECT  文件名非 kebab-case 小写（^[a-z0-9]+(-[a-z0-9]+)*\.png$）
   PALETTE-COUNT  REJECT  实际使用颜色数 > master 调色板上限 64 色
                         （14 §3「master ≤64 色」；Wave 1 round 1 review #6
@@ -72,8 +75,11 @@ import zlib
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
-# 14 §3 画布/Tile 规格的首版允许清单：16×16 源 tile 的 1×/2×/3×/4× 整数放大
-DEFAULT_ALLOWED_SIZES = (16, 32, 48, 64)
+# 14 §3 画布/Tile 规格的首版允许清单：16×16 源 tile 的 1×/2×/3×/4× 整数放大；
+# T-136 追加 96/112=设计案 §13.1「终章 Boss 96×112」（era6 enemies.json
+# canvas_size_px=96+canvas_height_px=112 双字段对齐的 sprite 面升格——
+# REV-20261018-T136 登记，28 号 §5 SIZE-ALLOWLIST 重演第三次的处置面）
+DEFAULT_ALLOWED_SIZES = (16, 32, 48, 64, 96, 112)
 
 # 14 §3「调色板 master ≤64 色」
 DEFAULT_MAX_PALETTE = 64

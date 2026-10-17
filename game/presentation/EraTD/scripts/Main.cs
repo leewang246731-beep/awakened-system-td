@@ -405,7 +405,7 @@ public sealed partial class Main : Control
             $"ART6 era=finale terrain={Era6TerrainAtlas.TileCount} " +
             $"pack_files={Era6ArtPack.ProbePackFiles().Count}/26 " +
             $"belt={Era6ArtPack.BeltSkinShortStem}@inf/s " +
-            $"boss={Era6ArtPack.BossStem}{Era6ArtPack.BossCanvasPx} " +
+            $"boss={Era6ArtPack.BossStem}{Era6ArtPack.BossCanvasPx}x{Era6ArtPack.BossCanvasHeightPx} " +
             "source=procedural-era6-placeholders");
         GD.Print(
             "BELT6 shader=belt-scroll layers=2 " +

@@ -231,13 +231,18 @@ public class Era6ArtMappingTests
             string stem = id["era6:".Length..];
             if (item.GetProperty("sp_id").GetString() == "e6_boss")
             {
-                // Boss 画布裁定（28 号 §5 先例重演）：内容 canvas_size_px=96 超校验器
-                // 尺寸清单 → 取「常规 Boss 64~96」下限 64；设计案 §13.1「终章
-                // Boss 96×112」升格须随 SIZE-ALLOWLIST 扩展走 REV（挂账）。
+                // Boss 画布升格（T-136 处置 T-142 挂账 DEBT①）：设计案 §13.1
+                // 「终章 Boss 96×112」——内容行 canvas_size_px=96（宽）+
+                // canvas_height_px=112（高）双字段与 PNG 实际尺寸逐字对齐
+                //（SIZE-ALLOWLIST 扩 96/112 随 REV-20261018-T136 登记）。
                 // 素材名=堕落守望者（era.json boss 块 name_en=Fallen Watcher）。
                 string boss = Texture("enemies", "boss-fallen-watcher.png");
                 Assert.True(File.Exists(boss), "缺 Boss 素材：boss-fallen-watcher.png");
-                Assert.Equal((64, 64), PngSize(boss));
+                Assert.Equal(
+                    (item.GetProperty("canvas_size_px").GetInt32(),
+                        item.GetProperty("canvas_height_px").GetInt32()),
+                    PngSize(boss));
+                Assert.Equal((96, 112), PngSize(boss));
                 continue;
             }
 
@@ -251,20 +256,22 @@ public class Era6ArtMappingTests
     }
 
     [Fact] // legal — 堕落守望者形态锚点：守望者之眼+重力脉冲同心弧+顶冠残环
-    // （gravity_pulse 行形+星门母题的堕落形态）
+    // （gravity_pulse 行形+星门母题的堕落形态；96×112 升格后三段式拉满：
+    // 冠环 y~24/舰体之眼 y~45-58/脉冲弧 y~76-88——千年重量的纵向读法）
     public void Boss_fallen_watcher_carries_watcher_eye_and_gravity_pulse_arcs()
     {
         var boss = DecodeRgba(Texture("enemies", "boss-fallen-watcher.png"));
         // 守望者之眼：星门靛蓝眼环 + 靛蓝瞳（重力脉冲源）+眼上裂缝（千年记忆）
-        Assert.Equal(((byte)62, (byte)85, (byte)201, (byte)255), Pixel(boss, 30, 28));
-        Assert.Equal(((byte)122, (byte)140, (byte)224, (byte)255), Pixel(boss, 31, 29));
-        Assert.Equal(((byte)222, (byte)244, (byte)248, (byte)255), Pixel(boss, 30, 24));
+        Assert.Equal(((byte)62, (byte)85, (byte)201, (byte)255), Pixel(boss, 48, 45));
+        Assert.Equal(((byte)122, (byte)140, (byte)224, (byte)255), Pixel(boss, 45, 49));
+        Assert.Equal(((byte)222, (byte)244, (byte)248, (byte)255), Pixel(boss, 44, 43));
         // 重力脉冲同心弧（traits.gravity_pulse：900t 周期 3.5 格压制——canonical 双弧注记）
-        Assert.Equal(((byte)38, (byte)55, (byte)150, (byte)255), Pixel(boss, 30, 44));
-        Assert.Equal(((byte)62, (byte)85, (byte)201, (byte)255), Pixel(boss, 30, 47));
-        // 顶冠残环（星门母题——已破裂）+双肩坍缩塔靛蓝顶
-        Assert.Equal(((byte)38, (byte)55, (byte)150, (byte)255), Pixel(boss, 32, 16));
-        Assert.Equal(((byte)62, (byte)85, (byte)201, (byte)255), Pixel(boss, 13, 22));
+        Assert.Equal(((byte)38, (byte)55, (byte)150, (byte)255), Pixel(boss, 48, 76));
+        Assert.Equal(((byte)62, (byte)85, (byte)201, (byte)255), Pixel(boss, 48, 82));
+        // 顶冠残环（星门母题——已破裂：环体暗靛+裂缝断口）+双肩坍缩塔靛蓝顶
+        Assert.Equal(((byte)38, (byte)55, (byte)150, (byte)255), Pixel(boss, 48, 24));
+        Assert.Equal(((byte)24, (byte)22, (byte)44, (byte)255), Pixel(boss, 55, 24)); // 环上断口
+        Assert.Equal(((byte)62, (byte)85, (byte)201, (byte)255), Pixel(boss, 24, 40));
     }
 
     [Fact] // legal — 载具/UI/地形/传送带终章皮肤全部在场（era.json logistics ∞ 档）
