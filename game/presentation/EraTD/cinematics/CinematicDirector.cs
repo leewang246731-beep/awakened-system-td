@@ -204,12 +204,17 @@ public sealed partial class CinematicDirector : Control
             CinematicScript.Parse(ReadFile(cinematicsDir, "victory.json"), "cinematics/victory.json"),
         };
 
-        // T-152 ③d 时代跃迁过场 5 条 + 终章播片（无关卡钩子行——transition 拍由
-        // 战役宿主在 F-003 跃迁事务点发射；finale 走 E6 播片位显式通道）。
+        // T-152 ③d 时代跃迁过场 5 条 + 终章播片两版（transition 拍由战役宿主在
+        // F-003 跃迁事务点发射；finale-zero 声明 e6-final 胜利拍钩子行
+        // （levels/e6.json，T-136 F-108 触发位）——dev 宿主只装载 e1+e2 钩子
+        // 行（逐关装载随 C-29 落地），路由绑定只收钩子行在装载集内的脚本；
+        // finale-zero-off=关闭系统字幕版（FinalePlayback.ScriptIdFor 二选一，
+        // 无钩子键——开关选择变体，同拍显式通道））。
         foreach (string transition in new[]
                  {
                      "transition-e1-e2", "transition-e2-e3", "transition-e3-e4",
                      "transition-e4-e5", "transition-e5-e6", "finale-zero",
+                     "finale-zero-off",
                  })
         {
             scripts.Add(CinematicScript.Parse(
@@ -226,7 +231,14 @@ public sealed partial class CinematicDirector : Control
             ReadFile(levelsDir, "e1.json"), "levels/e1.json"));
         hookRows.AddRange(CinematicHookRouter.ParseLevelHooks(
             ReadFile(levelsDir, "e2.json"), "levels/e2.json"));
-        _router = new CinematicHookRouter(hookRows, scripts);
+        // T-136：钩子行不在 dev 装载集（e1+e2）的脚本不进路由——finale-zero 的
+        // e6-final 胜利拍绑定与单发由 FinaleCinematicsTests 以 levels/e6.json 全
+        // 行构造路由执法；dev 会话内 finale 走显式通道（回看/战役宿主发射）。
+        List<CinematicScript> routable = scripts
+            .Where(script => script.HookId is null
+                || hookRows.Any(row => row.HookId == script.HookId))
+            .ToList();
+        _router = new CinematicHookRouter(hookRows, routable);
         _progress = CinematicProgressStore.Load(_files);
         _victoryArchive = VictorySettlementStore.Load(_files); // 结算状态入存档（重进不重播、可回看）
     }
