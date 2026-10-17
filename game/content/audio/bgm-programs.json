@@ -1,7 +1,7 @@
 {
   "$schema": "urn:eratd:content:audio:bgm-programs:2",
   "content_type": "BgmProgramTable",
-  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-092 三态 BGM 合成参数表（F-135），v2（T-121）加 timbre 列与 era3 行：每时代一行；三态=同和弦垫底的累积分层（calm=环境垫/combat=+鼓点/boss=+低音，§14 三态分层），交叠期由 CrossFadeBus 等功率淡入淡出。timbre=音色族封闭集：acoustic=T-092 原声鼓组（E1/E2）；industrial=E3 工业音景（31 号视觉身份卡：蒸汽垫底低频脉冲+微汽笛 / 金属打击+铆钉动机 / 重工业低音+汽笛长鸣动机）。全部音调分量按整数周期/循环量化，事件按拍网格放置，保证循环无缝与跨机确定可听测。",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-092 三态 BGM 合成参数表（F-135），v2（T-121）加 timbre 列与 era3 行（T-142 追加 era5 synth/era6 cosmic 两行：每时代一行；三态=同和弦垫底的累积分层（calm=环境垫/combat=+鼓点/boss=+低音，§14 三态分层），交叠期由 CrossFadeBus 等功率淡入淡出。timbre=音色族封闭集：acoustic=T-092 原声鼓组（E1/E2）；industrial=E3 工业音景（31 号视觉身份卡：蒸汽垫底低频脉冲+微汽笛 / 金属打击+铆钉动机 / 重工业低音+汽笛长鸣动机）。全部音调分量按整数周期/循环量化，事件按拍网格放置，保证循环无缝与跨机确定可听测。",
   "sample_rate_hz": 22050,
   "loop_bars": 4,
   "beats_per_bar": 4,
@@ -10,9 +10,14 @@
       "era": "era1",
       "tempo_bpm": 84,
       "root_hz": 110.0,
-      "chord_intervals": [1.0, 1.1892, 1.4983, 2.0],
+      "chord_intervals": [
+        1.0,
+        1.1892,
+        1.4983,
+        2.0
+      ],
       "pad_gain": 0.34,
-      "percussion_gain": 0.20,
+      "percussion_gain": 0.2,
       "bass_gain": 0.24,
       "hat_subdivisions": 2,
       "timbre": "acoustic"
@@ -21,7 +26,12 @@
       "era": "era2",
       "tempo_bpm": 100,
       "root_hz": 146.83,
-      "chord_intervals": [1.0, 1.2599, 1.4983, 2.0],
+      "chord_intervals": [
+        1.0,
+        1.2599,
+        1.4983,
+        2.0
+      ],
       "pad_gain": 0.32,
       "percussion_gain": 0.22,
       "bass_gain": 0.26,
@@ -32,12 +42,52 @@
       "era": "era3",
       "tempo_bpm": 112,
       "root_hz": 92.5,
-      "chord_intervals": [1.0, 1.3348, 1.4983, 2.0],
-      "pad_gain": 0.30,
+      "chord_intervals": [
+        1.0,
+        1.3348,
+        1.4983,
+        2.0
+      ],
+      "pad_gain": 0.3,
       "percussion_gain": 0.26,
       "bass_gain": 0.36,
       "hat_subdivisions": 4,
       "timbre": "industrial"
+    },
+    {
+      "era": "era5",
+      "tempo_bpm": 126,
+      "root_hz": 123.47,
+      "chord_intervals": [
+        1.0,
+        1.2599,
+        1.4983,
+        1.6818,
+        2.0
+      ],
+      "pad_gain": 0.3,
+      "percussion_gain": 0.24,
+      "bass_gain": 0.3,
+      "hat_subdivisions": 6,
+      "timbre": "synth",
+      "_source": "T-142 E5 未来行（F-135 六时代环境音乐第 5 行）：tempo 126=时代递进 84→100→112→126（每代 +12~14 bpm 同带）；root 123.47=B2（未来亮度档，era3 92.5 之上）；和弦 [1, 大三度 1.2599, 纯五 1.4983, 大六 1.6818, 8 度]=五音加彩和弦（合成器 pad 的丰富度——era1/2/3 三~四音的下一步）；gains/细分=聚变音景带（hat 6 档=未来密度第 2）；timbre=synth=E5 音色族（31 号 §1.2 E5 行：聚变脉冲/光流琶音/全息点/合成鼓/尖塔鸣响——BgmSynth T-142 段）"
+    },
+    {
+      "era": "era6",
+      "tempo_bpm": 63,
+      "root_hz": 61.74,
+      "chord_intervals": [
+        1.0,
+        1.1892,
+        1.4142,
+        2.0
+      ],
+      "pad_gain": 0.34,
+      "percussion_gain": 0.22,
+      "bass_gain": 0.38,
+      "hat_subdivisions": 2,
+      "timbre": "cosmic",
+      "_source": "T-142 终章 深空行（F-135 六时代环境音乐第 6 行）：tempo 63=终章半速（深空慢拍——era5 126 之半，首尾闭环回望 E1 84 的邻位）；root 61.74=B1（最低根音档——深空的低底）；和弦 [1, 小三 1.1892, 三全音 1.4142, 8 度]=裂缝和弦（星门环+裂缝母题——三全音=深空张力位）；pad 0.34/bass 0.38=垫与低音最重、percussion 0.22=鼓最轻（深空=氛围主导）；hat 2 档=稀疏；timbre=cosmic=终章音色族（31 号 §1.2 终章行：零点脉冲/星尘带/记忆钟鸣/引力鼓/星门轰鸣——BgmSynth T-142 段）。era6 行键=时代键约定（era1..era5 同式），T-135 终章内容落地后关卡侧路由照此键接线"
     }
   ]
 }

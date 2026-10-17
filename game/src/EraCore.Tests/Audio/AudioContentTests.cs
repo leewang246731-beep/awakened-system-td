@@ -56,12 +56,12 @@ internal static class AudioContent
 // [C-25][F-135][F-137][F-138] 入库音频参数表集成断言
 public class AudioContentTests
 {
-    [Fact] // legal — the shipped BGM table is the frozen E1/E2/E3 set and renders all nine loops
-    public void Shipped_bgm_table_renders_nine_loops()
+    [Fact] // legal — the shipped BGM table is the frozen five-row set and renders all fifteen loops
+    public void Shipped_bgm_table_renders_fifteen_loops()
     {
         BgmProgramTable table = AudioContent.BgmPrograms();
 
-        Assert.Equal(3, table.Programs.Count);
+        Assert.Equal(5, table.Programs.Count);
         Assert.NotNull(table.Find("era1"));
         Assert.NotNull(table.Find("era2"));
 
@@ -71,6 +71,14 @@ public class AudioContentTests
         Assert.Equal(BgmTimbre.Acoustic, table.Find("era1")!.Timbre);
         Assert.Equal(BgmTimbre.Acoustic, table.Find("era2")!.Timbre);
 
+        BgmProgram era5 = table.Find("era5")!; // T-142 row: E5 future synth
+        Assert.NotNull(era5);
+        Assert.Equal(BgmTimbre.Synth, era5.Timbre);
+
+        BgmProgram era6 = table.Find("era6")!; // T-142 row: final-chapter cosmic
+        Assert.NotNull(era6);
+        Assert.Equal(BgmTimbre.Cosmic, era6.Timbre);
+
         foreach (BgmProgram program in table.Programs)
         {
             foreach (BgmLayerState state in Enum.GetValues<BgmLayerState>())
@@ -78,6 +86,34 @@ public class AudioContentTests
                 byte[] pcm = BgmSynth.SynthesizePcm(program, state);
                 Assert.Equal(program.LoopSamples * 2, pcm.Length);
                 Assert.Contains(pcm, b => b != 0); // audible, not digital silence
+            }
+        }
+    }
+
+    [Fact] // legal — T-142 两章曲：E5 synth 三态与终章 cosmic 三态各自可分、互不相同、与
+    // 前三行音色族字节分离（「每代 ≥3 曲」验收的 headless 判据——每行 3 态=3 曲）
+    public void T142_timbre_rows_render_three_distinct_tracks_each()
+    {
+        BgmProgramTable table = AudioContent.BgmPrograms();
+        foreach (string era in new[] { "era5", "era6" })
+        {
+            byte[][] loops = Enum.GetValues<BgmLayerState>()
+                .Select(state => BgmSynth.SynthesizePcm(table.Find(era)!, state))
+                .ToArray();
+            int distinct = loops.Select(Convert.ToBase64String).Distinct().Count();
+            Assert.Equal(3, distinct); // calm/combat/boss = three real tracks, not one
+
+            // 与已交付各行（同态）字节分离——音色族身份
+            foreach (string other in new[] { "era1", "era2", "era3", "era5", "era6" })
+            {
+                if (other == era)
+                {
+                    continue;
+                }
+
+                Assert.NotEqual(
+                    Convert.ToBase64String(loops[0]),
+                    Convert.ToBase64String(BgmSynth.SynthesizePcm(table.Find(other)!, BgmLayerState.Calm)));
             }
         }
     }

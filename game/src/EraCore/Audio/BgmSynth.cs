@@ -31,9 +31,9 @@ public enum BgmLayerState
 /// audition/regression anchor).
 /// </summary>
 /// <remarks>
-/// Timbre families (T-121, table-driven): <c>Acoustic</c> keeps the T-092
-/// voice set verbatim (byte-identical E1/E2). <c>Industrial</c> renders the
-/// E3 soundscape of the 31 号 visual identity card — calm = 蒸汽垫底
+/// Timbre families (T-121/T-142, table-driven): <c>Acoustic</c> keeps the
+/// T-092 voice set verbatim (byte-identical E1/E2). <c>Industrial</c> renders
+/// the E3 soundscape of the 31 号 visual identity card — calm = 蒸汽垫底
 /// (steam-hiss additive noise band, exactly periodic) + 低频脉冲 (sub-root
 /// pulse throb, one per beat) + 微汽笛 (faint short whistle on the odd
 /// bars); combat = +金属打击 (inharmonic-partials clang on beats 1/3) +
@@ -41,6 +41,16 @@ public enum BgmLayerState
 /// 2/4); boss = +重工业低音 (harder-driven alternating root/fifth bass) +
 /// 汽笛长鸣动机 (one-bar long whistle at the loop head with a half-bar
 /// fifth reprise mid-loop — call and response, the Bastion's horn).
+/// <c>Synth</c> (T-142, E5 未来) — calm = 聚变脉冲 (softer sub-root
+/// per-beat throb) + 光流琶音 (chord-tone octave-alternating plucks on the
+/// eighth grid) + 全息点 (bar-head high blips); combat = +合成鼓
+/// (170→55 Hz kick / glitch snare / metallic ticks); boss = +聚变低音
+/// (drive 3.2) + 尖塔鸣响动机 (harmonic-partial chime with fifth reprise).
+/// <c>Cosmic</c> (T-142, 终章 深空) — calm = 零点脉冲 (one-cycle-per-bar
+/// sub-root drift) + 星尘带 (sparse high additive band, 记忆光尘) + 记忆
+/// 钟鸣 (odd-bar faint chimes); combat = +引力鼓 (90→38 Hz long deep kick /
+/// ghost snares / sparse ticks); boss = +透镜低音 (drive 2.2) + 星门轰鸣
+/// 动机 (detuned fifth-stack drone with sub-octave weight, fifth reprise).
 /// </remarks>
 public static class BgmSynth
 {
@@ -137,6 +147,112 @@ public static class BgmSynth
     /// <summary>重工业低音的软削波驱动（acoustic=1.8；更大=更密的谐波）.</summary>
     public const double IndustrialBassDrive = 2.6;
 
+    // ---- T-142 synth timbre (E5 未来音景, 31 号 §1.2 E5 行) -----------------
+
+    /// <summary>聚变脉冲基音 = 根音下八度（×0.5）——逐拍升余弦搏动（聚变堆心跳）.</summary>
+    public const double SynthPulseRatio = 0.5;
+
+    /// <summary>光流琶音的细分密度（每拍 2 步=八分音网格——光流线路的流动感）.</summary>
+    public const int ArpSubdivisionsPerBeat = 2;
+
+    /// <summary>光流琶音增益系数（×pad_gain）.</summary>
+    public const double ArpGainFactor = 0.5;
+
+    /// <summary>光流琶音单音时长（s）.</summary>
+    public const double ArpPluckSec = 0.22;
+
+    /// <summary>光流琶音起音（s，升余弦窗）.</summary>
+    public const double ArpAttackSec = 0.01;
+
+    /// <summary>光流琶音收音（s，升余弦窗——click kill）.</summary>
+    public const double ArpReleaseSec = 0.08;
+
+    /// <summary>全息点频率（×根音——高频闪点）.</summary>
+    public const double HoloBlipRatio = 16.0;
+
+    /// <summary>全息点时长（s）.</summary>
+    public const double HoloBlipSec = 0.06;
+
+    /// <summary>全息点增益系数（×pad_gain）.</summary>
+    public const double HoloBlipGainFactor = 0.3;
+
+    /// <summary>合成鼓 kick 扫频起点（Hz）.</summary>
+    public const double SynthKickFromHz = 170.0;
+
+    /// <summary>合成鼓 kick 扫频终点（Hz）.</summary>
+    public const double SynthKickToHz = 55.0;
+
+    /// <summary>合成鼓 kick 时长（s）.</summary>
+    public const double SynthKickSec = 0.09;
+
+    /// <summary>合成军鼓体音（Hz）.</summary>
+    public const double SynthSnareToneHz = 240.0;
+
+    /// <summary>合成军鼓时长（s）.</summary>
+    public const double SynthSnareSec = 0.06;
+
+    /// <summary>高频 tick 时长（s）——合成 hats 的金属点.</summary>
+    public const double SynthTickSec = 0.012;
+
+    /// <summary>高频 tick 金属泛音（×根音 ≈ 高频段身份）.</summary>
+    public const double SynthTickPingRatio = 20.0;
+
+    /// <summary>聚变低音的软削波驱动（三档里最密——聚变堆的能量密度）.</summary>
+    public const double SynthBassDrive = 3.2;
+
+    /// <summary>尖塔鸣动机音高（×根音）.</summary>
+    public const double ChimePitchRatio = 4.0;
+
+    /// <summary>尖塔鸣动机时长 = 一小节（复现=半小节）.</summary>
+    public const double ChimeRepriseInterval = 1.4983;
+
+    /// <summary>尖塔鸣动复现增益（×长鸣）.</summary>
+    public const double ChimeRepriseGain = 0.6;
+
+    // ---- T-142 cosmic timbre (终章 深空音景, 31 号 §1.2 终章行) -------------
+
+    /// <summary>零点脉冲基音 = 根音下八度（×0.5）——每小节一周的极慢搏动.</summary>
+    public const double CosmicPulseRatio = 0.5;
+
+    /// <summary>星尘带加性噪声分量数（每个整数周期化 ⇒ 严格 N-周期）.</summary>
+    public const int StardustComponents = 12;
+
+    /// <summary>星尘带下沿（×根音）——高于蒸汽带（记忆光尘的高频闪烁）.</summary>
+    public const double StardustBandLowRatio = 8.0;
+
+    /// <summary>星尘带上沿（×根音）.</summary>
+    public const double StardustBandHighRatio = 24.0;
+
+    /// <summary>记忆钟鸣音高（×根音）.</summary>
+    public const double MemoryChimeRatio = 4.0;
+
+    /// <summary>记忆钟鸣时长（s）.</summary>
+    public const double MemoryChimeSec = 0.7;
+
+    /// <summary>引力鼓 kick 扫频起点（Hz）——深软.</summary>
+    public const double GravityKickFromHz = 90.0;
+
+    /// <summary>引力鼓 kick 扫频终点（Hz）.</summary>
+    public const double GravityKickToHz = 38.0;
+
+    /// <summary>引力鼓 kick 时长（s）——比声学/合成更长（深空回响）.</summary>
+    public const double GravityKickSec = 0.15;
+
+    /// <summary>幽灵军鼓时长（s）.</summary>
+    public const double GhostSnareSec = 0.05;
+
+    /// <summary>幽灵军鼓增益系数（×percussion_gain）.</summary>
+    public const double GhostSnareGainFactor = 0.35;
+
+    /// <summary>金属 tick 时长（s）——稀疏点缀.</summary>
+    public const double CosmicTickSec = 0.01;
+
+    /// <summary>透镜低音的软削波驱动（深而不凶）.</summary>
+    public const double CosmicBassDrive = 2.2;
+
+    /// <summary>星门轰鸣音高（×根音）.</summary>
+    public const double GateDronePitchRatio = 2.0;
+
     private const short FullScale = 32767;
     private const double TwoPi = 2.0 * Math.PI;
 
@@ -180,6 +296,36 @@ public static class BgmSynth
             {
                 RenderBass(program, samples, count, rate, IndustrialBassDrive);
                 RenderLongWhistleMotif(program, samples, count, rate);
+            }
+        }
+        else if (program.Timbre == BgmTimbre.Synth)
+        {
+            // ---- E5 未来音景（T-142，31 号 §1.2 E5 行）：累积分层 ---------
+            RenderSynthBase(program, samples, count, rate);
+            if (program.HasPercussion(state))
+            {
+                RenderSynthPercussion(program, samples, count, rate);
+            }
+
+            if (program.HasBass(state))
+            {
+                RenderBass(program, samples, count, rate, SynthBassDrive);
+                RenderSpireChimeMotif(program, samples, count, rate);
+            }
+        }
+        else if (program.Timbre == BgmTimbre.Cosmic)
+        {
+            // ---- 终章 深空音景（T-142，31 号 §1.2 终章行）：累积分层 -------
+            RenderCosmicBase(program, samples, count, rate);
+            if (program.HasPercussion(state))
+            {
+                RenderCosmicPercussion(program, samples, count, rate);
+            }
+
+            if (program.HasBass(state))
+            {
+                RenderBass(program, samples, count, rate, CosmicBassDrive);
+                RenderGateDroneMotif(program, samples, count, rate);
             }
         }
         else
@@ -470,6 +616,436 @@ public static class BgmSynth
             double[] reprise = WhistleEvent(half, rate, reprisePitch, gain * WhistleRepriseGain, WhistleAttackSec, WhistleReleaseSec);
             AddEvent(samples, 2 * barSamples, reprise);
         }
+    }
+
+    // ---- T-142 E5 synth timbre（E5 未来音景） ------------------------------
+
+    /// <summary>
+    /// E5 synth calm base (all states): 聚变脉冲 = the shared pad plus a
+    /// sub-root per-beat raised-cosine throb (the fusion core's heartbeat);
+    /// 光流琶音 = chord-tone sine plucks cycling octaves on the eighth-note
+    /// grid (the light-flow conduit texture, deterministic per index); 全息点
+    /// = faint high blips on every bar head. Sustained layers are
+    /// integer-cycle quantized; plucks/blips are fixed-grid events (same
+    /// periodicity policy as the industrial events).
+    /// </summary>
+    private static void RenderSynthBase(BgmProgram program, double[] samples, int count, int rate)
+    {
+        int beatSamples = Math.Max(1, (int)Math.Round(program.BeatSec * rate));
+        int totalBeats = program.LoopBars * program.BeatsPerBar;
+
+        // a) 聚变脉冲：根音下八度，逐拍升余弦搏动（聚变堆心跳——比工业脉动柔）
+        int pulseCycles = (int)Math.Round(program.RootHz * SynthPulseRatio * count / (double)rate);
+        int throbCycles = Math.Max(1, totalBeats);
+        double pulseGain = program.PadGain * 1.05;
+        for (int n = 0; n < count; n++)
+        {
+            double throb = 0.5 + (0.5 * (0.5 - (0.5 * Math.Cos(TwoPi * throbCycles * n / (double)count))));
+            samples[n] += pulseGain * throb * Math.Sin(TwoPi * pulseCycles * n / (double)count);
+        }
+
+        // b) 光流琶音：八分音网格上的和弦音 pluck（八度交替上行流）
+        int arpStep = Math.Max(1, beatSamples / ArpSubdivisionsPerBeat);
+        int arpTotal = totalBeats * ArpSubdivisionsPerBeat;
+        int pluckSamples = (int)Math.Round(ArpPluckSec * rate);
+        int arpEnd = ((arpTotal - 1) * arpStep) + pluckSamples;
+        if (arpEnd >= count)
+        {
+            throw new InvalidOperationException(
+                $"{program.Era}: 光流琶音网格尾端（{arpEnd} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        double arpGain = program.PadGain * ArpGainFactor / ArpSubdivisionsPerBeat;
+        for (int i = 0; i < arpTotal; i++)
+        {
+            double interval = program.ChordIntervals[i % program.ChordIntervals.Count];
+            double octave = (i % (ArpSubdivisionsPerBeat * 2)) < ArpSubdivisionsPerBeat ? 2.0 : 4.0;
+            double pitch = program.RootHz * interval * octave;
+            AddEvent(samples, i * arpStep,
+                ArpPluckEvent(pluckSamples, rate, pitch, arpGain));
+        }
+
+        // c) 全息点：每小节栏首一粒高频闪点
+        int barSamples = beatSamples * program.BeatsPerBar;
+        int blipSamples = (int)Math.Round(HoloBlipSec * rate);
+        int blipEnd = ((program.LoopBars - 1) * barSamples) + blipSamples;
+        if (blipEnd >= count)
+        {
+            throw new InvalidOperationException(
+                $"{program.Era}: 全息点网格尾端（{blipEnd} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        double blipPitch = program.RootHz * HoloBlipRatio;
+        for (int bar = 0; bar < program.LoopBars; bar++)
+        {
+            AddEvent(samples, bar * barSamples,
+                HoloBlipEvent(blipSamples, rate, blipPitch, program.PadGain * HoloBlipGainFactor));
+        }
+    }
+
+    /// <summary>
+    /// One light-flow pluck: fundamental + second harmonic under a raised
+    /// cosine window with exact zero endpoints — a soft synth pluck whose
+    /// brightness rides the octave alternation.
+    /// </summary>
+    private static double[] ArpPluckEvent(int lengthSamples, int rate, double pitchHz, double gain)
+    {
+        var buf = new double[lengthSamples];
+        int attack = (int)Math.Round(ArpAttackSec * rate);
+        int release = (int)Math.Round(ArpReleaseSec * rate);
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            double env = EnvelopeWindow(i, lengthSamples, attack, release);
+            buf[i] = gain * env * (Math.Sin(TwoPi * pitchHz * t) + (0.25 * Math.Sin(TwoPi * pitchHz * 2.0 * t)));
+        }
+
+        return buf;
+    }
+
+    /// <summary>One holo blip: a fast-decaying high sine (the lattice dot).</summary>
+    private static double[] HoloBlipEvent(int lengthSamples, int rate, double pitchHz, double gain)
+    {
+        var buf = new double[lengthSamples];
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            buf[i] = gain * Math.Exp(-t / (HoloBlipSec / 3.0)) * Math.Sin(TwoPi * pitchHz * t)
+                * ReleaseRamp(i, lengthSamples, rate);
+        }
+
+        return buf;
+    }
+
+    /// <summary>
+    /// E5 synth percussion (combat+): 合成鼓 = swept-sine kick (170→55 Hz) on
+    /// beats 1/3; glitch snare (240 Hz tone + seeded noise) on beats 2/4;
+    /// 高频 tick = short seeded noise with a metallic ping partial on the
+    /// subdivision grid. Grid guard first — same policy as the other
+    /// families: a cramped row throws before anything renders.
+    /// </summary>
+    private static void RenderSynthPercussion(BgmProgram program, double[] samples, int count, int rate)
+    {
+        int beatSamples = Math.Max(1, (int)Math.Round(program.BeatSec * rate));
+        int totalBeats = program.LoopBars * program.BeatsPerBar;
+        int subdivision = Math.Max(1, beatSamples / program.HatSubdivisions);
+        int kickSamples = (int)Math.Round(SynthKickSec * rate);
+        int snareSamples = (int)Math.Round(SynthSnareSec * rate);
+        int tickSamples = (int)Math.Round(SynthTickSec * rate);
+
+        int kickEnd = ((totalBeats - 1) * beatSamples) + kickSamples;
+        int tickEnd = ((totalBeats - 1) * beatSamples) + (subdivision * (program.HatSubdivisions - 1)) + tickSamples;
+        if (kickEnd >= count || tickEnd >= count)
+        {
+            int worst = Math.Max(kickEnd, tickEnd);
+            throw new InvalidOperationException(
+                $"{program.Era}: 合成鼓网格尾端（{worst} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        double pingHz = program.RootHz * SynthTickPingRatio;
+        for (int beat = 0; beat < totalBeats; beat++)
+        {
+            int beatStart = beat * beatSamples;
+            int beatInBar = beat % program.BeatsPerBar;
+            double[] hit = beatInBar % 2 == 0
+                ? SynthKickEvent(kickSamples, rate, program.PercussionGain)
+                : SynthSnareEvent(snareSamples, rate, program.PercussionGain, HitSeed(beat, 0));
+            AddEvent(samples, beatStart, hit);
+
+            for (int sub = 0; sub < program.HatSubdivisions; sub++)
+            {
+                int offset = beatStart + (sub * subdivision);
+                if (offset >= beatStart + beatSamples)
+                {
+                    break;
+                }
+
+                AddEvent(samples, offset,
+                    SynthTickEvent(tickSamples, rate, pingHz, program.PercussionGain * 0.5, HitSeed(beat, sub + 1)));
+            }
+        }
+    }
+
+    /// <summary>合成鼓 kick：170→55 Hz 指数衰减扫频正弦（比声学 kick 亮起）.</summary>
+    private static double[] SynthKickEvent(int lengthSamples, int rate, double gain)
+    {
+        var buf = new double[lengthSamples];
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            double sweep = SynthKickFromHz * Math.Pow(SynthKickToHz / SynthKickFromHz, t / SynthKickSec);
+            buf[i] = gain * Math.Exp(-t / (SynthKickSec / 2.0)) * Math.Sin(TwoPi * sweep * t)
+                * ReleaseRamp(i, lengthSamples, rate);
+        }
+
+        return buf;
+    }
+
+    /// <summary>Glitch snare：240 Hz 体音 + 种子噪声（数字味军鼓）.</summary>
+    private static double[] SynthSnareEvent(int lengthSamples, int rate, double gain, uint seed)
+    {
+        var buf = new double[lengthSamples];
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            buf[i] = gain * 0.85 * Math.Exp(-t / (SynthSnareSec / 2.0)) *
+                ((0.5 * Math.Sin(TwoPi * SynthSnareToneHz * t)) + (0.5 * NextNoise(ref seed))) *
+                ReleaseRamp(i, lengthSamples, rate);
+        }
+
+        return buf;
+    }
+
+    /// <summary>高频 tick：短种子噪声体 + 金属 ping（光流线路的高频身份）.</summary>
+    private static double[] SynthTickEvent(int lengthSamples, int rate, double pingHz, double gain, uint seed)
+    {
+        var buf = new double[lengthSamples];
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            double body = Math.Exp(-t / (SynthTickSec / 2.0)) * NextNoise(ref seed);
+            double ping = 0.6 * Math.Exp(-t / (SynthTickSec * 2.0)) * Math.Sin(TwoPi * pingHz * t);
+            buf[i] = gain * 0.75 * (body + ping) * ReleaseRamp(i, lengthSamples, rate);
+        }
+
+        return buf;
+    }
+
+    /// <summary>
+    /// E5 Boss 尖塔鸣鸣动机: a one-bar harmonic-partial chime (the energy
+    /// spire's voice — 1.0/2.0/3.0 harmonic stack vs the industrial plate's
+    /// inharmonic family) at the loop head, answered mid-loop by a half-bar
+    /// reprise a fifth up — call and response（长鸣动机同构，音色族不同）.
+    /// </summary>
+    private static void RenderSpireChimeMotif(BgmProgram program, double[] samples, int count, int rate)
+    {
+        int beatSamples = Math.Max(1, (int)Math.Round(program.BeatSec * rate));
+        int barSamples = beatSamples * program.BeatsPerBar;
+        double gain = program.BassGain * 0.65;
+
+        int longEnd = program.LoopBars >= 3 ? (2 * barSamples) + (barSamples / 2) : barSamples;
+        if (longEnd >= count)
+        {
+            throw new InvalidOperationException(
+                $"{program.Era}: 尖塔鸣动尾端（{longEnd} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        AddEvent(samples, 0, ChimeEvent(barSamples, rate, program.RootHz * ChimePitchRatio, gain));
+
+        if (program.LoopBars >= 3)
+        {
+            AddEvent(samples, 2 * barSamples,
+                ChimeEvent(barSamples / 2, rate, program.RootHz * ChimePitchRatio * ChimeRepriseInterval,
+                    gain * ChimeRepriseGain));
+        }
+    }
+
+    /// <summary>
+    /// One harmonic chime: 1.0/2.0/3.0 partials under a raised-cosine
+    /// attack/release window — the synth family's sustained event（click kill
+    /// 同律：窗口端点精确归零）.
+    /// </summary>
+    private static double[] ChimeEvent(int lengthSamples, int rate, double baseHz, double gain)
+    {
+        double[] ratios = { 1.0, 2.0, 3.0 };
+        double[] weights = { 1.0, 0.45, 0.22 };
+        var buf = new double[lengthSamples];
+        int attack = (int)Math.Round(0.08 * rate);
+        int release = (int)Math.Round(0.2 * rate);
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            double env = EnvelopeWindow(i, lengthSamples, attack, release);
+            double partials = 0.0;
+            for (int p = 0; p < ratios.Length; p++)
+            {
+                partials += weights[p] * Math.Sin(TwoPi * baseHz * ratios[p] * t);
+            }
+
+            buf[i] = gain * env * (partials / 1.67);
+        }
+
+        return buf;
+    }
+
+    // ---- T-142 终章 cosmic timbre（深空音景） --------------------------------
+
+    /// <summary>
+    /// Final-chapter cosmic calm base (all states): 零点脉冲 = sub-root sine
+    /// under an extremely slow one-cycle-per-BAR throb (zero-point drift);
+    /// 星尘带 = a sparse additive seeded noise band high above the root
+    /// （记忆光尘——比蒸汽带更高更稀）; 记忆钟鸣 = faint harmonic chimes on
+    /// every odd bar head（回望六时代的钟声）.
+    /// </summary>
+    private static void RenderCosmicBase(BgmProgram program, double[] samples, int count, int rate)
+    {
+        int beatSamples = Math.Max(1, (int)Math.Round(program.BeatSec * rate));
+        int barSamples = beatSamples * program.BeatsPerBar;
+
+        // a) 零点脉冲：每小节一周的极慢搏动（深空的呼吸）
+        int pulseCycles = (int)Math.Round(program.RootHz * CosmicPulseRatio * count / (double)rate);
+        int throbCycles = Math.Max(1, program.LoopBars);
+        double pulseGain = program.PadGain * 1.1;
+        for (int n = 0; n < count; n++)
+        {
+            double throb = 0.55 + (0.45 * (0.5 - (0.5 * Math.Cos(TwoPi * throbCycles * n / (double)count))));
+            samples[n] += pulseGain * throb * Math.Sin(TwoPi * pulseCycles * n / (double)count);
+        }
+
+        // b) 星尘带：加性噪声带（分量相位=种子纯函数，整数周期 ⇒ 无缝）
+        double lowHz = program.RootHz * StardustBandLowRatio;
+        double highHz = program.RootHz * StardustBandHighRatio;
+        double hissGain = program.PadGain * 0.05;
+        for (int j = 0; j < StardustComponents; j++)
+        {
+            double nominal = lowHz * Math.Pow(highHz / lowHz, j / (double)(StardustComponents - 1));
+            int cycles = (int)Math.Round(nominal * count / (double)rate);
+            if (cycles < 1)
+            {
+                continue;
+            }
+
+            uint seed = SteamSeed(j + 64); // 星尘带与蒸汽带种子族分离（确定性不耦合）
+            double phase = NextPhase(ref seed);
+            int lfoCycles = 1 + (j % 2);
+            for (int n = 0; n < count; n++)
+            {
+                double breathe = 0.65 + (0.35 * Math.Sin((TwoPi * lfoCycles * n / count) + (phase * 0.11)));
+                samples[n] += hissGain * breathe * Math.Sin((TwoPi * cycles * n / (double)count) + phase);
+            }
+        }
+
+        // c) 记忆钟鸣：奇数栏栏首一声（0 栏循环当 1 栏用——参数行守卫覆盖）
+        int chimeSamples = (int)Math.Round(MemoryChimeSec * rate);
+        int firstChimeBar = program.LoopBars == 1 ? 0 : 1;
+        int lastChimeBar = program.LoopBars == 1 ? 0 : (program.LoopBars % 2 == 0 ? program.LoopBars - 1 : program.LoopBars - 2);
+        int chimeEnd = (lastChimeBar * barSamples) + chimeSamples;
+        if (chimeEnd >= count)
+        {
+            throw new InvalidOperationException(
+                $"{program.Era}: 记忆钟鸣网格尾端（{chimeEnd} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        double chimePitch = program.RootHz * MemoryChimeRatio;
+        for (int bar = firstChimeBar; bar < program.LoopBars; bar += 2)
+        {
+            AddEvent(samples, bar * barSamples,
+                ChimeEvent(chimeSamples, rate, chimePitch, program.PadGain * 0.4));
+        }
+    }
+
+    /// <summary>
+    /// Cosmic percussion (combat+): 引力鼓 = a deep long-swept kick (90→38 Hz
+    /// over 0.15 s) on beats 1/3; 幽灵军鼓 = a low-gain seeded-noise snare on
+    /// beats 2/4; 金属 tick = very short sparse pings on the subdivision
+    /// grid. Grid guard first (same policy).
+    /// </summary>
+    private static void RenderCosmicPercussion(BgmProgram program, double[] samples, int count, int rate)
+    {
+        int beatSamples = Math.Max(1, (int)Math.Round(program.BeatSec * rate));
+        int totalBeats = program.LoopBars * program.BeatsPerBar;
+        int subdivision = Math.Max(1, beatSamples / program.HatSubdivisions);
+        int kickSamples = (int)Math.Round(GravityKickSec * rate);
+        int snareSamples = (int)Math.Round(GhostSnareSec * rate);
+        int tickSamples = (int)Math.Round(CosmicTickSec * rate);
+
+        int kickEnd = ((totalBeats - 1) * beatSamples) + kickSamples;
+        int tickEnd = ((totalBeats - 1) * beatSamples) + (subdivision * (program.HatSubdivisions - 1)) + tickSamples;
+        if (kickEnd >= count || tickEnd >= count)
+        {
+            int worst = Math.Max(kickEnd, tickEnd);
+            throw new InvalidOperationException(
+                $"{program.Era}: 引力鼓网格尾端（{worst} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        double pingHz = program.RootHz * SynthTickPingRatio;
+        for (int beat = 0; beat < totalBeats; beat++)
+        {
+            int beatStart = beat * beatSamples;
+            int beatInBar = beat % program.BeatsPerBar;
+            double[] hit = beatInBar % 2 == 0
+                ? GravityKickEvent(kickSamples, rate, program.PercussionGain)
+                : SynthSnareEvent(snareSamples, rate, program.PercussionGain * GhostSnareGainFactor, HitSeed(beat, 0));
+            AddEvent(samples, beatStart, hit);
+
+            for (int sub = 0; sub < program.HatSubdivisions; sub++)
+            {
+                int offset = beatStart + (sub * subdivision);
+                if (offset >= beatStart + beatSamples)
+                {
+                    break;
+                }
+
+                AddEvent(samples, offset,
+                    SynthTickEvent(tickSamples, rate, pingHz, program.PercussionGain * 0.3, HitSeed(beat, sub + 1)));
+            }
+        }
+    }
+
+    /// <summary>引力鼓 kick：90→38 Hz 长扫频深 kick（深空回响）.</summary>
+    private static double[] GravityKickEvent(int lengthSamples, int rate, double gain)
+    {
+        var buf = new double[lengthSamples];
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            double sweep = GravityKickFromHz * Math.Pow(GravityKickToHz / GravityKickFromHz, t / GravityKickSec);
+            buf[i] = gain * Math.Exp(-t / (GravityKickSec / 1.5)) * Math.Sin(TwoPi * sweep * t)
+                * ReleaseRamp(i, lengthSamples, rate);
+        }
+
+        return buf;
+    }
+
+    /// <summary>
+    /// Final-chapter Boss 星门轰鸣动机: a one-bar low fifth-stack drone (the
+    /// gate opening — detuned sine pair over the root octave plus a sub
+    /// octave for weight) at the loop head, answered mid-loop by a half-bar
+    /// reprise a fifth up（汽笛长鸣/尖塔鸣动同构，音色族=深空低鸣）.
+    /// </summary>
+    private static void RenderGateDroneMotif(BgmProgram program, double[] samples, int count, int rate)
+    {
+        int beatSamples = Math.Max(1, (int)Math.Round(program.BeatSec * rate));
+        int barSamples = beatSamples * program.BeatsPerBar;
+        double gain = program.BassGain * 0.7;
+
+        int longEnd = program.LoopBars >= 3 ? (2 * barSamples) + (barSamples / 2) : barSamples;
+        if (longEnd >= count)
+        {
+            throw new InvalidOperationException(
+                $"{program.Era}: 星门轰鸣尾端（{longEnd} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        AddEvent(samples, 0, GateDroneEvent(barSamples, rate, program.RootHz * GateDronePitchRatio, gain));
+
+        if (program.LoopBars >= 3)
+        {
+            AddEvent(samples, 2 * barSamples,
+                GateDroneEvent(barSamples / 2, rate, program.RootHz * GateDronePitchRatio * WhistleRepriseInterval,
+                    gain * ChimeRepriseGain));
+        }
+    }
+
+    /// <summary>
+    /// One gate-drone event: detuned sine pair (beating) + sub-octave weight
+    /// under a raised-cosine window with exact zero endpoints.
+    /// </summary>
+    private static double[] GateDroneEvent(int lengthSamples, int rate, double pitchHz, double gain)
+    {
+        var buf = new double[lengthSamples];
+        int attack = (int)Math.Round(0.2 * rate);
+        int release = (int)Math.Round(0.35 * rate);
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            double env = EnvelopeWindow(i, lengthSamples, attack, release);
+            double pipes = 0.5 * (Math.Sin(TwoPi * pitchHz * (1.0 + WhistleDetune) * t)
+                + Math.Sin(TwoPi * pitchHz * (1.0 - WhistleDetune) * t));
+            double sub = 0.4 * Math.Sin(TwoPi * pitchHz * 0.5 * t);
+            buf[i] = gain * env * (pipes + sub);
+        }
+
+        return buf;
     }
 
     /// <summary>

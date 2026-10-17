@@ -240,11 +240,13 @@ public class BeltRenderDecisionsTests
         Assert.Equal(15.0, BeltRenderDecisions.Era4GearItemsPerSecond);
     }
 
-    [Theory] // legal — [F-042] 未交付上档（20/∞=E5+）乘最新已交付皮肤；低于边界乘 E3 皮肤
+    [Theory] // legal — [F-042] 上档带与 ∞ 档分治：有限高速带乘 era5，唯 ∞ 档穿 era6
+    [InlineData(20.0, "era5")]  // 阶梯第 5 档（E5 皮肤 T-142 落地表）
+    [InlineData(25.0, "era5")]  // 有限高速带（阶梯无此档，乘最近已交付下档皮肤）
+    [InlineData(double.MaxValue, "era5")] // 有限巨值仍非 ∞（era6=唯真无穷档）
     [InlineData(12.5, "era4")]  // 边界本身=切换点（含）
     [InlineData(13.0, "era4")]
-    [InlineData(20.0, "era4")]  // 阶梯第 5 档（E5 皮肤 W8 T-142 前乘 era4）
-    [InlineData(double.MaxValue, "era4")] // ∞ 档同乘最新
+    [InlineData(16.0, "era4")]  // E5 切换点下沿带（<17.5）
     [InlineData(12.49, "era3")]
     [InlineData(0.6, "era3")]   // 低位档乘最近已交付皮肤
     [InlineData(0.0, "era3")]
@@ -255,35 +257,45 @@ public class BeltRenderDecisionsTests
         Assert.Equal(12.5, BeltRenderDecisions.SkinSwitchItemsPerSecond); // 冻结边界=(10+15)/2
     }
 
-    // ------------------------------------------------ legal — E5 20/s 档位（T-134）
+    // ------------------------------------------------ legal — E5 20/s 档位（T-134→T-142 落地）
 
     [Fact] // legal — [F-042] E5 无人机档 20/s：档位常量=冻结阶梯第 5 档位值；
-    // 皮肤 stem 在 T-142 era5 美术包落地前乘最新已交付皮肤（era4）——勿造贴图文件
-    public void E5_drone_gear_declares_the_ladder_rung_and_rides_the_newest_delivered_skin()
+    // 皮肤 stem 随 T-142 era5 美术包入表（textures/era5/belt/ 双层纹理实测在场）
+    public void E5_drone_gear_selects_the_era5_skin_from_the_T142_pack()
     {
         // v3.2 §4 L62 E5 行「无人机 20/s」=阶梯第 5 档（§5 L78 15→20）；era5/era.json
         // logistics tier=4 throughput_items_per_s 同值（Era5ContentTests 侧互证）。
         Assert.Equal(20.0, BeltRenderDecisions.Era5GearItemsPerSecond);
 
-        // 未交付上档乘最新皮肤：era5 stem 随 T-142 art pack 入表，之前恒 era4
-        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era5GearItemsPerSecond));
+        // era5 stem 已随 T-142 美术包入表——20/s 档现在穿 era5 皮肤
+        Assert.Equal("era5", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era5GearItemsPerSecond));
 
-        // 上沿边界=(15+20)/2：era5 档与其切换点同值侧（≥17.5 全为未交付上档带）
+        // 上沿边界=(15+20)/2：有限带 [17.5, ∞) 全为 era5（唯真 ∞ 档另穿 era6）
         Assert.Equal(17.5, BeltRenderDecisions.SkinSwitchUpperItemsPerSecond);
-        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.SkinSwitchUpperItemsPerSecond));
-        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(17.49)); // 边界内仍 era4 现行下沿
+        Assert.Equal("era5", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.SkinSwitchUpperItemsPerSecond));
+        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(17.49)); // 边界内仍 era4 现行上沿
+        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era4GearItemsPerSecond));
+        Assert.Equal("era3", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era3GearItemsPerSecond));
     }
 
-    [Theory] // legal — [F-042] E5 档全速域快照（20/s 与 ∞ 全域乘 era4——T-142 前的冻结行为面）
+    [Theory] // legal — [F-042] 终章 ∞ 档（T-142 era6 皮肤落地）：唯真无穷穿深空皮肤
     [InlineData(20.0)]
     [InlineData(25.0)]
     [InlineData(100.0)]
     [InlineData(double.MaxValue)]
-    public void E5_and_above_gears_stay_on_the_era4_skin_until_the_T142_pack_lands(double gear)
+    public void Finite_upper_gears_stay_on_the_era5_skin_only_infinity_wears_era6(double gear)
     {
-        // era5 纹理 stem 不在 T-134 交付面（T-142 美术包域）——本组断言把
-        // 「未交付上档乘最新皮肤」的现行行为冻结：T-142 落包时本组改红提醒扩表。
-        Assert.Equal("era4", BeltRenderDecisions.BeltSkinStem(gear));
+        // 有限高速带=era5（阶梯无更高有限档——MaxValue 亦非 ∞）；era6=唯 ∞ 档
+        Assert.Equal("era5", BeltRenderDecisions.BeltSkinStem(gear));
+    }
+
+    [Fact] // legal — [F-042] 终章传送阵 ∞ 档：档位常量=正无穷（era6/era.json
+    // throughput=null 的决策层表示）+皮肤 stem=era6（textures/era6/belt/ 实测在场）
+    public void Era6_teleporter_gear_is_infinity_and_selects_the_era6_skin()
+    {
+        Assert.True(double.IsPositiveInfinity(BeltRenderDecisions.Era6GearItemsPerSecond));
+        Assert.Equal("era6", BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era6GearItemsPerSecond));
+        Assert.Equal("era6", BeltRenderDecisions.BeltSkinStem(double.PositiveInfinity));
     }
 
     // ------------------------------------------------ illegal

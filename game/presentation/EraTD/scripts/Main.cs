@@ -343,6 +343,82 @@ public sealed partial class Main : Control
             $"strip={(int)e4BeltStrip.X}x{(int)e4BeltStrip.Y} " +
             $"grid={Era4ArtPack.TurnFramesPerRow}x{Era4ArtPack.TurnFrames / Era4ArtPack.TurnFramesPerRow} " +
             "phase=BeltRenderDecisions(same frozen law, palette reskin, doc 44 §3)");
+
+        // W8 E5 视觉接线 (T-142/C-28, F-042/F-127/F-133): E5 future art pack
+        // load proof — 31 号 §1.2 E5 行（聚变青/聚变紫/纳米银白+力场弧×六边
+        // 晶格）的程序合成包（tools/art/era5_placeholders.py）。Atlas composes
+        // in-engine (missing tiles throw); the belt skin stem comes from the
+        // pure gear decision (BeltRenderDecisions.BeltSkinStem: T-134 留口
+        // 收口——20 件/s = E5 无人机档 → era5 皮肤, 15/s = E4 → era4, 10/s =
+        // E3 → era3 —— 同一冻结帧律仅色板换装); tower/enemy/Boss 实体映射按
+        // content-id→stem 规则组合（Era5ArtMappingTests 头less 侧镜像）。
+        // pack_files=29/29：era5 内容 id 对齐（三塔 5 升级位 vs era4 四塔 6
+        // 件——槽类结构同 era4 manifest，REV 登记）。Era routing stays with
+        // the render loop as with E2/E3/E4 — this marker proves the
+        // validator-gated pack loads (GPU pixel output is a windowed-only
+        // fact: headless 局限, 41 号 §6).
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        _ = Era5TerrainAtlas.Build();
+        _ = Era5ArtPack.BuildBeltScrollMaterial();
+        Vector2 e5BeltStrip = Era5ArtPack.LoadTurnStrip().GetSize();
+        _ = Era5ArtPack.EnemySpritePath("era5:enemy-boss"); // Boss（主宰）映射解析即证明
+        _ = Era5ArtPack.TowerSpritePath("era5:tower-railgun", 2); // 塔升级位映射解析即证明
+        GD.Print(
+            $"ART5 era=future terrain={Era5TerrainAtlas.TileCount} " +
+            $"pack_files={Era5ArtPack.ProbePackFiles().Count}/29 " +
+            $"belt={Era5ArtPack.BeltSkinShortStem}@{BeltRenderDecisions.Era5GearItemsPerSecond:0.#}/s " +
+            $"boss={Era5ArtPack.BossStem}{Era5ArtPack.BossCanvasPx} " +
+            "source=procedural-era5-placeholders");
+        GD.Print(
+            "BELT5 shader=belt-scroll layers=2 " +
+            $"skin={Era5ArtPack.BeltSkinStem} " +
+            $"switch={BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era5GearItemsPerSecond)}@{BeltRenderDecisions.Era5GearItemsPerSecond:0.#}/s" +
+            $"|{BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era4GearItemsPerSecond)}@{BeltRenderDecisions.Era4GearItemsPerSecond:0.#}/s" +
+            $"|{BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era3GearItemsPerSecond)}@{BeltRenderDecisions.Era3GearItemsPerSecond:0.#}/s " +
+            $"body_px={Era5ArtPack.BeltBodyPx} turn_frames={Era5ArtPack.TurnFrames} " +
+            $"strip={(int)e5BeltStrip.X}x{(int)e5BeltStrip.Y} " +
+            $"grid={Era5ArtPack.TurnFramesPerRow}x{Era5ArtPack.TurnFrames / Era5ArtPack.TurnFramesPerRow} " +
+            "phase=BeltRenderDecisions(same frozen law, palette reskin, doc 44 §3)");
+
+        // W8 终章视觉接线 (T-142/C-28, F-042/F-127/F-133): final-chapter
+        // deep-space art pack load proof — 31 号 §1.2 终章行（星门靛蓝/
+        // 暗物质紫黑/零点白青+星门环×裂缝）的程序合成包（tools/art/
+        // era6_placeholders.py，内容 id 对齐 T-135 落地的 era6 五件套）。
+        // Atlas composes in-engine (missing tiles throw); the belt skin stem
+        // comes from the pure gear decision (BeltRenderDecisions.
+        // BeltSkinStem: ladder 末位 ∞ 档 = 终章传送阵 → era6 皮肤——有限
+        // 高速带仍穿 era5, 唯真无穷穿深空); tower/enemy/Boss 实体映射按
+        // content-id→stem 规则组合（Era6ArtMappingTests 头less 侧镜像）。
+        // pack_files=26/26：era6 内容 id 对齐（两塔均 max_tier=1 → 2 升级
+        // 位文件——era4 30/era5 29 的同构异数，REV 登记）。Boss 画布=64
+        // （28 §5 下限重演；设计案 §13.1「终章 Boss 96×112」升格挂账 REV）。
+        // Era routing stays with the render loop — this marker proves the
+        // validator-gated pack loads (GPU pixel output is a windowed-only
+        // fact: headless 局限, 41 号 §6).
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        _ = Era6TerrainAtlas.Build();
+        _ = Era6ArtPack.BuildBeltScrollMaterial();
+        Vector2 e6BeltStrip = Era6ArtPack.LoadTurnStrip().GetSize();
+        _ = Era6ArtPack.EnemySpritePath("era6:enemy-boss"); // Boss（堕落守望者）映射解析即证明
+        _ = Era6ArtPack.TowerSpritePath("era6:tower-singularity", 1); // 塔映射解析即证明
+        GD.Print(
+            $"ART6 era=finale terrain={Era6TerrainAtlas.TileCount} " +
+            $"pack_files={Era6ArtPack.ProbePackFiles().Count}/26 " +
+            $"belt={Era6ArtPack.BeltSkinShortStem}@inf/s " +
+            $"boss={Era6ArtPack.BossStem}{Era6ArtPack.BossCanvasPx} " +
+            "source=procedural-era6-placeholders");
+        GD.Print(
+            "BELT6 shader=belt-scroll layers=2 " +
+            $"skin={Era6ArtPack.BeltSkinStem} " +
+            "switch=" +
+            $"{BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era6GearItemsPerSecond)}@inf/s" +
+            $"|{BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era5GearItemsPerSecond)}@{BeltRenderDecisions.Era5GearItemsPerSecond:0.#}/s" +
+            $"|{BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era4GearItemsPerSecond)}@{BeltRenderDecisions.Era4GearItemsPerSecond:0.#}/s" +
+            $"|{BeltRenderDecisions.BeltSkinStem(BeltRenderDecisions.Era3GearItemsPerSecond)}@{BeltRenderDecisions.Era3GearItemsPerSecond:0.#}/s " +
+            $"body_px={Era6ArtPack.BeltBodyPx} turn_frames={Era6ArtPack.TurnFrames} " +
+            $"strip={(int)e6BeltStrip.X}x{(int)e6BeltStrip.Y} " +
+            $"grid={Era6ArtPack.TurnFramesPerRow}x{Era6ArtPack.TurnFrames / Era6ArtPack.TurnFramesPerRow} " +
+            "phase=BeltRenderDecisions(same frozen law, palette reskin, doc 44 §3)");
         GD.Print(
             $"BRIDGE frames={SmokeFrames} ticks={_bridge.Current.Tick} " +
             $"units={_bridge.Current.Units.Count} buildings={_bridge.Current.Buildings.Count} " +

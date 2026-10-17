@@ -247,6 +247,13 @@ public static class BeltRenderDecisions
     public const double Era5GearItemsPerSecond = 20.0;
 
     /// <summary>
+    /// 终章 gear of the frozen logistics ladder (T-142, v3.2 §5 L78 末位
+    /// ∞ 件/s 传送阵): era6/era.json logistics throughput_items_per_s=null
+    /// 的决策层表示——positive infinity, the ladder's last rung（传送形态）.
+    /// </summary>
+    public const double Era6GearItemsPerSecond = double.PositiveInfinity;
+
+    /// <summary>
     /// Skin-switch boundary (件/s) between the two delivered belt-skin gears:
     /// the midpoint of the ladder rungs 10 and 15. Rates at/above it wear the
     /// E4 skin; rates below wear the E3 skin.
@@ -255,25 +262,29 @@ public static class BeltRenderDecisions
 
     /// <summary>
     /// Upper switch boundary (件/s) of the E5 gear: the midpoint of the rungs
-    /// 15 and 20. The E5 pack (textures/era5/belt/) lands with W8 T-142 —
-    /// until then rates at/above this boundary RIDE THE NEWEST DELIVERED SKIN
-    /// (era4, 未交付上档乘最新皮肤 rule); when the pack lands the table
-    /// grows one rung and this constant marks its switch point.
+    /// 15 and 20. The E5 pack (textures/era5/belt/) landed with W8 T-142 —
+    /// the table carries the <c>era5</c> rung for the finite band at/above
+    /// this boundary（T-134 的「上档乘最新已交付皮肤」过渡规则就此收口）;
+    /// the ladder's true ∞ rung (终章) wears <c>era6</c>（同为 T-142 落地
+    /// ——阶梯有限档到此为止，∞ 之上无档）.
     /// </summary>
     public const double SkinSwitchUpperItemsPerSecond = 17.5;
 
     /// <summary>
     /// Throughput gear → belt-skin texture stem under
-    /// <c>res://textures/{stem}/belt/</c> (W7 E4 视觉接线 F1): 15 件/s (E4
-    /// conveyor-belt gear, era.json logistics tier=3) selects the <c>era4</c>
-    /// palette reskin; 10 件/s (E3 mine-rail gear) keeps the <c>era3</c> skin
-    /// — the same frozen geometry law (<see cref="PhasePx"/> /
-    /// <see cref="FrameIndexFor"/>) drives both, only the palette differs
-    /// (doc 44 §3 带速不烙进纹理). Undelivered upper rungs (20 = E5 drone
-    /// gear, T-134; ∞ = 终章) ride the newest DELIVERED skin until their
-    /// packs land (W8 T-142) — the <c>era5</c> stem joins the table with the
-    /// art pack, never before (勿造贴图文件). The Godot side mirrors this
-    /// table, never re-derives it (RendererDecisionMap 先例).
+    /// <c>res://textures/{stem}/belt/</c> (W7 E4 视觉接线 F1; W8 T-142 grows
+    /// the table two rungs): 10 件/s (E3 mine-rail gear) keeps the
+    /// <c>era3</c> skin; 15 件/s (E4 conveyor-belt gear, era.json logistics
+    /// tier=3) selects the <c>era4</c> palette; 20 件/s (E5 drone gear,
+    /// era5/era.json logistics tier=4) selects the <c>era5</c> palette; the
+    /// ladder's last rung ∞ (终章 teleporter, era6/era.json logistics tier=5
+    /// throughput=null) selects the <c>era6</c> deep-space palette — the
+    /// same frozen geometry law (<see cref="PhasePx"/> /
+    /// <see cref="FrameIndexFor"/>) drives all four, only the palette
+    /// differs (doc 44 §3 带速不烙进纹理). Finite rates in the open band
+    /// [17.5, ∞) wear era5 — only the true ∞ rung wears era6（阶梯无更高
+    /// 有限档，∞ 之上无档）. The Godot side mirrors this table, never
+    /// re-derives it (RendererDecisionMap 先例).
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="throughputItemsPerSecond"/> is NaN (a garbage rate has no skin).</exception>
     public static string BeltSkinStem(double throughputItemsPerSecond)
@@ -281,6 +292,16 @@ public static class BeltRenderDecisions
         if (double.IsNaN(throughputItemsPerSecond))
         {
             throw new ArgumentException("belt skin gear rate must be a number, not NaN.", nameof(throughputItemsPerSecond));
+        }
+
+        if (double.IsPositiveInfinity(throughputItemsPerSecond))
+        {
+            return "era6";
+        }
+
+        if (throughputItemsPerSecond >= SkinSwitchUpperItemsPerSecond)
+        {
+            return "era5";
         }
 
         return throughputItemsPerSecond >= SkinSwitchItemsPerSecond ? "era4" : "era3";

@@ -20,6 +20,14 @@ public class BgmSynthTests
         "era3", 112.0, 92.5, new[] { 1.0, 1.3348, 1.4983, 2.0 },
         PadGain: 0.30, PercussionGain: 0.26, BassGain: 0.36, HatSubdivisions: 4,
         SampleRateHz: 22050, LoopBars: 4, BeatsPerBar: 4, Timbre: BgmTimbre.Industrial);
+    private static readonly BgmProgram Era5 = new(
+        "era5", 126.0, 123.47, new[] { 1.0, 1.2599, 1.4983, 1.6818, 2.0 },
+        PadGain: 0.30, PercussionGain: 0.24, BassGain: 0.30, HatSubdivisions: 6,
+        SampleRateHz: 22050, LoopBars: 4, BeatsPerBar: 4, Timbre: BgmTimbre.Synth);
+    private static readonly BgmProgram Era6 = new(
+        "era6", 63.0, 61.74, new[] { 1.0, 1.1892, 1.4142, 2.0 },
+        PadGain: 0.34, PercussionGain: 0.22, BassGain: 0.38, HatSubdivisions: 2,
+        SampleRateHz: 22050, LoopBars: 4, BeatsPerBar: 4, Timbre: BgmTimbre.Cosmic);
 
     private static BgmProgram Program(string era, double tempo, double root, int hats) =>
         new(era, tempo, root, new[] { 1.0, 1.1892, 1.4983, 2.0 },
@@ -199,6 +207,97 @@ public class BgmSynthTests
         Assert.False(calm.SequenceEqual(boss), "calm and boss rendered identical bytes");
     }
 
+    // ------------------------------------------- T-142 E5/终章 音色族（两章曲）
+
+    [Theory] // legal — T-142 两章音景同律分层：鼓点抬频带、低音抬低频（synth/cosmic）
+    [InlineData("era5")]
+    [InlineData("era6")]
+    public void T142_timbre_states_separate_by_band_energy(string era)
+    {
+        BgmProgram program = era == "era5" ? Era5 : Era6;
+        short[] calm = Samples(program, BgmLayerState.Calm);
+        short[] combat = Samples(program, BgmLayerState.Combat);
+        short[] boss = Samples(program, BgmLayerState.Boss);
+
+        // 战斗加鼓点——频带口径按音色族密度取位：
+        //  era5 合成鼓密（170→55 kick+glitch snare+6 档 tick）抬高频带；
+        //  era6 引力鼓稀而深（90→38 Hz 长扫频，占空比 ~2%）抬不动带平均——
+        //  其战斗层分离证据取 pairwise-distinct+loops audible（本文件另两条），
+        //  这里只钉两族共同的硬分层轴：Boss 低音层抬低频带。
+        if (era == "era5")
+        {
+            Assert.True(HighBandRms(combat) > HighBandRms(calm) * 1.35,
+                $"{era} high band combat {HighBandRms(combat):0.0} vs calm {HighBandRms(calm):0.0}");
+        }
+
+        // Boss 加低音：低频带过 combat（synth drive 3.2 / cosmic drive 2.2 的持续低音）
+        Assert.True(LowBandRms(boss) > LowBandRms(combat) * 1.1,
+            $"{era} low band boss {LowBandRms(boss):0.0} vs combat {LowBandRms(combat):0.0}");
+    }
+
+    [Theory] // legal — T-142 两章各三态两两不同（每代 3 曲=三条真实音轨，非一曲）
+    [InlineData("era5")]
+    [InlineData("era6")]
+    public void T142_timbre_states_are_pairwise_distinct(string era)
+    {
+        BgmProgram program = era == "era5" ? Era5 : Era6;
+        byte[] calm = BgmSynth.SynthesizePcm(program, BgmLayerState.Calm);
+        byte[] combat = BgmSynth.SynthesizePcm(program, BgmLayerState.Combat);
+        byte[] boss = BgmSynth.SynthesizePcm(program, BgmLayerState.Boss);
+
+        Assert.False(calm.SequenceEqual(combat), $"{era} calm/combat identical");
+        Assert.False(combat.SequenceEqual(boss), $"{era} combat/boss identical");
+        Assert.False(calm.SequenceEqual(boss), $"{era} calm/boss identical");
+    }
+
+    [Fact] // legal — T-142 两章互不相同、与已交付行不同（音色族身份=同态字节分离）
+    public void T142_timbre_rows_differ_from_every_delivered_row()
+    {
+        foreach (BgmLayerState state in Enum.GetValues<BgmLayerState>())
+        {
+            Assert.False(
+                BgmSynth.SynthesizePcm(Era5, state).SequenceEqual(BgmSynth.SynthesizePcm(Era6, state)),
+                $"{state}: era5 and era6 rendered identical bytes");
+            Assert.False(
+                BgmSynth.SynthesizePcm(Era5, state).SequenceEqual(BgmSynth.SynthesizePcm(Era3, state)),
+                $"{state}: era5 and era3 rendered identical bytes");
+            Assert.False(
+                BgmSynth.SynthesizePcm(Era6, state).SequenceEqual(BgmSynth.SynthesizePcm(Era1, state)),
+                $"{state}: era6 and era1 rendered identical bytes");
+        }
+    }
+
+    [Theory] // boundary — T-142 两章循环两半能量均衡（无缝循环前提；尖塔鸣响/星门轰鸣的呼应对句）
+    [InlineData("era5")]
+    [InlineData("era6")]
+    public void T142_timbre_loop_halves_carry_balanced_energy(string era)
+    {
+        BgmProgram program = era == "era5" ? Era5 : Era6;
+        foreach (BgmLayerState state in Enum.GetValues<BgmLayerState>())
+        {
+            short[] s = Samples(program, state);
+            int half = s.Length / 2;
+            double head = Rms(s, 0, half);
+            double tail = Rms(s, half, half);
+
+            Assert.InRange(tail / head, 0.75, 1.35); // ±~25%: chime/gate drone 与复现的呼应账
+        }
+    }
+
+    [Fact] // boundary — T-142 渲染确定性：种子噪声（tick/军鼓/星尘带）同 seed 同字节
+    public void T142_synthesis_is_deterministic()
+    {
+        foreach (BgmLayerState state in Enum.GetValues<BgmLayerState>())
+        {
+            Assert.True(
+                BgmSynth.SynthesizeWav(Era5, state).SequenceEqual(BgmSynth.SynthesizeWav(Era5, state)),
+                $"era5 {state} must render reproducible bytes (seeded tick/stardust noise)");
+            Assert.True(
+                BgmSynth.SynthesizeWav(Era6, state).SequenceEqual(BgmSynth.SynthesizeWav(Era6, state)),
+                $"era6 {state} must render reproducible bytes (seeded ghost/tick noise)");
+        }
+    }
+
     [Fact] // legal — WAV container round-trip: header canonical, payload = PCM
     public void Wav_image_is_canonical()
     {
@@ -312,5 +411,49 @@ public class BgmSynthTests
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
             () => BgmSynth.SynthesizePcm(cramped, state));
         Assert.Contains(guardName, ex.Message);
+    }
+
+    [Fact] // illegal — T-142 synth 光流琶音守卫：窄循环上尾音越界即红（修表不修码）
+    public void Synth_cramped_arp_grid_is_rejected()
+    {
+        // tempo 200, 1 bar, 2 beats ⇒ loop 0.6 s: the last eighth pluck (0.22 s) crosses the seam
+        BgmProgram cramped = new("era5", 200.0, 123.47, new[] { 1.0, 2.0 },
+            PadGain: 0.3, PercussionGain: 0.24, BassGain: 0.3, HatSubdivisions: 2,
+            SampleRateHz: 22050, LoopBars: 1, BeatsPerBar: 2, Timbre: BgmTimbre.Synth);
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => BgmSynth.SynthesizePcm(cramped, BgmLayerState.Calm));
+        Assert.Contains("光流琶音", ex.Message);
+    }
+
+    [Theory] // illegal — T-142 尖塔鸣响/星门轰鸣守卫：1 栏循环上整栏动机无法腾出循环尾
+    [InlineData("era5", "尖塔鸣动")]
+    [InlineData("era6", "星门轰鸣")]
+    public void T142_cramped_boss_motifs_are_rejected(string era, string guardName)
+    {
+        BgmProgram cramped = era == "era5"
+            ? new("era5", 40.0, 123.47, new[] { 1.0, 2.0 },
+                PadGain: 0.3, PercussionGain: 0.24, BassGain: 0.3, HatSubdivisions: 2,
+                SampleRateHz: 22050, LoopBars: 1, BeatsPerBar: 8, Timbre: BgmTimbre.Synth)
+            : new("era6", 40.0, 61.74, new[] { 1.0, 2.0 },
+                PadGain: 0.34, PercussionGain: 0.22, BassGain: 0.38, HatSubdivisions: 2,
+                SampleRateHz: 22050, LoopBars: 1, BeatsPerBar: 8, Timbre: BgmTimbre.Cosmic);
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => BgmSynth.SynthesizePcm(cramped, BgmLayerState.Boss));
+        Assert.Contains(guardName, ex.Message);
+    }
+
+    [Fact] // illegal — T-142 cosmic 记忆钟鸣守卫：窄循环上奇数栏钟鸣越界即红
+    public void Cosmic_cramped_memory_chimes_are_rejected()
+    {
+        // tempo 200, 1 bar, 2 beats ⇒ loop 0.6 s: the 0.7 s memory chime cannot clear
+        BgmProgram cramped = new("era6", 200.0, 61.74, new[] { 1.0, 2.0 },
+            PadGain: 0.34, PercussionGain: 0.22, BassGain: 0.38, HatSubdivisions: 2,
+            SampleRateHz: 22050, LoopBars: 1, BeatsPerBar: 2, Timbre: BgmTimbre.Cosmic);
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => BgmSynth.SynthesizePcm(cramped, BgmLayerState.Calm));
+        Assert.Contains("记忆钟鸣", ex.Message);
     }
 }

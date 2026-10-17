@@ -8,10 +8,12 @@ namespace EraTD.Audio;
 // 职责边界（CS-1.6：表现层零业务规则）——本节点只做四件事：
 //   1) 内容装载：game/content/audio/ 三参数表（bgm-programs/persona-timbres/
 //      narration）；
-//   2) BGM 三态：九循环代码合成（T-121 起 3 时代 × 3 态——era1/era2 acoustic +
-//      era3 industrial[蒸汽垫/金属打击/汽笛动机]，确定性；WAV 落
-//      res://audio/generated/ 供可听测）+ CrossFadeBus 等功率淡入淡出；现场
-//      态驱动=只读快照（场上有敌→交战；Boss 波经 SetBossWave 由波计划接线）；
+//   2) BGM 三态：十五循环代码合成（T-142 起 5 时代行 × 3 态——era1/era2
+//      acoustic + era3 industrial[蒸汽垫/金属打击/汽笛动机] + era5 synth
+//      [聚变脉冲/光流琶音/尖塔鸣响] + era6 cosmic[零点脉冲/星尘带/星门轰鸣]，
+//      确定性；WAV 落 res://audio/generated/ 供可听测）+ CrossFadeBus 等功率
+//      淡入淡出；现场态驱动=只读快照（场上有敌→交战；Boss 波经 SetBossWave
+//      由波计划接线）；
 //   3) 人格语音/一次性旁白：四人格音色 token（台词 key 驱动，人格只改音色）；
 //      一次性旁白（开场白/胜利交底）= CC0 短乐（res://audio/cc0/，台账 26 号）
 //      + 合成音调，一次性标记经 IFileStore 入 settings/narration.json；关闭
@@ -19,7 +21,10 @@ namespace EraTD.Audio;
 //   4) 冒烟：headless 合成序列走三态迁移/四音色/两旁白/三通道音量+叮三级
 //      回归，打印 AUDIO_OK——smoke 音频段判据（失败 Quit(1)）；T-121 追加
 //      era3 段（三态分离/等功率中点/无缝循环/era3 播放器实测增益），打印
-//      AUDIO3_OK bgm=3states era=e3 loop=seamless（失败 Quit(1)）。
+//      AUDIO3_OK bgm=3states era=e3 loop=seamless（失败 Quit(1)）；T-142
+//      追加 E5/终章两段（RunTimbreAcceptance 同律），打印 AUDIO5_OK
+//      era=fusion / AUDIO6_OK era=deepspace（失败 Quit(1)）——十五循环
+//      （5 时代 × 3 态）全量渲染落 res://audio/generated/ 供可听测。
 // 并行纪律：Main.cs 只追加一行 Instantiate（冲突由后提交者 rebase）。
 
 /// <summary>
@@ -206,6 +211,16 @@ public sealed partial class AudioDirector : Node
         // ---- headless acceptance --------------------------------------------
         RunAcceptance(filesWritten);
         RunEra3Acceptance(filesWritten);
+        // live-path 时间基单调错峰（三个验收段的 _fades 驱动不得共用同一 tick
+        // 基——回拨时钟会让 DominantAt 取到上段的 pre-fade 态，中点增益失真）
+        RunTimbreAcceptance(
+            "era5", EraCore.Audio.BgmTimbre.Synth, "AUDIO5", "fusion", filesWritten,
+            liveBase: 2000,
+            "arp=octave-cycle holo=bar-blips chime=harmonic+reprise");
+        RunTimbreAcceptance(
+            "era6", EraCore.Audio.BgmTimbre.Cosmic, "AUDIO6", "deepspace", filesWritten,
+            liveBase: 3000,
+            "stardust=high-band chimes=odd-bars gate=drone+sub+fifth-reprise");
     }
 
     /// <summary>Live path: one frame poll — BGM state follows the read-only snapshot beats.</summary>
@@ -432,7 +447,7 @@ public sealed partial class AudioDirector : Node
             && personasDistinct && personaAudible && downgrade && narratorDistinct
             && openFirst && victoryFirst && replaySilent && persisted
             && busIndependent && dingRegression
-            && loops == 9 && stingers == 2 && (!editorRun || filesWritten >= 9);
+            && loops == 15 && stingers == 2 && (!editorRun || filesWritten >= 15);
 
         if (ok)
         {
@@ -530,7 +545,7 @@ public sealed partial class AudioDirector : Node
         bool editorRun = !OS.HasFeature("template"); // T-096: WAV dump is editor-only
         bool ok = tableRow && distinct == 3 && eraIdentity && loopPinned && halvesBalanced
             && transitions == 3 && equalPower && midIsSqrtHalf && chainDone && era3PlayerGain
-            && (!editorRun || filesWritten >= 9);
+            && (!editorRun || filesWritten >= 15);
 
         if (ok)
         {
@@ -572,6 +587,107 @@ public sealed partial class AudioDirector : Node
         }
 
         return Math.Sqrt(tail / Math.Max(head, 1.0));
+    }
+
+    // ---- headless acceptance, T-142 timbres（E5 未来 + 终章 深空） ----------
+
+    /// <summary>
+    /// T-142 acceptance for the two new timbre rows (E5 synth + final-chapter
+    /// cosmic), RunEra3Acceptance 同律: the row is table-driven with its
+    /// timbre, its three state loops render distinct and era-distinct from
+    /// era1, LoopEnd pins the exact sample count with balanced halves, the
+    /// equal-power chain holds on a dedicated bus, and the LIVE gain path
+    /// drives the era's players through the mid-fade point (master × √½).
+    /// Prints <c>{marker}_OK</c> (AUDIO5_OK/AUDIO6_OK) or fails the run.
+    /// </summary>
+    private void RunTimbreAcceptance(
+        string era, EraCore.Audio.BgmTimbre timbre, string marker, string eraLabel,
+        int filesWritten, long liveBase, string voiceFacts)
+    {
+        BgmProgram? program = _programs.Find(era);
+        bool tableRow = program is { } row && row.Timbre == timbre;
+
+        // three distinct era loops + era identity against era1 (real tracks)
+        byte[] calm = _bgmStreams[$"{era}:Calm"].Data;
+        byte[] combat = _bgmStreams[$"{era}:Combat"].Data;
+        byte[] boss = _bgmStreams[$"{era}:Boss"].Data;
+        int distinct = new[] { calm, combat, boss }
+            .Select(Convert.ToBase64String)
+            .Distinct()
+            .Count();
+        bool eraIdentity = !calm.SequenceEqual(_bgmStreams["era1:Calm"].Data)
+            && !calm.SequenceEqual(_bgmStreams["era3:Calm"].Data); // 与工业行亦不同（音色族分离）
+
+        // loop=seamless: LoopEnd pins the loop at the exact sample count AND
+        // the halves carry balanced energy (no edge ramp ⇒ seamless wrap)
+        bool loopPinned = true;
+        bool halvesBalanced = true;
+        foreach (BgmLayerState state in Enum.GetValues<BgmLayerState>())
+        {
+            AudioStreamWav stream = _bgmStreams[$"{era}:{state}"];
+            loopPinned &= stream.LoopEnd == stream.Data.Length / 2;
+            halvesBalanced &= HalfRmsRatio(stream.Data) is >= 0.75 and <= 1.35;
+        }
+
+        // equal-power transition chain on the era's program (dedicated bus)
+        var bus = new CrossFadeBus(BgmLayerState.Calm, FadeTicks());
+        long t = 0;
+        int transitions = Convert.ToInt32(bus.Request(BgmLayerState.Combat, t));
+        CrossFadeGains mid = bus.GainsAt(t + (FadeTicks() / 2));
+        bool equalPower = Math.Abs((mid.FromGain * mid.FromGain) + (mid.ToGain * mid.ToGain) - 1.0) < 1e-9;
+        bool midIsSqrtHalf = Math.Abs(mid.ToGain - Math.Sqrt(0.5)) < 1e-3;
+        t += FadeTicks();
+        transitions += Convert.ToInt32(bus.Request(BgmLayerState.Boss, t));
+        t += FadeTicks();
+        transitions += Convert.ToInt32(bus.Request(BgmLayerState.Calm, t));
+        t += FadeTicks();
+        bool chainDone = !bus.IsFading(t) && bus.Current == BgmLayerState.Calm;
+
+        // live path: drive the real bus so the era's players take the mid-fade
+        // gains for real (0.8 master × √½), then park back on Calm — the
+        // time base is per-block monotonic (liveBase) so the shared bus never
+        // rewinds into a prior block's fade window
+        string previousEra = _activeEra;
+        SetActiveEra(era);
+        long liveT = liveBase;
+        _ = _fades.Request(BgmLayerState.Combat, liveT);
+        _smokeTick = liveT + (FadeTicks() / 2);
+        ApplyBgmGains();
+        double expectedMidDb = LinearToDb(_mixer.EffectiveGain(AudioChannel.Bgm) * Math.Sqrt(0.5));
+        bool playerGain = Math.Abs(_bgmPlayers[$"{era}:Combat"].VolumeDb - expectedMidDb) < 0.05;
+        _ = _fades.Request(BgmLayerState.Calm, liveT + FadeTicks());
+        _smokeTick = (liveT + FadeTicks()) + FadeTicks();
+        ApplyBgmGains();
+        SetActiveEra(previousEra);
+        ApplyBgmGains();
+
+        bool editorRun = !OS.HasFeature("template"); // T-096: WAV dump is editor-only
+        bool ok = tableRow && distinct == 3 && eraIdentity && loopPinned && halvesBalanced
+            && transitions == 3 && equalPower && midIsSqrtHalf && chainDone && playerGain
+            && (!editorRun || filesWritten >= 15);
+
+        if (ok)
+        {
+            GD.Print(
+                $"{marker}_OK bgm=3states era={eraLabel} loop=seamless " +
+                $"transitions={transitions} equal_power=mid loops=3 distinct={distinct} " +
+                $"halves=balanced loop_end=pinned {voiceFacts} " +
+                $"fade={FadeSeconds:0.#}s player_gain=mid-db eras={_programs.Programs.Count} " +
+                $"files={filesWritten} source=procedural");
+        }
+        else
+        {
+            GD.PushError(
+                $"{era} audio acceptance failed: " +
+                $"table_row={tableRow} distinct={distinct} era_identity={eraIdentity} " +
+                $"loop_pinned={loopPinned} halves={halvesBalanced} transitions={transitions} " +
+                $"equal_power={equalPower} mid={midIsSqrtHalf} chain={chainDone} " +
+                $"player_gain={playerGain} files={filesWritten}");
+            GD.Print(
+                $"{marker}_FAIL era={eraLabel} distinct={distinct} transitions={transitions} " +
+                $"equal_power={equalPower} seam={loopPinned && halvesBalanced} table_row={tableRow}");
+            GetTree().Quit(1);
+        }
     }
 
     private void LoadContent()
