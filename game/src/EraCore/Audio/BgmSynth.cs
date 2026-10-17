@@ -203,7 +203,7 @@ public static class BgmSynth
     /// <summary>尖塔鸣动机音高（×根音）.</summary>
     public const double ChimePitchRatio = 4.0;
 
-    /// <summary>尖塔鸣动机时长 = 一小节（复现=半小节）.</summary>
+    /// <summary>尖塔鸣动机复现音高比（×原动机音高；纯五度 2^(7/12)≈1.4983）.</summary>
     public const double ChimeRepriseInterval = 1.4983;
 
     /// <summary>尖塔鸣动复现增益（×长鸣）.</summary>
