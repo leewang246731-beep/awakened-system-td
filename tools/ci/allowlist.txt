@@ -76,3 +76,6 @@ R9: game/assets/expand-v1/C-manifest.json | 资产台账（同上）
 R9: game/assets/expand-v1/D-manifest.json | 资产台账（同上）
 R9: game/assets/expand-v1/E-manifest.json | 资产台账（同上）
 R9: game/content/cinematics/visual-assets.json | T-152 素材目录内容：external_image_root=D21-5 双轨开发期外部轨根（甲方 U 盘素材库，31 号 §三 加载图行原文口径；发布期构建聚合拷入 res://，代码侧 RL9 不变）
+
+R9: docs/engineering/47-t129-l2-spike.md | T-129 L2 spike report: D:\ llama.cpp/model/toolchain paths are the measured environment facts of the spike (记录性环境事实，同 24/28/40 号先例类；环境事实以 07 §三（附）为准）— T-129 committed the doc without the entry (bd0fc2d), registered here by T-136 to unblock run_all（T-115/T-078 补登记先例）
+T2: game/src/EraCore/Cinematics/FinalePlayback.cs | T-136 终章播片纯决策（开关二选一+信任档键+真相锚词常量，零状态零 I/O）：由 FinaleCinematicsTests 全覆盖（开关/信任键/锚词 parity/钩子单发四面断言）——内容域测试名与文件域对齐，不另立同名测试文件
