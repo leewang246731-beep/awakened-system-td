@@ -305,6 +305,75 @@ public class FinalLevelTransitionReachabilityTests : SqliteSavePortTestBase
         Assert.Contains(finalId, tech.CapturedLevelIds); // 终局关占领入树（链收口物证）
     }
 
+    [Fact] // [F-003] legal — E5 全五关（含 e5-final 主宰）真通关→占领→E5→终章 Precheck 放行
+    public void E5_full_clear_including_the_final_boss_level_unlocks_the_transition_to_the_finale()
+    {
+        // T-135 落位（第五跳）：final_levels[5]=campaign:level-e5-final（本任务
+        // 落引用）+ 实关行已随 T-134 交付（levels/e5.json slot 5 主宰 Boss 关）
+        // ——引用与实关两侧齐备不悬空；era6 目标域实体化（era6 五件套+
+        // levels/e6.json+排期三行）后，E5 全五关 headless 真通关即可 Precheck
+        // 放行（戴森云奇观=E5 硬前置侧）；排期=target_era=6 行（T-135 落位、
+        // 逐值对齐 era6/levels.json 冻结侧）；终章终局关（e6-final 堕落守望者）
+        // 不走 final_levels——纪元之门通关之门语义（requires_wonder 数据位+
+        // WonderFinaleGateBoard），键域 1..5 封闭。
+        var transition = Transition();
+        Assert.Equal("campaign:level-e5-final", transition.FinalLevels[5]);
+        Assert.Equal(5, transition.FinalLevels.Count); // 无第 6 键（无第七代）
+
+        IReadOnlyList<HandcraftedLevel> levels = LevelsOf("e5.json");
+        Assert.Equal(5, levels.Count);
+        string finalId = transition.FinalLevels[5];
+        Assert.Contains(levels, level => level.Id == finalId); // 引用不悬空（T-134 实关，本任务域引用侧落位）
+        Assert.Contains(LevelsOf("e6.json"), level => level.Id == "campaign:level-e6-final"); // 终章目标域实锚（通关之门关）
+
+        // 全五关 headless 真通关（终局关=第 19 波主宰），逐关占领入树。
+        var pool = new ResourceStock(new SimClock(), warehouseLevel: 5);
+        _ = pool.Deposit(new ResourceKey("era5:res-nano"), 10000);
+        _ = pool.Deposit(new ResourceKey("era5:res-rare-earth"), 600);
+        _ = pool.Deposit(new ResourceKey("era2:res-iron"), 300);
+        var tech = Tree(5);
+        foreach (HandcraftedLevel level in levels)
+        {
+            (int winWaves, long victoryTick, int towers) = PlayThrough(level, "era5", pool);
+            Assert.Equal(level.WinWaves, winWaves);
+            Assert.True(victoryTick > 0);
+            Assert.True(towers > 0);
+            tech.RegisterCapture(level.Id);
+        }
+
+        var ledger = new LegacyLedger(Archaeology(), Shop());
+        ledger.MarkWonderBuilt(Wonders().Single(wonder => wonder.EraIndex == 5).Id); // 戴森云=E5→终章硬前置
+
+        var policy = CrossEraResourcePolicy.Parse(
+            File.ReadAllText(Path.Combine(EraDir("era6"), "era.json")));
+        var request = new EraTransitionRequest(
+            Seed,
+            FromEraIndex: 5,
+            pool,
+            tech,
+            ledger,
+            CityFacts(13, 26, 9, Mapping().Orientations),
+            Anchor,
+            policy.NewEraResources,
+            new SimClock(),
+            new LcgRng(Seed + 5),
+            new CountingSavePort(CreatePort()),
+            EmptyMeta(Seed, 5),
+            Mapping(),
+            transition,
+            Wonders());
+
+        EraTransitionResult result = new EraTransitionService().Execute(request);
+
+        Assert.Equal(5, result.FromEraIndex);
+        Assert.Equal(6, result.ToEraIndex); // Precheck 放行：终局关+奇观双前置皆真（第五跳通）
+        Assert.Equal(6, result.NewPool.WarehouseLevel); // 仓库 5+1=6（§5 自动 +1=终章）
+        Assert.Equal(
+            new[] { "campaign:level-e6-01", "campaign:level-e6-02", "campaign:level-e6-03" },
+            result.Schedule.Select(slot => slot.LevelId).ToArray()); // E5→终章排期=e6 行
+        Assert.Contains(finalId, tech.CapturedLevelIds); // 终局关占领入树（链收口物证）
+    }
+
     [Fact] // [F-003] illegal — 占领全部非终局关仍硬拒：缺的恰是终局关一行
     public void Capturing_every_non_final_level_still_refuses_every_jump()
     {
@@ -312,7 +381,8 @@ public class FinalLevelTransitionReachabilityTests : SqliteSavePortTestBase
         // API，EraTransitionIntegrationTests 先例）：各时代的全部非终局关
         // id 逐一注册（id 全部来自真实关卡行）——终局关未占，Precheck 必拒
         // 且点名 final_levels 引用值（T-117 守卫的可达性版：别关都打完也
-        // 不能替代终局关；E3/E4 行=T-124/T-134 扩展——补齐后负向面同步覆盖）。
+        // 不能替代终局关；E3/E4/E5 行=T-124/T-134/T-135 扩展——补齐后负向
+        // 面同步覆盖）。
         var transition = Transition();
         foreach (var (eraIndex, file, finalId, nextEraDir) in new[]
                  {
@@ -320,6 +390,7 @@ public class FinalLevelTransitionReachabilityTests : SqliteSavePortTestBase
                      (2, "e2.json", "campaign:level-e2-final", "era3"),
                      (3, "e3.json", "campaign:level-e3-final", "era4"),
                      (4, "e4.json", "campaign:level-e4-final", "era5"),
+                     (5, "e5.json", "campaign:level-e5-final", "era6"),
                  })
         {
             var tech = Tree(eraIndex);

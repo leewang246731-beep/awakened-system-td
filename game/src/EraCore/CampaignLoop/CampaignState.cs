@@ -31,11 +31,12 @@ public sealed class CampaignState
     public const int E1EraIndex = 1;
 
     /// <summary>
-    /// E5 era index — the highest era this shell hosts (T-134 域上界).
-    /// 终章（Finale=6）=T-135 域：an E5→终章 jump and a 终章-era document
-    /// are both out of the E1~E5 host face until that task lands.
+    /// Finale (终章 深空) era index — the highest era this shell hosts
+    /// (T-135 宿主面小扩：E1~E5 清账后的终章入面；附录 F.3 奇观链第六环=
+    /// 纪元之门通关之门，无第七跳). The appendix A binding E1=1…终章=6 makes
+    /// this BOTH the era ordinal of the finale and the host ceiling.
     /// </summary>
-    public const int MaxHostedEraIndex = 5;
+    public const int MaxHostedEraIndex = 6; // ci-allow: R7 T-135 v3.2 §4 L63/L68 时代序号=终章 6（六时代终点量纲，非平衡数值）
 
     private readonly CampaignGrid _grid;
 
@@ -59,7 +60,7 @@ public sealed class CampaignState
     public long WorldSeed { get; }
 
     /// <summary>
-    /// Current campaign era (1..5, appendix A binding E1=1…E5=5). Starts at
+    /// Current campaign era (1..6, appendix A binding E1=1…终章=6). Starts at
     /// E1; <see cref="AdvanceEra"/> walks it one jump at a time and a
     /// <see cref="LoadPoolFrom"/> of a saved document adopts the saved era.
     /// </summary>
@@ -86,7 +87,7 @@ public sealed class CampaignState
     /// starts at its home cell, exactly like a new campaign on that seed).
     /// One jump at a time, capped at <see cref="MaxHostedEraIndex"/>.
     /// </summary>
-    /// <param name="toEraIndex">Target era (must be exactly EraIndex+1 and ≤5).</param>
+    /// <param name="toEraIndex">Target era (must be exactly EraIndex+1 and ≤6).</param>
     /// <param name="newPool">The transition's new-era pool (warehouse level must equal the target era).</param>
     /// <exception cref="ArgumentOutOfRangeException">toEraIndex is not EraIndex+1 or exceeds the host face.</exception>
     /// <exception cref="ArgumentException">newPool warehouse level does not match the target era.</exception>
@@ -97,7 +98,7 @@ public sealed class CampaignState
         {
             throw new ArgumentOutOfRangeException(
                 nameof(toEraIndex), toEraIndex,
-                $"Era advance must walk one jump at a time from era {EraIndex} and stay within 1..{MaxHostedEraIndex} (E1~E5 host face; 终章=6 是 T-135 域).");
+                $"Era advance must walk one jump at a time from era {EraIndex} and stay within 1..{MaxHostedEraIndex} (E1~终章 host face; T-135 已入面，6=六时代终点无第七跳).");
         }
 
         if (newPool.WarehouseLevel != toEraIndex)
@@ -162,7 +163,8 @@ public sealed class CampaignState
     }
 
     /// <summary>
-    /// Restores the pool from the campaign domain into THIS state (T-134 清账：
+    /// Restores the pool from the campaign domain into THIS state (T-134 清账
+    /// +T-135 终章入面：
     /// ANY era 1..<see cref="MaxHostedEraIndex"/> document is restorable — the
     /// pool is rebuilt at the saved era's warehouse level ⇒ same capacity ⇒
     /// every saved amount is under the headroom, so the reload is lossless).
@@ -171,8 +173,8 @@ public sealed class CampaignState
     /// equality.
     /// </summary>
     /// <exception cref="InvalidOperationException">
-    /// No campaign document stored yet, the stored era is outside the E1~E5
-    /// host face (终章=6 = T-135 域), or the stored seed differs.
+    /// No campaign document stored yet, the stored era is outside the E1~终章
+    /// host face (0/7+ 越界档), or the stored seed differs.
     /// </exception>
     public IReadOnlyList<ResourceGrant> LoadPoolFrom(ISavePort port)
     {
@@ -181,7 +183,7 @@ public sealed class CampaignState
         if (meta.EraIndex is < E1EraIndex or > MaxHostedEraIndex)
         {
             throw new InvalidOperationException(
-                $"Stored campaign is era {meta.EraIndex}; this shell hosts eras {E1EraIndex}..{MaxHostedEraIndex} only (终章=E6 是 T-135 域).");
+                $"Stored campaign is era {meta.EraIndex}; this shell hosts eras {E1EraIndex}..{MaxHostedEraIndex} only (E1~终章 host face).");
         }
 
         if (meta.WorldSeed != WorldSeed)

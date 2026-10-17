@@ -99,12 +99,13 @@ public class CampaignStateTests : SqliteSavePortTestBase
         Assert.Contains(Wood.Value, ex.Message);
     }
 
-    [Fact] // illegal — 域校验：存档时代出宿主面（终章=T-135 域）/种子与壳不匹配确实被拒
+    [Fact] // illegal — 域校验：存档时代出宿主面/种子与壳不匹配确实被拒
     public void Out_of_host_era_or_mismatched_seed_rejects_the_load()
     {
-        // T-134 清账：宿主面=E1~E5（era=2 的存档现在可恢复——旧 E1-only 拒绝
-        // 已清除；出面的拒绝面=终章 E6（T-135 域）与 0/越界档）。
-        foreach (int outOfFace in new[] { 0, 6, 7 })
+        // T-134 清账+T-135 终章入面：宿主面=E1~终章（era=2~6 的存档可恢复
+        // ——旧 E1-only 拒绝已清除；出面的拒绝面=0 与 7+ 越界档——终章=6
+        // 已入面（T-135 宿主面小扩），六时代终点无第七代）。
+        foreach (int outOfFace in new[] { 0, 7 })
         {
             SqliteSavePort eraPort = CreatePort();
             eraPort.WriteCampaign(
@@ -228,7 +229,7 @@ public class CampaignStateTests : SqliteSavePortTestBase
         Assert.Throws<ArgumentOutOfRangeException>(
             () => campaign.AdvanceEra(3, new ResourceStock(new SimClock(), warehouseLevel: 3))); // 跳步 E1→E3
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => campaign.AdvanceEra(6, new ResourceStock(new SimClock(), warehouseLevel: 6))); // 终章=T-135 域
+            () => campaign.AdvanceEra(6, new ResourceStock(new SimClock(), warehouseLevel: 6))); // 跳步 E1→E6（终章入面后此拒=跳步守卫，非出面——T-135 小扩）
         Assert.Throws<ArgumentOutOfRangeException>(
             () => campaign.AdvanceEra(1, new ResourceStock(new SimClock(), warehouseLevel: 1))); // 倒退
         Assert.Throws<ArgumentException>(
