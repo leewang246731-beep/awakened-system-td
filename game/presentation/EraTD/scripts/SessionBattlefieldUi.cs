@@ -87,7 +87,9 @@ public sealed partial class SessionBattlefieldViewport : Control
     public void Bind(LevelSession session, int eraIndex)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (ReferenceEquals(_bound, session.Sim))
+        // 守卫=sim 引用+eraIndex 双比（T-160 审查 #4b：当前 era 变必换 sim，
+        // 但若未来同 sim 换时代（混编宿主等）图集也须重路由——双条件堵潜在陷阱）。
+        if (ReferenceEquals(_bound, session.Sim) && _boundEra == eraIndex)
         {
             return;
         }
@@ -225,7 +227,23 @@ public sealed partial class SessionBattlefieldViewport : Control
     /// </summary>
     internal static class EraGroundArt
     {
-        public static (Texture2D Atlas, Func<int, int> TileIndex, int TilesPerRow) Of(int eraIndex) => eraIndex switch
+        // 按时代缓存（T-160 审查 #4）：每次 rebind 重 Build 图集=8 张 PNG 重载合成，
+        // 29 关连打累积且旧 ImageTexture 无释放引用链；静态缓存一份常驻（六图集
+        // 总量远小于一关 MultiMesh 容量，常驻可接受）。
+        private static readonly (Texture2D Atlas, Func<int, int> TileIndex, int TilesPerRow)[] _cache = new (Texture2D, Func<int, int>, int)[7];
+
+        public static (Texture2D Atlas, Func<int, int> TileIndex, int TilesPerRow) Of(int eraIndex)
+        {
+            int slot = Math.Clamp(eraIndex, 1, 6);
+            if (_cache[slot].Atlas is null)
+            {
+                _cache[slot] = Build(slot);
+            }
+
+            return _cache[slot];
+        }
+
+        private static (Texture2D Atlas, Func<int, int> TileIndex, int TilesPerRow) Build(int eraIndex) => eraIndex switch
         {
             <= 1 => (TerrainAtlas.Build(), TerrainAtlas.TileIndexForColor, TerrainAtlas.TileCount),
             2 => (Era2TerrainAtlas.Build(), rgb => Era2TerrainAtlas.TileIndexForTerrain(TerrainKindOfColor(rgb)), Era2TerrainAtlas.TileCount),
