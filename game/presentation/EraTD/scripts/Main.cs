@@ -55,6 +55,12 @@ namespace EraTD;
     private SettingsPanelUi _settingsUi = null!;
     private InfoLayersUi _infoUi = null!;
 
+    // T-160b（战役战场渲染绑定）：会话泳道（战役/程序关视口）经这两个只读
+    // 面取夹具宿主与军师面板——退出到菜单时把面板还原回夹具板（恢复菜单态
+    // 口径）。夹具渲染路径本身零改动（边界：SimHost 夹具路径不动）。
+    internal SimHost BattleHost => _host;
+    internal SystemPanel AdvisorPanel => _panel;
+
     // T-137 (F-078): L2 lane — coordinator (settings/download/runtime/route)
     // + wave-gap service (queue + async fills). Headless binds SMOKE ports
     // (fake process/probe/fill — zero real downloads, zero real processes);

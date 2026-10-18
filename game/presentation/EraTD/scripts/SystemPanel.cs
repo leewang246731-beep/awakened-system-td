@@ -2,6 +2,7 @@ using EraCore.Agent.Governance;
 using EraCore.Agent.Pipeline;
 using EraCore.Contracts.Actions;
 using EraCore.Contracts.Agent;
+using EraCore.IO;
 using EraCore.Llm.L2;
 using EraCore.Presentation;
 using Godot;
@@ -39,6 +40,26 @@ namespace EraTD;
 /// </summary>
 public sealed partial class SystemPanel : Control
 {
+    /// <summary>
+    /// T-160b（战役军师面板可用面）：面板消费的宿主面——SimHost（E1 夹具
+    /// 泳道）与战役关的 <c>CampaignAdvisorBoard</c>（LevelSession 泳道）同
+    /// 一接口；面板在战役开局/退出时随宿主 UI 重绑/还原。BuildPlan 等确认
+    /// 命令经宿主实现方的 Pipeline 落子（战役侧=经
+    /// <see cref="EraCore.CampaignLoop.LevelSession"/> 的命令观察缝记账，
+    /// 重放键完整——引擎最小扩见 LevelSession）。
+    /// </summary>
+    internal interface IAdvisorBoardHost
+    {
+        /// <summary>Order-path pipeline (five stages, registry-gated).</summary>
+        AgentPipeline Pipeline { get; }
+
+        /// <summary>Store the panel settings persist through (F-097).</summary>
+        IFileStore Store { get; }
+
+        /// <summary>HUD three metrics of the CURRENT board (F-111).</summary>
+        HudSnapshot BuildHudSnapshot();
+    }
+
     /// <summary>The always-legal example order shown in the input box (F-115 常驻合法示例句).</summary>
     internal const string ExampleOrder = "守住东门";
 
@@ -59,7 +80,7 @@ public sealed partial class SystemPanel : Control
     };
 
     private PanelStateMachine _machine = new();
-    private SimHost _host = null!;
+    private IAdvisorBoardHost _host = null!; // T-160b：夹具/战役关同一宿主面（Bind 重绑）
     private TrustBadgeTracker _trustTracker = new(TrustBadge.Trustworthy); // era reset = score 50
     private bool _alarmAnnounced;
 
@@ -136,8 +157,10 @@ public sealed partial class SystemPanel : Control
     /// <summary>Defense alarm line when firing, empty otherwise (smoke probe).</summary>
     internal string AlarmText => _alarmField.Visible ? _alarmField.Text : string.Empty;
 
-    /// <summary>Binds the real sim + pipeline host (must precede any order).</summary>
-    internal void Bind(SimHost host)
+    /// <summary>Binds the real sim + pipeline host (must precede any order). T-160b:
+    /// takes the board-host seam — the E1 fixture lane (SimHost) and campaign
+    /// levels (CampaignAdvisorBoard) re-bind through the same call.</summary>
+    internal void Bind(IAdvisorBoardHost host)
     {
         _host = host;
 
@@ -594,7 +617,7 @@ public sealed partial class SystemPanel : Control
     {
         if (_host is null)
         {
-            throw new InvalidOperationException("SystemPanel.Bind(SimHost) must run before orders.");
+            throw new InvalidOperationException("SystemPanel.Bind(IAdvisorBoardHost) must run before orders.");
         }
 
         if (!_machine.OrderBoxVisible)

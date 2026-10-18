@@ -1,4 +1,5 @@
 using EraCore.Agent.Governance;
+using EraCore.Agent.Pipeline;
 using EraCore.Balance;
 using EraCore.CampaignLoop;
 using EraCore.Cinematics;
@@ -72,6 +73,15 @@ public sealed partial class CampaignMenuUi : Control
     // —— 活动战役（窗口车道真机局面；headless 冒烟走沙盒根实例）——
     private CampaignLevelHost _host = null!;
 
+    // —— T-160b 战场渲染绑定（REV §七遗留③收口）——
+    // 视口=会话泳道自持渲染件（NetClientViewport 先例）；军师面板随开局重绑
+    // 到战役板（CampaignAdvisorBoard），退出还原夹具板；夹具双层在局内隐藏、
+    // 退出恢复（同层不叠画——恢复菜单态口径）。
+    private Main? _main;
+    private SessionBattlefieldViewport? _viewport;
+    private CampaignAdvisorBoard? _board;
+    private bool _fixtureHidden;
+
     private CampaignMenuUi()
     {
         _headless = OS.HasFeature("headless") || DisplayServer.GetName() == "headless";
@@ -91,6 +101,7 @@ public sealed partial class CampaignMenuUi : Control
             new JsonFileSavePort(playerStore, "campaign"),
             new LevelDurationTelemetry(playerStore, new EndlessHostContent.WallClock()),
             TelemetrySources.Player); // 真人局 source=player（T-155 口径）
+        ui._main = host as Main;
         host.AddChild(ui);
         if (ui._headless)
         {
@@ -157,9 +168,81 @@ public sealed partial class CampaignMenuUi : Control
             RefreshMenu();          // 胜利/跃迁落地后菜单立即反映新进度态
         }
 
+        PumpBattlefield(); // T-160b：战场渲染+军师面板绑定（开局重绑/退出还原）
+
         if (_host.InLevel && Engine.GetProcessFrames() % 30 == 0)
         {
             RefreshStatus();
+        }
+    }
+
+    // ------------------------------------------ T-160b 战场渲染绑定（窗口车道）
+
+    /// <summary>
+    /// 战场绑定泵（每帧幂等）：局内=视口 Bind 到活动会话（sim 引用变化即整
+    /// 面重建——关卡切换/跃迁重进再重绑律）+ 脏块渲染；HUD 三指标从战役板
+    /// 活体刷新。退出到菜单=军师板 Dispose+视口 Release+夹具双层恢复+面板
+    /// 还原夹具板（恢复菜单态——夹具画面/菜单覆盖口径，REV §七遗留③）。
+    /// </summary>
+    private void PumpBattlefield()
+    {
+        if (_host.InLevel && _host.Current is { } run)
+        {
+            EnsureViewport().Bind(run.Session, EraLevelAssembly.EraIndexOf(run.Level));
+            EnsureViewport().PumpFrame();
+            if (_board is null)
+            {
+                _board = _host.BuildAdvisorBoard(run);
+                _main?.AdvisorPanel.Bind(_board); // 军师面板绑战役会话（BuildPlan 等经会话通道）
+                SetFixtureHidden(true);
+            }
+
+            if (_main is not null && Engine.GetProcessFrames() % 15 == 0)
+            {
+                _main.AdvisorPanel.RefreshHud(_board.BuildHudSnapshot()); // HUD 面板随战役会话
+            }
+        }
+        else if (_board is not null || _viewport is { IsBound: true })
+        {
+            _board?.Dispose();
+            _board = null;
+            _viewport?.Release();
+            SetFixtureHidden(false);
+            if (_main is not null)
+            {
+                _main.AdvisorPanel.Bind(_main.BattleHost); // 还原夹具板（菜单态）
+            }
+        }
+    }
+
+    private SessionBattlefieldViewport EnsureViewport() =>
+        _viewport ??= SessionBattlefieldViewport.Instantiate(this);
+
+    /// <summary>夹具双层隐藏/恢复（战役局内同层不叠画；退出恢复菜单态）.</summary>
+    private void SetFixtureHidden(bool hidden)
+    {
+        if (_fixtureHidden == hidden)
+        {
+            return;
+        }
+
+        _fixtureHidden = hidden;
+        MultiMeshRenderer? ground = GetParent()?.GetNodeOrNull<MultiMeshRenderer>("GroundLayer");
+        MultiMeshRenderer? units = GetParent()?.GetNodeOrNull<MultiMeshRenderer>("UnitLayer");
+        if (ground is null || units is null)
+        {
+            return; // 非主场景挂载（独立测试树）——无夹具层可管
+        }
+
+        if (hidden)
+        {
+            ground.Hide();
+            units.Hide();
+        }
+        else
+        {
+            ground.Show();
+            units.Show();
         }
     }
 
@@ -473,6 +556,9 @@ public sealed partial class CampaignMenuUi : Control
             problems.Add($"终章播片二选一不符：on={finaleOn} off={finaleOff}");
         }
 
+        // —— ⑥ T-160b 战场渲染绑定（CAMPAIGN_VIEW——本文件problems合流执法）——
+        CampaignViewFacts view = RunViewSmoke(host, problems);
+
         // 沙盒清场（dev 根 .tmp-tests 下，gitignored）
         if (System.IO.Directory.Exists(smokeRoot))
         {
@@ -488,6 +574,16 @@ public sealed partial class CampaignMenuUi : Control
                 "telemetry=victory+abandoned+resumed source=script " +
                 "transition=refused-without-final-capture finale=switch-picked " +
                 $"rows=[{string.Join(" ", matrixRows)}]");
+            GD.Print(
+                $"CAMPAIGN_VIEW e1={view.E1Width}x{view.E1Height} ground_rebuilds={view.E1GroundRebuilds} " +
+                $"units_seen={view.E1MaxUnits} unit_rebuilds={view.E1UnitRebuilds} " +
+                $"terrain=level-world-equal rock_cells={view.E1RockCells} " +
+                $"e2={view.E2Width}x{view.E2Height} era2_atlas={view.E2EraRouted} " +
+                $"rebind_terrain_changed={view.RebindTerrainChanged} " +
+                $"advisor=build-plan-on-session-channel towers={view.TowersBefore}->{view.TowersAfter} " +
+                $"issued_advisor_commands={view.AdvisorIssuedCommands} " +
+                $"advisor_resume_towers_kept={view.AdvisorResumeTowersKept} " +
+                $"panel_hud={view.PanelHudBound} exit_restore={view.ExitRestored}");
         }
         else
         {
@@ -495,6 +591,262 @@ public sealed partial class CampaignMenuUi : Control
             GD.Print("CAMPAIGN_FAIL " + string.Join("; ", problems));
             GetTree().Quit(1);
         }
+    }
+
+    // --------------------------------------- T-160b CAMPAIGN_VIEW（G4 判据段）
+
+    /// <summary>CAMPAIGN_VIEW 事实行（打印面——判据经 problems 执法）.</summary>
+    internal sealed record CampaignViewFacts(
+        int E1Width, int E1Height, int E1GroundRebuilds, int E1MaxUnits, int E1UnitRebuilds,
+        int E1RockCells, int E2Width, int E2Height, bool E2EraRouted, bool RebindTerrainChanged,
+        int TowersBefore, int TowersAfter, int AdvisorIssuedCommands, bool AdvisorResumeTowersKept,
+        bool PanelHudBound, bool ExitRestored);
+
+    /// <summary>
+    /// T-160b 战场渲染绑定冒烟（判据=任务卡②）：①进 e1-01→渲染层脏块重建
+    /// &gt;0+地形签名=该关真图（视口帧缓冲逐格等于会话世界地形——非夹具：
+    /// e1 行 rock=0 而夹具图 rock≈19 格）+若干帧后单位层有实体；②退出到菜
+    /// 单→释放（夹具层恢复）；③切换 e2-01 重绑生效（图尺寸 16×24→20×26/
+    /// era2 图集路由/地形签名随图变）；④军师面板绑战役会话——BuildPlan 确认
+    /// 命令经 LevelSession 通道（命令流记账+退出重进塔数无损）。
+    /// </summary>
+    private CampaignViewFacts RunViewSmoke(CampaignLevelHost host, List<string> problems)
+    {
+        var viewport = SessionBattlefieldViewport.Instantiate(this);
+        SetFixtureHidden(true); // 局内夹具双层隐藏（窗口车道同律；冒烟结束恢复）
+
+        // —— ① e1-01：绑定+泵到首波入场（判据：脏块/真图/单位）——
+        host.BeginLevel("campaign:level-e1-01");
+        CampaignRun run = host.Current!;
+        long firstEntry = FirstEntryTicks(run.Level);
+        for (long step = 0; step < firstEntry && host.InLevel; step++)
+        {
+            host.PumpOneTick();
+            viewport.Bind(run.Session, EraLevelAssembly.EraIndexOf(run.Level));
+            viewport.PumpFrame();
+        }
+
+        int e1Width = viewport.BoundWidthCells;
+        int e1Height = viewport.BoundHeightCells;
+        int e1Ground = viewport.GroundChunkRebuilds;
+        int e1Units = viewport.MaxUnitsSeen;
+        int e1UnitRebuilds = viewport.UnitChunkRebuilds;
+        IReadOnlyDictionary<int, int> e1Signature = viewport.TerrainSignature();
+        int e1Rock = e1Signature.TryGetValue(SessionBattlefieldViewport.ColorOfTerrain(
+            EraCore.World.TerrainKind.Rock), out int rockCells) ? rockCells : 0;
+
+        if (e1Ground <= 0)
+        {
+            problems.Add($"e1-01 渲染层脏块重建应>0（ground={e1Ground}）");
+        }
+
+        if (e1Units <= 0 || e1UnitRebuilds <= 0)
+        {
+            problems.Add($"e1-01 若干帧后单位层应有实体（units={e1Units} unit_rebuilds={e1UnitRebuilds}）");
+        }
+
+        if (e1Width != run.Level.Map.Width || e1Height != run.Level.Map.Height)
+        {
+            problems.Add($"e1-01 图尺寸不符：viewport={e1Width}x{e1Height} level={run.Level.Map.Width}x{run.Level.Map.Height}");
+        }
+
+        if (!TerrainSignatureEquals(e1Signature, run))
+        {
+            problems.Add("e1-01 地形签名≠该关真图（视口帧缓冲与会话世界逐格不等——仍夹具？）");
+        }
+
+        if (e1Rock != 0)
+        {
+            problems.Add($"e1 行 rock_ratio=0 应零岩石格（实得 {e1Rock}——夹具图特征）");
+        }
+
+        // —— ② 退出到菜单：视口释放+夹具层恢复（恢复菜单态口径）——
+        host.ExitToMenu();
+        viewport.Release();
+        SetFixtureHidden(false);
+        bool exitRestored = !viewport.IsBound && !_fixtureHidden;
+        if (!exitRestored)
+        {
+            problems.Add($"退出到菜单未恢复菜单态（bound={viewport.IsBound} fixture_restored={!_fixtureHidden}）");
+        }
+
+        // —— ③ e2-01：重绑生效（尺寸/era 路由/地形随图变）——
+        host.BeginLevel("campaign:level-e2-01");
+        CampaignRun e2Run = host.Current!;
+        for (int step = 0; step < 4 && host.InLevel; step++)
+        {
+            host.PumpOneTick();
+            viewport.Bind(e2Run.Session, EraLevelAssembly.EraIndexOf(e2Run.Level));
+            viewport.PumpFrame();
+        }
+
+        int e2Width = viewport.BoundWidthCells;
+        int e2Height = viewport.BoundHeightCells;
+        bool eraRouted = viewport.BoundEra == 2;
+        IReadOnlyDictionary<int, int> e2Signature = viewport.TerrainSignature();
+        bool terrainChanged = !TerrainSignatureEquals(e2Signature, run); // 新图≠旧图（尺寸+森林密度都变）
+        if (e2Width != e2Run.Level.Map.Width || e2Height != e2Run.Level.Map.Height || e2Width == e1Width)
+        {
+            problems.Add($"e2-01 重绑图尺寸未变：e1={e1Width}x{e1Height} e2={e2Width}x{e2Height}");
+        }
+
+        if (!eraRouted)
+        {
+            problems.Add($"e2-01 时代路由应 era=2（实得 {viewport.BoundEra}）");
+        }
+
+        if (!TerrainSignatureEquals(e2Signature, e2Run))
+        {
+            problems.Add("e2-01 地形签名≠该关真图（重绑后帧缓冲未跟随新会话）");
+        }
+
+        if (!terrainChanged)
+        {
+            problems.Add("e1→e2 地形签名未随图变化（重绑未生效）");
+        }
+
+        // —— ④ 军师面板绑战役会话：BuildPlan 确认命令走 LevelSession 通道 ——
+        int towersBefore = e2Run.Session.Sim.Towers.Count;
+        using (CampaignAdvisorBoard board = host.BuildAdvisorBoard(e2Run))
+        {
+            bool panelHudBound = false;
+            if (_main is not null)
+            {
+                _main.AdvisorPanel.Bind(board); // 面板绑战役板（窗口车道同一调用）
+                _main.AdvisorPanel.RefreshHud(board.BuildHudSnapshot());
+                string hud = _main.AdvisorPanel.HudText();
+                panelHudBound = hud.Contains(
+                    HudMetrics.FormatWave(e2Run.Session.Sim.CurrentWave), StringComparison.Ordinal);
+                _ = _main.AdvisorPanel.SubmitOrder("建一座箭塔"); // 军令路径经战役板真管线（面板活面）
+                _main.AdvisorPanel.Bind(_main.BattleHost); // 还原夹具板（后续段不被本段残留污染）
+                if (!panelHudBound)
+                {
+                    problems.Add($"军师面板 HUD 未随战役会话（hud=\"{hud}\"）");
+                }
+            }
+
+            // BuildPlan 确认命令：宿主驱动的单动作入口（面板 L2 回投同通道）。
+            (int buildX, int buildY)? free = FindFreePlainCell(e2Run);
+            if (free is null)
+            {
+                problems.Add("e2-01 扫不到空 Plain 格（军令建造落点）");
+            }
+            else
+            {
+                // 通道基线：军令入账前的命令流（含关卡脚本建造——IssuedAtTick
+                // 晚于退出刻的脚本命令按引擎律不入退出快照，不得计入军令面）。
+                int towerCommandsBefore = e2Run.Session.IssuedCommands.Count(command =>
+                    command.PayloadJson.Contains("era2:tower-arrow", StringComparison.Ordinal));
+                OrderOutcome planned = board.Pipeline.HandleSystemAction(
+                    EraCore.Contracts.Actions.SystemActionKind.BuildPlan,
+                    $"{{\"action\":\"BuildPlan\",\"tower_id\":\"era2:tower-arrow\",\"cells\":[{{\"x\":{free.Value.buildX},\"y\":{free.Value.buildY}}}]}}");
+                OrderOutcome executed = planned.Kind == PipelineOutcomeKind.AwaitingApproval
+                    ? board.Pipeline.Confirm(planned.PendingId)
+                    : planned;
+                int towersAfter = e2Run.Session.Sim.Towers.Count;
+                int advisorCommands = e2Run.Session.IssuedCommands.Count(command =>
+                    command.PayloadJson.Contains("era2:tower-arrow", StringComparison.Ordinal))
+                    - towerCommandsBefore;
+                SimCommand advisorCommand = e2Run.Session.IssuedCommands[^1]; // 军令=最后一条入账命令
+                if (executed.Kind != PipelineOutcomeKind.Completed || towersAfter <= towersBefore)
+                {
+                    problems.Add(
+                        $"军令 BuildPlan 未落地：kind={executed.Kind} towers={towersBefore}->{towersAfter}");
+                }
+
+                if (advisorCommands <= 0 || !advisorCommand.PayloadJson.Contains(
+                        "era2:tower-arrow", StringComparison.Ordinal))
+                {
+                    problems.Add("军令命令未走 LevelSession 通道（IssuedCommands 无军令 era2:tower-arrow 建造）");
+                }
+
+                // —— 通道的硬证明：退出→重进，军令建造经重放键无损保留 ——
+                int towersWithAdvisor = towersAfter;
+                host.ExitToMenu();
+                host.BeginLevel("campaign:level-e2-01");
+                CampaignRun resumed = host.Current!;
+                int resumedTowers = resumed.Session.Sim.Towers.Count;
+                bool resumeKept = resumedTowers == towersWithAdvisor && resumed.ResumedFromExit
+                    && resumed.Session.IssuedCommands.Any(command =>
+                        command.IssuedAtTick == advisorCommand.IssuedAtTick
+                        && command.Kind == advisorCommand.Kind
+                        && command.PayloadJson == advisorCommand.PayloadJson);
+                if (!resumeKept)
+                {
+                    problems.Add(
+                        $"军令建造未随会话重放保留：resumed_towers={resumedTowers} expect={towersWithAdvisor}");
+                }
+
+                host.ExitToMenu();
+                int finalTowersAfter = towersWithAdvisor;
+                int finalAdvisorIssued = advisorCommands;
+                SetFixtureHidden(false);
+                viewport.QueueFree();
+                return new CampaignViewFacts(
+                    e1Width, e1Height, e1Ground, e1Units, e1UnitRebuilds, e1Rock,
+                    e2Width, e2Height, eraRouted, terrainChanged,
+                    towersBefore, finalTowersAfter, finalAdvisorIssued, resumeKept,
+                    panelHudBound, exitRestored);
+            }
+        }
+
+        // 落点扫描失败路径（problems 已记）：清场后返回保守事实行。
+        SetFixtureHidden(false);
+        viewport.QueueFree();
+        host.ExitToMenu();
+        return new CampaignViewFacts(
+            e1Width, e1Height, e1Ground, e1Units, e1UnitRebuilds, e1Rock,
+            e2Width, e2Height, eraRouted, terrainChanged,
+            towersBefore, towersBefore, 0, false, false, exitRestored);
+    }
+
+    /// <summary>视口地形签名 vs 会话世界直扫（逐色计数相等=帧缓冲即该关真图）.</summary>
+    private static bool TerrainSignatureEquals(IReadOnlyDictionary<int, int> signature, CampaignRun run)
+    {
+        var expected = new Dictionary<int, int>();
+        for (int y = 0; y < run.Session.Sim.World.Height; y++)
+        {
+            for (int x = 0; x < run.Session.Sim.World.Width; x++)
+            {
+                int rgb = SessionBattlefieldViewport.ColorOfTerrain(
+                    run.Session.Sim.World.TerrainAt(new EraCore.Contracts.Foundation.CellCoord(x, y)));
+                expected[rgb] = expected.TryGetValue(rgb, out int seen) ? seen + 1 : 1;
+            }
+        }
+
+        return signature.Count == expected.Count
+            && signature.All(pair => expected.TryGetValue(pair.Key, out int count) && count == pair.Value);
+    }
+
+    /// <summary>首两波入场 horizon（grace+2 波窗——泵到此帧数单位层必有实体且过波峰）.</summary>
+    internal static long FirstEntryTicks(HandcraftedLevel level)
+    {
+        long intervalTicks = (long)Math.Round(
+            Campaign.WaveIntervalSeconds(level.Threat) * Simulation.TicksPerSecond,
+            MidpointRounding.AwayFromZero);
+        long graceTicks = (long)Math.Round(intervalTicks * level.FirstWaveGraceMultiplier, MidpointRounding.AwayFromZero);
+        return graceTicks + (2 * intervalTicks);
+    }
+
+    /// <summary>首个既无建筑又是 Plain 的格（军令建造落点——与地形抽签解耦）.</summary>
+    private static (int X, int Y)? FindFreePlainCell(CampaignRun run)
+    {
+        for (int y = 0; y < run.Session.Sim.World.Height; y++)
+        {
+            for (int x = 0; x < run.Session.Sim.World.Width; x++)
+            {
+                var cell = new EraCore.Contracts.Foundation.CellCoord(x, y);
+                if (run.Session.Sim.World.TerrainAt(cell) != EraCore.World.TerrainKind.Plain
+                    || run.Session.Sim.Buildings.Any(building => building.Cell == cell))
+                {
+                    continue;
+                }
+
+                return (x, y);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>胜波+12 波窗 horizon（失败护栏，通关即停——V10 链同律）.</summary>
@@ -534,8 +886,9 @@ internal sealed record CampaignChapter(int EraIndex, string Title, IReadOnlyList
 /// <summary>One menu row: the level plus its resolved state and star count.</summary>
 internal sealed record CampaignLevelRow(string Id, string NameZh, CampaignLevelState State, int Stars);
 
-/// <summary>The live level binding of the host (session + its level row + resume flag).</summary>
-internal sealed record CampaignRun(LevelSession Session, HandcraftedLevel Level, bool ResumedFromExit);
+/// <summary>The live level binding of the host (session + its level row + resume flag + session config).</summary>
+internal sealed record CampaignRun(
+    LevelSession Session, HandcraftedLevel Level, bool ResumedFromExit, LevelSessionConfig Config);
 
 /// <summary>Construction probe result (loading-matrix face).</summary>
 internal sealed record LevelSessionProbe(HandcraftedLevel Level, LevelSession Session, IReadOnlyList<SimCommand> Commands);

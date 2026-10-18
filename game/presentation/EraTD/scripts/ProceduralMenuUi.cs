@@ -59,6 +59,11 @@ public sealed partial class ProceduralMenuUi : Control
     private ProceduralLevel? _level;
     private LevelDurationTelemetry? _telemetry;
 
+    // —— T-160b 战场渲染绑定（同战役律：视口=会话泳道自持渲染件，开局
+    //    Bind/泵帧，退出 Release+夹具层恢复——SimHost 夹具路径不动）——
+    private SessionBattlefieldViewport? _viewport;
+    private bool _fixtureHidden;
+
     private ProceduralMenuUi()
     {
         _headless = OS.HasFeature("headless") || DisplayServer.GetName() == "headless";
@@ -202,20 +207,73 @@ public sealed partial class ProceduralMenuUi : Control
         _session = null;
         _level = null;
         _telemetry = null;
+        ReleaseBattlefield(); // T-160b：退出恢复菜单态（视口释放+夹具层恢复）
         RefreshStatus();
     }
 
     private void PumpWindowSession()
     {
-        if (_session is not { Machine.State: GameFlowState.InLevel })
+        if (_session is not { Machine.State: GameFlowState.InLevel } || _level is null)
         {
+            if (_viewport is { IsBound: true })
+            {
+                ReleaseBattlefield(); // 终局（胜利/弃局后续）同退出律：恢复菜单态
+            }
+
             return;
         }
 
         _session.RunFor(1); // 1x 帧律：一帧一 tick（PauseClock 接线随战场宿主面）
+
+        // T-160b 战场渲染绑定（战役同律）：每帧幂等 Bind（会话引用变化即整面
+        // 重建——重开局=新图重绑）+ 脏块渲染；开局首帧隐藏夹具双层。
+        _viewport ??= SessionBattlefieldViewport.Instantiate(this);
+        bool wasBound = _viewport.IsBound;
+        _viewport.Bind(_session, EraIndexOf(_level.Era));
+        _viewport.PumpFrame();
+        if (!wasBound)
+        {
+            SetFixtureHidden(true);
+        }
+
         if (Engine.GetProcessFrames() % 30 == 0)
         {
             RefreshStatus();
+        }
+    }
+
+    /// <summary>退出/弃局：视口释放+夹具层恢复（恢复菜单态口径）.</summary>
+    private void ReleaseBattlefield()
+    {
+        _viewport?.Release();
+        SetFixtureHidden(false);
+    }
+
+    /// <summary>夹具双层隐藏/恢复（程序关局内同层不叠画）.</summary>
+    private void SetFixtureHidden(bool hidden)
+    {
+        if (_fixtureHidden == hidden)
+        {
+            return;
+        }
+
+        _fixtureHidden = hidden;
+        MultiMeshRenderer? ground = GetParent()?.GetNodeOrNull<MultiMeshRenderer>("GroundLayer");
+        MultiMeshRenderer? units = GetParent()?.GetNodeOrNull<MultiMeshRenderer>("UnitLayer");
+        if (ground is null || units is null)
+        {
+            return; // 非主场景挂载——无夹具层可管
+        }
+
+        if (hidden)
+        {
+            ground.Hide();
+            units.Hide();
+        }
+        else
+        {
+            ground.Show();
+            units.Show();
         }
     }
 
@@ -292,10 +350,25 @@ public sealed partial class ProceduralMenuUi : Control
         }
 
         const int horizon = 600;
+        var viewport = SessionBattlefieldViewport.Instantiate(this); // T-160b 同律战场绑定面
         for (long tick = 0; tick < horizon; tick++)
         {
             session.RunFor(1);
+            viewport.Bind(session, EraIndexOf(first.Era)); // 每帧幂等（窗口车道 PumpWindowSession 同律）
+            viewport.PumpFrame();
             clock.AdvanceMs(33);
+        }
+
+        int procGroundRebuilds = viewport.GroundChunkRebuilds;
+        int procWidth = viewport.BoundWidthCells;
+        int procHeight = viewport.BoundHeightCells;
+        viewport.Release();
+        viewport.QueueFree();
+        if (procGroundRebuilds <= 0 || procWidth != first.Map.Width || procHeight != first.Map.Height)
+        {
+            problems.Add(
+                $"程序关战场绑定不符：ground={procGroundRebuilds} map={procWidth}x{procHeight}" +
+                $"（level={first.Map.Width}x{first.Map.Height}）");
         }
 
         session.Pause();               // 流程机先入 Paused（SaveAndExit 的单终态前置）
@@ -330,7 +403,8 @@ public sealed partial class ProceduralMenuUi : Control
                 $"band={entry.DurationBandMinutesMin}~{entry.DurationBandMinutesMax}min " +
                 $"seed-stable=identity+terrain level={first.Id} map={first.Map.Width}x{first.Map.Height} " +
                 $"win_waves={first.WinWaves} script={first.CommandScript.Count} " +
-                $"telemetry=levelsession-injected row=abandoned play_ticks={horizon} source=script");
+                $"telemetry=levelsession-injected row=abandoned play_ticks={horizon} source=script " +
+                $"view=bound:{procWidth}x{procHeight}:ground{procGroundRebuilds}");
         }
         else
         {

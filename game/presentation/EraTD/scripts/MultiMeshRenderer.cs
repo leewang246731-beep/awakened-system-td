@@ -45,9 +45,13 @@ public sealed partial class MultiMeshRenderer : MultiMeshInstance2D
     /// Configures this node as the ground (cell) layer. With
     /// <paramref name="terrainAtlas"/> the layer draws atlas tiles (T-045);
     /// without it, cells keep the solid-color mode of the T-042 skeleton.
+    /// T-160b（时代路由）：<paramref name="tilesPerRow"/> lets a non-E1 era
+    /// atlas (Era2~Era6) declare its own slot count — the shader param is
+    /// the atlas's row width, not a TerrainAtlas constant.
     /// </summary>
     public void SetupGround(int mapWidthCells, int mapHeightCells, int chunkCells,
-        Texture2D? terrainAtlas = null, Func<int, int>? tileIndexForColor = null)
+        Texture2D? terrainAtlas = null, Func<int, int>? tileIndexForColor = null,
+        int? tilesPerRow = null)
     {
         _kind = LayerKind.GroundCells;
         _mapWidthCells = mapWidthCells;
@@ -72,7 +76,7 @@ public sealed partial class MultiMeshRenderer : MultiMeshInstance2D
                 Shader = ResourceLoader.Load<Shader>("res://shaders/terrain-atlas.gdshader"),
             };
             material.SetShaderParameter("atlas", terrainAtlas);
-            material.SetShaderParameter("tiles_per_row", TerrainAtlas.TileCount);
+            material.SetShaderParameter("tiles_per_row", tilesPerRow ?? TerrainAtlas.TileCount);
             Material = material;
         }
     }

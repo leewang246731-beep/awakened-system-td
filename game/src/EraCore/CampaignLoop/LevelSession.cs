@@ -143,7 +143,8 @@ public sealed class LevelSession
         ResourceStock? campaignPool,
         Simulation restoredSimulation,
         LevelDurationTelemetry? durationTelemetry,
-        bool resumed)
+        bool resumed,
+        IReadOnlyList<SimCommand>? seedIssued = null)
     {
         Validate(config);
         _config = config;
@@ -154,6 +155,16 @@ public sealed class LevelSession
         WinWaves = Campaign.WinWaves(config.Threat);
         _checkpoints = new WaveCheckpointStore(port, config.LevelSlotId, config.Threat);
         _winWaveLastEntryTick = ComputeWinWaveLastEntryTick(config, WinWaves);
+        // T-160b 命令流记录缝（REV-20261019-T160b §引擎最小扩）：会话命令流
+        // 的唯一真源=sim 入队观察——会话侧 Enqueue 与外部泳道（军师执行器直
+        // 投 sim 的命令）都在入队即记账，波界/退出快照的重放键因此覆盖所有
+        // 来源的命令。重进局的种子=重放所用的既有命令流（见 TryResume）。
+        if (seedIssued is not null)
+        {
+            _issued.AddRange(seedIssued);
+        }
+
+        _sim.CommandEnqueued += command => _issued.Add(command);
         // T-155 时长遥测（挂点=会话建立/重进，非 sim 热路径）：tick 基线取
         // 当前 sim tick——重进局=退出刻，纯游玩口径天然只计本坐步进。
         _duration = durationTelemetry is not null && config.Telemetry is not null
@@ -195,7 +206,8 @@ public sealed class LevelSession
 
         Simulation restored = snapshot.Replay(config.LevelConfig, rng);
         var resumed = new LevelSession(
-            config, rng, port, campaignPool, restored, durationTelemetry, resumed: true);
+            config, rng, port, campaignPool, restored, durationTelemetry, resumed: true,
+            seedIssued: SimulationReplay.ToCommands(snapshot.Commands));
         // Rebuild the machine history the exit froze: Menu → InLevel
         // (start) → Paused (the pause that preceded SaveAndExit).
         resumed.Machine.StartLevel();
@@ -243,7 +255,9 @@ public sealed class LevelSession
     /// <summary>
     /// Enqueues a player command into the simulation (applied at its
     /// IssuedAtTick) and records it in the session stream — the recorded
-    /// stream is what wave-boundary and exit snapshots persist.
+    /// stream is what wave-boundary and exit snapshots persist. T-160b 注：
+    /// 记账经 sim 入队观察缝（构造时挂接）——会话侧与外部泳道（军师执行器）
+    /// 的命令同一条记账路径，见私有构造器注释。
     /// </summary>
     /// <exception cref="ArgumentNullException">command is null.</exception>
     /// <exception cref="InvalidOperationException">Machine not InLevel (commands only flow into a running level).</exception>
@@ -256,7 +270,6 @@ public sealed class LevelSession
                 $"Commands can only be issued InLevel (state={_machine.State}).");
         }
 
-        _issued.Add(command);
         return _sim.Enqueue(command);
     }
 

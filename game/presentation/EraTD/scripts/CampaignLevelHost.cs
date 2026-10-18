@@ -1,5 +1,7 @@
 using System.Text.Json;
 using EraCore.Agent.Governance;
+using EraCore.Agent.Grammar;
+using EraCore.Agent.Pipeline;
 using EraCore.Balance;
 using EraCore.CampaignLoop;
 using EraCore.Cinematics;
@@ -208,12 +210,47 @@ internal sealed class CampaignLevelHost
             session.ResumePlaying(); // #exit 冻结在 Paused——回到 InLevel 续走
         }
 
-        _current = new CampaignRun(session, level, resumed);
+        _current = new CampaignRun(session, level, resumed, config);
         _victoryHandled = false;
         _integrityMin = 1.0;
         _starvedSeconds = 0.0;
         _waveEndEfficiencyMin = 1.0;
         _lastSampleTick = session.Sim.CurrentTick;
+    }
+
+    /// <summary>
+    /// T-160b（战役军师面板可用面）：为活动关构造军师面板宿主——真五段管线
+    /// over 该关 LevelSession 的 sim（时代治理=关卡时代序，E1 关系统点不启
+    /// 用=设计律；命令经引擎观察缝记入会话命令流，重放键完整）。会话结束由
+    /// 调用方 Dispose（战报文件句柄）。
+    /// </summary>
+    public CampaignAdvisorBoard BuildAdvisorBoard(CampaignRun run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+        string eraDir = $"era{EraLevelAssembly.EraIndexOf(run.Level)}";
+        var parser = L1IntentParser.FromJson(
+            ReadContent("grammar", "patterns-zh.json"),
+            ReadContent("grammar", "patterns-en.json"),
+            ReadContent("grammar", "lexicon.json"),
+            ReadContent(eraDir, "towers.json"));
+
+        // 战报=K-8 JSONL（GUID 文件名——并行局/连打多关不互撞，NetDemoLevel 同
+        // 律）；根=宿主自己的 store 根（玩家局落 D-03 玩家根，冒烟局落沙盒根）。
+        string journalPath = System.IO.Path.Combine(
+            _files.Root, "reports", $"t160b-campaign-{run.Level.Id}-{System.Guid.NewGuid():N}.jsonl");
+        var journal = new JsonlJournalWriter(journalPath);
+
+        var pipeline = AgentPipeline.OverSimulation(
+            run.Session.Sim,
+            run.Config.LevelConfig,
+            parser,
+            EraLevelAssembly.EraIndexOf(run.Level),
+            journal,
+            new QuietLogSink(),
+            new Dictionary<string, CellCoord>()); // 手工关卡数据无命名分区：分区军令诚实澄清/拒绝（无伪造锚点）
+        pipeline.Ledger.BeginWave(Math.Max(1, run.Session.Sim.CurrentWave), isBossWave: false);
+
+        return new CampaignAdvisorBoard(run, pipeline, _files, journal, journalPath);
     }
 
     /// <summary>窗口帧泵：1x 帧律一帧一 tick；胜利落地时返回 true（UI 刷新面）.</summary>
@@ -614,5 +651,84 @@ internal sealed class CampaignLevelHost
         }
 
         throw new InvalidOperationException("未找到 game/content（战役宿主须在仓库内运行）");
+    }
+}
+
+// T-160b 战役军师面板宿主（SystemPanel.IAdvisorBoardHost 的战役实现——纯 C#，
+// 无 Godot 节点引用）：五段管线 over 活动关 LevelSession 的 sim；HUD 三指标
+// （含第三指标的构成/预览行）从会话 sim 活体计算（SimHost.BuildHudSnapshot/
+// BuildWaveCompositionView 同律镜像——读面独立成对）；确认的 BuildPlan 等命
+// 令经引擎观察缝（Simulation.CommandEnqueued→LevelSession._issued）记入会话
+// 命令流，波界/退出快照的重放键覆盖军令来源（无损续玩不变量）。
+
+/// <summary>
+/// The campaign-level advisor board host: the panel-facing seam of ONE live
+/// campaign level. Disposable — owns the run's JSONL war-report writer.
+/// </summary>
+internal sealed class CampaignAdvisorBoard : SystemPanel.IAdvisorBoardHost, IDisposable
+{
+    private readonly CampaignRun _run;
+    private readonly JsonlJournalWriter _journal;
+
+    internal CampaignAdvisorBoard(
+        CampaignRun run,
+        AgentPipeline pipeline,
+        IFileStore store,
+        JsonlJournalWriter journal,
+        string journalPath)
+    {
+        _run = run;
+        Pipeline = pipeline;
+        Store = store;
+        _journal = journal;
+        JournalPath = journalPath;
+    }
+
+    /// <summary>The run this board fronts.</summary>
+    public CampaignRun Run => _run;
+
+    /// <summary>War-report JSONL path (K-8 evidence of the advisor lane).</summary>
+    public string JournalPath { get; }
+
+    /// <inheritdoc />
+    public AgentPipeline Pipeline { get; }
+
+    /// <inheritdoc />
+    public IFileStore Store { get; }
+
+    /// <inheritdoc />
+    public HudSnapshot BuildHudSnapshot()
+    {
+        double production = 0d;
+        foreach (EraCore.Economy.Producer producer in _run.Session.Sim.Producers)
+        {
+            production += producer.OutputItemsPerSecond * producer.Efficiency;
+        }
+
+        var towerHealths = new List<(int Hp, int MaxHp)>();
+        foreach (SimTower tower in _run.Session.Sim.Towers)
+        {
+            if (_run.Session.Sim.TryGetBuilding(tower.Id, out SimBuilding building))
+            {
+                towerHealths.Add((building.Hp, tower.Spec.Hp));
+            }
+        }
+
+        return HudMetrics.Compute(_run.Session.Sim.CurrentWave, production, towerHealths);
+    }
+
+    /// <summary>Chinese display name of an enemy content id (falls back to the id).</summary>
+    public string NameOfEnemy(string id) =>
+        _run.Config.LevelConfig.Enemies.TryGet(id, out EnemySpec? spec) ? spec.NameZh : id;
+
+    /// <summary>Releases the war-report writer (file handle).</summary>
+    public void Dispose() => _journal.Dispose();
+}
+
+/// <summary>Quiet K-1 sink（纯 C# 宿主侧）：注册表诊断静默丢弃——K-8 JSONL 战报才是记录（RL10）.</summary>
+internal sealed class QuietLogSink : ILogSink
+{
+    public void Write(LogLevel level, long tick, string message)
+    {
     }
 }

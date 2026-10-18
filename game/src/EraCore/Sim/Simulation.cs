@@ -566,8 +566,23 @@ public sealed class Simulation
     /// <summary>Shots that settled damage on a target so far.</summary>
     public long ShotsLanded => _shotsLanded;
 
+    /// <summary>
+    /// T-160b 外部泳道命令观察缝（表现层战役军师面板）：每条经
+    /// <see cref="Enqueue"/>/<see cref="EnqueueRange"/> 入队的命令在入队后
+    /// 通知一次观察者（入队序）。纯观测面——不读不改任何 sim 状态，零哈希
+    /// 影响；<see cref="EraCore.CampaignLoop.LevelSession"/> 借它把外部泳道
+    /// （AgentPipeline 执行器直投 sim 的军令命令）也记进会话命令流，令
+    /// 波界/退出快照的重放键覆盖所有来源的命令（无损续玩不变量）。
+    /// </summary>
+    public event Action<SimCommand>? CommandEnqueued;
+
     /// <summary>Enqueues one command (applied at its IssuedAtTick).</summary>
-    public long Enqueue(SimCommand command) => _queue.Enqueue(command);
+    public long Enqueue(SimCommand command)
+    {
+        long sequence = _queue.Enqueue(command);
+        CommandEnqueued?.Invoke(command);
+        return sequence;
+    }
 
     /// <summary>Enqueues a command stream in order.</summary>
     public void EnqueueRange(IEnumerable<SimCommand> commands)
@@ -575,7 +590,7 @@ public sealed class Simulation
         ArgumentNullException.ThrowIfNull(commands);
         foreach (SimCommand command in commands)
         {
-            _queue.Enqueue(command);
+            _ = Enqueue(command);
         }
     }
 

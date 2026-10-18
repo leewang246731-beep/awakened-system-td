@@ -30,7 +30,7 @@ namespace EraTD;
 /// and the HUD metric extraction. The real level loader (C-29/T-059)
 /// replaces the config assembly later; the HUD extraction stays.
 /// </summary>
-internal sealed class SimHost
+internal sealed class SimHost : SystemPanel.IAdvisorBoardHost
 {
     /// <summary>E1 fixture seed (SimE1Fixture.Seed anchor, T-040).</summary>
     internal const long Seed = 20261014;
@@ -87,6 +87,12 @@ internal sealed class SimHost
     /// their own tasks; the presenter only reads <see cref="TrustModel.Score"/>.
     /// </summary>
     internal TrustModel Trust { get; } = new();
+
+    // T-160b 面板宿主缝（SystemPanel.IAdvisorBoardHost）：显式实现——本类
+    // 既有 internal 表面零变动（夹具泳道调用点不受影响）。
+    AgentPipeline SystemPanel.IAdvisorBoardHost.Pipeline => Pipeline;
+    IFileStore SystemPanel.IAdvisorBoardHost.Store => Store;
+    HudSnapshot SystemPanel.IAdvisorBoardHost.BuildHudSnapshot() => BuildHudSnapshot();
 
     private readonly EnemySpecCatalog _enemies;
     private readonly WaveSpawnConfig _waveConfig;
