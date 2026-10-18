@@ -42,7 +42,6 @@ internal sealed class EnetNetLink : IDisposable,
     private readonly NetHandshakeInfo _localInfo;
     private readonly Func<NetSessionSnapshot>? _snapshotProvider;
     private readonly Action<NetSessionSnapshot>? _onSnapshot;
-    private readonly List<long> _peers = new();
     private readonly List<SimCommand> _commands = new();
     private readonly List<SimHashSample> _digests = new();
     private readonly List<AdvisorOrderRequest> _requests = new();
@@ -260,15 +259,12 @@ internal sealed class EnetNetLink : IDisposable,
 
     private void OnPeerConnected(long id)
     {
-        if (_isHost && !_peers.Contains(id))
-        {
-            _peers.Add(id);
-        }
+        // 批 6 审查 #2：原 _peers 名册只增删从未读（死字段）——已删；
+        // 连接事件留空钩以便日后接 UI 在线名单。
     }
 
     private void OnPeerDisconnected(long id)
     {
-        _peers.Remove(id);
     }
 
     private void OnConnectedToServer()
@@ -333,24 +329,56 @@ internal sealed class EnetNetLink : IDisposable,
                 return;
 
             case NetWireMessageKind.CommandFromClient when _isHost:
-                _commands.Add(JsonSerializer.Deserialize<SimCommand>(json, Json.SimCommand)!);
-                return;
-
             case NetWireMessageKind.CommandBroadcast when !_isHost:
-                _commands.Add(JsonSerializer.Deserialize<SimCommand>(json, Json.SimCommand)!);
+            {
+                // 网络输入健壮性（批 6 审查 #1）：对端发字面 null 体（"null" JSON）
+                // 会反序列化成 null——握手/快照分支已判，命令/军师分支同纪律，
+                // 拒收并警告，绝不把 null 混进宿主权威队列炸房。
+                var command = JsonSerializer.Deserialize<SimCommand>(json, Json.SimCommand);
+                if (command is null)
+                {
+                    GD.PushWarning($"net: null command body from peer {id} dropped.");
+                    return;
+                }
+                _commands.Add(command);
                 return;
+            }
 
             case NetWireMessageKind.DigestPush when !_isHost:
-                _digests.Add(JsonSerializer.Deserialize<SimHashSample>(json, Json.SimHashSample)!);
+            {
+                var digest = JsonSerializer.Deserialize<SimHashSample>(json, Json.SimHashSample);
+                if (digest is null)
+                {
+                    GD.PushWarning($"net: null digest body from peer {id} dropped.");
+                    return;
+                }
+                _digests.Add(digest);
                 return;
+            }
 
             case NetWireMessageKind.AdvisorRequest when _isHost:
-                _requests.Add(JsonSerializer.Deserialize<AdvisorOrderRequest>(json, Json.AdvisorOrderRequest)!);
+            {
+                var request = JsonSerializer.Deserialize<AdvisorOrderRequest>(json, Json.AdvisorOrderRequest);
+                if (request is null)
+                {
+                    GD.PushWarning($"net: null advisor request body from peer {id} dropped.");
+                    return;
+                }
+                _requests.Add(request);
                 return;
+            }
 
             case NetWireMessageKind.AdvisorReply when !_isHost:
-                _replies.Add(JsonSerializer.Deserialize<AdvisorOrderReply>(json, Json.AdvisorOrderReply)!);
+            {
+                var reply = JsonSerializer.Deserialize<AdvisorOrderReply>(json, Json.AdvisorOrderReply);
+                if (reply is null)
+                {
+                    GD.PushWarning($"net: null advisor reply body from peer {id} dropped.");
+                    return;
+                }
+                _replies.Add(reply);
                 return;
+            }
 
             default:
                 GD.PushWarning($"net: unexpected message kind {kind} for this end (peer {id}) dropped.");

@@ -88,3 +88,6 @@ T2: game/src/EraCore/Llm/L2/L2DownloadPorts.cs | K-端口纯契约（IL2Download
 # 纯契约文件（F-161 接口预留，T-139 实现域；预留面唯一行为组件=状态机有独立测试）：
 T2: game/src/EraCore/Net/ICommandTransport.cs | T-131 联机预留纯契约（ICommandTransport 命令传输端口+NetLinkStatus 状态枚举）：行为面=NetLinkStateMachine（独立测试 NetLinkStateMachineTests）+接口面冻结断言（NetReservationContractTests）；传输实现随 T-139 落地，EraCore 内零实现（NetReservationContractTests 钉死）
 T2: game/src/EraCore/Net/ISnapshotChannel.cs | T-131 联机预留纯契约（ISnapshotChannel 快照推送端口，载荷复用 EraCore.Sim.SimHashSample）：接口面冻结断言与零实现钉死于 NetReservationContractTests；实现随 T-139 落地
+T2: game/src/EraNet/NetHostWire.cs        | EraNet 纯契约（宿主线面：广播/盖章钩子）——行为由 EraNet 测试件与表现层 EnetNetLink 集成面覆盖（批 6 审查 #5：CS-3.7 字面只辖 src/EraCore，EraNet 契约文件属规则盲区，本条补登记归位）
+T2: game/src/EraNet/NetTiming.cs          | EraNet 纯常量（30Hz×200ms=6 tick 公式派生）——由 NetGameHost/Client 节拍测试覆盖（同上补登记）
+T2: game/src/EraNet/IAdvisorOrderChannel.cs | EraNet 纯契约（军师订单上行/回复通道）——由 NetAdvisorApprovalTests 覆盖（同上补登记）
