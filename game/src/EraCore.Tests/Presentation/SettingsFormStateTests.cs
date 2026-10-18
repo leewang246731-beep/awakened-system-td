@@ -421,4 +421,19 @@ public class SettingsFormStateTests
         Assert.Contains("白名单", SettingsFormState.CodingPlanNoticeZh);
         Assert.Contains("1315", SettingsFormState.CodingPlanNoticeZh);
     }
+
+    [Fact] // [F-006] T-155 时长遥测披露行文案（数据流向声明三要素：本地/不上传/可删）
+    public void Telemetry_notice_keeps_the_local_only_wording()
+    {
+        // legal: 三要素逐项在位——本地文件、零上传零联网、删除即清除
+        Assert.Contains("本地", SettingsFormState.TelemetryNoticeCaptionZh);
+        Assert.Contains("telemetry/durations.jsonl", SettingsFormState.TelemetryNoticeZh);
+        Assert.Contains("不上传", SettingsFormState.TelemetryNoticeZh);
+        Assert.Contains("不联网", SettingsFormState.TelemetryNoticeZh);
+        Assert.Contains("删除", SettingsFormState.TelemetryNoticeZh);
+
+        // boundary: 文案不述任何盘符/绝对路径（发布件任意注入盘——只述相对段）
+        Assert.DoesNotContain(@":\", SettingsFormState.TelemetryNoticeZh);
+        Assert.DoesNotContain("user://", SettingsFormState.TelemetryNoticeZh);
+    }
 }

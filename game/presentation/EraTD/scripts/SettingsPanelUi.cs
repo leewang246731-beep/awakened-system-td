@@ -107,6 +107,10 @@ public sealed partial class SettingsPanelUi : Control
     private Label _ttsReservedCaption = null!;
     private Label _ttsReservedNotice = null!;
 
+    // T-155 (F-006): 时长遥测披露行——两枚 Label（本地 JSONL/不上传/可删）
+    private Label _telemetryNoticeCaption = null!;
+    private Label _telemetryNotice = null!;
+
     // T-137 (F-078): 军师三档下拉 + L2 本地模型下载面（决策全在 L2Coordinator）
     private L2.L2Coordinator? _l2;
     private OptionButton _advisorTierDropdown = null!;
@@ -338,6 +342,8 @@ public sealed partial class SettingsPanelUi : Control
         _codingPlanNotice = GetNode<Label>("Scroll/Form/CodingPlanNotice");
         _ttsReservedCaption = GetNode<Label>("Scroll/Form/TtsReservedRow/Caption");
         _ttsReservedNotice = GetNode<Label>("Scroll/Form/TtsReservedRow/Notice");
+        _telemetryNoticeCaption = GetNode<Label>("Scroll/Form/TelemetryNoticeRow/Caption");
+        _telemetryNotice = GetNode<Label>("Scroll/Form/TelemetryNoticeRow/Notice");
 
         // T-109: 对比条三行 + AI 素材标注 + 首启声明弹窗
         _compareHeading = GetNode<Label>("Scroll/Form/CompareHeading");
@@ -432,6 +438,11 @@ public sealed partial class SettingsPanelUi : Control
         _ttsReservedCaption.Text = SettingsFormState.TtsReservedCaptionZh;
         _ttsReservedNotice.Text = SettingsFormState.TtsReservedNoticeZh;
 
+        // T-155 (F-006): 时长遥测披露行——文案原样上屏（数据流向声明口径
+        // 同 T-109：本地文件、不上传、可删），无开关无交互
+        _telemetryNoticeCaption.Text = SettingsFormState.TelemetryNoticeCaptionZh;
+        _telemetryNotice.Text = SettingsFormState.TelemetryNoticeZh;
+
         // T-109: 静态披露文案（对比条标题 + AI 素材标注 + 弹窗标题/按钮/中英文案）
         _compareHeading.Text = DataFlowCompareBar.HeadingZh;
         _aiAssetLabel.Text = $"{LlmDisclosureCatalog.AiAssetLabelZh}\n{LlmDisclosureCatalog.AiAssetLabelEn}";
@@ -504,6 +515,7 @@ public sealed partial class SettingsPanelUi : Control
                 "RenderTierRow" => true,          // Web-relevant setting (T-102)
                 "AiAssetLabel" => true,           // disclosure (F-153, T-109)
                 "TtsReservedRow" => true,         // reserved notice, not an editable field (T-138)
+                "TelemetryNoticeRow" => true,     // local-telemetry disclosure, always visible (T-155)
                 "AdvisorTierRow" or "L2ModelRow" or "L2StatusText" or "L2ProgressBar"
                     => surfaces.L2SurfacesVisible, // T-137: L2 档位/下载面随 L2 平台行（Web 禁）
                 "CompareHeading" or "L1Row" or "L2Row" or "L3Row"
@@ -1210,6 +1222,24 @@ public sealed partial class SettingsPanelUi : Control
             }
         }
 
+        // T-155 时长遥测披露行：标题+说明文案逐字在位；行内不得存在任何可点击
+        // 控件（披露不做开关——数据流向声明口径同 T-109 对比条）
+        var telemetryRow = GetNode<Control>("Scroll/Form/TelemetryNoticeRow");
+        if (!telemetryRow.Visible
+            || _telemetryNoticeCaption.Text != SettingsFormState.TelemetryNoticeCaptionZh
+            || _telemetryNotice.Text != SettingsFormState.TelemetryNoticeZh)
+        {
+            problems.Add("时长遥测披露行缺失或文案不符（T-155）");
+        }
+
+        foreach (Node child in telemetryRow.GetChildren())
+        {
+            if (child is BaseButton)
+            {
+                problems.Add($"时长遥测披露行含可点击控件 '{child.Name}'（应为纯灰置说明）");
+            }
+        }
+
         // T-137 L2 lane（零网络冒烟——假端口，绝不真下载）：三档下拉即时持久化
         // → L2 选用后对比条 L2 行切「已选用」口径 → 状态行镜像协调器通知 →
         // 回落 L1 复原；Web 档位行下 L2 面隐藏（能力表镜像）。
@@ -1285,7 +1315,8 @@ public sealed partial class SettingsPanelUi : Control
                 $"SETTINGS_OK providers={providerCount} mask=on declare=on " +
                 $"probe={probe.ErrorKey} fetch={fetch.ErrorKey} backend={_secrets.Backend} " +
                 "render_tier=roundtrip-ok key_file=clean disclosure=statemachine-ok " +
-                "compare=3tier-ok ai_label=manifest-linked tts=reserved-notice-ok");
+                "compare=3tier-ok ai_label=manifest-linked tts=reserved-notice-ok " +
+                "telemetry=local-notice-ok");
         }
         else
         {

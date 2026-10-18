@@ -20,6 +20,10 @@
 ; T-138 (F-140): + TtsReservedRow 语音（预留）灰置行——纯 Label 说明
 ; （无任何可点击开关控件），文案由 SettingsFormState.TtsReserved* 供给；
 ; 功能面在 EraCore.Llm.TtsChannel（接口预留，本版零网络）。
+; T-155 (F-006): + TelemetryNoticeRow 时长遥测披露行——纯 Label 说明
+; （本地 JSONL/不上传/可删——数据流向声明口径同 T-109 披露），文案由
+; SettingsFormState.TelemetryNotice* 供给；记录器面在
+; EraCore.Telemetry.LevelDurationTelemetry（纯逻辑，本版零网络）。
 
 [ext_resource type="Script" path="res://scripts/SettingsPanelUi.cs" id="1_settings"]
 
@@ -417,6 +421,22 @@ layout_mode = 2
 text = ""
 
 [node name="Notice" type="Label" parent="Scroll/Form/TtsReservedRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 2
+text = ""
+
+[node name="TelemetryNoticeRow" type="HBoxContainer" parent="Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+modulate = Color(0.55, 0.55, 0.55, 0.9)
+
+[node name="Caption" type="Label" parent="Scroll/Form/TelemetryNoticeRow"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = ""
+
+[node name="Notice" type="Label" parent="Scroll/Form/TelemetryNoticeRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 2

@@ -6,6 +6,7 @@ using EraCore.Contracts.Sim;
 using EraCore.Economy;
 using EraCore.Persistence;
 using EraCore.Sim;
+using EraCore.Telemetry;
 using EraCore.Units;
 
 namespace EraCore.CampaignLoop;
@@ -31,12 +32,19 @@ namespace EraCore.CampaignLoop;
 /// evaluation — this config is the mechanism only, no behaviour change by
 /// default.
 /// </param>
+/// <param name="Telemetry">
+/// T-155 时长遥测声明（缺省 null=不记）：本关在六类覆盖面的身份列
+/// （战役/程序关 kind、levelId、时代序）。仅当宿主同时向
+/// <see cref="LevelSession"/> 注入 <see cref="LevelDurationTelemetry"/>
+/// 服务时才生效——纯观测面，不进任何游戏逻辑/哈希。
+/// </param>
 public sealed record LevelSessionConfig(
     SimulationConfig LevelConfig,
     string LevelSlotId,
     double Threat,
     long LevelSeed,
-    int StateHashInterval = 1);
+    int StateHashInterval = 1,
+    LevelTelemetryScope? Telemetry = null);
 
 /// <summary>
 /// Victory settlement of one level (T-059; v3.2 §3 占领→入库): the level's
@@ -103,6 +111,7 @@ public sealed class LevelSession
     private readonly List<SimCommand> _issued = new();
     private readonly List<(long Tick, long Hash)> _hashLedger = new();
     private readonly long _winWaveLastEntryTick;
+    private readonly LevelDurationTracker? _duration;
     private VictoryOutcome? _victory;
     private FailureScenarioKind? _failureTier;
     private NormalLevelFailureOutcome? _failureOutcome;
@@ -117,8 +126,13 @@ public sealed class LevelSession
     /// StateHashInterval below 1, or invalid level config (via
     /// <see cref="Simulation"/> construction).
     /// </exception>
-    public LevelSession(LevelSessionConfig config, IRng rng, ISavePort port, ResourceStock? campaignPool = null)
-        : this(config, rng, port, campaignPool, new Simulation(BuildValidatedConfig(config), rng, config.LevelSeed))
+    public LevelSession(
+        LevelSessionConfig config,
+        IRng rng,
+        ISavePort port,
+        ResourceStock? campaignPool = null,
+        LevelDurationTelemetry? durationTelemetry = null)
+        : this(config, rng, port, campaignPool, new Simulation(BuildValidatedConfig(config), rng, config.LevelSeed), durationTelemetry, resumed: false)
     {
     }
 
@@ -127,7 +141,9 @@ public sealed class LevelSession
         IRng rng,
         ISavePort port,
         ResourceStock? campaignPool,
-        Simulation restoredSimulation)
+        Simulation restoredSimulation,
+        LevelDurationTelemetry? durationTelemetry,
+        bool resumed)
     {
         Validate(config);
         _config = config;
@@ -138,6 +154,11 @@ public sealed class LevelSession
         WinWaves = Campaign.WinWaves(config.Threat);
         _checkpoints = new WaveCheckpointStore(port, config.LevelSlotId, config.Threat);
         _winWaveLastEntryTick = ComputeWinWaveLastEntryTick(config, WinWaves);
+        // T-155 时长遥测（挂点=会话建立/重进，非 sim 热路径）：tick 基线取
+        // 当前 sim tick——重进局=退出刻，纯游玩口径天然只计本坐步进。
+        _duration = durationTelemetry is not null && config.Telemetry is not null
+            ? durationTelemetry.Begin(config.Telemetry, restoredSimulation.CurrentTick, resumed)
+            : null;
     }
 
     /// <summary>
@@ -155,7 +176,8 @@ public sealed class LevelSession
         IRng rng,
         ISavePort port,
         ResourceStock? campaignPool,
-        out LevelSession session)
+        out LevelSession session,
+        LevelDurationTelemetry? durationTelemetry = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(rng);
@@ -168,7 +190,8 @@ public sealed class LevelSession
         }
 
         Simulation restored = snapshot.Replay(config.LevelConfig, rng);
-        var resumed = new LevelSession(config, rng, port, campaignPool, restored);
+        var resumed = new LevelSession(
+            config, rng, port, campaignPool, restored, durationTelemetry, resumed: true);
         // Rebuild the machine history the exit froze: Menu → InLevel
         // (start) → Paused (the pause that preceded SaveAndExit).
         resumed.Machine.StartLevel();
@@ -269,7 +292,11 @@ public sealed class LevelSession
         }
     }
 
-    /// <summary>InLevel→Paused (delegates to the machine).</summary>
+    /// <summary>
+    /// InLevel→Paused (delegates to the machine). T-155 口径注：暂停期 sim
+    /// 不步进——遥测纯游玩 tick 主口径天然扣除暂停，墙钟参考口径则含暂停
+    /// （双口径裁定见 <see cref="Telemetry.LevelDurationTelemetry"/> 文件头）。
+    /// </summary>
     public void Pause() => _machine.Pause();
 
     /// <summary>Paused→InLevel (delegates to the machine).</summary>
@@ -281,12 +308,15 @@ public sealed class LevelSession
     /// machine to Menu. Must be called Paused (the machine's SaveAndExit
     /// edge enforces it). The campaign domain (pool) is saved separately by
     /// <see cref="CampaignState.SavePoolTo"/> — the two domains together are
-    /// the complete exit state.
+    /// the complete exit state. T-155: an exit also closes the duration
+    /// tracker as <see cref="TelemetryOutcome.Abandoned"/> (弃局=本坐诚实
+    /// 终态；重进续关产生 Resumed=true 的新行，可拼接还原整关).
     /// </summary>
     /// <exception cref="InvalidOperationException">Machine not Paused.</exception>
     public void SaveAndExitToMenu()
     {
         _machine.SaveAndExit();
+        _duration?.End(TelemetryOutcome.Abandoned, _sim.CurrentTick);
         var record = new WaveSnapshotRecord(
             _sim.Seed, _sim.CurrentWave, _sim.CurrentTick, CommandsUpTo(_issued, _sim.CurrentTick));
         _port.WriteLevel(
@@ -329,6 +359,7 @@ public sealed class LevelSession
         }
 
         _machine.Lose();
+        _duration?.End(TelemetryOutcome.Defeat, _sim.CurrentTick);
         _failureTier = FailureScenarioKind.NormalLevel;
         _failureOutcome = FailureTiers.FailNormalLevel(_checkpoints, _config.LevelConfig, _rng, _config.LevelSeed, firstDefeat);
         return _failureOutcome;
@@ -368,6 +399,7 @@ public sealed class LevelSession
     private void OnVictory()
     {
         _machine.Win();
+        _duration?.End(TelemetryOutcome.Victory, _sim.CurrentTick);
         var loot = new List<ResourceGrant>();
         if (_campaignPool is not null)
         {

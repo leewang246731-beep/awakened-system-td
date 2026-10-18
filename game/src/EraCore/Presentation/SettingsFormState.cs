@@ -138,6 +138,19 @@ public sealed class SettingsFormState
     /// <summary>T-138 语音（预留）行说明文案（任务卡 verbatim 口径；渲染层原样上屏）。</summary>
     public const string TtsReservedNoticeZh = "语音通道已预留，功能随后续版本开放";
 
+    /// <summary>
+    /// T-155 时长遥测行标题——设置页披露条目（F-006；数据流向声明口径同
+    /// T-109/BYOK 先例：本地文件、不上传、可删）。
+    /// </summary>
+    public const string TelemetryNoticeCaptionZh = "时长遥测（本地）";
+
+    /// <summary>
+    /// T-155 时长遥测行说明文案：逐字上屏——本地 JSONL、零上传零联网、
+    /// 删除即清除。路径只述相对段（真实根=宿主注入盘，发布件任意盘纪律）。
+    /// </summary>
+    public const string TelemetryNoticeZh =
+        "每关/每局用时自动记入本机数据目录 telemetry/durations.jsonl（仅用于校准关卡时长）；该文件不上传、不联网，随时可手动删除。";
+
     private static readonly LlmProviderConfig[] TemplateRows =
     [
         LlmProviderPresets.ZhipuGlm(),
