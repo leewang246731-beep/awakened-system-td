@@ -209,12 +209,15 @@ public sealed partial class CinematicDirector : Control
         // （levels/e6.json，T-136 F-108 触发位）——dev 宿主只装载 e1+e2 钩子
         // 行（逐关装载随 C-29 落地），路由绑定只收钩子行在装载集内的脚本；
         // finale-zero-off=关闭系统字幕版（FinalePlayback.ScriptIdFor 二选一，
-        // 无钩子键——开关选择变体，同拍显式通道））。
+        // 无钩子键——开关选择变体，同拍显式通道））。T-160c 增 e3/e4/e5-finale
+        // 时代收束段三件（F-107 段 3/4/5——无钩子键，由战役宿主在终局关胜利拍
+        // 显式发射（收束→跃迁序，REV-20261019-T160c）：宿主入队经本导演的
+        // Launch 显式通道开演，故此处必须装载）。
         foreach (string transition in new[]
                  {
                      "transition-e1-e2", "transition-e2-e3", "transition-e3-e4",
                      "transition-e4-e5", "transition-e5-e6", "finale-zero",
-                     "finale-zero-off",
+                     "finale-zero-off", "e3-finale", "e4-finale", "e5-finale",
                  })
         {
             scripts.Add(CinematicScript.Parse(

@@ -216,6 +216,54 @@ public sealed class LevelSession
         return true;
     }
 
+    /// <summary>
+    /// 检查点续局（T-160c 败北恢复缝，v3.2 §3/§7 失败分档的「从检查点继续」）：
+    /// 从本关的检查点波快照（<c>&lt;slot&gt;#ckpt</c>——波数=<see cref=
+    /// "EraCore.Balance.Campaign.Checkpoint"/>=max(10,⌊胜波×0.75⌋)）恢复会话：
+    /// 重放 seed+命令流到检查点波边界，机器落在 <see cref="GameFlowState.Paused"/>
+    /// （与 <see cref="TryResume"/> 的 #exit 路径同律——调用方 <c>ResumePlaying</c>
+    /// 回 InLevel 续走）。False（且全新 Menu 会话）=无检查点（未跨越检查点波
+    /// 或终局关清档）——调用方从头开局（失败面板此时只有「重开」档）。
+    /// <para>
+    /// 与 <see cref="DeclareDefeat"/> 的关系：DeclareDefeat 的 T-057 分档执行
+    /// （<c>FailureTiers.FailNormalLevel</c>）读检查点算残骸账，本缝把同一份
+    /// 检查点变回活会话——读面共用 <see cref="WaveCheckpointStore"/>,零新存档
+    /// 格式（重放即恢复，T-040 不变量同源）。
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="SaveCorruptException">The stored checkpoint payload is damaged.</exception>
+    public static bool TryResumeCheckpoint(
+        LevelSessionConfig config,
+        IRng rng,
+        ISavePort port,
+        ResourceStock? campaignPool,
+        out LevelSession session,
+        LevelDurationTelemetry? durationTelemetry = null)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(rng);
+        ArgumentNullException.ThrowIfNull(port);
+
+        var store = new WaveCheckpointStore(port, config.LevelSlotId, config.Threat);
+        if (!store.TryRestoreCheckpoint(out RestoredWaveSnapshot snapshot))
+        {
+            session = new LevelSession(config, rng, port, campaignPool, durationTelemetry);
+            return false;
+        }
+
+        Simulation restored = snapshot.Replay(config.LevelConfig, rng);
+        var resumed = new LevelSession(
+            config, rng, port, campaignPool, restored, durationTelemetry, resumed: true,
+            seedIssued: SimulationReplay.ToCommands(snapshot.Commands));
+        // Rebuild the machine history the checkpoint boundary implies: the
+        // level started and now stands frozen at the boundary (Paused).
+        resumed.Machine.StartLevel();
+        resumed.Machine.Pause();
+        session = resumed;
+        return true;
+    }
+
     /// <summary>胜波数 of this level: <see cref="Campaign.WinWaves"/>(threat) = 10+⌊t×10⌋.</summary>
     public int WinWaves { get; }
 

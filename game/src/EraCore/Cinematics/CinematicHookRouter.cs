@@ -244,7 +244,15 @@ public sealed class CinematicHookRouter
         }
     }
 
-    private static CinematicBeat ParseBeat(string beat, string source, string hookId) => beat switch
+    /// <summary>
+    /// Beat string → <see cref="CinematicBeat"/> of the closed trigger table
+    /// （<c>level_start/wave_start/victory/transition</c>）。T-160c 公开：战役
+    /// 宿主按当前关的 <c>HandcraftedLevel.CinematicHooks</c> 行（beat=字符串）
+    /// 构造会话路由时复用这同一张封闭表——未知 beat 在绑定即抛（fail-fast），
+    /// 表两处抄写漂移不可能。
+    /// </summary>
+    /// <exception cref="CinematicSchemaException">The beat is not in the closed table.</exception>
+    public static CinematicBeat ParseBeat(string beat, string source, string hookId) => beat switch
     {
         "level_start" => CinematicBeat.LevelStart,
         "wave_start" => CinematicBeat.WaveStart,

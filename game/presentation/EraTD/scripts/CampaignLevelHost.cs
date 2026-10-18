@@ -4,6 +4,7 @@ using EraCore.Agent.Grammar;
 using EraCore.Agent.Pipeline;
 using EraCore.Balance;
 using EraCore.CampaignLoop;
+using EraCore.Checkpoint;
 using EraCore.Cinematics;
 using EraCore.Contracts.Foundation;
 using EraCore.Contracts.Persistence;
@@ -33,6 +34,15 @@ namespace EraTD;
 // （e6-final 的 requires_wonder 通关之门数据行）。解锁律（章内顺序推进）：
 // 章首恒可玩；slot n 需同章 slot<n 全部已通关；e6-final 额外需纪元之门奇观
 // 位（=e6 非终局四关全清后落位——V10 章末奇观位同律的终章形态）。
+//
+// T-160c 增两面：①败北面——引擎调用约定=宿主检测（基地陷落：仓库 HP 归零）
+// +DeclareDefeat 声明→普通关分档（检查点恢复+残骸修复账）+失败面板三行动
+// （从检查点继续=TryResumeCheckpoint 重放续局/重开本关=清本关存档域从头开/
+// 退回菜单）+遥测 Defeat 行（T-155 终态三态收口）；②演出钩子——终局关胜
+// 利拍发射序=收束演出（e3/e4/e5-finale，文件存在性驱动）→跃迁过场；剧情钩
+// 子路由（CinematicHookRouter）随当前关的 cinematic_hooks 行构造（e1-01 断
+// 弹波始拍/e2-01 觉醒开局拍——level_start+wave_start 两拍，演出经显式通道
+// 入队，进度门=已看过不重播）。
 
 /// <summary>
 /// The campaign host core: level loading through the production assembly,
@@ -71,6 +81,16 @@ internal sealed class CampaignLevelHost
     private readonly List<CinematicLaunch> _pendingLaunches = new();
     private string _completionSummary = string.Empty;
 
+    // —— T-160c 败全面（引擎调用约定=宿主检测+DeclareDefeat 声明，见 PumpWindowFrame）——
+    private readonly HashSet<string> _defeatSeen = new(StringComparer.Ordinal); // 首败折扣键（本坐口径）
+    private DefeatPanelFacts? _pendingDefeat;
+
+    // —— T-160c 战役泳道剧情钩子（路由随当前关构造——REV-20261019-T160c §断点二）——
+    private readonly IReadOnlyList<CinematicScript> _hookScripts; // 带钩子键的脚本全集（内容侧三件）
+    private CinematicHookRouter _hookRouter = new(Array.Empty<CinematicHookRow>(), Array.Empty<CinematicScript>());
+    private CinematicProgress _cinematicProgress = CinematicProgress.Default;
+    private int _lastSeenWave = -1;
+
     // 审计计数累计（HostRunCounters 的活体输入——V10 采样律）
     private double _integrityMin = 1.0;
     private double _starvedSeconds;
@@ -107,6 +127,17 @@ internal sealed class CampaignLevelHost
             LegacyDataLoader.ParseArchaeology(ReadContent("legacy", "archaeology.json")),
             LegacyDataLoader.ParseHeritageShop(ReadContent("legacy", "heritage_shop.json")));
         _victoryArchive = VictorySettlementStore.Load(files);
+
+        // T-160c 剧情钩子脚本全集：内容侧带 hook 键的脚本恰三件（e1-aha 断弹/
+        // e2-awaken 觉醒/finale-zero 终章真相——CinematicHookRouterTests+
+        // FinaleCinematicsTests 钉死该集）。路由绑定按当前关的钩子行过滤（见
+        // BuildHookRouter），非本关声明集的脚本不进会话路由。
+        _hookScripts = new[]
+        {
+            CinematicScript.Parse(ReadContent("cinematics", "e1-aha.json"), "cinematics/e1-aha.json"),
+            CinematicScript.Parse(ReadContent("cinematics", "e2-awaken.json"), "cinematics/e2-awaken.json"),
+            CinematicScript.Parse(ReadContent("cinematics", "finale-zero.json"), "cinematics/finale-zero.json"),
+        };
 
         bool restored = false;
         try
@@ -190,14 +221,33 @@ internal sealed class CampaignLevelHost
     /// 开局/续局一关：#exit 快照在位即 TryResume 无损续（Paused 冻结位回
     /// InLevel），否则新开局（命令流=该关脚本全量入队）。
     /// </summary>
-    public void BeginLevel(string levelId)
+    public void BeginLevel(string levelId) => BeginLevel(levelId, fromCheckpoint: false);
+
+    /// <summary>
+    /// T-160c 检查点续局入口（失败面板「从检查点继续」）：从本关检查点波快照
+    /// 重放续局（<see cref="LevelSession.TryResumeCheckpoint"/>）；检查点不在位
+    /// （被清/未跨）时诚实回退从头开局。
+    /// </summary>
+    private void BeginLevel(string levelId, bool fromCheckpoint)
     {
         HandcraftedLevel level = LevelById(levelId);
         var config = BuildSessionConfig(level);
-        bool resumed = LevelSession.TryResume(
-            config, new EndlessHostContent.SplitMix64Rng(level.Map.Seed), _port, _campaign.Pool,
-            out LevelSession session, _telemetry);
-        if (!resumed)
+        var rng = new EndlessHostContent.SplitMix64Rng(level.Map.Seed);
+        bool resumedExit = false;
+        bool resumedCheckpoint = false;
+        LevelSession session;
+        if (fromCheckpoint)
+        {
+            resumedCheckpoint = LevelSession.TryResumeCheckpoint(
+                config, rng, _port, _campaign.Pool, out session, _telemetry);
+        }
+        else
+        {
+            resumedExit = LevelSession.TryResume(
+                config, rng, _port, _campaign.Pool, out session, _telemetry);
+        }
+
+        if (!resumedExit && !resumedCheckpoint)
         {
             session.Machine.StartLevel();
             foreach (SimCommand command in EraLevelAssembly.BuildCommands(level, _contentRoot))
@@ -207,15 +257,77 @@ internal sealed class CampaignLevelHost
         }
         else
         {
-            session.ResumePlaying(); // #exit 冻结在 Paused——回到 InLevel 续走
+            session.ResumePlaying(); // #exit/#ckpt 冻结在 Paused——回到 InLevel 续走
         }
 
-        _current = new CampaignRun(session, level, resumed, config);
+        _current = new CampaignRun(session, level, resumedExit, config, resumedCheckpoint);
         _victoryHandled = false;
+        _pendingDefeat = null;          // 开新局即撤下失败面板（旧分档事实已入遥测）
         _integrityMin = 1.0;
         _starvedSeconds = 0.0;
         _waveEndEfficiencyMin = 1.0;
         _lastSampleTick = session.Sim.CurrentTick;
+
+        // T-160c 剧情钩子路由：随当前关构造（会话内单发）；进度门=已看过的
+        // 演出不重播（CinematicDirector.LaunchByHook 同律——本宿主走显式通道，
+        // 门在入队侧）。level_start 拍只在新开局发射（续局=同一局的延续，不重演）。
+        _cinematicProgress = CinematicProgressStore.Load(_files);
+        _hookRouter = BuildHookRouter(level);
+        _lastSeenWave = session.Sim.CurrentWave;
+        if (!resumedExit && !resumedCheckpoint)
+        {
+            foreach (string scriptId in _hookRouter.OnLevelStart())
+            {
+                EnqueueLaunch(scriptId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 当前关的钩子路由：行=<see cref="HandcraftedLevel.CinematicHooks"/>（逐关
+    /// 数据位，非整文件混装）；可路由脚本=钩子键在本关声明集内者（e1 关不绑
+    /// e2-awaken——绑死夹具 e1+e2 混装装载的收口，beat 表复用引擎封闭表）。
+    /// </summary>
+    private CinematicHookRouter BuildHookRouter(HandcraftedLevel level)
+    {
+        string source = $"levels/e{EraLevelAssembly.EraIndexOf(level)}.json:{level.Id}";
+        var rows = new List<CinematicHookRow>();
+        foreach (CinematicHook hook in level.CinematicHooks)
+        {
+            rows.Add(new CinematicHookRow(
+                hook.Id, CinematicHookRouter.ParseBeat(hook.Beat, source, hook.Id), hook.Wave));
+        }
+
+        var routable = new List<CinematicScript>();
+        foreach (CinematicScript script in _hookScripts)
+        {
+            if (script.HookId is not null && rows.Any(row => row.HookId == script.HookId))
+            {
+                routable.Add(script);
+            }
+        }
+
+        return new CinematicHookRouter(rows, routable);
+    }
+
+    /// <summary>
+    /// 剧情钩子演出入队（beat 路由→显式发射通道）：已在本待演队列=单发幂等；
+    /// 进度标记已看过=不重播。终章二选一的互斥由显式发射位保证（e6-final 胜利
+    /// 拍=FinalePlayback.ScriptIdFor 开关二选一，钩子路由不抢该拍——见 REV）。
+    /// </summary>
+    private void EnqueueLaunch(string scriptId)
+    {
+        if (_pendingLaunches.Any(launch => launch.ScriptId == scriptId))
+        {
+            return;
+        }
+
+        if (CinematicProgressStore.IsCompleted(_cinematicProgress, scriptId))
+        {
+            return;
+        }
+
+        _pendingLaunches.Add(new CinematicLaunch(scriptId, Settlement: null));
     }
 
     /// <summary>
@@ -253,7 +365,15 @@ internal sealed class CampaignLevelHost
         return new CampaignAdvisorBoard(run, pipeline, _files, journal, journalPath);
     }
 
-    /// <summary>窗口帧泵：1x 帧律一帧一 tick；胜利落地时返回 true（UI 刷新面）.</summary>
+    /// <summary>
+    /// 窗口帧泵：1x 帧律一帧一 tick；胜利/败北落地时返回 true（UI 刷新面）。
+    /// T-160c 败北判定（引擎调用约定：引擎无自动败北谓词——<see cref=
+    /// "LevelSession.DeclareDefeat"/> 由宿主在检测到败北条件时调用）：步进后
+    /// 检测基地陷落（仓库=本关唯一基地建筑，HP 归零即陷落——真实 sim 状态读
+    /// 面）。生产内容当前无建筑伤害路径（践踏脉冲=引擎数据位先行、宿主未驱动
+    /// ——REV 登记），冒烟经 <see cref="DeclareDefeat"/> 声明入口构造败北（同
+    /// 一条结算链；无尽 Die() 的声明式终局同律）。
+    /// </summary>
     public bool PumpWindowFrame()
     {
         if (_current is not { } run)
@@ -273,7 +393,128 @@ internal sealed class CampaignLevelHost
             return true;
         }
 
+        if (run.Session.Machine.State == GameFlowState.InLevel && IsBaseFallen(run))
+        {
+            HandleDefeat(run, "基地陷落（仓库 HP 归零）");
+            return true;
+        }
+
+        // T-160c 剧情钩子·波始拍：CurrentWave 前进=新波开打（锚波精确匹配——
+        // e1-01 第 2 波断弹位）。首见波=基线不发射（开局/续局的当前波非新拍）。
+        if (run.Session.Machine.State == GameFlowState.InLevel)
+        {
+            int wave = run.Session.Sim.CurrentWave;
+            if (wave != _lastSeenWave)
+            {
+                if (wave > _lastSeenWave)
+                {
+                    foreach (string scriptId in _hookRouter.OnWaveStart(wave))
+                    {
+                        EnqueueLaunch(scriptId);
+                    }
+                }
+
+                _lastSeenWave = wave;
+            }
+        }
+
         return false;
+    }
+
+    /// <summary>基地陷落判定：仓库（本关唯一基地建筑）HP 归零.</summary>
+    private static bool IsBaseFallen(CampaignRun run) =>
+        run.Session.Sim.Buildings.Any(
+            building => building.Kind == SimBuildingKind.Warehouse && building.Hp <= 0);
+
+    /// <summary>
+    /// 宿主声明式败北入口：活局（InLevel）上调用即走完整败北结算（检查点分档
+    /// +遥测 Defeat 行+失败面板事实）。判定命中（IsBaseFallen）与冒烟构造走
+    /// 同一条 <see cref="HandleDefeat"/> 链——引擎 DeclareDefeat 的调用约定
+    /// （宿主检测→声明→Acknowledge）在此收口。
+    /// </summary>
+    /// <returns>False=无活局可声明（已 Victory/Defeat/Menu）.</returns>
+    public bool DeclareDefeat(string reason)
+    {
+        if (_current is not { } run || run.Session.Machine.State != GameFlowState.InLevel)
+        {
+            return false;
+        }
+
+        HandleDefeat(run, reason);
+        return true;
+    }
+
+    /// <summary>
+    /// 败北结算（v3.2 §3/§7 失败分档的宿主面）：引擎 DeclareDefeat=机器
+    /// InLevel→Defeat+遥测 Defeat 行+T-057 普通关分档（检查点恢复+残骸修复
+    /// 账）；#exit 快照随关终局清档（重开不得误续死局）；分档事实提取入
+    /// <see cref="PendingDefeat"/>（失败面板）后机器回 Menu。
+    /// </summary>
+    private void HandleDefeat(CampaignRun run, string reason)
+    {
+        bool firstDefeat = _defeatSeen.Add(run.Level.Id); // 首败折扣键（本坐口径，REV 登记）
+        NormalLevelFailureOutcome outcome = run.Session.DeclareDefeat(firstDefeat);
+        run.Session.ClearExitSnapshot();
+        run.Session.AcknowledgeDefeat();
+        _pendingDefeat = new DefeatPanelFacts(
+            run.Level.Id,
+            run.Level.NameZh,
+            reason,
+            outcome.RestoredFromWave,
+            outcome.RestoredAtTick,
+            run.Session.Checkpoints.CheckpointWave,
+            outcome.Wreckage.Count,
+            outcome.TotalRepairCostPoints,
+            outcome.FirstDefeat,
+            // 检查点波恒 ≥10（Campaign.Checkpoint 下限）——恢复波>0 ⟺ 已跨
+            // 检查点波（面板有「继续」档；0=未跨=仅重开）。
+            ContinueAvailable: outcome.RestoredFromWave > 0);
+    }
+
+    /// <summary>失败面板事实（败绩分档呈现——PendingDefeat 非空即面板在位）.</summary>
+    public DefeatPanelFacts? PendingDefeat => _pendingDefeat;
+
+    /// <summary>
+    /// 失败面板「从检查点继续」：检查点续局（TryResumeCheckpoint 重放到检查
+    /// 点波边界续走）。无检查点（面板无此档）返回 False。
+    /// </summary>
+    public bool ContinueFromCheckpoint()
+    {
+        if (_pendingDefeat is not { ContinueAvailable: true } defeat)
+        {
+            return false;
+        }
+
+        string levelId = defeat.LevelId;
+        _pendingDefeat = null;
+        BeginLevel(levelId, fromCheckpoint: true);
+        return _current is { ResumedFromCheckpoint: true };
+    }
+
+    /// <summary>
+    /// 失败面板「重开本关」：清本关存档域（检查点/滚动/#exit——终局关清档
+    /// WaveCheckpointStore.Clear 同律）后从头开局（玩家明确放弃检查点进度）。
+    /// </summary>
+    public void RestartLevel()
+    {
+        if (_pendingDefeat is not { } defeat)
+        {
+            return;
+        }
+
+        _pendingDefeat = null;
+        if (_current is { Session.Checkpoints: { } store })
+        {
+            store.Clear();
+        }
+
+        BeginLevel(defeat.LevelId);
+    }
+
+    /// <summary>失败面板「退回菜单」：分档已入面板/遥测，检查点域保留（下次进关可续）.</summary>
+    public void DismissDefeatToMenu()
+    {
+        _pendingDefeat = null;
     }
 
     /// <summary>冒烟泵：与 <see cref="PumpWindowFrame"/> 同律（headless 直驱）.</summary>
@@ -439,8 +680,39 @@ internal sealed class CampaignLevelHost
         EraTransitionResult result = new EraTransitionService().Execute(BuildTransitionRequest(fromEra, facts));
         _campaign.AdvanceEra(result);       // 时代位+新池（仓库+1）+新大陆网格
         _meta = result.WrittenMeta;         // 事务的 campaign 域一次写=权威文档
-        _pendingLaunches.Add(new CinematicLaunch(
-            $"cinematic:transition-e{fromEra}-{fromEra + 1}", Settlement: null));
+        foreach (string scriptId in EraFinaleLaunchIds(fromEra, _contentRoot))
+        {
+            _pendingLaunches.Add(new CinematicLaunch(scriptId, Settlement: null));
+        }
+    }
+
+    /// <summary>
+    /// 章末胜利拍的演出发射序（T-160c 断点二①，裁定依据）：①收束演出
+    /// （<c>cinematics/eX-finale.json</c> 存在即发射——F-107 时代收束段 3/4/5，
+    /// 数据注释明言「由战役宿主在本时代终局关胜利拍显式发射」；E1/E2 无收束
+    /// 段文件=数据现实，43 号 §5 段表 1/2 归 T-089 结算演出域）；②跃迁过场
+    /// （<c>transition-eX-eY</c>，F-003 事务点）。顺序=§12 叙事序：本关结算
+    /// （victory.json 先定后演，已先入队）→时代落幕收束→新时代跃迁开场；两场
+    /// 独立可单跳（eX-finale 注释）。文件存在性驱动=数据面说了算（后续补
+    /// e1/e2-finale 段即自动入序，零代码改动）。
+    /// <para>
+    /// 注：跃迁 id=<c>transition-e{X}-e{Y}</c>（两端皆 e 前缀——脚本 id 命名
+    /// 约定）。T-160 原实现误拼 <c>e{X}-{Y}</c>（缺第二端 e 前缀）——入队 id
+    /// 与装载脚本 id 不符，窗口车道 Launch 即抛；本任务收口（冒烟发射序探针
+    /// 执法）。
+    /// </para>
+    /// </summary>
+    internal static IReadOnlyList<string> EraFinaleLaunchIds(int fromEra, string contentRoot)
+    {
+        var ids = new List<string>();
+        if (System.IO.File.Exists(
+                System.IO.Path.Combine(contentRoot, "cinematics", $"e{fromEra}-finale.json")))
+        {
+            ids.Add($"cinematic:e{fromEra}-finale");
+        }
+
+        ids.Add($"cinematic:transition-e{fromEra}-e{fromEra + 1}");
+        return ids;
     }
 
     private EraTransitionRequest BuildTransitionRequest(int fromEra, IReadOnlyList<RelicCityBuildingFact>? cityFacts)
@@ -635,8 +907,8 @@ internal sealed class CampaignLevelHost
             : throw new InvalidOperationException($"内容文件缺失：content/{subDir}/{file}（战役宿主须在仓库内运行）");
     }
 
-    /// <summary>Repo walk-up to game/content（RL9：相对探测，无绝对路径）.</summary>
-    private static string FindContentRoot()
+    /// <summary>Repo walk-up to game/content（RL9：相对探测，无绝对路径；冒烟的收束发射序探针复用）.</summary>
+    internal static string FindContentRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)

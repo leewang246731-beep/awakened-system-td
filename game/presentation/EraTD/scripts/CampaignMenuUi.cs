@@ -70,6 +70,13 @@ public sealed partial class CampaignMenuUi : Control
     private Label _statusLabel = null!;
     private readonly Dictionary<string, Button> _levelButtons = new();
 
+    // —— T-160c 失败面板（败绩分档呈现+三行动）——
+    private PanelContainer _defeatPanel = null!;
+    private Label _defeatBody = null!;
+    private Button _defeatContinue = null!;
+    private Button _defeatRestart = null!;
+    private Button _defeatMenu = null!;
+
     // —— 活动战役（窗口车道真机局面；headless 冒烟走沙盒根实例）——
     private CampaignLevelHost _host = null!;
 
@@ -152,6 +159,47 @@ public sealed partial class CampaignMenuUi : Control
         rows.AddChild(_statusLabel);
         _panel.AddChild(rows);
         AddChild(_panel);
+
+        // T-160c 失败面板（覆盖菜单列表之上——败北时刻的面板态）。
+        _defeatPanel = new PanelContainer
+        {
+            Position = new Vector2(170, 140),
+            Size = new Vector2(430, 230),
+            Visible = false,
+        };
+        var defeatRows = new VBoxContainer();
+        defeatRows.AddChild(new Label { Text = "◆ 败北 · 失败分档" });
+        _defeatBody = new Label
+        {
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            CustomMinimumSize = new Vector2(410, 110),
+        };
+        defeatRows.AddChild(_defeatBody);
+        var defeatActions = new HBoxContainer();
+        _defeatContinue = new Button { Text = "从检查点继续" };
+        _defeatContinue.Pressed += () =>
+        {
+            _ = _host.ContinueFromCheckpoint();
+            RefreshMenu();
+        };
+        defeatActions.AddChild(_defeatContinue);
+        _defeatRestart = new Button { Text = "重开本关" };
+        _defeatRestart.Pressed += () =>
+        {
+            _host.RestartLevel();
+            RefreshMenu();
+        };
+        defeatActions.AddChild(_defeatRestart);
+        _defeatMenu = new Button { Text = "退回菜单" };
+        _defeatMenu.Pressed += () =>
+        {
+            _host.DismissDefeatToMenu();
+            RefreshMenu();
+        };
+        defeatActions.AddChild(_defeatMenu);
+        defeatRows.AddChild(defeatActions);
+        _defeatPanel.AddChild(defeatRows);
+        AddChild(_defeatPanel);
     }
 
     public override void _Process(double delta)
@@ -164,16 +212,41 @@ public sealed partial class CampaignMenuUi : Control
 
         if (_host.PumpWindowFrame())
         {
-            DrainPendingLaunches(); // 胜利结算/跃迁/终章演出（CinematicDirector 显式通道）
-            RefreshMenu();          // 胜利/跃迁落地后菜单立即反映新进度态
+            RefreshMenu(); // 胜利/败北落地后菜单立即反映新进度态
         }
 
+        DrainPendingLaunches(); // 每帧排空：beat 驱动的剧情钩子/结算/收束/跃迁即时开演
+
         PumpBattlefield(); // T-160b：战场渲染+军师面板绑定（开局重绑/退出还原）
+
+        RefreshDefeatPanel(); // T-160c：失败面板随败北事实在位/撤下
 
         if (_host.InLevel && Engine.GetProcessFrames() % 30 == 0)
         {
             RefreshStatus();
         }
+    }
+
+    /// <summary>失败面板刷新（T-160c 败绩分档呈现）：败北事实在位即呈现分档+残骸账+三行动（检查点不足=仅重开/退回）.</summary>
+    private void RefreshDefeatPanel()
+    {
+        DefeatPanelFacts? defeat = _host.PendingDefeat;
+        if (defeat is null)
+        {
+            _defeatPanel.Hide();
+            return;
+        }
+
+        _defeatBody.Text =
+            $"{defeat.LevelNameZh}（{defeat.LevelId}）——{defeat.Reason}\n" +
+            $"档位：普通关失败（检查点波={defeat.CheckpointWave}）· " +
+            (defeat.RestoredFromWave > 0
+                ? $"检查点恢复至第 {defeat.RestoredFromWave} 波（tick {defeat.RestoredAtTick}）"
+                : "未跨检查点波（从头重开）") +
+            $"\n残骸修复账：{defeat.WreckCount} 条 · {defeat.RepairCostPoints:0.##} 点" +
+            (defeat.FirstDefeat ? "（首败 ×0.8 已折）" : string.Empty);
+        _defeatContinue.Visible = defeat.ContinueAvailable; // 检查点≥10 波才有继续档（恢复波>0 ⟺ 已跨）
+        _defeatPanel.Show();
     }
 
     // ------------------------------------------ T-160b 战场渲染绑定（窗口车道）
@@ -246,7 +319,15 @@ public sealed partial class CampaignMenuUi : Control
         }
     }
 
-    /// <summary>胜利结算演出走 LaunchVictorySettlement（先定后演），其余走 Launch（可回看通道）.</summary>
+    // T-160c 串行放演待演队（窗口车道）：帧泵每帧排空宿主队入此，导演空闲时逐场开演。
+    private readonly Queue<CinematicLaunch> _launchQueue = new();
+
+    /// <summary>
+    /// 待演队列排空（窗口车道）：宿主入队的演出**串行放演**——上一场放完
+    /// （导演非 Playing）再开下一场。T-160 原实现同一帧逐个 Launch，
+    /// BeginPlayback 互相覆盖时间轴（[结算,收束,跃迁] 只剩最后一场）——
+    /// 「收束→跃迁」发射序（T-160c）在窗口车道因此失义，本任务收口。
+    /// </summary>
     private void DrainPendingLaunches()
     {
         Cinematics.CinematicDirector? director = GetNodeOrNull<Cinematics.CinematicDirector>("../CinematicDirector");
@@ -254,17 +335,25 @@ public sealed partial class CampaignMenuUi : Control
         {
             if (director is null)
             {
-                continue;
+                continue; // 无导演（独立测试树）——宿主队列照常排空，不开演
             }
 
-            if (launch.Settlement is { } decided)
-            {
-                _ = director.LaunchVictorySettlement(decided);
-            }
-            else
-            {
-                _ = director.Launch(launch.ScriptId);
-            }
+            _launchQueue.Enqueue(launch);
+        }
+
+        if (director is null || director.Playing || _launchQueue.Count == 0)
+        {
+            return;
+        }
+
+        CinematicLaunch next = _launchQueue.Dequeue();
+        if (next.Settlement is { } decided)
+        {
+            _ = director.LaunchVictorySettlement(decided); // 先定后演（结算缝）
+        }
+        else
+        {
+            _ = director.Launch(next.ScriptId); // 显式通道（钩子路由/收束/跃迁/终章）
         }
     }
 
@@ -365,13 +454,19 @@ public sealed partial class CampaignMenuUi : Control
     /// <item>全 29 关装载矩阵：生产装载器+组装律把 e1~e6.json 每一行组装为
     /// 真 LevelSession（Menu 态+胜波=数据行 win_waves+命令流非空）；</item>
     /// <item>UI 构造的 E1-01 真通关：经菜单同一条工厂路径跑到 Victory，结算
-    /// 入账+★行落 VictorySettlementStore+E1-02 解锁；</item>
-    /// <item>退出重进续玩：E1-02 中途退出（tick T 存档）→重进 TryResume 无损
-    /// 续到 ≥T（level 域）+campaign 域合并写/读回（时代+进度态恢复）；</item>
+    /// 入账+★行落 VictorySettlementStore+E1-02 解锁（T-160c 增：途中第 2 波
+    /// 断弹钩子路由 e1-aha——钩子行随战役会话走）；</item>
+    /// <item>T-160c 败北全链：E1-02 打过检查点波→声明败北（普通关分档+检查点
+    /// 恢复+残骸账+失败面板事实）→从检查点继续（TryResumeCheckpoint 重放至
+    /// 检查点波边界）→再打到 Victory；未跨检查点波的败北=仅重开档→重开=零点
+    /// 新局；</item>
+    /// <item>退出重进续玩：中途退出（tick T 存档）→重进 TryResume 无损续到
+    /// ≥T（level 域）+campaign 域合并写/读回（时代+进度态恢复）；</item>
     /// <item>遥测：source=script 沙盒行（kind=Campaign/era 对位/outcome=
-    /// Victory+Abandoned+Resumed 三面）；</item>
-    /// <item>跃迁负向探针：E1 final 未占领→EraTransitionRejectedException
-    /// （UI 路径接的是真事务前置，非装饰）；终章播片二选一=系统开关位。</item>
+    /// Victory+Abandoned+Resumed+Defeat 四面）；</item>
+    /// <item>跃迁负向探针+终章播片二选一（系统开关位）+收束→跃迁发射序
+    /// （e3/e4/e5 收束先行——ExecuteTransition 同一函数探针×5）+剧情钩子
+    /// 开局拍（e2-01→e2-awaken）。</item>
     /// </list>
     /// 打印 CAMPAIGN_OK；任一自检不过 Quit(1)。
     /// </summary>
@@ -480,13 +575,172 @@ public sealed partial class CampaignMenuUi : Control
             problems.Add("胜利结算演出（先定后演）未入队");
         }
 
+        // T-160c 剧情钩子·波始拍：E1-01 第 2 波断弹位在胜局途中被路由（e1-aha
+        // 入待演队列——钩子行随战役会话走的直证）。
+        bool ahaRouted = host.PendingLaunches.Any(
+            launch => launch.ScriptId == "cinematic:e1-aha"); // cinematics/e1-aha.json 的 hook 行=e1-01 第 2 波位
         host.ClearPendingLaunches();
 
-        // —— ③ 退出重进续玩：E1-02 中途退出→重进无损续——
-        long resumeTick = 0;
+        // —— ②d T-160c 败北全链（断点一判据）：e1-02 打过检查点波→声明败北
+        //     （检查点分档+失败面板事实+遥测 Defeat 行）→从检查点继续
+        //     （TryResumeCheckpoint 重放到检查点波边界）→再打到 Victory——
+        int checkpointWave = 0;
+        bool checkpointContinueWon = false;
+        DefeatPanelFacts? defeatFacts = null;
         if (e102After is { State: CampaignLevelState.Playable })
         {
             host.BeginLevel(e102After.Id);
+            CampaignRun defeatRun = host.Current!;
+            checkpointWave = defeatRun.Session.Checkpoints.CheckpointWave;
+            long boundary = CheckpointBoundaryTicks(defeatRun.Level, checkpointWave);
+            for (long step = 0; step < boundary + IntervalTicksOf(defeatRun.Level) && host.InLevel; step++)
+            {
+                host.PumpOneTick();
+                clock.AdvanceMs(33);
+            }
+
+            if (defeatRun.Session.Sim.CurrentWave <= checkpointWave)
+            {
+                problems.Add(
+                    $"败北前置未跨检查点波：wave={defeatRun.Session.Sim.CurrentWave} checkpoint={checkpointWave}");
+            }
+            else if (!host.DeclareDefeat("smoke-defeat-after-checkpoint"))
+            {
+                problems.Add("宿主声明式败北入口未生效（活局上应可声明）");
+            }
+            else if (host.PendingDefeat is not { } facts)
+            {
+                problems.Add("失败面板事实未在位（败北结算未落）");
+            }
+            else
+            {
+                defeatFacts = facts;
+                if (facts.RestoredFromWave != checkpointWave || checkpointWave < 10
+                    || !facts.ContinueAvailable || !facts.FirstDefeat
+                    || facts.WreckCount < 1 || facts.RepairCostPoints <= 0)
+                {
+                    problems.Add(
+                        $"败北分档事实不符：restored={facts.RestoredFromWave}/{checkpointWave} " +
+                        $"continue={facts.ContinueAvailable} first={facts.FirstDefeat} " +
+                        $"wrecks={facts.WreckCount} repair={facts.RepairCostPoints:0.##}");
+                }
+
+                if (host.Current?.Session.FailureTier != EraCore.Checkpoint.FailureScenarioKind.NormalLevel)
+                {
+                    problems.Add($"败北分档应为普通关档：{host.Current?.Session.FailureTier}");
+                }
+
+                // 从检查点继续：重放到检查点波边界（tick=恢复点+波=检查点波已过界）。
+                if (!host.ContinueFromCheckpoint())
+                {
+                    problems.Add("从检查点继续未生效（检查点在位应可续）");
+                }
+                else
+                {
+                    CampaignRun continued = host.Current!;
+                    if (!continued.ResumedFromCheckpoint
+                        || continued.Session.Sim.CurrentTick != facts.RestoredAtTick
+                        || continued.Session.Sim.CurrentWave != checkpointWave + 1
+                        || continued.Session.Machine.State != GameFlowState.InLevel)
+                    {
+                        problems.Add(
+                            $"检查点续局位置不符：resumed={continued.ResumedFromCheckpoint} " +
+                            $"tick={continued.Session.Sim.CurrentTick}/{facts.RestoredAtTick} " +
+                            $"wave={continued.Session.Sim.CurrentWave}/{checkpointWave + 1} " +
+                            $"state={continued.Session.Machine.State}");
+                    }
+
+                    long horizon = HorizonTicks(continued.Level);
+                    long steps = 0;
+                    while (host.InLevel && steps < horizon)
+                    {
+                        host.PumpOneTick();
+                        clock.AdvanceMs(33);
+                        steps++;
+                    }
+
+                    checkpointContinueWon = host.Current?.Session.Victory is { WinWaves: > 0 }
+                        && host.Current.Session.Machine.State == GameFlowState.Menu;
+                    if (!checkpointContinueWon)
+                    {
+                        problems.Add(
+                            $"检查点续局未通关：state={host.Current?.Session.Machine.State} " +
+                            $"wave={host.Current?.Session.Sim.CurrentWave}/{host.Current?.Session.WinWaves}");
+                    }
+                }
+            }
+        }
+        else
+        {
+            problems.Add("败北链前置失败（E1-02 应可玩）");
+        }
+
+        CampaignLevelRow? e102Defeated = host.Chapters().First().Rows
+            .FirstOrDefault(row => row.Id.EndsWith("e1-02", StringComparison.Ordinal));
+        CampaignLevelRow? e103After = host.Chapters().First().Rows
+            .FirstOrDefault(row => row.Id.EndsWith("e1-03", StringComparison.Ordinal));
+        if (e102Defeated is not { State: CampaignLevelState.Cleared })
+        {
+            problems.Add($"败北链后 E1-02 应已通关：{e102Defeated?.State}");
+        }
+
+        if (e103After is not { State: CampaignLevelState.Playable })
+        {
+            problems.Add($"E1-03 应解锁：{e103After?.State}");
+        }
+
+        // —— ②e 未跨检查点波的败北：分档=从头重开（面板无「继续」档）→重开=零点新局——
+        bool earlyRestartFresh = false;
+        if (e103After is { State: CampaignLevelState.Playable })
+        {
+            host.BeginLevel(e103After.Id);
+            for (int i = 0; i < 300 && host.InLevel; i++)
+            {
+                host.PumpOneTick();
+                clock.AdvanceMs(33);
+            }
+
+            if (!host.DeclareDefeat("smoke-early-defeat") || host.PendingDefeat is not { } early)
+            {
+                problems.Add("未跨检查点波的败北未声明/未入面板");
+            }
+            else if (early.RestoredFromWave != 0 || early.ContinueAvailable)
+            {
+                problems.Add(
+                    $"未跨检查点波分档应仅重开：restored={early.RestoredFromWave} " +
+                    $"continue={early.ContinueAvailable}");
+            }
+            else
+            {
+                host.RestartLevel();
+                CampaignRun restarted = host.Current!;
+                earlyRestartFresh = restarted.Session.Sim.CurrentTick == 0
+                    && !restarted.ResumedFromExit
+                    && !restarted.ResumedFromCheckpoint
+                    && restarted.Session.Machine.State == GameFlowState.InLevel;
+                if (!earlyRestartFresh)
+                {
+                    problems.Add(
+                        $"重开本关应为零点新局：tick={restarted.Session.Sim.CurrentTick} " +
+                        $"exit={restarted.ResumedFromExit} ckpt={restarted.ResumedFromCheckpoint} " +
+                        $"state={restarted.Session.Machine.State}");
+                }
+            }
+        }
+        else
+        {
+            problems.Add("早败段前置失败（E1-03 应可玩）");
+        }
+
+        // —— ③ 退出重进续玩：E1-03 中途退出→重进无损续——
+        long resumeTick = 0;
+        if (e103After is { State: CampaignLevelState.Playable } || earlyRestartFresh)
+        {
+            if (host.Current is null || !host.InLevel)
+            {
+                host.BeginLevel(e103After!.Id);
+            }
+
             for (int i = 0; i < 300 && host.InLevel; i++)
             {
                 host.PumpOneTick();
@@ -500,7 +754,7 @@ public sealed partial class CampaignMenuUi : Control
                 problems.Add("续玩段前置 tick 应 >0");
             }
 
-            host.BeginLevel(e102After.Id); // TryResume 路径：#exit 快照在位即续
+            host.BeginLevel(e103After!.Id); // TryResume 路径：#exit 快照在位即续
             long resumedTick = host.Current?.Session.Sim.CurrentTick ?? -1;
             bool resumedFlag = host.Current?.ResumedFromExit ?? false;
             if (!resumedFlag || resumedTick < resumeTick)
@@ -510,8 +764,13 @@ public sealed partial class CampaignMenuUi : Control
 
             host.ExitToMenu();
         }
+        else
+        {
+            problems.Add("续玩段前置失败");
+        }
 
-        // campaign 域读回：时代+进度态恢复（合并写不清账）
+        // campaign 域读回：时代+进度态恢复（合并写不清账——败北链通关的 E1-02
+        // 进度态应随合并写持久为已通关）。
         CampaignLevelHost reloaded = CampaignLevelHost.Create(files, port, telemetry, TelemetrySources.Script);
         if (reloaded.EraIndex != CampaignState.E1EraIndex)
         {
@@ -520,12 +779,12 @@ public sealed partial class CampaignMenuUi : Control
 
         CampaignLevelRow? reloadedE102 = reloaded.Chapters().First().Rows
             .FirstOrDefault(row => row.Id.EndsWith("e1-02"));
-        if (reloadedE102 is not { State: CampaignLevelState.Playable })
+        if (reloadedE102 is not { State: CampaignLevelState.Cleared })
         {
-            problems.Add($"重进菜单进度态不符（E1-02 应可玩续）：{reloadedE102?.State}");
+            problems.Add($"重进菜单进度态不符（E1-02 应已通关）：{reloadedE102?.State}");
         }
 
-        // —— ④ 遥测行（source=script 沙盒）——
+        // —— ④ 遥测行（source=script 沙盒；T-160c 增 Defeat 面）——
         IReadOnlyList<LevelDurationRecord> ledger = LevelDurationTelemetry.ReadAll(files);
         bool hasVictoryRow = ledger.Any(row =>
             row.Kind == TelemetryLevelKind.Campaign && row.LevelId == "campaign:level-e1-01"
@@ -535,14 +794,17 @@ public sealed partial class CampaignMenuUi : Control
             row.Kind == TelemetryLevelKind.Campaign && row.Outcome == TelemetryOutcome.Abandoned
             && !row.Resumed && row.Source == TelemetrySources.Script);
         bool hasResumedRow = ledger.Any(row => row.Resumed);
-        if (!hasVictoryRow || !hasAbandonedRow || !hasResumedRow)
+        bool hasDefeatRow = ledger.Any(row =>
+            row.Kind == TelemetryLevelKind.Campaign && row.Outcome == TelemetryOutcome.Defeat
+            && row.Source == TelemetrySources.Script);
+        if (!hasVictoryRow || !hasAbandonedRow || !hasResumedRow || !hasDefeatRow)
         {
             problems.Add(
                 $"遥测行不全：victory={hasVictoryRow} abandoned={hasAbandonedRow} " +
-                $"resumed={hasResumedRow} rows={ledger.Count}");
+                $"resumed={hasResumedRow} defeat={hasDefeatRow} rows={ledger.Count}");
         }
 
-        // —— ⑤ 跃迁负向探针 + 终章二选一（开关位驱动）——
+        // —— ⑤ 跃迁负向探针 + 终章二选一（开关位驱动）+ 收束发射序（T-160c）——
         string? refusal = host.ProbeTransitionRefusal(1);
         if (refusal is null)
         {
@@ -556,8 +818,38 @@ public sealed partial class CampaignMenuUi : Control
             problems.Add($"终章播片二选一不符：on={finaleOn} off={finaleOff}");
         }
 
+        // 收束→跃迁发射序（数据驱动：e3/e4/e5 有收束段文件→收束先行；e1/e2 无
+        // 段文件→仅跃迁）。探针=ExecuteTransition 入队的同一函数。
+        string contentRoot = CampaignLevelHost.FindContentRoot();
+        var finaleOrder = new List<string>();
+        for (int era = 1; era <= 5; era++)
+        {
+            finaleOrder.Add($"e{era}:[{string.Join(",", CampaignLevelHost.EraFinaleLaunchIds(era, contentRoot))}]");
+        }
+
+        string expect1 = "e1:[cinematic:transition-e1-e2]";
+        if (!finaleOrder.Contains(expect1)
+            || !finaleOrder.Contains("e3:[cinematic:e3-finale,cinematic:transition-e3-e4]")
+            || !finaleOrder.Contains("e4:[cinematic:e4-finale,cinematic:transition-e4-e5]")
+            || !finaleOrder.Contains("e5:[cinematic:e5-finale,cinematic:transition-e5-e6]"))
+        {
+            problems.Add($"收束→跃迁发射序不符：{string.Join(" ", finaleOrder)}");
+        }
         // —— ⑥ T-160b 战场渲染绑定（CAMPAIGN_VIEW——本文件problems合流执法）——
         CampaignViewFacts view = RunViewSmoke(host, problems);
+
+        // T-160c 剧情钩子·开局拍：⑥ 的 e2-01 开局应路由 e2-awaken（level_start
+        // 位——钩子行随战役会话走的第二直证；Headless 下演出只入队不开演）。
+        bool awakenRouted = host.PendingLaunches.Any(
+            launch => launch.ScriptId == "cinematic:e2-awaken"); // cinematics/e2-awaken.json 的 hook 行=e2-01 开局位
+        host.ClearPendingLaunches();
+
+        if (!ahaRouted || !awakenRouted || !checkpointContinueWon || defeatFacts is null)
+        {
+            problems.Add(
+                $"T-160c 断面缺事实：aha={ahaRouted} awaken={awakenRouted} " +
+                $"checkpoint_continue_won={checkpointContinueWon} defeat={defeatFacts is not null}");
+        }
 
         // 沙盒清场（dev 根 .tmp-tests 下，gitignored）
         if (System.IO.Directory.Exists(smokeRoot))
@@ -570,8 +862,13 @@ public sealed partial class CampaignMenuUi : Control
             GD.Print(
                 $"CAMPAIGN_OK matrix={constructed}/{totalLevels} chapters=6 " +
                 $"e1-01=victory stars={e101After.Stars} unlock=e1-02 " +
+                $"defeat=declared-after-checkpoint tier=normal restored=wave{defeatFacts!.RestoredFromWave} " +
+                $"checkpoint_continue=resumed@tick{defeatFacts.RestoredAtTick}->victory " +
+                $"early_defeat=restart-only restart=fresh@tick0 " +
+                $"telemetry=victory+abandoned+resumed+defeat " +
+                $"cinematic=aha-routed+awaken-routed finale-order=e3/e4/e5-finale-first " +
                 $"resume=lossless@tick{resumeTick} save=campaign-merged-reload " +
-                "telemetry=victory+abandoned+resumed source=script " +
+                "source=script " +
                 "transition=refused-without-final-capture finale=switch-picked " +
                 $"rows=[{string.Join(" ", matrixRows)}]");
             GD.Print(
@@ -818,13 +1115,29 @@ public sealed partial class CampaignMenuUi : Control
             && signature.All(pair => expected.TryGetValue(pair.Key, out int count) && count == pair.Value);
     }
 
+    /// <summary>波间隔 tick 数（威胁度公式 120s×乘子——冒烟各段的波界推算）.</summary>
+    internal static long IntervalTicksOf(HandcraftedLevel level)
+    {
+        return (long)Math.Round(
+            Campaign.WaveIntervalSeconds(level.Threat) * Simulation.TicksPerSecond,
+            MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>检查点波边界 tick（宽限+检查点波×间隔——波 N 的结束界=N 的开始界）.</summary>
+    internal static long CheckpointBoundaryTicks(HandcraftedLevel level, int checkpointWave)
+    {
+        long intervalTicks = IntervalTicksOf(level);
+        long graceTicks = (long)Math.Round(
+            intervalTicks * level.FirstWaveGraceMultiplier, MidpointRounding.AwayFromZero);
+        return graceTicks + (checkpointWave * intervalTicks);
+    }
+
     /// <summary>首两波入场 horizon（grace+2 波窗——泵到此帧数单位层必有实体且过波峰）.</summary>
     internal static long FirstEntryTicks(HandcraftedLevel level)
     {
-        long intervalTicks = (long)Math.Round(
-            Campaign.WaveIntervalSeconds(level.Threat) * Simulation.TicksPerSecond,
-            MidpointRounding.AwayFromZero);
-        long graceTicks = (long)Math.Round(intervalTicks * level.FirstWaveGraceMultiplier, MidpointRounding.AwayFromZero);
+        long intervalTicks = IntervalTicksOf(level);
+        long graceTicks = (long)Math.Round(
+            intervalTicks * level.FirstWaveGraceMultiplier, MidpointRounding.AwayFromZero);
         return graceTicks + (2 * intervalTicks);
     }
 
@@ -888,7 +1201,27 @@ internal sealed record CampaignLevelRow(string Id, string NameZh, CampaignLevelS
 
 /// <summary>The live level binding of the host (session + its level row + resume flag + session config).</summary>
 internal sealed record CampaignRun(
-    LevelSession Session, HandcraftedLevel Level, bool ResumedFromExit, LevelSessionConfig Config);
+    LevelSession Session,
+    HandcraftedLevel Level,
+    bool ResumedFromExit,
+    LevelSessionConfig Config,
+    bool ResumedFromCheckpoint = false);
+
+/// <summary>
+/// T-160c 失败面板事实（败绩分档呈现）：败北原因+检查点档位（恢复波 0=未跨
+/// 检查点波）+残骸修复账（条数/总价/首败折扣）+「从检查点继续」可用位。
+/// </summary>
+internal sealed record DefeatPanelFacts(
+    string LevelId,
+    string LevelNameZh,
+    string Reason,
+    int RestoredFromWave,
+    long RestoredAtTick,
+    int CheckpointWave,
+    int WreckCount,
+    double RepairCostPoints,
+    bool FirstDefeat,
+    bool ContinueAvailable);
 
 /// <summary>Construction probe result (loading-matrix face).</summary>
 internal sealed record LevelSessionProbe(HandcraftedLevel Level, LevelSession Session, IReadOnlyList<SimCommand> Commands);
