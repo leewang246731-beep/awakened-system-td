@@ -42,6 +42,14 @@ namespace EraTD;
 // BUILD_OK（含注册表调用计数），随后跑全量序列打印 BUILD_V2（pause=speed3
 // grey=two-tier cap=trunc——任一自检不过即 Quit(1)）；有头模式走真实鼠标
 // 输入，同一控制器与泳道，无第二套逻辑。
+//
+// T-141（移动端触控原型，08 W8 批 6；49 号文 §3/§4）：InputEventScreen
+// Touch/Drag → TouchGestureMapper 纯决策 → 既有鼠标面**同一**控制器/提交
+// 路径（只加输入映射，不改命令语义）；单指=格选/矩形（=左键），双指=缩放
+// 平移（手势期建造预览取消，防误触）。headless 第三幕打印 BUILD_TOUCH
+// （合成触控事件→建造命令发出的冒烟断言）。分辨率自适应开关=
+// MobileViewportPolicy 决策 → Window.ContentScaleStretch 切换（整数档=
+// project.godot 原样，桌面零改动）。
 
 /// <summary>
 /// The C-23 thin build-interaction control (T-056): build bar, drag
@@ -82,6 +90,15 @@ public sealed partial class BuildInteractionUi : Control
     private bool _leftDrag;
     private long _demolishTargetId;
 
+    /// <summary>T-141 触控原型：触控事件→决策翻译（纯逻辑，EraCore.Presentation）。</summary>
+    private readonly TouchGestureMapper _touch = new();
+
+    // T-141 冒烟诊断计数（与 _registrySink.Lines 同范式——headless 决策流观测面）。
+    private int _touchBuildPresses;
+    private int _touchBuildCommits;
+    private int _touchBuildCancels;
+    private int _touchPanZooms;
+
     /// <summary>
     /// T-076 (F-118) 暂停/变速时钟：0 tick/帧 while paused（建造照常，
     /// 命令暂存），否则 1x/2x/3x。headless 帧循环与有头 _Process 同一
@@ -111,6 +128,7 @@ public sealed partial class BuildInteractionUi : Control
         WireScene();
         SetupCore();
         BuildBar();
+        ApplyMobileViewportTier(); // T-141 分辨率自适应开关（headless 零副作用）
         if (OS.HasFeature("headless") || DisplayServer.GetName() == "headless")
         {
             RunHeadlessDemo();
@@ -146,6 +164,80 @@ public sealed partial class BuildInteractionUi : Control
         {
             _controller.UpdateDrag(CellAtMouse());
             RepaintPreview();
+        }
+        else if (@event is InputEventScreenTouch touch)
+        {
+            // T-141 触控原型：只加输入映射——决策应用与鼠标分支同一控制器/提交路径。
+            Vector2 world = GetGlobalTransformWithCanvas() * touch.Position;
+            ApplyTouchDecision(_touch.Touch(touch.Index, world.X, world.Y, touch.Pressed), world);
+        }
+        else if (@event is InputEventScreenDrag drag)
+        {
+            Vector2 world = GetGlobalTransformWithCanvas() * drag.Position;
+            ApplyTouchDecision(_touch.Drag(drag.Index, world.X, world.Y), world);
+        }
+    }
+
+    /// <summary>
+    /// T-141：把 TouchGestureMapper 决策应用到既有鼠标面同一命令流
+    /// （BeginDrag/UpdateDrag/CommitDrag/Cancel——与左键按下/拖动/松开、
+    /// ESC 逐字同参，无第二套语义）。双指手势期撤建造预览（防误触）；
+    /// 缩放/平移的 viewport 应用属正式移植面，原型只保证不出建造命令。
+    /// </summary>
+    private void ApplyTouchDecision(TouchGestureDecision decision, Vector2 world)
+    {
+        switch (decision.Kind)
+        {
+            case TouchGestureKind.BuildPress when _armedTower is not null:
+                _touchBuildPresses++;
+                _controller.BeginDrag(_armedTower, CellAtWorld(world));
+                RepaintPreview();
+                AcceptEvent();
+                break;
+            case TouchGestureKind.BuildDrag:
+                _controller.UpdateDrag(CellAtWorld(world));
+                RepaintPreview();
+                AcceptEvent();
+                break;
+            case TouchGestureKind.BuildCommit:
+                _touchBuildCommits++;
+                CommitDrag(); // 与鼠标左键松开同一提交（暂停分支/PlayerBuildLane 咽喉）
+                AcceptEvent();
+                break;
+            case TouchGestureKind.BuildCancel:
+                _touchBuildCancels++;
+                _controller.Cancel(); // 双指接管：撤预览（幂等——Idle 态无副作用）
+                RepaintPreview();
+                AcceptEvent();
+                break;
+            case TouchGestureKind.TwoFingerPanZoom:
+                _touchPanZooms++; // 手势事实（span/center 增量随决策携带）；非建造
+                break;
+        }
+    }
+
+    /// <summary>
+    /// T-141 分辨率自适应开关：MobileViewportPolicy 纯决策 → 运行时切换
+    /// Window.ContentScaleStretch（Integer↔Fractional——4.7.2 GodotSharp
+    /// 反射实证，49 号文 §4）。整数档=project.godot 既有 canvas_items+keep+
+    /// integer 原样（桌面零改动）；触屏事实=IsTouchscreenAvailable 或
+    /// android/ios feature（headless 下无窗口意义，直接短路）。
+    /// </summary>
+    private void ApplyMobileViewportTier()
+    {
+        if (OS.HasFeature("headless") || DisplayServer.GetName() == "headless")
+        {
+            return; // headless 冒烟窗口尺寸无意义（Main.cs 同款判定）
+        }
+
+        bool touchPlatform = DisplayServer.IsTouchscreenAvailable()
+            || OS.HasFeature("android") || OS.HasFeature("ios");
+        Vector2I window = DisplayServer.WindowGetSize();
+        ViewportScaleDecision decision = MobileViewportPolicy.Decide(window.X, window.Y, touchPlatform);
+        if (decision.Tier == ViewportScaleTier.MobileFractional)
+        {
+            GetWindow().ContentScaleStretch = Window.ContentScaleStretchEnum.Fractional;
+            SetStatus($"移动缩放档：分数 ×{decision.Scale:0.00}（{decision.ScaledWidth}×{decision.ScaledHeight} 居中）");
         }
     }
 
@@ -452,10 +544,13 @@ public sealed partial class BuildInteractionUi : Control
     private CellCoord CellAtMouse()
     {
         Vector2 world = GetGlobalMousePosition(); // camera-applied world coordinates
-        return new CellCoord(
-            (int)Math.Floor(world.X / Cell),
-            (int)Math.Floor(world.Y / Cell));
+        return CellAtWorld(world);
     }
+
+    /// <summary>T-141：世界坐标→格坐标（触控/鼠标同一格选换算——floor(world/cell)）。</summary>
+    private static CellCoord CellAtWorld(Vector2 world) => new(
+        (int)Math.Floor(world.X / Cell),
+        (int)Math.Floor(world.Y / Cell));
 
     private void SetStatus(string text) => _status.Text = text;
 
@@ -519,6 +614,100 @@ public sealed partial class BuildInteractionUi : Control
 
         // ---- T-076 (C-23 全量) 第二幕：暂停+变速 / 两级灰度 / 同限截断 ----
         RunFullInteractionDemoV2();
+
+        // ---- T-141 第三幕：触控原型（合成事件→建造命令发出） ----
+        RunTouchPrototypeDemo();
+    }
+
+    /// <summary>
+    /// BUILD_TOUCH 冒烟段（T-141 触控原型判据：tap=build drag=rect twofinger=
+    /// cancel+panzoom）：合成 InputEventScreenTouch/Drag 事件**经 _GuiInput
+    /// 事件分发入口**驱动（非直调控制器——证明事件类型分支本身可用），
+    /// 断言：①单指点击=单格建造命令发出（塔+1/journal player 事件+1）；
+    /// ②单指拖动=矩形提交；③armed 拖放中第二指按下→预览取消（控制器回
+    /// Idle、零命令），双指移动=手势非建造，双指全抬后单指建造恢复可用。
+    /// 任一自检不过即 Quit(1)。
+    /// </summary>
+    private void RunTouchPrototypeDemo()
+    {
+        _pauseClock.SetSpeed(1); // 上一幕可能停在任意档——触控幕以 1x 稳态跑
+        int towersBefore = _sim.Towers.Count;
+        int journalBefore = _journal.PlayerEvents;
+        _touch.Reset();
+        _touchBuildPresses = 0;
+        _touchBuildCommits = 0;
+        _touchBuildCancels = 0;
+        _touchPanZooms = 0;
+        ArmTower("era1:tower-wood-arrow", _towerButtons["era1:tower-wood-arrow"]);
+
+        // ① 点击=格选：单指按下→抬起（单格=1×1 矩形，与鼠标单击同一提交）
+        CellCoord tapCell = FirstBuildableCell();
+        TouchEventAt(tapCell, pressed: true, index: 0);
+        TouchEventAt(tapCell, pressed: false, index: 0);
+        int towersAfterTap = _sim.Towers.Count;
+        bool tapBuilt = towersAfterTap == towersBefore + 1;
+        bool tapJournaled = _journal.PlayerEvents == journalBefore + 1;
+
+        // ② 拖拽=矩形：单指按下→ScreenDrag 扩选 1×2→抬起提交（≥1 可建格）
+        CellCoord anchor = FirstBuildableCell();
+        TouchEventAt(anchor, pressed: true, index: 0);
+        TouchDragEventAt(anchor with { X = anchor.X + 1 }, index: 0);
+        TouchEventAt(anchor with { X = anchor.X + 1 }, pressed: false, index: 0);
+        int dragBuilt = _sim.Towers.Count - towersAfterTap;
+
+        // ③ 双指=缩放平移+防误触：armed 拖放中第二指按下→取消（回 Idle、
+        // 零命令）；双指移动=手势非建造；先抬主指再抬副指→零提交
+        CellCoord gestureCell = FirstBuildableCell();
+        TouchEventAt(gestureCell, pressed: true, index: 0); // BeginDrag
+        bool dragging = _controller.State == BuildDragState.Dragging;
+        TouchEventAt(gestureCell with { X = gestureCell.X + 3 }, pressed: true, index: 1); // 第二指
+        bool cancelledIdle = _controller.State == BuildDragState.Idle;
+        int towersAtGesture = _sim.Towers.Count;
+        TouchDragEventAt(gestureCell with { X = gestureCell.X + 2 }, index: 0); // 双指移动
+        TouchEventAt(gestureCell, pressed: false, index: 0); // 主指先抬（无提交）
+        TouchEventAt(gestureCell with { X = gestureCell.X + 3 }, pressed: false, index: 1); // 副指后抬（手势结束）
+        bool gestureZeroBuild = _sim.Towers.Count == towersAtGesture;
+
+        // ④ 手势后单指映射恢复：press 事件再次驱动 BeginDrag（零提交零木料
+        // 消耗——恢复性由 Dragging 态证明，不靠第三次建造）
+        TouchEventAt(gestureCell, pressed: true, index: 0);
+        bool recovered = _controller.State == BuildDragState.Dragging;
+        _controller.Cancel();
+
+        GD.Print(
+            $"BUILD_TOUCH tap=build tap_built={tapBuilt} tap_journaled={tapJournaled} " +
+            $"drag=rect drag_built={dragBuilt} dragging={dragging} twofinger=cancel+panzoom " +
+            $"cancelled_idle={cancelledIdle} gesture_zero_build={gestureZeroBuild} recovered={recovered} " +
+            $"decisions presses={_touchBuildPresses} commits={_touchBuildCommits} " +
+            $"cancels={_touchBuildCancels} panzooms={_touchPanZooms} " +
+            $"towers={_sim.Towers.Count} player_journal_events={_journal.PlayerEvents} " +
+            $"tick={_sim.CurrentTick} state_hash={_sim.ComputeStateHash()}");
+
+        if (!tapBuilt || !tapJournaled || dragBuilt < 1 || !dragging || !cancelledIdle
+            || !gestureZeroBuild || _touchPanZooms < 1 || !recovered)
+        {
+            GD.PushError(
+                $"BUILD_TOUCH self-check failed: tap_built={tapBuilt} tap_journaled={tapJournaled} " +
+                $"drag_built={dragBuilt} dragging={dragging} cancelled_idle={cancelledIdle} " +
+                $"gesture_zero_build={gestureZeroBuild} panzooms={_touchPanZooms} recovered={recovered}");
+            GetTree().Quit(1);
+        }
+    }
+
+    /// <summary>合成单指按下/抬起事件（世界格→格心世界坐标→本控件局部坐标→_GuiInput）。</summary>
+    private void TouchEventAt(CellCoord cell, bool pressed, int index)
+    {
+        var world = new Vector2(cell.X * Cell + Cell / 2f, cell.Y * Cell + Cell / 2f);
+        Vector2 local = GetGlobalTransformWithCanvas().AffineInverse() * world;
+        _GuiInput(new InputEventScreenTouch { Index = index, Position = local, Pressed = pressed });
+    }
+
+    /// <summary>合成单指移动事件（世界格→格心→局部坐标→_GuiInput 的 ScreenDrag 分支）。</summary>
+    private void TouchDragEventAt(CellCoord cell, int index)
+    {
+        var world = new Vector2(cell.X * Cell + Cell / 2f, cell.Y * Cell + Cell / 2f);
+        Vector2 local = GetGlobalTransformWithCanvas().AffineInverse() * world;
+        _GuiInput(new InputEventScreenDrag { Index = index, Position = local });
     }
 
     /// <summary>
