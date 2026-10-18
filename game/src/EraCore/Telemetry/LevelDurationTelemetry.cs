@@ -23,9 +23,9 @@ namespace EraCore.Telemetry;
 //
 // 挂点（零侵入，均非 sim 热路径）：战役关与程序关共用
 // CampaignLoop.LevelSession（开始=会话建立/重进，结束=OnVictory/
-// DeclareDefeat/SaveAndExitToMenu 三个既有结算钩）；无尽局挂
-// Endless.EndlessEntry.Begin + EndlessSession.Die/Abandon（EndlessRun
-// 波表 tick 台账 PlayedTicks）。headless 脚本局经 Source 字段分账
+// DeclareDefeat/SaveAndExitToMenu 三个既有结算钩）；无尽局由表现层
+// EndlessTelemetry 组合件在宿主入口调用（BeginRun/Wave表台账/终局
+// 三处——EndlessEntry/EndlessRun 自身零改动）。headless 脚本局经 Source 字段分账
 // （"script"），供 T-158 比对机器 vs 真人比率。
 
 /// <summary>关卡类型（六类覆盖面的机读列）：战役关（E1~E6 全部）/程序关/无尽局。</summary>
@@ -261,6 +261,11 @@ public sealed class LevelDurationTelemetry
 
             line.CopyTo(buffer, position);
             buffer[^1] = (byte)'\n';
+            // 先写固定名滚动临时件再写正本（审查 W9 批 1 #2）：K-1 端口只有
+            // Exists/Read/Write 无 Delete/改名，故 .tmp 不删除、每次追加时复写，
+            // 常驻充当恢复副本——正本写到一半崩溃截断时，完整新账仍在 .tmp，
+            // 恢复=覆盖回正本（统计性数据最坏丢尾部若干行，特此留档）。
+            _files.WriteAllBytes(_relativePath + ".tmp", buffer);
             _files.WriteAllBytes(_relativePath, buffer);
         }
     }
