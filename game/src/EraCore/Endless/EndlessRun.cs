@@ -559,7 +559,10 @@ public sealed class EndlessRun
         WriteStringList(writer, baseline.UnlockedTowers);
     }
 
-    /// <summary>T-143 混编档入账 (null = T-118 语义全池混编).</summary>
+    /// <summary>
+    /// T-143 混编档入账 (null = T-118 语义全池混编)；T-154 渐升参数随档入账
+    /// (渐升档携带终值波与终值权重——不同渐升参数=不同运行身份，分账纪律)。
+    /// </summary>
     private static void WriteMixPolicy(BinaryWriter writer, EndlessMixPolicy? mix)
     {
         writer.Write(mix is not null);
@@ -571,6 +574,13 @@ public sealed class EndlessRun
         writer.Write(mix.MixFromWave);
         writer.Write(mix.StartEraWeight);
         writer.Write(mix.OtherEraWeight);
+        writer.Write(mix.RampEndWave is not null);
+        if (mix.RampEndWave is int rampEnd)
+        {
+            writer.Write(rampEnd);
+            writer.Write(mix.EndStartEraWeight ?? mix.StartEraWeight);
+            writer.Write(mix.EndOtherEraWeight ?? mix.OtherEraWeight);
+        }
     }
 
     /// <summary>T-143 滚词缀档入账 (null = SP-7b 冻结激活表).</summary>

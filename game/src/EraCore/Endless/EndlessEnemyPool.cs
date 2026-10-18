@@ -243,17 +243,20 @@ public sealed class EndlessEnemyPool
 
     /// <summary>
     /// Seeded pick under the T-143 mixing schedule (混编敌人: 高波次跨时代
-    /// 混编敌池——权重参数驱动): waves below <paramref name="mix.MixFromWave"/>
-    /// draw from the STARTING ERA's entries of the role sub-pool only (敌池
-    /// 基准=开局时代); waves from it on draw the whole sub-pool with each
-    /// entry's weight scaled by its era factor (开局时代
-    /// ×<paramref name="mix.StartEraWeight"/>, 其他时代
-    /// ×<paramref name="mix.OtherEraWeight"/>). Honest fallback: when the
-    /// starting era carries NO entry of this role (e.g. an era without a
-    /// boss row) the baseline segment draws the whole sub-pool unscaled —
-    /// the line must still spawn. Exactly ONE rng double per pick, same as
+    /// 混编敌池——权重参数驱动; T-154 波渐升): waves below
+    /// <paramref name="mix.MixFromWave"/> draw from the STARTING ERA's
+    /// entries of the role sub-pool only (敌池基准=开局时代); waves from it
+    /// on draw the whole sub-pool with each entry's weight scaled by its
+    /// era factor — the knobs resolved AT THE WAVE via
+    /// <see cref="EndlessMixPolicy.WeightsAt"/> (开局时代 ×start-era weight,
+    /// 其他时代 ×other-era weight; a ramped schedule interpolates, a fixed
+    /// schedule holds its constants). Honest fallback: when the starting era
+    /// carries NO entry of this role (e.g. an era without a boss row) the
+    /// baseline segment draws the whole sub-pool unscaled — the line must
+    /// still spawn. Exactly ONE rng double per pick, same as
     /// <see cref="Pick(Contracts.Foundation.IRng, EndlessEnemyRole)"/> —
-    /// same seed + same policy ⇒ same roster (determinism unchanged).
+    /// same seed + same policy ⇒ same roster (determinism unchanged; the
+    /// ramp is a pure function of (policy, wave)).
     /// </summary>
     /// <param name="rng">Injected rng (CS-1.4).</param>
     /// <param name="role">Role sub-pool to draw from.</param>
@@ -283,6 +286,9 @@ public sealed class EndlessEnemyPool
         }
 
         bool baseline = wave < mix.MixFromWave;
+        (double startEraWeight, double otherEraWeight) = baseline
+            ? (mix.StartEraWeight, mix.OtherEraWeight) // 基准段不消费权重（名义值）
+            : mix.WeightsAt(wave);                     // 混编段=波渐升解析（固定档=常量）
         double total = 0;
         var effective = new double[bucket.Count];
         for (int i = 0; i < bucket.Count; i++)
@@ -291,7 +297,7 @@ public sealed class EndlessEnemyPool
             bool isStartEra = entry.EraIndex == startEraIndex;
             double weight = baseline
                 ? (isStartEra ? entry.Weight : 0.0)
-                : entry.Weight * (isStartEra ? mix.StartEraWeight : mix.OtherEraWeight);
+                : entry.Weight * (isStartEra ? startEraWeight : otherEraWeight);
             effective[i] = weight;
             total += weight;
         }

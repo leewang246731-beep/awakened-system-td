@@ -1,0 +1,20 @@
+{
+  "$schema": "urn:eratd:content:endless:policies:1",
+  "content_type": "EndlessPolicyTable",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键。本文件=T-154 无尽生产策略表（业主 2026-10-18 两项裁定落地，REV-20261018-T154）：mix=混编「主场主导+波渐升」生产档——41 波起 9:1（主场:跨代）→ 81 波起 3:1 终值，中间按波线性渐升（41→61→81 恰为 9:1→6:1→3:1 插值锚）；终值 3:1 标注：待 T-158 业主一小时亲测后实测微调——改本表即改产，代码零改动（RL7 数值真相源）。affix_rolls=滚词缀生产节奏（T-143 生产档数值冻结，与 EndlessAffixRollPolicy.Default 同值——同构校验由 EndlessPolicyTableTests 锚定，双源零漂移）。宿主装载经 EndlessPolicyTable.Parse 后随 EndlessEntryRequest.PolicyTable 递交入口。",
+  "mix": {
+    "mix_from_wave": 41,
+    "start_era_weight": 9.0,
+    "other_era_weight": 1.0,
+    "ramp_end_wave": 81,
+    "end_start_era_weight": 3.0,
+    "end_other_era_weight": 1.0
+  },
+  "affix_rolls": {
+    "roll_every_waves": 10,
+    "roll_start_wave": 41,
+    "kinds_per_roll": 1,
+    "allow_consecutive_repeat": false,
+    "repeat_intensity_gain": 1.5
+  }
+}

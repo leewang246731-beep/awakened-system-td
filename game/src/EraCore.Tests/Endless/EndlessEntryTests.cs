@@ -9,12 +9,14 @@ using Xunit;
 
 namespace EraCore.Tests.Endless;
 
-// [F-006][F-123][T-118] 无尽入口正式化：从战役界面语境组装任选时代的无尽
+// [F-006][F-123][T-118][T-154] 无尽入口正式化：从战役界面语境组装任选时代的无尽
 // 会话（EndlessEntry.Begin——最小接入点裁定：战役选图/菜单语境经宿主调用，
 // 无尽不进 LevelSession/检查点域）；死亡终局→记分→返回的最小会话流
 // （Running→Settled→Returned）；E3 时代无尽可用（era3 现四关内容集真数据
-// 混编池+词缀照 SP-7 生产默认档）；同 seed 确定性。IO 由测试自持
-// （HandcraftedLevelContent 仓库相对读取 game/content，RL9）。
+// 混编池+词缀照 SP-7 生产默认档）；同 seed 确定性。T-154 缺省定版：词缀节奏
+// 两档显式选项（缺省=滚词缀档/ClassicFixed=经典 SP-7b 固定表回切）+策略表
+// 缺省链+两档分账/零漂移矩阵。IO 由测试自持（HandcraftedLevelContent 仓库
+// 相对读取 game/content，RL9）。
 public class EndlessEntryTests
 {
     private const long Seed = 20261180;
@@ -268,13 +270,34 @@ public class EndlessEntryTests
         Assert.True(sawBoss, "E3 Boss 线必须出现 era3 内容行（堡垒号节奏波）");
     }
 
-    [Fact] // legal：词缀照 SP-7——入口默认档=EndlessAffixTuning.Default（生产 SP-7b 表），41 波起迅捷、51 波硬化
-    public void Entry_defaults_to_the_sp7_production_affix_tier()
+    [Fact] // legal：T-154 缺省翻转——词缀节奏缺省=滚词缀档（Rolling；生产缺省=EndlessAffixRollPolicy.Default）
+    public void Entry_defaults_to_the_rolling_affix_schedule()
     {
         EndlessSession session = EndlessEntry.Begin(Request(3, EndlessParticipationMode.Manual), new LcgRng(Seed));
 
-        Assert.Equal(EndlessAffixTuning.Default, session.Run.Config.Affixes); // SP-7b 生产默认档
-        Assert.Equal(10, session.Run.Config.BossEveryWaves);                   // 每 10 波 Boss/词缀节奏
+        Assert.Equal(EndlessAffixTuning.Default, session.Run.Config.Affixes); // 量级仍=SP-7b 生产默认档
+        Assert.Equal(10, session.Run.Config.BossEveryWaves);                   // 每 10 波 Boss 节奏
+        Assert.NotNull(session.Run.Config.AffixRolls);                          // 节奏缺省=滚档（业主裁定）
+        Assert.Equal(EndlessAffixRollPolicy.Default, session.Run.Config.AffixRolls);
+        Assert.Equal(EndlessAffixSchedule.Rolling, session.AffixSchedule);      // 界面明示面=滚词缀表
+
+        EndlessFixture.PlayWaves(session.Run, 40);
+        EndlessWavePlan wave41 = session.Run.BeginWave();
+        Assert.NotEmpty(wave41.Modifiers.ActiveKinds); // 41 起有词缀（滚档块内激活）
+        Assert.Equal(
+            EndlessAffixRolls.KindsAt(Seed, 41, EndlessAffixRollPolicy.Default),
+            wave41.Modifiers.ActiveKinds); // 与滚档派生序列逐 kind 一致
+    }
+
+    [Fact] // legal：经典固定表回切——ClassicFixed 档=SP-7b 冻结激活表（41 迅捷/51 叠硬化，量级=Tuning）
+    public void Classic_fixed_schedule_restores_the_sp7b_frozen_table()
+    {
+        EndlessSession session = EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual) with { AffixSchedule = EndlessAffixSchedule.ClassicFixed },
+            new LcgRng(Seed));
+
+        Assert.Null(session.Run.Config.AffixRolls);                            // null=SP-7b 冻结激活表
+        Assert.Equal(EndlessAffixSchedule.ClassicFixed, session.AffixSchedule); // 界面明示面=经典固定表
         EndlessFixture.PlayWaves(session.Run, 40);
 
         EndlessWavePlan wave41 = session.Run.BeginWave();
@@ -288,6 +311,55 @@ public class EndlessEntryTests
             new[] { EndlessAffixKind.Swift, EndlessAffixKind.Harden },
             wave51.Modifiers.ActiveKinds.OrderBy(kind => kind));                       // 51 波叠加硬化
         Assert.Equal(1.5, wave51.Modifiers.HpMultiplier, 12);                          // SP-7b HP +50%
+    }
+
+    // illegal：T-154 档位守卫——ClassicFixed 与显式 AffixRolls 互斥；未定义档位拒绝
+    [Fact]
+    public void Affix_schedule_guards()
+    {
+        Assert.Throws<ArgumentException>(() => EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual) with
+            {
+                AffixSchedule = EndlessAffixSchedule.ClassicFixed,
+                AffixRolls = EndlessAffixRollPolicy.Default,
+            },
+            new LcgRng(Seed)));
+        Assert.Throws<ArgumentException>(() => EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual) with { AffixSchedule = (EndlessAffixSchedule)99 },
+            new LcgRng(Seed)));
+    }
+
+    [Fact] // legal：T-154 缺省链——PolicyTable 递交=混编渐升生产档；不递交=无表兜底；显式 MixPolicy 最优先
+    public void Policy_table_drives_the_mix_default_chain()
+    {
+        EndlessPolicyTable table = new(
+            new EndlessMixPolicy(41, 9.0, 1.0, rampEndWave: 81, endStartEraWeight: 3.0, endOtherEraWeight: 1.0),
+            EndlessAffixRollPolicy.Default);
+        EndlessSession fromTable = EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual) with { PolicyTable = table },
+            new LcgRng(Seed));
+        Assert.Equal(81, fromTable.Run.Config.MixPolicy!.RampEndWave); // 表渐升档生效
+        Assert.Equal(3.0, fromTable.Run.Config.MixPolicy.EndStartEraWeight);
+
+        EndlessSession noTable = EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual), new LcgRng(Seed));
+        Assert.Null(noTable.Run.Config.MixPolicy!.RampEndWave); // 无表兜底=固定 1:1 档
+        Assert.Equal(EndlessMixPolicy.Default, noTable.Run.Config.MixPolicy);
+
+        var explicitPolicy = new EndlessMixPolicy(21, 1.0, 1.0);
+        EndlessSession explicitMix = EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual) with { MixPolicy = explicitPolicy, PolicyTable = table },
+            new LcgRng(Seed));
+        Assert.Equal(explicitPolicy, explicitMix.Run.Config.MixPolicy); // 显式 > 表
+
+        EndlessSession rollingFromTable = EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual) with
+            {
+                PolicyTable = table,
+                AffixRolls = new EndlessAffixRollPolicy(5, 5, 1, allowConsecutiveRepeat: false, repeatIntensityGain: 1.0),
+            },
+            new LcgRng(Seed));
+        Assert.Equal(5, rollingFromTable.Run.Config.AffixRolls!.RollEveryWaves); // 显式滚动策略 > 表节奏
     }
 
     [Fact] // legal：换档在会话语境照常可用且不换榜（入口→会话→HUD→结算一条线）
@@ -310,5 +382,115 @@ public class EndlessEntryTests
         EndlessSettlement settlement = session.Die();
         Assert.Equal(EndlessBoardKind.Autopilot, settlement.Board); // 记档整局
         Assert.True(session.Participation.IsOver);                  // 终局后 HUD 仍可查
+    }
+
+    // ------------------------------------------------ T-154 两档分账/零漂移矩阵 -----
+
+    [Fact] // legal：分账纪律——同 seed 两档=不同运行身份（词缀节奏入身份哈希）；ClassicFixed≡翻转前缺省面（直配 null）哈希全等
+    public void The_two_affix_schedules_settle_into_distinct_identities()
+    {
+        EndlessSession rolling = EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual), new LcgRng(Seed));
+        EndlessSession classic = EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual) with { AffixSchedule = EndlessAffixSchedule.ClassicFixed },
+            new LcgRng(Seed));
+        // 翻转前缺省的等价面：直配 EndlessRunConfig（AffixRolls=null）——ClassicFixed 必须与它逐点全等
+        EndlessRun directNull = new(
+            new EndlessRunConfig(
+                Seed, 3, 0.9, Era3Shape.Base, Era3Shape.Begin, Era3Shape.Spacing, Era3Shape.Scaling, 10,
+                rolling.Run.Config.Pool,
+                EndlessAffixTuning.Default, EndlessScoreWeights.Default, Array.Empty<string>(),
+                EndlessParticipationMode.Manual,
+                classic.Run.Config.StartEraBaseline, // 入口冻结的同一起始基准（era3 面）
+                mixPolicy: EndlessMixPolicy.Default,
+                affixRolls: null),
+            new LcgRng(Seed));
+
+        for (int wave = 1; wave <= 60; wave++)
+        {
+            EndlessWavePlan rollingPlan = rolling.Run.BeginWave();
+            EndlessWavePlan classicPlan = classic.Run.BeginWave();
+            EndlessWavePlan directPlan = directNull.BeginWave();
+            Assert.Equal(classicPlan.Roster, directPlan.Roster);   // 零漂移：经典档名册=翻转前缺省面
+            // 词缀面全等（ActiveKinds 为 List 引用成员——record 相等性不做序列比较，逐通道断言）
+            Assert.Equal(classicPlan.Modifiers.ActiveKinds, directPlan.Modifiers.ActiveKinds);
+            Assert.Equal(classicPlan.Modifiers.Stacks, directPlan.Modifiers.Stacks);
+            Assert.Equal(classicPlan.Modifiers.SpeedMultiplier, directPlan.Modifiers.SpeedMultiplier, 12);
+            Assert.Equal(classicPlan.Modifiers.HpMultiplier, directPlan.Modifiers.HpMultiplier, 12);
+            Assert.Equal(classicPlan.Modifiers.SuicideRadiusMultiplier, directPlan.Modifiers.SuicideRadiusMultiplier, 12);
+            rolling.Run.CompleteWave(rollingPlan.EliteCount, rollingPlan.BossCount);
+            classic.Run.CompleteWave(classicPlan.EliteCount, classicPlan.BossCount);
+            directNull.CompleteWave(directPlan.EliteCount, directPlan.BossCount);
+            if (wave is 41 or 60)
+            {
+                Assert.Equal(directNull.ComputeStateHash(), classic.Run.ComputeStateHash()); // 零漂移哈希锚
+                Assert.NotEqual(rolling.Run.ComputeStateHash(), classic.Run.ComputeStateHash()); // 两档分账
+            }
+        }
+
+        // 两档词缀节奏确有分野：滚档块界滚换 vs 固定表逐档累加（51 波固定表=Swift+Harden 双 kind）
+        Assert.Null(classic.Run.Config.AffixRolls);
+        Assert.NotNull(rolling.Run.Config.AffixRolls);
+    }
+
+    [Fact] // legal：分数口径走实际档——Rolling 局=SP-7c+滚词缀加权（块级）；ClassicFixed 局=SP-7c+固定表加权
+    public void Both_schedules_score_by_their_own_affix_bonus()
+    {
+        EndlessSettlement Settle(EndlessAffixSchedule schedule)
+        {
+            EndlessSession session = EndlessEntry.Begin(
+                Request(3, EndlessParticipationMode.Manual) with { AffixSchedule = schedule },
+                new LcgRng(Seed));
+            for (int i = 0; i < 100; i++) // 100 波死亡（跨 41/51/61/71/81/91 词缀界）
+            {
+                EndlessWavePlan plan = session.Run.BeginWave();
+                session.Run.CompleteWave(plan.EliteCount, plan.BossCount);
+            }
+
+            return session.Die();
+        }
+
+        EndlessSettlement rolling = Settle(EndlessAffixSchedule.Rolling);
+        long rollingExpected = EndlessRules.AffixBonusPoints(
+            100, Seed, EndlessScoreWeights.Default, EndlessAffixRollPolicy.Default);
+        Assert.Equal(rollingExpected, rolling.AffixBonusPoints);
+        Assert.Equal((100 * 100L) + (rolling.EliteKills * 20L) + (rolling.BossKills * 200L) + rollingExpected,
+            rolling.Score);
+
+        EndlessSettlement classic = Settle(EndlessAffixSchedule.ClassicFixed);
+        long classicExpected = EndlessRules.AffixBonusPoints(100, EndlessScoreWeights.Default);
+        Assert.Equal(classicExpected, classic.AffixBonusPoints); // 固定表口径（41..50 +1 kind/波 …）
+        Assert.Equal((100 * 100L) + (classic.EliteKills * 20L) + (classic.BossKills * 200L) + classicExpected,
+            classic.Score);
+
+        Assert.NotEqual(rolling.AffixBonusPoints, classic.AffixBonusPoints); // 两档各自成账
+    }
+
+    [Fact] // legal：老榜零漂移——已有榜行的 port 上两档新局各自落账，老行原样保留、两档不混排
+    public void Existing_board_rows_stay_untouched_by_new_schedule_runs()
+    {
+        var port = new InMemorySavePort();
+        EndlessSession oldRun = EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual) with { AffixSchedule = EndlessAffixSchedule.ClassicFixed },
+            new LcgRng(Seed + 1), port);
+        EndlessFixture.PlayWaves(oldRun.Run, 55);
+        EndlessSettlement oldRow = oldRun.Die();
+        long oldScore = oldRow.Score;
+        long oldWaves = oldRow.WavesSurvived;
+
+        EndlessBoards before = EndlessBoardStore.Load(port);
+        Assert.Single(before.Of(EndlessBoardKind.Manual));
+
+        EndlessSession rolling = EndlessEntry.Begin(
+            Request(3, EndlessParticipationMode.Manual), new LcgRng(Seed + 2), port);
+        EndlessFixture.PlayWaves(rolling.Run, 70);
+        rolling.Die();
+
+        EndlessBoards after = EndlessBoardStore.Load(port);
+        Assert.Equal(2, after.Of(EndlessBoardKind.Manual).Count); // 同榜追加（榜别=参与档，与词缀档无关）
+        EndlessScoreRecord survived = Assert.Single(
+            after.Of(EndlessBoardKind.Manual),
+            row => row.WavesSurvived == oldWaves); // 老行原样（波数/分数零漂移）
+        Assert.Equal(oldScore, survived.Score);
     }
 }

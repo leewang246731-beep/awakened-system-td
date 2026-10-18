@@ -34,21 +34,44 @@ public sealed record EndlessEraContent(
     IReadOnlyList<string>? Towers = null);
 
 /// <summary>
+/// 无尽词缀节奏档位（T-154 业主裁定「滚词缀默认开」的两档显式选项）：
+/// 开局时在两档间显式选择，整局冻结（随配置入身份哈希——分账纪律）。
+/// <b>Rolling</b>=滚动词缀表（生产缺省：每 10 波块界滚换激活表，量级/
+/// 叠加=SP-7b 冻结集——<see cref="EndlessAffixRollPolicy"/>）；
+/// <b>ClassicFixed</b>=经典固定表（SP-7b 冻结激活表——41 迅捷/51 硬化/
+/// 61 相位/71 自爆强化逐档累加，<see cref="EndlessAffixes"/>）。两档共存
+/// 于入口，界面（C-21 表现层接线位）经 <see cref="EndlessSession.AffixSchedule"/>
+/// 明示本局节奏。
+/// </summary>
+public enum EndlessAffixSchedule
+{
+    /// <summary>滚词缀表（T-154 生产缺省）：每 10 波块界滚换激活表.</summary>
+    Rolling = 0,
+
+    /// <summary>经典固定表（SP-7b 冻结激活表，可选回切档）.</summary>
+    ClassicFixed = 1,
+}
+
+/// <summary>
 /// 无尽入口请求（T-118 入口正式化，SP-7 入口规则行「任选时代、混编敌人、
-/// 奇观带入」+ T-118 开局选档 + T-143 深化档）: everything the entry composes
-/// the run from — the chosen era (任选时代=已装载内容集中的任一时代，时代枚举
-/// 见 <see cref="EndlessEntry.AvailableStartEras"/>，动态读取零硬编码), the
-/// LOCKED opening participation mode (三档之一——开局声明，整局锁榜), the loaded
-/// era content sets, the threat level, the carried-in wonder ids with the
-/// optional campaign built-wonder linkage (T-143 奇观带入——只读消费), and the
-/// optional tuning overrides (词缀照 SP-7 生产默认档
-/// <see cref="EndlessAffixTuning.Default"/>; 混编档缺省=T-143 生产档
-/// <see cref="EndlessMixPolicy.Default"/>; 滚词缀档缺省=null 即 SP-7b 冻结
-/// 激活表——W3 出口裁定生产默认）.
+/// 奇观带入」+ T-118 开局选档 + T-143 深化档 + T-154 缺省定版）: everything
+/// the entry composes the run from — the chosen era (任选时代=已装载内容集中
+/// 的任一时代，时代枚举见 <see cref="EndlessEntry.AvailableStartEras"/>，
+/// 动态读取零硬编码), the LOCKED opening participation mode (三档之一——开局
+/// 声明，整局锁榜), the loaded era content sets, the threat level, the
+/// carried-in wonder ids with the optional campaign built-wonder linkage
+/// (T-143 奇观带入——只读消费), and the optional tuning overrides (词缀照
+/// SP-7 生产默认档 <see cref="EndlessAffixTuning.Default"/>; T-154 起词缀
+/// 节奏缺省=<b>滚词缀档</b>——<see cref="AffixSchedule"/> 两档显式选项，
+/// 经典固定表=ClassicFixed 回切; 混编档缺省链=策略表
+/// <see cref="PolicyTable"/>（生产渐升档，endless-policies.json）→
+/// <see cref="EndlessMixPolicy.Default"/> 无表兜底).
 /// </summary>
 /// <param name="BuiltWonderIds">Optional campaign built-wonder linkage (T-143 奇观带入——只读消费).</param>
-/// <param name="MixPolicy">混编档缺省=T-143 生产档 <see cref="EndlessMixPolicy.Default"/>.</param>
-/// <param name="AffixRolls">滚词缀档缺省=null 即 SP-7b 冻结激活表.</param>
+/// <param name="MixPolicy">显式混编档（最高优先；缺省走 PolicyTable → EndlessMixPolicy.Default 兜底链）.</param>
+/// <param name="AffixRolls">显式滚动策略（覆盖档位/表的节奏参数；与 <see cref="AffixSchedule"/>=ClassicFixed 互斥）.</param>
+/// <param name="AffixSchedule">T-154 词缀节奏档位（缺省=Rolling 生产缺省；ClassicFixed=经典 SP-7b 冻结表回切）.</param>
+/// <param name="PolicyTable">T-154 生产策略表（endless-policies.json 装载；供给混编渐升生产档与滚动节奏生产档）.</param>
 /// <param name="ProceduralMap">
 /// T-140 可选「程序图」开关（只读消费——Endless 域无地图面）：开启=宿主把
 /// 无尽波循环安放到一张按 run seed 派生的程序生成图上（EraCore.Procedural
@@ -70,6 +93,8 @@ public sealed record EndlessEntryRequest(
     IReadOnlyList<string>? BuiltWonderIds = null,
     EndlessMixPolicy? MixPolicy = null,
     EndlessAffixRollPolicy? AffixRolls = null,
+    EndlessAffixSchedule AffixSchedule = EndlessAffixSchedule.Rolling,
+    EndlessPolicyTable? PolicyTable = null,
     bool ProceduralMap = false);
 
 /// <summary>
@@ -140,16 +165,26 @@ public static class EndlessEntry
     /// cross-era pool from every provided set (任选时代的内容边界=装载集),
     /// resolves the carried-in wonders against the optional campaign linkage
     /// (奇观带入——只读消费，未解锁拒绝), freezes the run config（含开局参与档
-    /// 锁+T-143 混编/滚词缀档；混编缺省=<see cref="EndlessMixPolicy.Default"/>
-    /// 生产档，滚词缀缺省=SP-7b 冻结激活表）and hands the deps through —
+    /// 锁+T-143 混编/滚词缀档+T-154 缺省定版）and hands the deps through —
     /// port/campaignMeta wire the K-7 落账, scoreSink receives the T-081
     /// autopilot entries.
+    ///
+    /// T-154 缺省解析链（业主裁定落地）：
+    /// 混编=<c>request.MixPolicy ?? request.PolicyTable?.MixPolicy ??
+    /// EndlessMixPolicy.Default</c>（显式 &gt; 生产表（endless-policies.json
+    /// 渐升档） &gt; 无表兜底）；词缀节奏=<c>request.AffixRolls ??（档位
+    /// Rolling 时 request.PolicyTable?.AffixRollPolicy ??
+    /// EndlessAffixRollPolicy.Default；档位 ClassicFixed 时 null=SP-7b
+    /// 冻结激活表）</c>——ClassicFixed 档位与显式 AffixRolls 同时递交=参数
+    /// 矛盾，拒绝（两档显式无歧义）。两档与渐升参数全部随配置冻结入身份
+    /// 哈希（分账纪律：换档=换运行身份，榜行/老档零漂移）。
     /// </summary>
     /// <exception cref="ArgumentNullException">request or rng is null.</exception>
     /// <exception cref="ArgumentException">
     /// Start era not among the provided content sets, no content sets, an
     /// undefined participation mode, a wonder not built in the campaign
-    /// linkage, or via <see cref="EndlessWonderCarry.Resolve"/>/
+    /// linkage, the ClassicFixed affix schedule combined with an explicit
+    /// rolling policy, or via <see cref="EndlessWonderCarry.Resolve"/>/
     /// <see cref="EndlessEraPools.Build"/>/<see cref="EndlessRunConfig"/>
     /// validation.
     /// </exception>
@@ -169,6 +204,21 @@ public static class EndlessEntry
                 nameof(request));
         }
 
+        if (!Enum.IsDefined(request.AffixSchedule))
+        {
+            throw new ArgumentException(
+                $"Affix schedule must be a defined two-tier mode (got {request.AffixSchedule}).",
+                nameof(request));
+        }
+
+        if (request.AffixSchedule == EndlessAffixSchedule.ClassicFixed && request.AffixRolls is not null)
+        {
+            throw new ArgumentException(
+                "ClassicFixed 词缀档位与显式 AffixRolls 滚动策略互斥——经典固定表不带滚动节奏参数 " +
+                "(递交 AffixRolls 请将档位置为 Rolling).",
+                nameof(request));
+        }
+
         EndlessEraContent? startEra = request.EraContent.FirstOrDefault(era =>
             era is not null && era.EraIndex == request.StartEraIndex);
         if (startEra is null)
@@ -180,6 +230,12 @@ public static class EndlessEntry
         }
 
         IReadOnlyList<string> wonders = EndlessWonderCarry.Resolve(request.WonderIds, request.BuiltWonderIds);
+
+        EndlessAffixRollPolicy? affixRolls = request.AffixRolls;
+        if (affixRolls is null && request.AffixSchedule == EndlessAffixSchedule.Rolling)
+        {
+            affixRolls = request.PolicyTable?.AffixRollPolicy ?? EndlessAffixRollPolicy.Default;
+        }
 
         EndlessEnemyPool pool = EndlessEraPools.Build(
             request.EraContent.Where(era => era is not null)
@@ -205,8 +261,8 @@ public static class EndlessEntry
             wonders,
             request.Participation,
             baseline,
-            request.MixPolicy ?? EndlessMixPolicy.Default,
-            request.AffixRolls,
+            request.MixPolicy ?? request.PolicyTable?.MixPolicy ?? EndlessMixPolicy.Default,
+            affixRolls,
             request.ProceduralMap);
         return new EndlessSession(new EndlessRun(config, rng, port, campaignMeta, scoreSink));
     }
@@ -239,6 +295,17 @@ public sealed class EndlessSession
     /// 计数——表现层从此处取值，每帧可查。
     /// </summary>
     public EndlessParticipationSnapshot Participation => Run.Participation;
+
+    /// <summary>
+    /// 本局词缀节奏档位（T-154 界面明示面）：开局冻结的两档之一——
+    /// Rolling=滚词缀表（每 10 波块界滚换）/ClassicFixed=经典 SP-7b 冻结
+    /// 固定表（41 迅捷/51 硬化/61 相位/71 自爆强化逐档累加）。C-21 表现层
+    /// 接线时从本属性读取并在开局/局内明示本局节奏（业主裁定「两档显式
+    /// 选项+界面明示」的引擎查询位）；档位随配置冻结，整局不变。
+    /// </summary>
+    public EndlessAffixSchedule AffixSchedule => Run.Config.AffixRolls is null
+        ? EndlessAffixSchedule.ClassicFixed
+        : EndlessAffixSchedule.Rolling;
 
     /// <summary>
     /// 死亡终局→记分（T-118）: settles the run exactly once — board = the

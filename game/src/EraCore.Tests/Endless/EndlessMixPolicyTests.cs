@@ -5,9 +5,10 @@ using Xunit;
 
 namespace EraCore.Tests.Endless;
 
-// [F-006][T-143] 混编敌人（高波次跨时代混编敌池——权重参数驱动）：
-// MixFromWave 以下=开局时代基准池（任选时代的池面），以上=双权重钮跨时代
-// 混编（每线内归一）；开局时代缺该线行时整桶回退；守卫与确定性。
+// [F-006][T-143][T-154] 混编敌人（高波次跨时代混编敌池——权重参数驱动 +
+// T-154 波渐升）：MixFromWave 以下=开局时代基准池（任选时代的池面），以上=
+// 双权重钮跨时代混编（每线内归一；T-154 起权重钮可随波线性渐升——41 波 9:1
+// → 81 波 3:1 业主裁定锚）；开局时代缺该线行时整桶回退；守卫与确定性。
 public class EndlessMixPolicyTests
 {
     private const long Seed = 20261430;
@@ -254,5 +255,136 @@ public class EndlessMixPolicyTests
             raw.CompleteWave(rawPlan.EliteCount, rawPlan.BossCount);
             mixed.CompleteWave(mixedPlan.EliteCount, mixedPlan.BossCount);
         }
+    }
+
+    // -------------------------------- T-154 波渐升（主场主导+波渐升）-----
+
+    [Theory] // illegal：渐升守卫——部分参数/终值波早于起始波/终值权重非正拒绝
+    [InlineData(41, 9.0, 1.0, 81, null, 1.0)]   // 缺 end_start
+    [InlineData(41, 9.0, 1.0, 81, 3.0, null)]   // 缺 end_other
+    [InlineData(41, 9.0, 1.0, null, 3.0, 1.0)]  // 缺 ramp_end
+    [InlineData(41, 9.0, 1.0, 40, 3.0, 1.0)]    // 终值波 < 起始波
+    [InlineData(41, 9.0, 1.0, 81, 0.0, 1.0)]    // 终值权重非正
+    [InlineData(41, 9.0, 1.0, 81, 3.0, -1.0)]   // 终值权重负
+    public void Invalid_ramp_parameters_are_rejected(
+        int mixFromWave, double start, double other, int? rampEnd, double? endStart, double? endOther)
+    {
+        Assert.Throws<ArgumentException>(
+            () => new EndlessMixPolicy(mixFromWave, start, other, rampEnd, endStart, endOther));
+    }
+
+    [Fact] // legal：渐升曲线插值——41 波 9:1、61 波 6:1、81 波 3:1 业主锚逐点核对（中间线性）
+    public void Ramp_weights_interpolate_linearly_between_the_mix_and_end_waves()
+    {
+        // T-154 生产档形状：41 起 9:1（主场:跨代）→ 81 起 3:1 终值（endless-policies.json 同值）
+        var policy = new EndlessMixPolicy(41, 9.0, 1.0, rampEndWave: 81, endStartEraWeight: 3.0, endOtherEraWeight: 1.0);
+
+        (double Start, double Other) At(int wave) => policy.WeightsAt(wave);
+
+        Assert.Equal((9.0, 1.0), At(40));  // 基准段=名义起始值（不消费）
+        Assert.Equal((9.0, 1.0), At(41));  // 41 波=9:1（t=0）
+        Assert.Equal((7.5, 1.0), At(51));  // t=0.25 线性中点前
+        Assert.Equal((6.0, 1.0), At(61));  // 61 波=6:1（t=0.5 业主插值锚）
+        Assert.Equal((4.5, 1.0), At(71));  // t=0.75
+        Assert.Equal((3.0, 1.0), At(81));  // 81 波=3:1 终值（t=1，含锚）
+        Assert.Equal((3.0, 1.0), At(121)); // 终值波后保持 3:1
+        Assert.Equal((3.0, 1.0), At(9999));
+    }
+
+    [Fact] // legal：固定档 WeightsAt 恒定；渐升参数缺省=null（既有构造兼容面）
+    public void Fixed_knob_schedules_return_constant_weights()
+    {
+        var policy = new EndlessMixPolicy(41, 2.0, 1.0);
+
+        Assert.Null(policy.RampEndWave);
+        Assert.Null(policy.EndStartEraWeight);
+        Assert.Null(policy.EndOtherEraWeight);
+        foreach (int wave in new[] { 1, 40, 41, 61, 81, 500 })
+        {
+            Assert.Equal((2.0, 1.0), policy.WeightsAt(wave));
+        }
+    }
+
+    [Fact] // legal：rampEnd=mixFrom 的退化渐升=从混编起即终值（除零守卫）
+    public void Degenerate_ramp_holds_the_end_weights_from_the_mix_wave()
+    {
+        var policy = new EndlessMixPolicy(41, 9.0, 1.0, rampEndWave: 41, endStartEraWeight: 3.0, endOtherEraWeight: 1.0);
+
+        Assert.Equal((3.0, 1.0), policy.WeightsAt(41));
+        Assert.Equal((3.0, 1.0), policy.WeightsAt(42));
+        Assert.Equal((3.0, 1.0), policy.WeightsAt(200));
+    }
+
+    [Fact] // legal：渐升真实生效——早段（9:1）主场份额显著高于晚段（3:1）
+    public void Ramped_mix_actually_eases_the_home_era_share_over_waves()
+    {
+        double HomeShare(int fromWave, int toWave)
+        {
+            var run = new EndlessRun(Config(RampPolicy(), Seed + 11), new LcgRng(Seed + 11));
+            EndlessFixture.PlayWaves(run, fromWave - 1); // 预热到目标段（BeginWave 从波 1 递增）
+            long home = 0, total = 0;
+            for (int wave = fromWave; wave <= toWave; wave++)
+            {
+                EndlessWavePlan plan = run.BeginWave();
+                Assert.Equal(wave, plan.Wave); // 预热后波号对齐
+                foreach (EndlessSpawn spawn in plan.Roster)
+                {
+                    if (spawn.Role == EndlessEnemyRole.Regular)
+                    {
+                        total++;
+                        home += spawn.EraIndex == 1 ? 1 : 0;
+                    }
+                }
+
+                run.CompleteWave(plan.EliteCount, plan.BossCount);
+            }
+
+            Assert.True(total > 0);
+            return (double)home / total;
+        }
+
+        // 池内 E1 常规 2 行 vs E2 1 行（各权重 1）：9:1 段 E1 份额=18/19≈0.947；3:1 段=6/7≈0.857
+        double early = HomeShare(41, 70);   // 9:1→4.5:1 段（主场最重）
+        double late = HomeShare(201, 230);  // 终值 3:1 段
+        Assert.True(early > late, $"渐升必须真实放松主场份额（早段 {early:F3} 应 > 晚段 {late:F3}）");
+        Assert.InRange(early, 0.90, 0.99);  // 9:1 起始带（18/19≈0.947±抽样带）
+        Assert.InRange(late, 0.78, 0.92);   // 3:1 终值带（6/7≈0.857±抽样带）
+    }
+
+    private static EndlessMixPolicy RampPolicy() =>
+        new(41, 9.0, 1.0, rampEndWave: 81, endStartEraWeight: 3.0, endOtherEraWeight: 1.0);
+
+    [Fact] // legal：渐升档确定性——同 seed 同渐升策略两局逐波哈希全等（渐升=纯 (policy,wave) 函数）
+    public void Ramped_runs_are_deterministic_for_the_same_seed()
+    {
+        var left = new EndlessRun(Config(RampPolicy()), new LcgRng(Seed));
+        var right = new EndlessRun(Config(RampPolicy()), new LcgRng(Seed));
+
+        for (int wave = 1; wave <= 90; wave++) // 跨渐升全程（41 起→81 终值→之后）
+        {
+            EndlessWavePlan leftPlan = left.BeginWave();
+            EndlessWavePlan rightPlan = right.BeginWave();
+            Assert.Equal(leftPlan.Roster, rightPlan.Roster);
+            left.CompleteWave(leftPlan.EliteCount, leftPlan.BossCount);
+            right.CompleteWave(rightPlan.EliteCount, rightPlan.BossCount);
+            Assert.Equal(left.ComputeStateHash(), right.ComputeStateHash());
+        }
+    }
+
+    [Fact] // legal：渐升参数入身份哈希——同起始权重、渐升 vs 固定=不同身份；不同终值=不同身份
+    public void Ramp_parameters_join_the_run_identity()
+    {
+        var fixedKnobs = new EndlessMixPolicy(41, 9.0, 1.0);
+        var rampedToEnd3 = RampPolicy();
+        var rampedToEnd2 = new EndlessMixPolicy(41, 9.0, 1.0, rampEndWave: 81, endStartEraWeight: 2.0, endOtherEraWeight: 1.0);
+        var a = new EndlessRun(Config(fixedKnobs), new LcgRng(Seed));
+        var b = new EndlessRun(Config(rampedToEnd3), new LcgRng(Seed));
+        var c = new EndlessRun(Config(rampedToEnd2), new LcgRng(Seed));
+        EndlessFixture.PlayWaves(a, 5);
+        EndlessFixture.PlayWaves(b, 5);
+        EndlessFixture.PlayWaves(c, 5);
+
+        Assert.NotEqual(a.ComputeStateHash(), b.ComputeStateHash()); // 渐升 vs 固定分账
+        Assert.NotEqual(b.ComputeStateHash(), c.ComputeStateHash()); // 不同终值分账
     }
 }
