@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    T-139 (F-161) 联机实现程序集：ICommandTransport/ISnapshotChannel 的第一个
+    实现域（48 号 §8 裁定的「落表现层或独立程序集」第二条路）。纪律：
+    ① 引用方向单向 EraNet → EraCore（EraCore 永不触网 D-01，也永不引用本
+       程序集——NetCouplingGuardTests/GodotSharpGuardTests 只豁免 EraCore 自身，
+       本程序集同样零 GodotSharp/零 System.Net.Http/零线程零墙钟——确定性
+       铁律（48 §1.3）在联机域内继续成立：一切节奏由显式 tick 泵驱动）；
+    ② 真实 ENet 传输面在表现层（EraTD）——Godot 高层多人 API 不进本程序集，
+       本程序集提供的是与传输无关的会话编排（NetGameHost/NetGameClient）
+       与内存回环网（MemoryNetMesh，测试与 G4 冒烟的零端口承载）；
+    ③ AOT 红线（D-05）沿用：序列化全部走 EraNetJsonContext 源生成元数据。
+  -->
+  <PropertyGroup>
+    <RootNamespace>EraNet</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EraCore\EraCore.csproj" />
+  </ItemGroup>
+
+</Project>

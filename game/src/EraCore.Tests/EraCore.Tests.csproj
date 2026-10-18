@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EraCore\EraCore.csproj" />
+    <!-- T-139：联机实现程序集（内存回环+会话编排）——测试引用方向 Tests → EraNet → EraCore（单向）。 -->
+    <ProjectReference Include="..\EraNet\EraNet.csproj" />
   </ItemGroup>
 
 </Project>

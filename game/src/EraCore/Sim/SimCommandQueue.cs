@@ -47,6 +47,20 @@ public sealed class SimCommandQueue
     public sealed record Entry(long Seq, SimCommand Command);
 
     /// <summary>
+    /// T-139 host observability seam (listen-server broadcast capture): fires
+    /// after every successful <see cref="Enqueue"/> with the assigned sequence
+    /// number and the command verbatim. Pure observer contract — subscribers
+    /// must not mutate the queue, the simulation, or throw; the single-player
+    /// path never subscribes, so enqueue behaviour (ordering, seq issuance,
+    /// hash domain) is bit-identical with and without a subscriber. The
+    /// net host uses this to mirror EVERY authority command — presentation
+    /// input, stamped client submissions and approved agent-pipeline actions
+    /// all pass the same <see cref="Enqueue"/> throat — into its broadcast
+    /// journal in exact enqueue order.
+    /// </summary>
+    public event Action<long, SimCommand>? Enqueued;
+
+    /// <summary>
     /// Enqueues one command and returns its sequence number (1-based,
     /// monotonic). Commands may target any future tick; a command enqueued
     /// for a tick at or before the current one is applied on the next
@@ -66,6 +80,7 @@ public sealed class SimCommandQueue
 
         long seq = ++_nextSeq;
         InsertOrdered(new Entry(seq, command));
+        Enqueued?.Invoke(seq, command);
         return seq;
     }
 
