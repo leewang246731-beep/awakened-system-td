@@ -185,7 +185,11 @@ public sealed class LevelSession
 
         if (!TryReadExitSnapshot(port, ComposeExitSlotId(config), out RestoredWaveSnapshot snapshot))
         {
-            session = new LevelSession(config, rng, port, campaignPool);
+            // T-160 缺口修复（REV-20261018-T160 §引擎最小扩②）：无 #exit 快照的
+            // 新开局分支此前丢弃 durationTelemetry——经 TryResume 起局的战役/程序
+            // 关真人局遥测因此整面漏记（T-155「宿主注入即记」契约违例）。补传；
+            // 行为面=纯观测列追加，零 sim/哈希影响。
+            session = new LevelSession(config, rng, port, campaignPool, durationTelemetry);
             return false;
         }
 

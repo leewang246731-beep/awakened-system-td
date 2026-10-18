@@ -259,6 +259,6 @@ internal static class RegressionContent
     }
 
     /// <summary>levels/e3.json 四关行（T-116 装载器同源：波表+塔线+初始授予）。</summary>
-    public static IReadOnlyList<Levels.HandcraftedLevel> Era3Levels() =>
+    public static IReadOnlyList<EraCore.CampaignLoop.HandcraftedLevel> Era3Levels() =>
         Levels.HandcraftedLevelData.Load("e3.json").Items;
 }

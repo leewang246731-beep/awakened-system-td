@@ -60,7 +60,7 @@ public class ProceduralDurationChainTests : SqliteSavePortTestBase
         bool? BossDead,
         long StateHash);
 
-    private static Levels.HandcraftedLevel LoadLevel(long seed, string tierId)
+    private static EraCore.CampaignLoop.HandcraftedLevel LoadLevel(long seed, string tierId)
     {
         ProceduralTier tier = Load().TryGetTier(tierId)
             ?? throw new InvalidOperationException($"档位 {tierId} 缺席注册表");
@@ -72,7 +72,7 @@ public class ProceduralDurationChainTests : SqliteSavePortTestBase
 
     private ChainLine RunOnce(int index, long seed, string tierId, ISavePort port)
     {
-        Levels.HandcraftedLevel level = LoadLevel(seed, tierId);
+        EraCore.CampaignLoop.HandcraftedLevel level = LoadLevel(seed, tierId);
         SimulationConfig config = BuildConfig(level, "era1");
         IReadOnlyList<SimCommand> commands = BuildCommands(level, "era1");
         var session = new LevelSession(

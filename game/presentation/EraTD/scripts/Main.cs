@@ -309,6 +309,19 @@ namespace EraTD;
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         ProceduralMenuUi.Instantiate(this);
 
+        // ---- 5q) T-160 战役宿主脸 (C-29/F-005/F-001, scripts/CampaignMenuUi.cs) --
+        // 「战役」入口+章节分组选关菜单（levels/e1~e6.json 全 29 行+进度态：
+        // 未解锁/可玩/已通关★）→ 生产装载器（HandcraftedLevelCatalog+
+        // EraLevelAssembly，T-160 提升）→ LevelSession 真开局/续局；胜利结算
+        // →解锁推进；E final 胜利→EraTransitionService 原子事务→跃迁过场播片
+        // 钩子→下一时代解锁；e6-final→终章播片二选一（系统开关）+通关总结；
+        // 退出到菜单=level 域 #exit 快照+campaign 域合并写（重进续玩）；遥测
+        // source=player 双注入（T-155 战役半边收口）；headless 自带冒烟并打印
+        // CAMPAIGN_OK（全 29 关装载矩阵+E1-01 真通关+续玩+跃迁负向探针；失败
+        // Quit(1)）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        CampaignMenuUi.Instantiate(this);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.

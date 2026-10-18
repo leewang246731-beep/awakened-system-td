@@ -120,7 +120,7 @@ public class LevelDurationTelemetryChainTests : SqliteSavePortTestBase
         ProceduralLevel generated = ProceduralLevelGenerator.Generate(
             new ProceduralRequest(seed, tier, Era1Pack(), Load().Constraints),
             derived => new SimRng(derived));
-        Levels.HandcraftedLevel level = HandcraftedLevelData.Parse(generated.ToLevelJson()).Items.Single();
+        EraCore.CampaignLoop.HandcraftedLevel level = HandcraftedLevelData.Parse(generated.ToLevelJson()).Items.Single();
 
         var session = new LevelSession(
             new LevelSessionConfig(BuildConfig(level, "era1"), $"t155.{level.Id}", level.Threat, level.Map.Seed)

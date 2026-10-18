@@ -45,7 +45,7 @@ internal sealed class Era3WaveSimulator
     public const int TowerCap = 12;
 
     private readonly long _seed;
-    private readonly IReadOnlyList<Levels.HandcraftedLevel> _levels;
+    private readonly IReadOnlyList<EraCore.CampaignLoop.HandcraftedLevel> _levels;
     private readonly IReadOnlyList<TowerSpec> _towers;
     private readonly EnemySpecCatalog _enemies;
     private readonly IReadOnlyList<RegressionContent.RecipeRow> _recipes;
@@ -55,7 +55,7 @@ internal sealed class Era3WaveSimulator
 
     public Era3WaveSimulator(
         long seed,
-        IReadOnlyList<Levels.HandcraftedLevel> levels,
+        IReadOnlyList<EraCore.CampaignLoop.HandcraftedLevel> levels,
         IReadOnlyList<TowerSpec> towers,
         EnemySpecCatalog enemies,
         IReadOnlyList<RegressionContent.RecipeRow> recipes,
@@ -145,7 +145,7 @@ internal sealed class Era3WaveSimulator
         double windowIncome = 0, windowSpend = 0;
 
         WaveSpawner spawner = null!;
-        Levels.HandcraftedLevel level = null!;
+        EraCore.CampaignLoop.HandcraftedLevel level = null!;
         List<(int FromWave, string TowerId, double Price)> shopping = new();
         var guns = new List<Gun>();
         int shopIndex = 0;
@@ -307,7 +307,7 @@ internal sealed class Era3WaveSimulator
     }
 
     /// <summary>某关的生产排程配置（波表=levels/e3.json waves 块逐旋钮；入口=该关地图行）。</summary>
-    private WaveSpawnConfig LevelSpawnConfig(Levels.HandcraftedLevel level)
+    private WaveSpawnConfig LevelSpawnConfig(EraCore.CampaignLoop.HandcraftedLevel level)
     {
         var entries = level.Map.EntryCells.Select(c => new CellCoord(c.X, c.Y)).ToArray();
         return new WaveSpawnConfig(
@@ -335,10 +335,10 @@ internal sealed class Era3WaveSimulator
     /// cost_total）。铁甲墙（支援类无武器循环）不在 E3 命令流（T-116 诚实披露：
     /// build-tower 通道拒绝无武器循环塔行）——出现即抛（内容演进时的显式红）。
     /// </summary>
-    private List<(int FromWave, string TowerId, double Price)> BuildShoppingPlan(Levels.HandcraftedLevel level)
+    private List<(int FromWave, string TowerId, double Price)> BuildShoppingPlan(EraCore.CampaignLoop.HandcraftedLevel level)
     {
         var plan = new List<(int, string, double)>();
-        foreach (Levels.ScriptStep step in level.CommandScript.Where(s => s.Verb == "build-tower"))
+        foreach (EraCore.CampaignLoop.ScriptStep step in level.CommandScript.Where(s => s.Verb == "build-tower"))
         {
             TowerSpec spec = _towerById[step.Tower!];
             if (spec.ReloadTicks is null || spec.Dps <= 0)
@@ -364,7 +364,7 @@ internal sealed class Era3WaveSimulator
     }
 
     /// <summary>关初始授予点值（levels/e3.json initial_stock 首行——E3 四关均为钢单货币行）。</summary>
-    private static double LevelStockPoints(Levels.HandcraftedLevel level)
+    private static double LevelStockPoints(EraCore.CampaignLoop.HandcraftedLevel level)
     {
         if (level.InitialStock.Count != 1)
         {

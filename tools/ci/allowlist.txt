@@ -91,3 +91,5 @@ T2: game/src/EraCore/Net/ISnapshotChannel.cs | T-131 联机预留纯契约（ISn
 T2: game/src/EraNet/NetHostWire.cs        | EraNet 纯契约（宿主线面：广播/盖章钩子）——行为由 EraNet 测试件与表现层 EnetNetLink 集成面覆盖（批 6 审查 #5：CS-3.7 字面只辖 src/EraCore，EraNet 契约文件属规则盲区，本条补登记归位）
 T2: game/src/EraNet/NetTiming.cs          | EraNet 纯常量（30Hz×200ms=6 tick 公式派生）——由 NetGameHost/Client 节拍测试覆盖（同上补登记）
 T2: game/src/EraNet/IAdvisorOrderChannel.cs | EraNet 纯契约（军师订单上行/回复通道）——由 NetAdvisorApprovalTests 覆盖（同上补登记）
+T2: game/src/EraCore/CampaignLoop/HandcraftedLevelContent.cs | T-160 手工关装载器生产面（HandcraftedLevelCatalog.Parse+records，测试侧 HandcraftedLevelData 同律装载的来源）：装载即校验行为由既有全套关卡测试执法（HandcraftedLevelSetTests 六章 schema 负向+CampaignHostAssemblyMatrixTests 全 29 关构造+V10/Playthrough 链），不另立同名测试文件（REV-20261018-T160）
+T2: game/src/EraCore/CampaignLoop/EraLevelAssembly.cs | T-160 生产组装律（BuildConfig/BuildCommands/能源表/践踏调参族，自测试侧组装代码提升）：行为由 HandcraftedLevelAssemblyTests（薄委托面）+CampaignHostAssemblyMatrixTests（29 关矩阵+双构造哈希全等）+CampaignHostProgressionChainTests（E1→E2 真链）+各章 PlaythroughTests 全量执法，不另立同名测试文件（REV-20261018-T160）

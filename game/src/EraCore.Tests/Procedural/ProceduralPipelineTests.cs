@@ -106,7 +106,7 @@ public class ProceduralPipelineTests : SqliteSavePortTestBase
     }
 
     private (long Hash, long Tick, int Issued) RunOnce(
-        Levels.HandcraftedLevel level,
+        EraCore.CampaignLoop.HandcraftedLevel level,
         SimulationConfig config,
         IReadOnlyList<SimCommand> commands,
         long horizon)

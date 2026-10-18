@@ -33,105 +33,38 @@ public class HandcraftedLevelAssemblyTests : SqliteSavePortTestBase
         HandcraftedLevelData.Load(eraDir == "era1" ? "e1.json" : "e2.json").TryGet(id)
         ?? throw new InvalidOperationException($"缺关卡行 {id}");
 
-    private static string ContentText(string eraDir, string file)
+    /// <summary>
+    /// 组装一关为引擎级 SimulationConfig——T-160 起委托生产组装律
+    /// （<see cref="EraCore.CampaignLoop.EraLevelAssembly.BuildConfig"/>：本测试
+    /// 套件与表现层战役宿主共用同一份组装代码，测试面即生产路径回归网）。
+    /// </summary>
+    internal static SimulationConfig BuildConfig(HandcraftedLevel level, string eraDir) =>
+        EraLevelAssembly.BuildConfig(level, ContentRoot());
+
+    /// <summary>
+    /// 命令流 → SimCommand——T-160 起委托生产组装律
+    /// （<see cref="EraCore.CampaignLoop.EraLevelAssembly.BuildCommands"/>）。
+    /// </summary>
+    internal static IReadOnlyList<SimCommand> BuildCommands(HandcraftedLevel level, string eraDir) =>
+        EraLevelAssembly.BuildCommands(level, ContentRoot());
+
+    /// <summary>Repo walk-up to game/content（生产组装律的装载根，RL9）.</summary>
+    internal static string ContentRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            var probe = Path.Combine(dir.FullName, "game", "content", eraDir, file);
-            if (File.Exists(probe))
+            var probe = Path.Combine(dir.FullName, "game", "content");
+            if (Directory.Exists(probe))
             {
-                return File.ReadAllText(probe);
+                return probe;
             }
 
             dir = dir.Parent!;
         }
 
-        throw new InvalidOperationException($"未找到 game/content/{eraDir}/{file}");
+        throw new InvalidOperationException("未找到 game/content");
     }
-
-    /// <summary>组装一关为引擎级 SimulationConfig（全部字段出自关卡行与 era 内容表）。</summary>
-    internal static SimulationConfig BuildConfig(HandcraftedLevel level, string eraDir)
-    {
-        var entries = level.Map.EntryCells.Select(c => new CellCoord(c.X, c.Y)).ToArray();
-        HeroSpec? hero = level.HeroId is null ? null : HeroSpecCatalog.Parse(ContentText("era2", "heroes.json")).Get(level.HeroId);
-        var stock = level.InitialStock
-            .Select(line => new KeyValuePair<ResourceKey, double>(new ResourceKey(line.Resource), line.Amount))
-            .ToList();
-        return new SimulationConfig(
-            level.Map.Width,
-            level.Map.Height,
-            level.Map.ForestRatio,
-            level.Map.RockRatio,
-            level.Map.WaterRatio,
-            new CellCoord(level.Map.BaseCell.X, level.Map.BaseCell.Y),
-            entries,
-            TowerSpec.LoadCollection(ContentText(eraDir, "towers.json")),
-            EnemySpecCatalog.Parse(ContentText(eraDir, "enemies.json")),
-            new WaveSpawnConfig(
-                BaseCount: level.Waves.BaseCount,
-                BeginWave: level.Waves.BeginWave,
-                Spacing: level.Waves.Spacing,
-                Scaling: level.Waves.Scaling,
-                ThreatLevel: level.Threat,
-                RegularRoster: level.Waves.RegularRoster,
-                EliteLineEnabled: level.Waves.EliteLineEnabled,
-                EliteEnemyId: level.Waves.EliteEnemyId,
-                BossWave: level.Waves.BossWave ?? 20, // 终局关 Boss 波（null=默认 20 占位，BossEnemyId=null 时禁用）
-                BossEnemyId: level.Waves.BossEnemyId,
-                FirstWaveGraceMultiplier: level.FirstWaveGraceMultiplier,
-                ValleySeconds: level.Waves.ValleySeconds,
-                BatchesPerWave: level.Waves.BatchesPerWave,
-                EntryCells: entries),
-            stock,
-            WarehouseCell: new CellCoord(level.Map.WarehouseCell.X, level.Map.WarehouseCell.Y),
-            Costs: new BuildCostPolicy(new ResourceKey(level.InitialStock[0].Resource)),
-            Hero: hero,
-            HeroCell: level.Map.HeroCell is null ? null : new CellCoord(level.Map.HeroCell.X, level.Map.HeroCell.Y),
-            WarehouseLevel: WarehouseLevel(eraDir));
-    }
-
-    /// <summary>命令流 → SimCommand：wave k 步骤落在 k 波开场谷内（wave 1 在宽限尾）。</summary>
-    internal static IReadOnlyList<SimCommand> BuildCommands(HandcraftedLevel level, string eraDir)
-    {
-        long intervalTicks = (long)Math.Round(
-            EraCore.Balance.Campaign.WaveIntervalSeconds(level.Threat) * Simulation.TicksPerSecond,
-            MidpointRounding.AwayFromZero);
-        long graceTicks = (long)Math.Round(intervalTicks * level.FirstWaveGraceMultiplier, MidpointRounding.AwayFromZero);
-        long valleyTicks = (long)Math.Round(level.Waves.ValleySeconds * Simulation.TicksPerSecond, MidpointRounding.AwayFromZero);
-
-        var commands = new List<SimCommand>();
-        foreach (ScriptStep step in level.CommandScript.OrderBy(s => s.Wave))
-        {
-            long tick = Math.Max(0, graceTicks + ((step.Wave - 1) * intervalTicks) - valleyTicks);
-            commands.Add(new SimCommand(tick, SimCommandKind.PlayerBuild, Payload(step, eraDir)));
-        }
-
-        return commands;
-    }
-
-    private static string Payload(ScriptStep step, string eraDir) => step.Verb switch
-    {
-        "build-labor-camp" => CellPayload("build-labor-camp", step.Cell!),
-        "build-harvester" => "{\"verb\":\"build-harvester\",\"resource\":\"" + step.Resource
-            + "\",\"seats\":" + step.Seats + ",\"cell\":{\"x\":" + step.Cell!.X + ",\"y\":" + step.Cell.Y + "}}",
-        "build-converter" => step.ConverterRecipe is null
-            ? CellPayload("build-converter", step.Cell!)
-            : "{\"verb\":\"build-converter\",\"recipe\":" + ConverterRecipePayload(eraDir, step.ConverterRecipe)
-                + ",\"cell\":{\"x\":" + step.Cell!.X + ",\"y\":" + step.Cell.Y + "}}",
-        "build-tower" => "{\"verb\":\"build-tower\",\"tower\":\"" + step.Tower
-            + "\",\"cell\":{\"x\":" + step.Cell!.X + ",\"y\":" + step.Cell.Y + "}}",
-        "assign-carrier" => "{\"verb\":\"assign-carrier\",\"from\":" + step.FromEntity + ",\"to\":" + step.ToEntity
-            + (step.CarrierTier is null ? "" : ",\"tier\":\"" + step.CarrierTier + "\"") + "}",
-        "upgrade-tower" => "{\"verb\":\"upgrade-tower\",\"target\":" + step.Entity + ",\"to_tier\":" + step.ToTier + "}",
-        "hero-order" => step.Order == "move"
-            ? "{\"verb\":\"hero-order\",\"order\":\"move\",\"cell\":{\"x\":" + step.Cell!.X + ",\"y\":" + step.Cell.Y + "}}"
-            : "{\"verb\":\"hero-order\",\"order\":\"" + step.Order + "\"}",
-        _ => throw new InvalidOperationException($"未登记命令动词 {step.Verb}"),
-    };
-
-    private static string CellPayload(string verb, CellPoint cell) =>
-        "{\"verb\":\"" + verb + "\",\"cell\":{\"x\":" + cell.X + ",\"y\":" + cell.Y + "}}";
 
     [Theory]
     [MemberData(nameof(BatchRows))]

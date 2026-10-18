@@ -242,14 +242,18 @@ public class Era6LevelPlaythroughTests : SqliteSavePortTestBase
         Assert.Null(finale.EnergyRisk);
         Assert.Null(BuildConfig(Level(5), "era6").EnergyRisk); // 终局关同口径
 
+        // T-160 生产组装律起直接挂 E5 双表（EraLevelAssembly.BuildConfig 的
+        // 时代面）——原「BuildConfig 基线不挂」断言随装载器生产化退役，对照
+        // 面改为同一生产路径的 E5/E6 差异即证。
         SimulationConfig e5 = BuildConfig(
             HandcraftedLevelData.Load("e5.json").Items.Single(level => level.Id == "campaign:level-e5-01"),
             "era5");
-        Assert.Null(e5.EnergyRisk); // BuildConfig 基线不挂（E5 挂载面=Era5LevelPlaythroughTests.BuildE5Config）
+        Assert.NotNull(e5.EnergyRisk); // 生产组装律：E5 关即挂过热+湮灭（无手动叠装）
         var e5WithRisk = Era5LevelPlaythroughTests.BuildE5Config(
             HandcraftedLevelData.Load("e5.json").Items.Single(level => level.Id == "campaign:level-e5-01"));
         Assert.NotNull(e5WithRisk.EnergyRisk);          // E5 装配面：过热+湮灭在挂
         Assert.NotNull(e5WithRisk.EnergyRisk!.Overheat);
         Assert.NotNull(e5WithRisk.EnergyRisk.Annihilation);
+        Assert.Equal(e5.EnergyRisk, e5WithRisk.EnergyRisk); // 生产面=测试叠装面（同表同值）
     }
 }
