@@ -158,3 +158,10 @@
 
 - v1.0（2026-10-13）：T-019~T-025 首次成包：K-1/K-2/K-3/K-7/K-8 冻结，K-4/K-6 草案（07 D-21）；纯契约文件（interface/enum/record，零方法实现）落于 `game/src/EraCore/Contracts/`；T2 豁免目录级登记于 `tools/ci/allowlist.txt`。
 - v1.1（2026-10-13，round 2 审查处置，REV-20261013-wave0-round2）：①K 标号按 03 §6 原文归位——智能体管线端口 K-6→K-5、ILlmTransport K-6→K-9（v1.0 误标；C# 文件头与 XML 注释同步改写）；②K-6 补仿真侧五接口草案（SimSnapshot/SimCommand/IUnit/IProjectile/IBuilding，新子目录 `Contracts/Sim/`，T-023 余量）；③K-1 补 `IJobPort`（依据 D-31）与领域原语 CellCoord/EntityId/ResourceKey（T-019 余量）；④文件数更正为实数 **45**（v1.0 登记"33"系计数错误，实际 36；本轮 +9）。
+
+## 附注：EraCore.Net 预留面冻结（T-131，2026-10-18）
+
+联机预留桩（ICommandTransport/ISnapshotChannel/NetLinkStatus/NetLinkStateMachine）的接口成员集
+与枚举序数冻结声明不在本文 K-1~K-9 契约族内（评审结论：K 契约零变更），其冻结面与执法测试
+（NetReservationContractTests 成员集/序数/零实现断言+NetCouplingGuardTests 全类型零耦合扫描）
+归档于 48 号评审文档 §"接口面冻结"。本注即交叉引用，防两处口径漂移（批 5 审查 #2 收口）。

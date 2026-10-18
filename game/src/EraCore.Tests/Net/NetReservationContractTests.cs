@@ -49,7 +49,9 @@ public class NetReservationContractTests
     [Fact] // boundary — EraCore 内零实现：预留=纯端口，实现随 T-139 落地
     public void No_EraCore_type_implements_the_reserved_ports()
     {
-        var implementors = CoreAssembly.GetExportedTypes()
+        // 全类型面（含 internal/non-public——批 5 审查 #1：GetExportedTypes 只见
+        // 公有面，非公有实现者会逃逸扫描）
+        var implementors = CoreAssembly.GetTypes()
             .Where(t => t != typeof(ICommandTransport) && t != typeof(ISnapshotChannel)
                 && (typeof(ICommandTransport).IsAssignableFrom(t)
                     || typeof(ISnapshotChannel).IsAssignableFrom(t)))

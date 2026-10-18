@@ -34,7 +34,7 @@ public class NetCouplingGuardTests
     {
         var offenders = new List<string>();
 
-        foreach (Type type in typeof(Guard).Assembly.GetExportedTypes())
+        foreach (Type type in typeof(Guard).Assembly.GetTypes())
         {
             if (IsInNamespace(type, ReservedNamespace))
             {
@@ -59,7 +59,7 @@ public class NetCouplingGuardTests
     {
         var hits = new List<string>();
 
-        foreach (Type type in typeof(Guard).Assembly.GetExportedTypes())
+        foreach (Type type in typeof(Guard).Assembly.GetTypes())
         {
             if (IsInNamespace(type, CoreNamespace))
             {
@@ -84,7 +84,7 @@ public class NetCouplingGuardTests
     [Fact]
     public void Net_types_reference_Sim_in_the_allowed_direction()
     {
-        var netTypes = typeof(Guard).Assembly.GetExportedTypes()
+        var netTypes = typeof(Guard).Assembly.GetTypes()
             .Where(t => IsInNamespace(t, ReservedNamespace))
             .ToList();
 
