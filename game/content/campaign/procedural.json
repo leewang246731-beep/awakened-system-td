@@ -1,0 +1,155 @@
+{
+  "$schema": "urn:eratd:content:procedural:1",
+  "content_type": "ProceduralEntry",
+  "_annotation_convention": "以 '_' 开头的键为装载器忽略的注解键（单位/_new 标记/溯源）。本文件=T-140 程序关卡生成器（F-007）的入口数据位与难度档注册表（RL7：档位/波形/建造计划/资源配比/约束带全部数据化，EraCore/Procedural 零硬编码数值）；content_type=ProceduralEntry（K-2 15 类封闭枚举无程序关类——入口配置随 campaign/ 独立数据位，装载面=宿主/测试侧解析，镜像 objectives.json 的注解先例）",
+  "_source": "时长带 40~90 分钟=v3.2 §3（程序关档）；威胁度=§7 公式 clamp(0.3+0.3×邻接敌营数)（T-140 档位只取营数 0/1/2 → 0.3/0.6/0.9 常规带+终局带，对齐手工关 E1 标定 0.3/0.45/0.6 递进+终局 0.9）；波表/建造计划=手工关 e1-01/e1-04/e1-final 同形缩放（T-085 levels/e1.json 锚点）；terrain 约束带 water/rock=0=手工装载面兼容口径（levels/{era}.json 装载器对 E1 行要求 water_ratio=0/rock_ratio=0——固定布局可建性同源，T-140 生成器产物走既有装载管线不变）",
+  "_duration_calibration": "时长闭环=胜波节奏：通关时刻 ≈ 宽限 +（胜波−1）×波间隔 + 清场余量（波间隔=120s×F.2 乘子）。档位带推导：t=0.3→12×240+360~480s≈56~61min；t=0.6→15×184+276~368s≈51~56min；t=0.9→18×128+192~256+Boss 清场≈47~52min——全部单局落 [40,90] 分钟带（中位必然落带）；实测口径=10 seed headless 自动通关（offsystem 命令流先例），数字全录 REV-20261018-T140",
+  "_reroll_note": "重摇链=seed 派生子 seed（FNV-1a，attempt 入哈希）；可玩性闸=出生点→基地流场可达（C-11 复用）/建筑位充足/出生点不落阻隔格；装载兼容带（water/rock=0）下全图可通行故首摇恒过（保险机制），水域/岩石带（地形多样性档）在核心层触发重摇——EraCore/Procedural 单元测试实证",
+  "entry": {
+    "id": "campaign:procedural-entry",
+    "name_zh": "程序关卡",
+    "name_en": "Procedural Levels",
+    "eras": ["era1"],
+    "default_tier": "regular-1",
+    "duration_band_minutes": [40, 90]
+  },
+  "constraints": {
+    "width_min": 16,
+    "width_max": 20,
+    "height_min": 22,
+    "height_max": 26,
+    "forest_ratio_min": 0.06,
+    "forest_ratio_max": 0.16,
+    "rock_ratio_min": 0.0,
+    "rock_ratio_max": 0.0,
+    "water_ratio_min": 0.0,
+    "water_ratio_max": 0.0,
+    "entry_count_min": 2,
+    "entry_count_max": 4,
+    "grace_min": 1.5,
+    "grace_max": 2.0,
+    "max_rerolls": 8
+  },
+  "tiers": [
+    {
+      "id": "regular-1",
+      "slot": 1,
+      "adjacent_enemy_camps": 0,
+      "wave": {
+        "base_count": 14,
+        "begin_wave": 3,
+        "spacing": 3,
+        "scaling": 1.6,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0
+      },
+      "tower_plan": {
+        "arrow_tower_id": "era1:tower-wood-arrow",
+        "arrow_tower_count": 2,
+        "rock_tower_id": "era1:tower-rockfall",
+        "rock_tower_count": 1,
+        "wave_one_tower_count": 2,
+        "tower_wave_step": 4
+      },
+      "economy": {
+        "labor_camps": 1,
+        "harvesters": 1,
+        "converters": 1,
+        "harvester_lane_porters": 2
+      },
+      "boss_line": {
+        "enabled": false,
+        "boss_enemy_id": null
+      },
+      "stock_multiplier": 2.5,
+      "budget_seconds": 2400,
+      "objectives": {
+        "strategy": ["campaign:obj-s4"],
+        "challenge": ["campaign:obj-c8"]
+      },
+      "name_zh": "程序林地",
+      "name_en": "Procedural Grove",
+      "_source": "e1-01 同形（t=0.3 胜波 13；2 箭+1 落石=手工锚 3 塔；初始资源 2.5×塔价 ≈ e1-01 240/(2×30+60)≈2.67 带内）"
+    },
+    {
+      "id": "regular-2",
+      "slot": 2,
+      "adjacent_enemy_camps": 1,
+      "wave": {
+        "base_count": 14,
+        "begin_wave": 3,
+        "spacing": 4,
+        "scaling": 2.0,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0
+      },
+      "tower_plan": {
+        "arrow_tower_id": "era1:tower-wood-arrow",
+        "arrow_tower_count": 3,
+        "rock_tower_id": "era1:tower-rockfall",
+        "rock_tower_count": 2,
+        "wave_one_tower_count": 2,
+        "tower_wave_step": 4
+      },
+      "economy": {
+        "labor_camps": 1,
+        "harvesters": 2,
+        "converters": 1,
+        "harvester_lane_porters": 2
+      },
+      "boss_line": {
+        "enabled": false,
+        "boss_enemy_id": null
+      },
+      "stock_multiplier": 2.0,
+      "budget_seconds": 2400,
+      "objectives": {
+        "strategy": ["campaign:obj-s4"],
+        "challenge": ["campaign:obj-c8"]
+      },
+      "name_zh": "程序丘陵",
+      "name_en": "Procedural Hills",
+      "_source": "e1-04 同形（t=0.6 胜波 16；3 箭+2 落石=手工锚 5 塔；资源乘数 2.0 ≈ e1-04 360/(3×30+2×60)=1.71 上调裕度）"
+    },
+    {
+      "id": "endgame",
+      "slot": 3,
+      "adjacent_enemy_camps": 2,
+      "wave": {
+        "base_count": 18,
+        "begin_wave": 2,
+        "spacing": 4,
+        "scaling": 2.0,
+        "batches_per_wave": 4,
+        "valley_seconds": 15.0
+      },
+      "tower_plan": {
+        "arrow_tower_id": "era1:tower-wood-arrow",
+        "arrow_tower_count": 6,
+        "rock_tower_id": "era1:tower-rockfall",
+        "rock_tower_count": 3,
+        "wave_one_tower_count": 4,
+        "tower_wave_step": 4
+      },
+      "economy": {
+        "labor_camps": 1,
+        "harvesters": 2,
+        "converters": 2,
+        "harvester_lane_porters": 2
+      },
+      "boss_line": {
+        "enabled": true,
+        "boss_enemy_id": "era1:enemy-boss"
+      },
+      "stock_multiplier": 2.5,
+      "budget_seconds": 2400,
+      "objectives": {
+        "strategy": ["campaign:obj-s4"],
+        "challenge": ["campaign:obj-c8"]
+      },
+      "name_zh": "程序终局",
+      "name_en": "Procedural Endgame",
+      "_source": "e1-final 同形（t=0.9 胜波 19+Boss 波 19；6 箭+3 落石=手工锚 9 塔；1 营 2 采集 2 转换=手工锚经济链；资源乘数 2.5=900/360 手工锚）"
+    }
+  ]
+}
