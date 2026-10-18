@@ -280,6 +280,16 @@ namespace EraTD;
         SetupL2Lane();
         RunL2SmokeAsync().Wait(); // headless synchronous drive (every inner await completes synchronously — fake seams)
 
+        // ---- 5n) T-139 联机最小面 (F-161, scripts/net/NetMenuUi.cs) -----------
+        // 右上「联机」入口+房间面板（建房/加入 IP+链路状态）。headless 自带
+        // 零端口冒烟（帧格式往返+内容指纹+两实例内存回环对局含军师审批全链
+        // →NET_OK，失败 Quit(1)——G4 不真开网络的纪律承载面）；窗口运行走
+        // ENet 真实路径（EnetNetLink 建房=listen server/加入=client）。本 UI
+        // 自持游戏实例（NetDemoLevel），不触碰上方任何单机泳道——单机路径
+        // 零耦合（NetCouplingGuardTests 执法面）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        Net.NetMenuUi.Instantiate(this);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.

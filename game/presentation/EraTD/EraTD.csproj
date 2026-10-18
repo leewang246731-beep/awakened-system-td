@@ -14,5 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\EraCore\EraCore.csproj" />
+    <!-- T-139：联机会话编排+内存回环（G4 冒烟承载面）；ENet 传输适配器留在本表现层。 -->
+    <ProjectReference Include="..\..\src\EraNet\EraNet.csproj" />
   </ItemGroup>
 </Project>
