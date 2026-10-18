@@ -72,16 +72,17 @@
 
 五级覆盖自查：单元（Seed 派生/记录守卫/JSON 形状）、逻辑（威胁公式对齐/比例带/资源配平/重摇链）、集成（装载管线→组装→LevelSession 起局/Endless 入口→配置→哈希）、回归（全套件 6600+ 全绿：手工关六件套/金样/Endless 既有族零漂移）、链路（10 局生成→装载→自动通关实测中位落带+双跑全等）。
 
-## 6. run_all 门禁摘要
+## 6. run_all 门禁摘要（2026-10-18，共享树与 T-131 联机预留评审并行——本任务文件零交集）
 
 | 门禁 | 结果 | 说明 |
 |---|---|---|
-| G2 红线（redline_scan 9 检查） | **PASS** | 0 FAIL 0 WARN（R7 16 锚点；新增 ci-allow 两行：档位营数上界 2/最小图面 3/稀疏间距 2——均为结构值非平衡数值，§3.3 登记） |
-| G2.5 资产校验 | **PASS** | 无新资产（content JSON 非资产域） |
-| G2.6 模组校验 | **PASS** | procedural.json content_type=ProceduralEntry 不在 K-2 封闭枚举（注解键声明先例=objectives.json），预载索引跳过零冲突 |
-| G1 测试 | **PASS** | 全绿（数字见回传） |
-| G3 Release 构建 | **PASS** | 零警告 |
-| G4 Godot 冒烟 | **PASS** | SMOKE_OK（EraCore 纯逻辑零 Godot 接触；presentation 未接入口面=§7 遗留①） |
+| G2 红线（redline_scan 9 检查） | **PASS** | 0 FAIL 0 WARN（R7 16 锚点；新增 ci-allow 三行：档位营数上界 2/最小图面 3/稀疏间距 2——均为结构值非平衡数值，§3.3 登记） |
+| G2.5 资产校验 | **PASS** | 641 文件 0 rejected（本任务零新资产） |
+| G2.6 模组校验 | **PASS** | 0 FAIL（procedural.json content_type=ProceduralEntry 不在 K-2 封闭枚举——注解键声明先例=objectives.json，预载索引跳过零冲突） |
+| G1 测试 | **PASS** | 6684 passed / 0 failed（927s；含本任务 53 条新测试） |
+| G3 Release 构建 | **PASS** | 零警告（TreatWarningsAsErrors=true，32s） |
+| G4 Godot 冒烟 | **PASS** | SMOKE_OK（20s；运行时/程序集/EraCore 链路三合一） |
+| **总体** | **PASS** | 六步全绿（首跑 G4 曾红一次：`t055-panel-war-report.jsonl` 被并行会话进程锁占——环境文件争用非代码缺陷，锁释放后独立复跑 SMOKE_OK+全量重跑六步全绿，两次记录如实登记） |
 
 ## 7. 遗留与红线自查
 
