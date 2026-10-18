@@ -8,8 +8,9 @@ namespace EraTD.Audio;
 // 职责边界（CS-1.6：表现层零业务规则）——本节点只做四件事：
 //   1) 内容装载：game/content/audio/ 三参数表（bgm-programs/persona-timbres/
 //      narration）；
-//   2) BGM 三态：十五循环代码合成（T-142 起 5 时代行 × 3 态——era1/era2
-//      acoustic + era3 industrial[蒸汽垫/金属打击/汽笛动机] + era5 synth
+//   2) BGM 三态：十八循环代码合成（T-157 起 6 时代行 × 3 态——era1/era2
+//      acoustic + era3 industrial[蒸汽垫/金属打击/汽笛动机] + era4 modern
+//      [市电嗡鸣/城市脉冲/无线电点/电子鼓/警笛动机] + era5 synth
 //      [聚变脉冲/光流琶音/尖塔鸣响] + era6 cosmic[零点脉冲/星尘带/星门轰鸣]，
 //      确定性；WAV 落 res://audio/generated/ 供可听测）+ CrossFadeBus 等功率
 //      淡入淡出；现场态驱动=只读快照（场上有敌→交战；Boss 波经 SetBossWave
@@ -23,8 +24,9 @@ namespace EraTD.Audio;
 //      era3 段（三态分离/等功率中点/无缝循环/era3 播放器实测增益），打印
 //      AUDIO3_OK bgm=3states era=e3 loop=seamless（失败 Quit(1)）；T-142
 //      追加 E5/终章两段（RunTimbreAcceptance 同律），打印 AUDIO5_OK
-//      era=fusion / AUDIO6_OK era=deepspace（失败 Quit(1)）——十五循环
-//      （5 时代 × 3 态）全量渲染落 res://audio/generated/ 供可听测。
+//      era=fusion / AUDIO6_OK era=deepspace（失败 Quit(1)）；T-157 补 E4
+//      段（同律），打印 AUDIO4_OK era=modern（失败 Quit(1)）——十八循环
+//      （6 时代 × 3 态）全量渲染落 res://audio/generated/ 供可听测。
 // 并行纪律：Main.cs 只追加一行 Instantiate（冲突由后提交者 rebase）。
 
 /// <summary>
@@ -77,7 +79,7 @@ public sealed partial class AudioDirector : Node
         return director;
     }
 
-    /// <summary>BGM era routing seam — the sandbox runs E1 levels; E2 routing lands with the E2 level work (Era2TerrainAtlas note applies).</summary>
+    /// <summary>BGM era routing seam — the table now carries all six eras (T-157 补 era4 行); the level host routes the level's era here.</summary>
     public void SetActiveEra(string era)
     {
         if (_programs.Find(era) is null)
@@ -89,9 +91,8 @@ public sealed partial class AudioDirector : Node
     }
 
     /// <summary>
-    /// T-126 voice-era seam: persona timbres are era×persona (16 rows, era1~era4
-    /// — wider than the shipped BGM rows, E4 voice lands before its BGM). The
-    /// campaign host routes the level's era here; smoke drives it directly.
+    /// T-126 voice-era seam: persona timbres are era×persona (16 rows, era1~era4).
+    /// The campaign host routes the level's era here; smoke drives it directly.
     /// </summary>
     /// <exception cref="ArgumentException">era is outside the timbre table's closed set.</exception>
     public void SetVoiceEra(string era)
@@ -211,8 +212,12 @@ public sealed partial class AudioDirector : Node
         // ---- headless acceptance --------------------------------------------
         RunAcceptance(filesWritten);
         RunEra3Acceptance(filesWritten);
-        // live-path 时间基单调错峰（三个验收段的 _fades 驱动不得共用同一 tick
+        // live-path 时间基单调错峰（四个验收段的 _fades 驱动不得共用同一 tick
         // 基——回拨时钟会让 DominantAt 取到上段的 pre-fade 态，中点增益失真）
+        RunTimbreAcceptance(
+            "era4", EraCore.Audio.BgmTimbre.Modern, "AUDIO4", "modern", filesWritten,
+            liveBase: 1500, // era3 活道终点（~1450）之上——时钟基单调不回拨
+            "hum=dual-winding grid=two-beat-throb radio=bar-blips siren=fm-sweep+reprise");
         RunTimbreAcceptance(
             "era5", EraCore.Audio.BgmTimbre.Synth, "AUDIO5", "fusion", filesWritten,
             liveBase: 2000,
@@ -447,7 +452,7 @@ public sealed partial class AudioDirector : Node
             && personasDistinct && personaAudible && downgrade && narratorDistinct
             && openFirst && victoryFirst && replaySilent && persisted
             && busIndependent && dingRegression
-            && loops == 15 && stingers == 2 && (!editorRun || filesWritten >= 15);
+            && loops == 18 && stingers == 2 && (!editorRun || filesWritten >= 18);
 
         if (ok)
         {
@@ -664,7 +669,7 @@ public sealed partial class AudioDirector : Node
         bool editorRun = !OS.HasFeature("template"); // T-096: WAV dump is editor-only
         bool ok = tableRow && distinct == 3 && eraIdentity && loopPinned && halvesBalanced
             && transitions == 3 && equalPower && midIsSqrtHalf && chainDone && playerGain
-            && (!editorRun || filesWritten >= 15);
+            && (!editorRun || filesWritten >= 18);
 
         if (ok)
         {

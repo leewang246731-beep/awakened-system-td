@@ -31,7 +31,7 @@ public enum BgmLayerState
 /// audition/regression anchor).
 /// </summary>
 /// <remarks>
-/// Timbre families (T-121/T-142, table-driven): <c>Acoustic</c> keeps the
+/// Timbre families (T-121/T-142/T-157, table-driven): <c>Acoustic</c> keeps the
 /// T-092 voice set verbatim (byte-identical E1/E2). <c>Industrial</c> renders
 /// the E3 soundscape of the 31 号 visual identity card — calm = 蒸汽垫底
 /// (steam-hiss additive noise band, exactly periodic) + 低频脉冲 (sub-root
@@ -41,6 +41,12 @@ public enum BgmLayerState
 /// 2/4); boss = +重工业低音 (harder-driven alternating root/fifth bass) +
 /// 汽笛长鸣动机 (one-bar long whistle at the loop head with a half-bar
 /// fifth reprise mid-loop — call and response, the Bastion's horn).
+/// <c>Modern</c> (T-157, E4 现代) — calm = 市电嗡鸣 (detuned dual-winding
+/// hum over the root octave) + 城市脉冲 (sub-root load throb, one cycle per
+/// two beats) + 无线电点 (bar-head high beacon blips); combat = +电子鼓
+/// (150→50 Hz kick / double-tap clap snare / digital hats); boss = +都市
+/// 低音 (drive 2.8) + 都市警笛动机 (FM-swept dual-tone siren in opposition
+/// with a half-bar fifth reprise).
 /// <c>Synth</c> (T-142, E5 未来) — calm = 聚变脉冲 (softer sub-root
 /// per-beat throb) + 光流琶音 (chord-tone octave-alternating plucks on the
 /// eighth grid) + 全息点 (bar-head high blips); combat = +合成鼓
@@ -146,6 +152,50 @@ public static class BgmSynth
 
     /// <summary>重工业低音的软削波驱动（acoustic=1.8；更大=更密的谐波）.</summary>
     public const double IndustrialBassDrive = 2.6;
+
+    // ---- T-157 modern timbre (E4 现代音景, 31 号 §1.2 E4 身份卡) ------------
+
+    /// <summary>市电嗡鸣基音 = 根音上八度（×2）——双绕组失谐对的变压器哼鸣.</summary>
+    public const double MainsHumRatio = 2.0;
+
+    /// <summary>市电嗡鸣失谐（± ratio）——双绕组拍频（变压器哼鸣的粗粝感）.</summary>
+    public const double MainsHumDetune = 0.006;
+
+    /// <summary>城市脉冲基音 = 根音下八度（×0.5）——每两拍一周的电网负载搏动.</summary>
+    public const double GridPulseRatio = 0.5;
+
+    /// <summary>无线电点频率（×根音——高频信标闪点）.</summary>
+    public const double RadioBlipRatio = 18.0;
+
+    /// <summary>无线电点时长（s）.</summary>
+    public const double RadioBlipSec = 0.05;
+
+    /// <summary>无线电点增益系数（×pad_gain）.</summary>
+    public const double RadioBlipGainFactor = 0.28;
+
+    /// <summary>电子鼓 kick 扫频起点（Hz）.</summary>
+    public const double ModernKickFromHz = 150.0;
+
+    /// <summary>电子鼓 kick 扫频终点（Hz）.</summary>
+    public const double ModernKickToHz = 50.0;
+
+    /// <summary>电子鼓 kick 时长（s）.</summary>
+    public const double ModernKickSec = 0.1;
+
+    /// <summary>电子拍手军鼓时长（s）.</summary>
+    public const double ClapSnareSec = 0.08;
+
+    /// <summary>数字 hat 时长（s）.</summary>
+    public const double DigitalHatSec = 0.014;
+
+    /// <summary>都市低音的软削波驱动（声学 1.8/工业 2.6/合成 3.2 之间——都市的稳态重量）.</summary>
+    public const double ModernBassDrive = 2.8;
+
+    /// <summary>都市警笛的音高摆幅（± semitones around the two-pipe base）.</summary>
+    public const double SirenSweepSemitones = 3.0;
+
+    /// <summary>警笛动机复现时长 = 半小节；增益 = 长鸣×本系数（汽笛长鸣同构）.</summary>
+    public const double SirenRepriseGain = 0.6;
 
     // ---- T-142 synth timbre (E5 未来音景, 31 号 §1.2 E5 行) -----------------
 
@@ -296,6 +346,22 @@ public static class BgmSynth
             {
                 RenderBass(program, samples, count, rate, IndustrialBassDrive);
                 RenderLongWhistleMotif(program, samples, count, rate);
+            }
+        }
+        else if (program.Timbre == BgmTimbre.Modern)
+        {
+            // ---- E4 现代音景（T-157，31 号 §1.2 E4 身份卡：电网/电子/都市）：
+            // 三态累积分层（汽笛动机换警笛，蒸汽垫换市电嗡鸣）。
+            RenderModernBase(program, samples, count, rate);
+            if (program.HasPercussion(state))
+            {
+                RenderModernPercussion(program, samples, count, rate);
+            }
+
+            if (program.HasBass(state))
+            {
+                RenderBass(program, samples, count, rate, ModernBassDrive);
+                RenderUrbanSirenMotif(program, samples, count, rate);
             }
         }
         else if (program.Timbre == BgmTimbre.Synth)
@@ -616,6 +682,246 @@ public static class BgmSynth
             double[] reprise = WhistleEvent(half, rate, reprisePitch, gain * WhistleRepriseGain, WhistleAttackSec, WhistleReleaseSec);
             AddEvent(samples, 2 * barSamples, reprise);
         }
+    }
+
+    // ---- T-157 E4 modern timbre（E4 现代音景） -------------------------------
+
+    /// <summary>
+    /// E4 modern calm base (all states): 市电嗡鸣 = the shared pad plus a
+    /// detuned sine pair over the root octave under a slow two-cycle wobble
+    /// (the transformer hum of the modern grid); 城市脉冲 = a sub-root
+    /// raised-cosine throb with one cycle per TWO beats (the grid's load
+    /// pacing); 无线电点 = faint short high blips on every bar head (the
+    /// city's radio beacons). Sustained layers are integer-cycle quantized;
+    /// blips are fixed-grid events (same periodicity policy as the other
+    /// families).
+    /// </summary>
+    private static void RenderModernBase(BgmProgram program, double[] samples, int count, int rate)
+    {
+        int beatSamples = Math.Max(1, (int)Math.Round(program.BeatSec * rate));
+        int totalBeats = program.LoopBars * program.BeatsPerBar;
+
+        // a) 市电嗡鸣：根音上八度双绕组失谐对（整数周期化 ⇒ 无缝），2 周慢摆
+        double humBase = program.RootHz * MainsHumRatio;
+        double humGain = program.PadGain * 0.6;
+        int wobbleCycles = 2;
+        foreach (double detune in new[] { 1.0 + MainsHumDetune, 1.0 - MainsHumDetune })
+        {
+            int cycles = (int)Math.Round(humBase * detune * count / (double)rate);
+            if (cycles < 1)
+            {
+                continue;
+            }
+
+            for (int n = 0; n < count; n++)
+            {
+                double wobble = 0.8 + (0.2 * Math.Sin((TwoPi * wobbleCycles * n / (double)count) + (detune > 1 ? 0 : Math.PI / 2)));
+                samples[n] += (humGain / 2) * wobble * Math.Sin(TwoPi * cycles * n / (double)count);
+            }
+        }
+
+        // b) 城市脉冲：根音下八度，每两拍一周的升余弦搏动（电网负载节律）
+        int pulseCycles = (int)Math.Round(program.RootHz * GridPulseRatio * count / (double)rate);
+        int throbCycles = Math.Max(1, totalBeats / 2);
+        double pulseGain = program.PadGain * 1.05;
+        for (int n = 0; n < count; n++)
+        {
+            double throb = 0.5 + (0.5 * (0.5 - (0.5 * Math.Cos(TwoPi * throbCycles * n / (double)count))));
+            samples[n] += pulseGain * throb * Math.Sin(TwoPi * pulseCycles * n / (double)count);
+        }
+
+        // c) 无线电点：每小节栏首一粒高频信标闪点（快速衰减正弦）
+        int barSamples = beatSamples * program.BeatsPerBar;
+        int blipSamples = (int)Math.Round(RadioBlipSec * rate);
+        int blipEnd = ((program.LoopBars - 1) * barSamples) + blipSamples;
+        if (blipEnd >= count)
+        {
+            throw new InvalidOperationException(
+                $"{program.Era}: 无线电点网格尾端（{blipEnd} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        double blipPitch = program.RootHz * RadioBlipRatio;
+        for (int bar = 0; bar < program.LoopBars; bar++)
+        {
+            AddEvent(samples, bar * barSamples,
+                RadioBlipEvent(blipSamples, rate, blipPitch, program.PadGain * RadioBlipGainFactor));
+        }
+    }
+
+    /// <summary>
+    /// E4 modern percussion (combat+): 电子鼓 = swept-sine kick (150→50 Hz) on
+    /// beats 1/3; 拍手军鼓 = a double-tap seeded-noise clap on beats 2/4 (the
+    /// city crowd's pulse); 数字 hat = very short seeded noise on the
+    /// subdivision grid. Grid guard first (same policy).
+    /// </summary>
+    private static void RenderModernPercussion(BgmProgram program, double[] samples, int count, int rate)
+    {
+        int beatSamples = Math.Max(1, (int)Math.Round(program.BeatSec * rate));
+        int totalBeats = program.LoopBars * program.BeatsPerBar;
+        int subdivision = Math.Max(1, beatSamples / program.HatSubdivisions);
+        int kickSamples = (int)Math.Round(ModernKickSec * rate);
+        int clapSamples = (int)Math.Round(ClapSnareSec * rate);
+        int hatSamples = (int)Math.Round(DigitalHatSec * rate);
+
+        int kickEnd = ((totalBeats - 1) * beatSamples) + kickSamples;
+        int hatEnd = ((totalBeats - 1) * beatSamples) + (subdivision * (program.HatSubdivisions - 1)) + hatSamples;
+        if (kickEnd >= count || hatEnd >= count)
+        {
+            int worst = Math.Max(kickEnd, hatEnd);
+            throw new InvalidOperationException(
+                $"{program.Era}: 电子鼓网格尾端（{worst} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        for (int beat = 0; beat < totalBeats; beat++)
+        {
+            int beatStart = beat * beatSamples;
+            int beatInBar = beat % program.BeatsPerBar;
+            double[] hit = beatInBar % 2 == 0
+                ? ModernKickEvent(kickSamples, rate, program.PercussionGain)
+                : ClapSnareEvent(clapSamples, rate, program.PercussionGain * 0.9, HitSeed(beat, 0));
+            AddEvent(samples, beatStart, hit);
+
+            for (int sub = 0; sub < program.HatSubdivisions; sub++)
+            {
+                int offset = beatStart + (sub * subdivision);
+                if (offset >= beatStart + beatSamples)
+                {
+                    break;
+                }
+
+                AddEvent(samples, offset,
+                    DigitalHatEvent(hatSamples, rate, program.PercussionGain * 0.45, HitSeed(beat, sub + 1)));
+            }
+        }
+    }
+
+    /// <summary>
+    /// E4 Boss 都市警笛动机: a one-bar FM-swept dual-tone siren (the city's
+    /// emergency voice — two detuned carriers pitch-cycled in opposition) at
+    /// the loop head, answered mid-loop by a half-bar reprise up a fifth —
+    /// call and response（汽笛长鸣动机同构，音色族=都市警笛）. Envelope
+    /// windows pin exact zero endpoints (click kill — the whistle policy).
+    /// </summary>
+    private static void RenderUrbanSirenMotif(BgmProgram program, double[] samples, int count, int rate)
+    {
+        int beatSamples = Math.Max(1, (int)Math.Round(program.BeatSec * rate));
+        int barSamples = beatSamples * program.BeatsPerBar;
+        double gain = program.BassGain * 0.6;
+
+        int longEnd = program.LoopBars >= 3 ? (2 * barSamples) + (barSamples / 2) : barSamples;
+        if (longEnd >= count)
+        {
+            throw new InvalidOperationException(
+                $"{program.Era}: 都市警笛尾端（{longEnd} 样）越过循环尾（{count} 样）——先修参数行");
+        }
+
+        AddEvent(samples, 0, SirenEvent(barSamples, rate, program.RootHz * MainsHumRatio, gain));
+
+        if (program.LoopBars >= 3)
+        {
+            AddEvent(samples, 2 * barSamples,
+                SirenEvent(barSamples / 2, rate, program.RootHz * MainsHumRatio * WhistleRepriseInterval,
+                    gain * SirenRepriseGain));
+        }
+    }
+
+    /// <summary>One radio beacon blip: a fast-decaying high sine (fixed grid ⇒ loop-periodic).</summary>
+    private static double[] RadioBlipEvent(int lengthSamples, int rate, double pitchHz, double gain)
+    {
+        var buf = new double[lengthSamples];
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            buf[i] = gain * Math.Exp(-t / (RadioBlipSec / 2.5)) * Math.Sin(TwoPi * pitchHz * t)
+                * ReleaseRamp(i, lengthSamples, rate);
+        }
+
+        return buf;
+    }
+
+    /// <summary>电子鼓 kick：150→50 Hz 指数衰减扫频正弦（声学与合成之间的稳态档）.</summary>
+    private static double[] ModernKickEvent(int lengthSamples, int rate, double gain)
+    {
+        var buf = new double[lengthSamples];
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            double sweep = ModernKickFromHz * Math.Pow(ModernKickToHz / ModernKickFromHz, t / ModernKickSec);
+            buf[i] = gain * Math.Exp(-t / (ModernKickSec / 2.0)) * Math.Sin(TwoPi * sweep * t)
+                * ReleaseRamp(i, lengthSamples, rate);
+        }
+
+        return buf;
+    }
+
+    /// <summary>拍手军鼓：双击种子噪声体（第二击 12 ms 后×0.7——拍手的复击感）.</summary>
+    private static double[] ClapSnareEvent(int lengthSamples, int rate, double gain, uint seed)
+    {
+        var buf = new double[lengthSamples];
+        int secondTap = (int)Math.Round(0.012 * rate);
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            uint firstState = seed;
+            uint secondState = seed ^ 0x5F356495u; // 第二击独立种子族（确定性）
+            double first = Math.Exp(-t / (ClapSnareSec / 1.5)) * NextNoise(ref firstState);
+            double second = 0;
+            if (i >= secondTap)
+            {
+                double t2 = (i - secondTap) / (double)rate;
+                second = 0.7 * Math.Exp(-t2 / (ClapSnareSec / 1.5)) * NextNoise(ref secondState);
+            }
+
+            buf[i] = gain * 0.8 * (first + second) * ReleaseRamp(i, lengthSamples, rate);
+        }
+
+        return buf;
+    }
+
+    /// <summary>数字 hat：极短种子噪声（数字味的稀疏高频点）.</summary>
+    private static double[] DigitalHatEvent(int lengthSamples, int rate, double gain, uint seed)
+    {
+        var buf = new double[lengthSamples];
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            buf[i] = gain * Math.Exp(-t / (DigitalHatSec / 2.0)) * NextNoise(ref seed)
+                * ReleaseRamp(i, lengthSamples, rate);
+        }
+
+        return buf;
+    }
+
+    /// <summary>
+    /// One urban siren event: two detuned carriers whose pitch swings ±
+    /// <see cref="SirenSweepSemitones"/> in opposition (phase-accumulated FM —
+    /// the emergency wail) under a raised-cosine window with exact zero
+    /// endpoints（click kill——WhistleEvent 同律：窗端归零即无缝，事件网格固定
+    /// ⇒ 循环周期成立）.
+    /// </summary>
+    private static double[] SirenEvent(int lengthSamples, int rate, double baseHz, double gain)
+    {
+        var buf = new double[lengthSamples];
+        int attack = (int)Math.Round(WhistleAttackSec * rate);
+        int release = (int)Math.Round(WhistleReleaseSec * rate);
+        double sweepHz = 0.8; // one full up-down wail per 1.25 s — the siren's cadence
+        double upRatio = Math.Pow(2, SirenSweepSemitones / 12.0);
+        double downRatio = Math.Pow(2, -SirenSweepSemitones / 12.0);
+        double phaseA = 0;
+        double phaseB = 0;
+        for (int i = 0; i < lengthSamples; i++)
+        {
+            double t = i / (double)rate;
+            double env = EnvelopeWindow(i, lengthSamples, attack, release);
+            double swing = Math.Sin(TwoPi * sweepHz * t);
+            double freqA = baseHz * (1.0 + MainsHumDetune) * Math.Pow(upRatio, swing);
+            double freqB = baseHz * (1.0 - MainsHumDetune) * Math.Pow(downRatio, swing); // 反向摆——双车警笛的对驶
+            phaseA += (TwoPi * freqA) / rate;
+            phaseB += (TwoPi * freqB) / rate;
+            buf[i] = gain * env * (0.5 * Math.Sin(phaseA) + 0.5 * Math.Sin(phaseB));
+        }
+
+        return buf;
     }
 
     // ---- T-142 E5 synth timbre（E5 未来音景） ------------------------------

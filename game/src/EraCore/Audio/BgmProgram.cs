@@ -36,11 +36,14 @@ public enum BgmTimbre
     /// <summary>E3 工业 — steam pad + metal percussion + whistle motif.</summary>
     Industrial = 1,
 
+    /// <summary>E4 现代 (T-157) — mains-hum pad + radio blips + electro drums + urban siren motif.</summary>
+    Modern = 2,
+
     /// <summary>E5 未来 (T-142) — fusion pulse + light-flow arpeggio + spire chime.</summary>
-    Synth = 2,
+    Synth = 3,
 
     /// <summary>终章 深空 (T-142) — zero-point pulse + stardust band + gate drone.</summary>
-    Cosmic = 3,
+    Cosmic = 4,
 }
 
 /// <summary>
@@ -53,7 +56,7 @@ public enum BgmTimbre
 /// never stored twice. T-121 adds the <paramref name="Timbre"/> column so the
 /// E3 industrial voice set is a table row, parallel to E1/E2 — not code.
 /// </summary>
-/// <param name="Era">Era id (<c>era1</c>/<c>era2</c>/<c>era3</c>/<c>era5</c>/<c>era6</c> — 表行键，与关卡侧时代路由约定一致).</param>
+/// <param name="Era">Era id (<c>era1</c>~<c>era6</c> 全六行 — 表行键，与关卡侧时代路由约定一致).</param>
 /// <param name="TempoBpm">Tempo in beats per minute (40~200).</param>
 /// <param name="RootHz">Chord root fundamental in Hz (55~440).</param>
 /// <param name="ChordIntervals">Chord ratios over the root, ascending, first = 1.0.</param>
@@ -101,7 +104,7 @@ public sealed record BgmProgram(
 /// <c>timbre</c> column, T-121; T-142 appends the era5/era6 rows): closed
 /// marker, bounded globals, unique era ids, ascending chords rooted at 1.0,
 /// gains in (0, 1], closed timbre set. Rows = exactly
-/// <see cref="ProgramCount"/> (T-121 froze E1/E2/E3; T-142 grows the table
+/// <see cref="ProgramCount"/> (T-121 froze E1/E2/E3; T-142 grew to five; T-157 completes all six eras
 /// to five with the E5 future + final-chapter deep-space rows — further
 /// eras land by appending rows here, never in code).
 /// </summary>
@@ -114,7 +117,7 @@ public sealed class BgmProgramTable
     public const string ContentTypeMarker = "BgmProgramTable";
 
     /// <summary>Frozen program count of the T-142 card (era1~era3 T-121 + era5/era6 T-142; E4 BGM 未立项——扩表走本常量).</summary>
-    public const int ProgramCount = 5; // ci-allow: R7 T-142 扩表口径=E1/E2/E3+T-142 两章五行（08 任务卡；5<10 永不入锚点集，防御性标注）
+    public const int ProgramCount = 6; // ci-allow: R7 T-157 扩表口径=E1/E2/E3+T-142 两章+T-157 era4 六行（08 任务卡；6<10 永不入锚点集，防御性标注）
 
     private readonly Dictionary<string, BgmProgram> _byEra;
 
@@ -190,7 +193,7 @@ public sealed class BgmProgramTable
         if (programsEl.GetArrayLength() != ProgramCount)
         {
             throw new AudioSchemaException(
-                $"{sourceName}: programs 必须 {ProgramCount} 行（T-121 冻结=E1/E2/E3，T-142 扩=E5+era6；再扩时代走改表+本常量）");
+                $"{sourceName}: programs 必须 {ProgramCount} 行（T-121 冻结=E1/E2/E3，T-142 扩=E5+era6，T-157 补=E4——再扩时代走改表+本常量）");
         }
 
         var programs = new List<BgmProgram>(ProgramCount);
@@ -274,10 +277,11 @@ public sealed class BgmProgramTable
             {
                 "acoustic" => BgmTimbre.Acoustic,
                 "industrial" => BgmTimbre.Industrial,
+                "modern" => BgmTimbre.Modern,
                 "synth" => BgmTimbre.Synth,
                 "cosmic" => BgmTimbre.Cosmic,
                 _ => throw new AudioSchemaException(
-                    $"{sourceName}: {era} timbre={timbreText} 不在封闭集（acoustic|industrial|synth|cosmic）"),
+                    $"{sourceName}: {era} timbre={timbreText} 不在封闭集（acoustic|industrial|modern|synth|cosmic）"),
             };
 
             programs.Add(new BgmProgram(

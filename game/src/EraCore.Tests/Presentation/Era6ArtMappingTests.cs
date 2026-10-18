@@ -274,6 +274,37 @@ public class Era6ArtMappingTests
         Assert.Equal(((byte)62, (byte)85, (byte)201, (byte)255), Pixel(boss, 24, 40));
     }
 
+    [Fact] // legal — T-157 ⑧ 底稿升质锚点：千年裂纹/蒙皮层积缝加密/坍缩甲片/
+    // 眼窝内影/冠环破裂火花/前缘 rim light/光尘第二群（96×112 与既有形态
+    // 锚点不变——升质只加细节不改形；全部取自既有 28 色板）
+    public void Boss_fallen_watcher_upgrade_adds_millennium_detail_layers()
+    {
+        var boss = DecodeRgba(Texture("enemies", "boss-fallen-watcher.png"));
+        Assert.Equal((96, 112), (PngSize(Texture("enemies", "boss-fallen-watcher.png")).Width,
+            PngSize(Texture("enemies", "boss-fallen-watcher.png")).Height));
+        // 千年裂纹（眼窝两角向肩部爬伸的透镜弧裂纹）
+        Assert.Equal(((byte)110, (byte)130, (byte)210, (byte)255), Pixel(boss, 39, 41));
+        Assert.Equal(((byte)110, (byte)130, (byte)210, (byte)255), Pixel(boss, 61, 37));
+        // 蒙皮层积缝加密（中央舰体横向暗物质缝）
+        Assert.Equal(((byte)37, (byte)34, (byte)64, (byte)255), Pixel(boss, 42, 59));
+        Assert.Equal(((byte)37, (byte)34, (byte)64, (byte)255), Pixel(boss, 50, 62));
+        // 坍缩甲片（下缘剥落板片的靛蓝暗沿）
+        Assert.Equal(((byte)38, (byte)55, (byte)150, (byte)255), Pixel(boss, 38, 68));
+        Assert.Equal(((byte)38, (byte)55, (byte)150, (byte)255), Pixel(boss, 54, 69));
+        // 眼窝四角内影（星云中档——守望者之眼的深陷感）
+        Assert.Equal(((byte)68, (byte)55, (byte)140, (byte)255), Pixel(boss, 42, 47));
+        // 冠环破裂火花（断口侧靛蓝亮点+拱顶零点闪）
+        Assert.Equal(((byte)122, (byte)140, (byte)224, (byte)255), Pixel(boss, 35, 22));
+        Assert.Equal(((byte)222, (byte)244, (byte)248, (byte)255), Pixel(boss, 48, 18));
+        // 前缘 rim light（宽体上缘暗物质亮边）
+        Assert.Equal(((byte)58, (byte)55, (byte)92, (byte)255), Pixel(boss, 48, 34));
+        // 记忆光尘第二群（亮档两点）
+        Assert.Equal(((byte)232, (byte)238, (byte)252, (byte)255), Pixel(boss, 20, 60));
+        Assert.Equal(((byte)232, (byte)238, (byte)252, (byte)255), Pixel(boss, 70, 50));
+    }
+
+
+
     [Fact] // legal — 载具/UI/地形/传送带终章皮肤全部在场（era.json logistics ∞ 档）
     public void Era6_pack_teleporter_ui_tiles_and_belt_skin_exist()
     {

@@ -20,6 +20,10 @@ public class BgmSynthTests
         "era3", 112.0, 92.5, new[] { 1.0, 1.3348, 1.4983, 2.0 },
         PadGain: 0.30, PercussionGain: 0.26, BassGain: 0.36, HatSubdivisions: 4,
         SampleRateHz: 22050, LoopBars: 4, BeatsPerBar: 4, Timbre: BgmTimbre.Industrial);
+    private static readonly BgmProgram Era4 = new(
+        "era4", 118.0, 103.83, new[] { 1.0, 1.2599, 1.4983, 1.7818, 2.0 },
+        PadGain: 0.30, PercussionGain: 0.26, BassGain: 0.32, HatSubdivisions: 5,
+        SampleRateHz: 22050, LoopBars: 4, BeatsPerBar: 4, Timbre: BgmTimbre.Modern);
     private static readonly BgmProgram Era5 = new(
         "era5", 126.0, 123.47, new[] { 1.0, 1.2599, 1.4983, 1.6818, 2.0 },
         PadGain: 0.30, PercussionGain: 0.24, BassGain: 0.30, HatSubdivisions: 6,
@@ -209,38 +213,41 @@ public class BgmSynthTests
 
     // ------------------------------------------- T-142 E5/终章 音色族（两章曲）
 
-    [Theory] // legal — T-142 两章音景同律分层：鼓点抬频带、低音抬低频（synth/cosmic）
+    [Theory] // legal — T-142 两章+T-157 E4 音景同律分层：鼓点抬频带、低音抬低频
+    [InlineData("era4")]
     [InlineData("era5")]
     [InlineData("era6")]
     public void T142_timbre_states_separate_by_band_energy(string era)
     {
-        BgmProgram program = era == "era5" ? Era5 : Era6;
+        BgmProgram program = era switch { "era4" => Era4, "era5" => Era5, _ => Era6 };
         short[] calm = Samples(program, BgmLayerState.Calm);
         short[] combat = Samples(program, BgmLayerState.Combat);
         short[] boss = Samples(program, BgmLayerState.Boss);
 
         // 战斗加鼓点——频带口径按音色族密度取位：
+        //  era4 电子鼓密（150→50 kick+拍手军鼓+5 档数字 hat）抬高频带；
         //  era5 合成鼓密（170→55 kick+glitch snare+6 档 tick）抬高频带；
         //  era6 引力鼓稀而深（90→38 Hz 长扫频，占空比 ~2%）抬不动带平均——
         //  其战斗层分离证据取 pairwise-distinct+loops audible（本文件另两条），
-        //  这里只钉两族共同的硬分层轴：Boss 低音层抬低频带。
-        if (era == "era5")
+        //  这里只钉各族共同的硬分层轴：Boss 低音层抬低频带。
+        if (era is "era4" or "era5")
         {
             Assert.True(HighBandRms(combat) > HighBandRms(calm) * 1.35,
                 $"{era} high band combat {HighBandRms(combat):0.0} vs calm {HighBandRms(calm):0.0}");
         }
 
-        // Boss 加低音：低频带过 combat（synth drive 3.2 / cosmic drive 2.2 的持续低音）
+        // Boss 加低音：低频带过 combat（modern drive 2.8 / synth drive 3.2 / cosmic drive 2.2 的持续低音）
         Assert.True(LowBandRms(boss) > LowBandRms(combat) * 1.1,
             $"{era} low band boss {LowBandRms(boss):0.0} vs combat {LowBandRms(combat):0.0}");
     }
 
-    [Theory] // legal — T-142 两章各三态两两不同（每代 3 曲=三条真实音轨，非一曲）
+    [Theory] // legal — T-142 两章+T-157 E4 各三态两两不同（每代 3 曲=三条真实音轨，非一曲）
+    [InlineData("era4")]
     [InlineData("era5")]
     [InlineData("era6")]
     public void T142_timbre_states_are_pairwise_distinct(string era)
     {
-        BgmProgram program = era == "era5" ? Era5 : Era6;
+        BgmProgram program = era switch { "era4" => Era4, "era5" => Era5, _ => Era6 };
         byte[] calm = BgmSynth.SynthesizePcm(program, BgmLayerState.Calm);
         byte[] combat = BgmSynth.SynthesizePcm(program, BgmLayerState.Combat);
         byte[] boss = BgmSynth.SynthesizePcm(program, BgmLayerState.Boss);

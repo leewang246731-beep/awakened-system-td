@@ -6,9 +6,9 @@ namespace EraCore.Tests.Audio;
 /// <summary>
 /// Tests of the strict BGM program-table parser (T-092, F-135; T-121 adds
 /// the timbre column + era3 row; T-142 appends the era5 synth + era6 cosmic
-/// rows): the legal five rows, and every schema violation the loader must
-/// reject. Signal behavior of the rendered loops lives in
-/// <see cref="BgmSynthTests"/>.
+/// rows; T-157 inserts the era4 modern row — six rows): the legal six rows,
+/// and every schema violation the loader must reject. Signal behavior of the
+/// rendered loops lives in <see cref="BgmSynthTests"/>.
 /// </summary>
 // [C-25][F-135] 三态 BGM 参数表：严格解析（合法/边界/非法）
 public class BgmProgramTests
@@ -32,6 +32,10 @@ public class BgmProgramTests
               "chord_intervals": [1.0, 1.3348, 1.4983, 2.0],
               "pad_gain": 0.3, "percussion_gain": 0.26, "bass_gain": 0.36, "hat_subdivisions": 4,
               "timbre": "industrial" },
+            { "era": "era4", "tempo_bpm": 118, "root_hz": 103.83,
+              "chord_intervals": [1.0, 1.2599, 1.4983, 1.7818, 2.0],
+              "pad_gain": 0.3, "percussion_gain": 0.26, "bass_gain": 0.32, "hat_subdivisions": 5,
+              "timbre": "modern" },
             { "era": "era5", "tempo_bpm": 126, "root_hz": 123.47,
               "chord_intervals": [1.0, 1.2599, 1.4983, 1.6818, 2.0],
               "pad_gain": 0.3, "percussion_gain": 0.24, "bass_gain": 0.3, "hat_subdivisions": 6,
@@ -46,12 +50,12 @@ public class BgmProgramTests
 
     // ---------------------------------------------------------------- legal
 
-    [Fact] // legal — the five rows parse with derived timing math and their timbres
+    [Fact] // legal — the six rows parse with derived timing math and their timbres
     public void Legal_table_parses_with_derived_timing()
     {
         BgmProgramTable table = BgmProgramTable.Parse(LegalJson);
 
-        Assert.Equal(5, table.Programs.Count);
+        Assert.Equal(6, table.Programs.Count);
         Assert.Equal(22050, table.SampleRateHz);
 
         BgmProgram era1 = table.Find("era1")!;
@@ -70,9 +74,13 @@ public class BgmProgramTests
         Assert.Equal(BgmTimbre.Acoustic, era2.Timbre);
         Assert.True(era3.TempoBpm > era2.TempoBpm); // era progression 84 → 100 → 112
 
+        BgmProgram era4 = table.Find("era4")!; // T-157 row — modern (E4 现代音景)
+        Assert.Equal(BgmTimbre.Modern, era4.Timbre);
+        Assert.True(era4.TempoBpm > era3.TempoBpm); // 时代递进 112 → 118
+
         BgmProgram era5 = table.Find("era5")!; // T-142 row — future synth
         Assert.Equal(BgmTimbre.Synth, era5.Timbre);
-        Assert.True(era5.TempoBpm > era3.TempoBpm); // 126 tops the era progression
+        Assert.True(era5.TempoBpm > era4.TempoBpm); // → 126（时代递进封顶）
 
         BgmProgram era6 = table.Find("era6")!; // T-142 row — final-chapter cosmic
         Assert.Equal(BgmTimbre.Cosmic, era6.Timbre);
@@ -148,9 +156,10 @@ public class BgmProgramTests
         Assert.Equal(new[] { 1.0, 2.5 }, program.ChordIntervals);
     }
 
-    [Theory] // boundary — the timbre column's closed set accepts all four family ids
+    [Theory] // boundary — the timbre column's closed set accepts all five family ids (T-157 +modern)
     [InlineData("acoustic", BgmTimbre.Acoustic)]
     [InlineData("industrial", BgmTimbre.Industrial)]
+    [InlineData("modern", BgmTimbre.Modern)]
     [InlineData("synth", BgmTimbre.Synth)]
     [InlineData("cosmic", BgmTimbre.Cosmic)]
     public void Boundary_timbre_closed_set_parses(string text, BgmTimbre expected)

@@ -28,7 +28,9 @@ T-119 双层动画全套几何契约）、终章面板色板（C-22 换肤底稿
   堕落守望者 Boss 画布=96×112（设计案 §13.1「终章 Boss 96×112」逐字锚点，
   T-136 升格：内容表 canvas_size_px=96+canvas_height_px=112 双字段对齐；
   SIZE-ALLOWLIST 扩 96/112 随 REV-20261018-T136 登记——28 号 §5「常规 Boss
-  64~96」带上沿 96=宽、112=终章专属纵幅。
+  64~96」带上沿 96=宽、112=终章专属纵幅。T-157 ⑧ 底稿升质：千年裂纹/层积
+  缝加密/坍缩甲片/眼窝内影/冠环火花/rim light/光尘第二群（画布与形态锚点
+  不变，细节度抬升——REV-20261018-T157 登记）。
 
 传送带终章皮肤（∞ 档，era6/era.json logistics tier5=teleporter null=∞——
 trip 传送形态的皮肤对位）：纹理色板换装，几何与帧律逐字节复用 T-119 冻结
@@ -674,7 +676,10 @@ def boss_fallen_watcher():
     初代守望者——宽体暗物质蒙皮+胸口守望者之眼（星门环口径+靛蓝瞳）+重力
     脉冲同心弧（gravity_pulse 辨识）+双肩坍缩塔+顶冠残环（星门母题的堕落
     形态——环已破裂）。纵向 112=终章专属纵幅：冠环-舰体-脉冲弧三段拉满
-    （千年重量的视觉高度）。"""
+    （千年重量的视觉高度）。T-157 ⑧ 底稿升质（96×112 与既有形态锚点不变）：
+    +千年裂纹（眼窝两角向肩部爬伸）/蒙皮层积缝加密/坍缩甲片+剥落碎屑/
+    眼窝四角内影/冠环破裂火花/前缘 rim light/第二群记忆光尘——细节度抬升
+    仍全部取自既有 28 色板（≤64 上限内），程序化零 AI 生图。"""
     c = Canvas(96, 112)
     _shadow(c, 12, 106, 72)
     span = (  # 悬浮宽体平面形（行 y, 半宽 hw；cx=48）——菱形前缘+展肩
@@ -729,6 +734,39 @@ def boss_fallen_watcher():
         c.set(dx_, dy_, PALETTE["dust_mid"])
     c.set(47, 22, PALETTE["frost_main"])                    # 机顶频闪（贴残环）
     c.set(48, 22, PALETTE["frost_light"])
+
+    # —— T-157 ⑧ 底稿升质（96×112 不变；既有形态锚点零触碰——见下方注释）——
+    # 千年裂纹（从眼窝两角向肩部爬伸的透镜弧裂纹——被记忆压垮的读法加深）
+    for (cx_, cy_) in ((39, 41), (37, 39), (35, 37), (57, 41), (59, 39), (61, 37)):
+        c.set(cx_, cy_, PALETTE["lens_mid"])
+    # 蒙皮层积缝加密（中央舰体的横向暗物质缝——层积纹理细分）
+    c.hline(36, 59, 12, PALETTE["void_mid"])
+    c.hline(50, 62, 12, PALETTE["void_mid"])
+    c.hline(40, 66, 6, PALETTE["void_mid"])
+    # 坍缩甲片（下缘剥落的板片+悬挂碎屑——重量的下坠感）
+    c.fill(38, 68, 4, 3, PALETTE["void_mid"])
+    c.hline(38, 68, 4, PALETTE["indigo_dark"])
+    c.fill(54, 69, 4, 3, PALETTE["void_mid"])
+    c.hline(54, 69, 4, PALETTE["indigo_dark"])
+    for (sx_, sy_) in ((42, 72), (52, 74), (47, 71), (40, 66), (56, 67)):
+        c.set(sx_, sy_, PALETTE["dust_mid"])                # 剥落碎屑（光尘化）
+    # 眼窝加深（星云暗的四角内影——守望者之眼的深陷感）
+    for (nx_, ny_) in ((42, 47), (53, 47), (42, 52), (53, 52)):
+        c.set(nx_, ny_, PALETTE["nebula_mid"])
+    # 冠环破裂火花（断口两侧的靛蓝溅点+拱顶零点闪）
+    c.set(35, 22, PALETTE["indigo_light"])
+    c.set(61, 22, PALETTE["indigo_light"])
+    c.set(44, 20, PALETTE["indigo_light"])
+    c.set(52, 20, PALETTE["indigo_light"])
+    c.set(48, 18, PALETTE["frost_light"])
+    # 前缘 rim light（宽体上缘的暗物质亮边——体积读法）
+    for (rx_, ry_) in ((44, 34), (48, 34), (52, 34), (38, 36), (58, 36)):
+        c.set(rx_, ry_, PALETTE["void_light"])
+    # 飘散记忆光尘加密（第二群——千年记忆的散布）
+    for (dx2_, dy2_) in ((20, 60), (75, 66), (26, 72), (70, 50), (16, 44)):
+        c.set(dx2_, dy2_, PALETTE["dust_mid"])
+    c.set(20, 60, PALETTE["dust_light"])
+    c.set(70, 50, PALETTE["dust_light"])
     return c
 
 

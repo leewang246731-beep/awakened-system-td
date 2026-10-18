@@ -1059,7 +1059,7 @@ namespace EraTD;
 
         foreach (string era in EraCore.Audio.PersonaTimbreTable.Eras)
         {
-            audio?.SetVoiceEra(era); // 全时代路由合法（era4 早于其 BGM 行落地）
+            audio?.SetVoiceEra(era); // 语音时代全合法（BGM 六行齐——T-157 补 era4）
         }
 
         audio?.SetVoiceEra("era1");
