@@ -46,6 +46,16 @@ public sealed record EndlessEraContent(
 /// <see cref="EndlessMixPolicy.Default"/>; 滚词缀档缺省=null 即 SP-7b 冻结
 /// 激活表——W3 出口裁定生产默认）.
 /// </summary>
+/// <param name="BuiltWonderIds">Optional campaign built-wonder linkage (T-143 奇观带入——只读消费).</param>
+/// <param name="MixPolicy">混编档缺省=T-143 生产档 <see cref="EndlessMixPolicy.Default"/>.</param>
+/// <param name="AffixRolls">滚词缀档缺省=null 即 SP-7b 冻结激活表.</param>
+/// <param name="ProceduralMap">
+/// T-140 可选「程序图」开关（只读消费——Endless 域无地图面）：开启=宿主把
+/// 无尽波循环安放到一张按 run seed 派生的程序生成图上（EraCore.Procedural
+/// 域，seed 派生=ProceduralSeed；时代面=装载集动态枚举，开关不硬编码时代域）。
+/// Endless 侧只冻结开关入配置+身份哈希（同 T-143 奇观带入先例：引擎不复制
+/// 生成域效果面）；缺省 false=既有固定图行为，存量调用零影响。
+/// </param>
 public sealed record EndlessEntryRequest(
     long Seed,
     int StartEraIndex,
@@ -59,7 +69,8 @@ public sealed record EndlessEntryRequest(
     int? BossEveryWaves = null,
     IReadOnlyList<string>? BuiltWonderIds = null,
     EndlessMixPolicy? MixPolicy = null,
-    EndlessAffixRollPolicy? AffixRolls = null);
+    EndlessAffixRollPolicy? AffixRolls = null,
+    bool ProceduralMap = false);
 
 /// <summary>
 /// 无尽会话状态（T-118 死亡终局→记分→返回 的最小会话流）：Running（波次
@@ -195,7 +206,8 @@ public static class EndlessEntry
             request.Participation,
             baseline,
             request.MixPolicy ?? EndlessMixPolicy.Default,
-            request.AffixRolls);
+            request.AffixRolls,
+            request.ProceduralMap);
         return new EndlessSession(new EndlessRun(config, rng, port, campaignMeta, scoreSink));
     }
 }

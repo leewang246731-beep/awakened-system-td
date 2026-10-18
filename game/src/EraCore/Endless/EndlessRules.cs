@@ -114,7 +114,8 @@ public sealed class EndlessRunConfig
         EndlessParticipationMode participation = EndlessParticipationMode.Manual,
         EndlessStartEraBaseline? startBaseline = null,
         EndlessMixPolicy? mixPolicy = null,
-        EndlessAffixRollPolicy? affixRolls = null)
+        EndlessAffixRollPolicy? affixRolls = null,
+        bool proceduralMap = false)
     {
         ArgumentNullException.ThrowIfNull(pool);
         ArgumentNullException.ThrowIfNull(affixes);
@@ -195,6 +196,7 @@ public sealed class EndlessRunConfig
         StartEraBaseline = startBaseline;
         MixPolicy = mixPolicy;
         AffixRolls = affixRolls;
+        ProceduralMap = proceduralMap;
     }
 
     /// <summary>Run seed — the caller's <see cref="IRng"/> is seeded with it (determinism root).</summary>
@@ -261,6 +263,18 @@ public sealed class EndlessRunConfig
     /// the seed-derived rolling schedule replaces the activation table.
     /// </summary>
     public EndlessAffixRollPolicy? AffixRolls { get; }
+
+    /// <summary>
+    /// T-140 可选「程序图」开关 (只读消费): true = the HOST composes this
+    /// endless run onto a seed-derived procedural map (EraCore.Procedural,
+    /// seed derivation <see cref="EraCore.Procedural.ProceduralSeed"/>; era
+    /// domain = the loaded content sets — 动态枚举, the flag itself pins no
+    /// era). The endless wave loop carries no map domain of its own, so the
+    /// engine side freezes the flag into the config + identity hash only
+    /// (T-143 奇观带入 precedent: effects live host-side); false (default)
+    /// keeps the fixed-map behaviour, existing callers unchanged.
+    /// </summary>
+    public bool ProceduralMap { get; }
 
     /// <summary>Threat multiplier triple of the run (v3.2 appendix F.2).</summary>
     public ThreatMultipliers Threat => Balance.Threat.Multipliers(ThreatLevel);

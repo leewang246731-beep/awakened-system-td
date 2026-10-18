@@ -429,6 +429,7 @@ public sealed class EndlessRun
         WriteBaseline(writer, _config.StartEraBaseline);
         WriteMixPolicy(writer, _config.MixPolicy);
         WriteRollPolicy(writer, _config.AffixRolls);
+        writer.Write(_config.ProceduralMap); // T-140 程序图开关入身份哈希（只读消费）
 
         writer.Write(_participationSwitches.Count);
         foreach (EndlessParticipationSwitch participationSwitch in _participationSwitches)
