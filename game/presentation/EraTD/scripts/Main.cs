@@ -290,6 +290,16 @@ namespace EraTD;
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         Net.NetMenuUi.Instantiate(this);
 
+        // ---- 5o) T-157 无尽开局 UI + 策略表宿主装载 + 真人局遥测 (F-006/C-21) --
+        // 无尽开局面板（scripts/EndlessMenuUi.cs）：两档词缀节奏显式选择
+        // （Rolling 缺省/ClassicFixed 回切）+局内档位明示（EndlessSession.
+        // AffixSchedule 只读查询位）+endless-policies.json 宿主装载（改表即
+        // 改产；漏表=既有无表兜底链不变）+EndlessTelemetry 三调用（BeginRun/
+        // 逐波台账/终局 End——窗口局 source=player 自动入账）；headless 自带
+        // 冒烟并打印 ENDLESS_OK（失败 Quit(1)）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        EndlessMenuUi.Instantiate(this);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.
