@@ -55,6 +55,7 @@ public sealed partial class NetMenuUi : Control
     private EnetNetLink? _enetLink;
     private MemoryNetMesh? _loopbackMesh;
     private EraCore.Presentation.PauseClock? _hostClock;
+    private NetClientViewport? _viewport; // T-157 ④：客户端车道视口（加入后渲染镜像战场）
     private int _frameCounter;
 
     private NetMenuUi()
@@ -198,6 +199,7 @@ public sealed partial class NetMenuUi : Control
             });
         _enetLink = link;
         _client = new NetGameClient(mirror, link, link, link);
+        _viewport = NetClientViewport.Instantiate(this); // T-157 ④：客户端视口（镜像快照渲染+回显行）
         _entryButton.Text = "联机·已加入";
     }
 
@@ -233,6 +235,13 @@ public sealed partial class NetMenuUi : Control
         _client = null;
         _loopbackMesh = null;
         _hostClock = null;
+        if (_viewport is not null)
+        {
+            _viewport.ReleaseCamera();
+            _viewport.QueueFree();
+            _viewport = null;
+        }
+
         if (_enetLink is not null)
         {
             _enetLink.Dispose();
@@ -256,6 +265,7 @@ public sealed partial class NetMenuUi : Control
         {
             client.PumpIncoming();
             client.StepMirror(); // 帧步进 1 tick；对账为延迟比较（摘要到即核，落后不误报）
+            _viewport?.PumpFrame(client); // T-157 ④：镜像快照→脏块→双层重建+本地输入回显行
         }
     }
 
@@ -377,6 +387,10 @@ public sealed partial class NetMenuUi : Control
             $"NET_OK link=loopback frames={SmokeFrames} hash={hostHash} towers={hostTowers} " +
             $"digests={client.MatchedDigests} divergences=0 advisor=ask-confirm");
         hostLevel.DeleteJournal(); // 冒烟日志即用即清（防 GUID 命名在 D-03 根无限堆积）
+
+        // T-157 ④：客户端视口渲染集成冒烟（同回环介质+真渲染调用——NETVIEW_OK
+        // 判据=渲染面活/镜像追平/本地输入回显闭环；失败 Quit(1)）。
+        NetClientViewport.RunSmoke(this);
     }
 
     private static bool SmokeFramingRoundTrip()

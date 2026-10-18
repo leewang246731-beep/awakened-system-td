@@ -189,7 +189,7 @@ internal static class Era6ArtPack
     }
 
     /// <summary>
-    /// Existence probe over the FULL 26-file era6 pack (era6 content-id-aligned
+    /// Existence probe over the FULL 27-file era6 pack (era6 content-id-aligned
     /// manifest: tiles 9 + belt 3 + anim 1 + towers 2 + enemies 9 + units 1 +
     /// ui 1 — 终章两塔均 max_tier=1 ⇒ 2 升级位文件，era4 30/era5 29 的同构
     /// 异数，槽类结构一致，REV 登记) — the atlas Build() above is the
@@ -216,6 +216,7 @@ internal static class Era6ArtPack
             "res://textures/era6/belt/belt-edge.png",
             "res://textures/era6/belt/belt-turn-edge.png",
             "res://textures/era6/anim/belt-turn-anim.png",
+            "res://textures/era6/anim/tower-spacetime-anim.png", // T-157 ⑥：时空塔 4 相时间涟漪
             // towers (2 — both era6 towers are max_tier=1 by content ids)
             "res://textures/era6/towers/tower-singularity-l1.png",
             "res://textures/era6/towers/tower-spacetime-l1.png",

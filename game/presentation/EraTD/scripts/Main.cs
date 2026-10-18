@@ -300,6 +300,15 @@ namespace EraTD;
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         EndlessMenuUi.Instantiate(this);
 
+        // ---- 5p) T-157 程序关表现层入口 (F-007/C-21, scripts/ProceduralMenuUi.cs)
+        // 战役外入口按钮（ProceduralCampaignEntry 数据位 T-140 已就绪）：面板=
+        // 档位选择（procedural.json tiers 行）+种子+「生成并开局」——生成→
+        // LevelSession 起局（LevelSessionConfig.Telemetry+durationTelemetry
+        // 双注入，T-155 留口——程序关半边）；headless 自带冒烟并打印
+        // PROC_OK（失败 Quit(1)）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        ProceduralMenuUi.Instantiate(this);
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.
@@ -392,7 +401,7 @@ namespace EraTD;
         // 收口——20 件/s = E5 无人机档 → era5 皮肤, 15/s = E4 → era4, 10/s =
         // E3 → era3 —— 同一冻结帧律仅色板换装); tower/enemy/Boss 实体映射按
         // content-id→stem 规则组合（Era5ArtMappingTests 头less 侧镜像）。
-        // pack_files=29/29：era5 内容 id 对齐（三塔 5 升级位 vs era4 四塔 6
+        // pack_files=30/30：era5 内容 id 对齐（三塔 5 升级位 vs era4 四塔 6
         // 件——槽类结构同 era4 manifest，REV 登记）。Era routing stays with
         // the render loop as with E2/E3/E4 — this marker proves the
         // validator-gated pack loads (GPU pixel output is a windowed-only
@@ -405,7 +414,7 @@ namespace EraTD;
         _ = Era5ArtPack.TowerSpritePath("era5:tower-railgun", 2); // 塔升级位映射解析即证明
         GD.Print(
             $"ART5 era=future terrain={Era5TerrainAtlas.TileCount} " +
-            $"pack_files={Era5ArtPack.ProbePackFiles().Count}/29 " +
+            $"pack_files={Era5ArtPack.ProbePackFiles().Count}/30 " +
             $"belt={Era5ArtPack.BeltSkinShortStem}@{BeltRenderDecisions.Era5GearItemsPerSecond:0.#}/s " +
             $"boss={Era5ArtPack.BossStem}{Era5ArtPack.BossCanvasPx} " +
             "source=procedural-era5-placeholders");
@@ -429,7 +438,7 @@ namespace EraTD;
         // BeltSkinStem: ladder 末位 ∞ 档 = 终章传送阵 → era6 皮肤——有限
         // 高速带仍穿 era5, 唯真无穷穿深空); tower/enemy/Boss 实体映射按
         // content-id→stem 规则组合（Era6ArtMappingTests 头less 侧镜像）。
-        // pack_files=26/26：era6 内容 id 对齐（两塔均 max_tier=1 → 2 升级
+        // pack_files=27/27：era6 内容 id 对齐（两塔均 max_tier=1 → 2 升级
         // 位文件——era4 30/era5 29 的同构异数，REV 登记）。Boss 画布=64
         // （28 §5 下限重演；设计案 §13.1「终章 Boss 96×112」升格挂账 REV）。
         // Era routing stays with the render loop — this marker proves the
@@ -443,7 +452,7 @@ namespace EraTD;
         _ = Era6ArtPack.TowerSpritePath("era6:tower-singularity", 1); // 塔映射解析即证明
         GD.Print(
             $"ART6 era=finale terrain={Era6TerrainAtlas.TileCount} " +
-            $"pack_files={Era6ArtPack.ProbePackFiles().Count}/26 " +
+            $"pack_files={Era6ArtPack.ProbePackFiles().Count}/27 " +
             $"belt={Era6ArtPack.BeltSkinShortStem}@inf/s " +
             $"boss={Era6ArtPack.BossStem}{Era6ArtPack.BossCanvasPx}x{Era6ArtPack.BossCanvasHeightPx} " +
             "source=procedural-era6-placeholders");

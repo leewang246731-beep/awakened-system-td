@@ -20,10 +20,11 @@ era5_placeholders.py — E5 占位美术程序合成器（任务 T-142，Wave 8�
 键→未来力场弧→深空裂缝」第 5 环）。Cinematics A-05（E4→E5 跃迁，雷达塔涌起
 纳米流态能量尖塔，电网蓝点燃聚变青）为 E5 帧参考。
 
-特殊形态裁定（任务卡口径，同 era4 两裁先例）：
-  力场塔=力场弧静态底稿——本包供 canonical 相位单帧（悬浮环+双弧发射注记），
-  力场的脉冲呼吸属渲染层（SpriteRotationQuarters/着色器先例同律）；升动画帧
-  须走 REV（28 号 §6 待做 #3 同款挂账）。
+特殊形态裁定（任务卡口径，同 era4 两裁先例；T-157 ⑥ 部分清账）：
+  力场塔=力场弧静态底稿（towers/ 单帧=canonical 相位，决策层静态基准帧）
+  +动画帧条带（anim/tower-force-field-anim.png 四相脉冲呼吸——T-157 按
+  28 号 §6 待做 #3 同款升帧：第 0 相=canonical 逐像素同、1~3 相双弧渐张+
+  环渐亮+源点辉光；REV-20261018-T157 登记冻结面递增）。
   无人机巢=蜂巢六边舱口静态底稿——舱口启闭属渲染层。
 
 传送带 E5 皮肤（20/s 档，era5/era.json logistics tier4=drone 20 件/s——
@@ -62,14 +63,16 @@ BeltRenderDecisions.cs 常量一致，C# 侧 Era5ArtMappingTests 逐像素复验
   belt/belt-body.png / belt-edge.png /
         belt-turn-edge.png                           16×16 传送带双层纹理（E5 皮肤）
   anim/belt-turn-anim.png                            64×32 转弯 8 帧（4×2 网格）
+  anim/tower-force-field-anim.png                    64×64 力场塔 4 相（2×2 网格，T-157 ⑥）
 
-包文件数=29（era5 内容 id 对齐：三塔=5 升级位文件，era4=四塔 6 件的
+包文件数=30（era5 内容 id 对齐：三塔=5 升级位文件，era4=四塔 6 件的
 30 文件同构异数——「同 manifest 结构」按槽类不按件数，REV 登记）。
 
 全部输出须过 tools/ci/asset_validator.py（尺寸 16/32/48/64 白名单、≤64 色、
-kebab 命名）。--self-test 另做四类强校验：①asset_validator 全目录；②转弯 8 帧
+kebab 命名）。--self-test 另做五类强校验：①asset_validator 全目录；②转弯 8 帧
 帧边界对齐（u 律+双臂逐像素平移+循环闭合+八帧两两不同+带边零重叠）；③静态层/
-动画层透明区互斥（双层叠加契约）；④确定性（二次生成 sha256 逐字节全等）。
+动画层透明区互斥（双层叠加契约）；④力场塔四相条带（phase0=canonical+
+四相两两不同）；⑤确定性（二次生成 sha256 逐字节全等）。
 
 依赖：仅 Python 3.8+ 标准库（struct/zlib/argparse/hashlib/tempfile）——与
 asset_validator 同纪律，不引 Pillow。CLI：python era5_placeholders.py
@@ -383,8 +386,10 @@ def tower_drone_nest(level):
 def tower_force_field(level):
     """力场塔（era5:tower-force-field）32×32（max1 单档）：**能量尖塔**=本代
     母题塔（纳米流态渐收塔身+悬浮环+力场弧发射）；slow 支援档辨识=无炮管+
-    双弧合围。**静态底稿裁定**：canonical=悬浮环+双弧发射注记（对称弧对）；
-    力场脉冲呼吸属渲染层（着色器/帧律先例）——决策层静态单帧，不预烘动画帧。"""
+    双弧合围。**静态底稿+动画帧**（T-157 ⑥ 升帧）：本函数=canonical 相位
+    单帧（悬浮环+双弧发射注记——决策层静态基准帧，towers/ 落盘即此）；
+    力场的脉冲呼吸=anim/tower-force-field-anim.png 四相条带
+    （tower_force_field_frame——第 0 相与本帧逐像素同）。"""
     assert level == 1  # 支援设施不升级（内容表 max_tier=1；越级调用=合成器契约违例）
     c = Canvas(32, 32)
     nano_panel(c, 8, 25, 16, 6)                            # 纳米基座
@@ -417,6 +422,58 @@ def tower_force_field(level):
         c.set(ax + adx * 2, ay + 6, PALETTE["holo_dark"])
     c.set(16, 9, PALETTE["violet_main"])                   # 力场源点（聚变紫）
     return c
+
+
+# ------------------------------------------------ 力场塔动画帧（T-157 ⑥）
+
+TOWER_ANIM_FRAMES = 4          # 脉冲呼吸四相（0=canonical 静止，1~3=渐张）
+TOWER_ANIM_PER_ROW = 2         # 条带 2×2 网格（32px 帧 ×4 = 64×64 画布）
+
+
+def tower_force_field_frame(phase):
+    """力场塔单帧 32×32（脉冲呼吸第 phase 相，T-157 ⑥——28 号 §6 待做 #3
+    同款动画帧挂账的清账）：第 0 相=canonical 静止底稿（与
+    towers/tower-force-field-l1.png 逐像素同——决策层静态基准帧不变）；
+    第 1~3 相=双弧逐级外延（每相沿对角再张一格）+悬浮环渐亮（环上亮点
+    逐相位增加）+力场源点辉光（第 2 相起相邻点起辉）。四相循环读作
+    「脉冲呼吸」——力场的周期张弛（T-142 特殊形态裁定「脉冲呼吸属渲染
+    层」的帧律供料面；纯程序化，无随机数无 AI 生图）。"""
+    assert 0 <= phase < TOWER_ANIM_FRAMES
+    c = tower_force_field(1)
+    if phase == 0:
+        return c
+    # a) 双弧外延：canonical 弧尾 (6,16)/(26,16)，每相沿对角再张一格
+    #    （左弧向左下、右弧向右下——弧的展开方向）
+    left_ext = ((5, 18), (4, 20), (3, 22))
+    right_ext = ((27, 18), (28, 20), (29, 22))
+    for k in range(phase):
+        lx, ly = left_ext[k]
+        c.set(lx, ly, PALETTE["holo_dark"])
+        rx, ry = right_ext[k]
+        c.set(rx, ry, PALETTE["holo_dark"])
+    # b) 悬浮环渐亮：环上亮点随相位增加（cyan_light/flux 交替）
+    ring_lights = ((13, 5), (19, 5), (12, 9), (20, 9), (14, 3), (18, 3))
+    for k in range(phase * 2):
+        rx, ry = ring_lights[k]
+        c.set(rx, ry, PALETTE["cyan_light"] if k % 2 == 0 else PALETTE["flux_mid"])
+    # c) 力场源点辉光：第 2 相起相邻点起辉、第 3 相两侧伴点
+    if phase >= 2:
+        c.set(16, 10, PALETTE["flux_light"])
+    if phase >= 3:
+        c.set(15, 9, PALETTE["violet_light"])
+        c.set(17, 9, PALETTE["violet_light"])
+    return c
+
+
+def tower_force_field_strip():
+    """力场塔动画条带 64×64（2×2 网格，帧序=行优先 row*2+col）：四相脉冲
+    呼吸循环（0 静止 → 1~3 渐张 → 回 0 收束）。单帧 32px×四帧横排=128px
+    超 SIZE-ALLOWLIST，取 2×2 网格（belt-turn-anim 同律）。"""
+    strip = Canvas(TOWER_ANIM_PER_ROW * 32, (TOWER_ANIM_FRAMES // TOWER_ANIM_PER_ROW) * 32)
+    for k in range(TOWER_ANIM_FRAMES):
+        strip.blit(tower_force_field_frame(k),
+                   (k % TOWER_ANIM_PER_ROW) * 32, (k // TOWER_ANIM_PER_ROW) * 32)
+    return strip
 
 
 # ---------------------------------------------------------------- 八敌+Boss（era5/enemies.json）
@@ -1045,6 +1102,9 @@ def build_all(out_root):
     anim = os.path.join(out_root, "anim", "belt-turn-anim.png")
     belt_turn_strip().write(anim)
     wrote.append(anim)
+    tower_anim = os.path.join(out_root, "anim", "tower-force-field-anim.png")
+    tower_force_field_strip().write(tower_anim)
+    wrote.append(tower_anim)
     return wrote
 
 
@@ -1135,8 +1195,32 @@ def check_determinism(out_root):
         return count, mismatches
 
 
+def check_tower_anim_strip():
+    """力场塔四相条带断言（T-157 ⑥）：①画布 64×64（2×2 网格 32px 帧）；
+    ②第 0 相=canonical 静止底稿（与 tower_force_field(1) 逐像素同——
+    决策层静态基准帧契约）；③四相两两不同（循环非退化）。返回 (ok, 说明)。"""
+    strip = tower_force_field_strip()
+    if (strip.width, strip.height) != (64, 64):
+        return False, f"strip size {strip.width}x{strip.height} != 64x64"
+    canonical = tower_force_field(1)
+    frames = []
+    for k in range(TOWER_ANIM_FRAMES):
+        fx, fy = (k % TOWER_ANIM_PER_ROW) * 32, (k // TOWER_ANIM_PER_ROW) * 32
+        frames.append({(x, y): strip.get(fx + x, fy + y)
+                       for y in range(32) for x in range(32)})
+    base = {(x, y): canonical.get(x, y) for y in range(32) for x in range(32)}
+    if frames[0] != base:
+        return False, "phase0 != canonical static base"
+    for a in range(TOWER_ANIM_FRAMES):
+        for b in range(a + 1, TOWER_ANIM_FRAMES):
+            if frames[a] == frames[b]:
+                return False, f"phase{a} == phase{b} (degenerate)"
+    return True, "4-phase pulse breathing, phase0=canonical"
+
+
 def run_self_test(out_root):
-    """①asset_validator 全目录；②转弯 8 帧对齐；③确定性 sha256。"""
+    """①asset_validator 全目录；②转弯 8 帧对齐；③力场塔四相条带；
+    ④确定性 sha256。"""
     here = os.path.dirname(os.path.abspath(__file__))
     ci_dir = os.path.normpath(os.path.join(here, "..", "ci"))
     sys.path.insert(0, ci_dir)
@@ -1153,13 +1237,15 @@ def run_self_test(out_root):
                 print(f"  {f['severity']} {r['path']}: {f['message']}")
 
     belt_ok, belt_msg = check_turn_strip(out_root)
+    tower_ok, tower_msg = check_tower_anim_strip()
     count, mismatches = check_determinism(out_root)
-    if rejects or not belt_ok or mismatches:
+    if rejects or not belt_ok or not tower_ok or mismatches:
         print(f"self-test FAIL: static_rejects={len(rejects)} "
-              f"belt_ok={belt_ok}({belt_msg}) determinism_mismatch={len(mismatches)}")
+              f"belt_ok={belt_ok}({belt_msg}) tower_ok={tower_ok}({tower_msg}) "
+              f"determinism_mismatch={len(mismatches)}")
         return 1, report, belt_msg
     print(f"self-test ok: static_files={report['files']} rejected=0 warned={report['warned']} "
-          f"belt: {belt_msg} determinism={count}/{count} sha256-equal")
+          f"belt: {belt_msg} tower: {tower_msg} determinism={count}/{count} sha256-equal")
     return 0, report, belt_msg
 
 

@@ -122,9 +122,9 @@ public class Era5ArtMappingTests
         return (img.Data[i], img.Data[i + 1], img.Data[i + 2], img.Data[i + 3]);
     }
 
-    private static bool SameFrame((byte R, byte G, byte B, byte A)[,] a, (byte R, byte G, byte B, byte A)[,] b)
+    private static bool SameFrame((byte R, byte G, byte B, byte A)[,] a, (byte R, byte G, byte B, byte A)[,] b, int size = 16)
     {
-        for (int y = 0; y < 16; y++)
+        for (int y = 0; y < size; y++)
         {
             for (int x = 0; x < 16; x++)
             {
@@ -317,6 +317,55 @@ public class Era5ArtMappingTests
         // 纳米流态塔身（涌点）+基座
         Assert.Equal(((byte)63, (byte)193, (byte)201, (byte)255), Pixel(spire, 16, 21));
         Assert.Equal(((byte)220, (byte)228, (byte)232, (byte)255), Pixel(spire, 16, 17));
+    }
+
+    [Fact] // legal — T-157 ⑥ 力场塔四相动画条带：2×2 网格 64×64；第 0 相=canonical
+    // 静态基准帧（与 towers/tower-force-field-l1.png 逐像素同——决策层静态帧
+    // 契约不变）；四相两两不同（脉冲呼吸循环非退化）；第 3 相双弧外延到位
+    // （(3,22)/(29,22) holo_dark——渐张读法的末端锚点）
+    public void Force_field_anim_strip_is_a_four_phase_pulse_breathing_loop()
+    {
+        (byte[] data, int width) strip = DecodeRgba(Texture("anim", "tower-force-field-anim.png"));
+        Assert.Equal(64, PngSize(Texture("anim", "tower-force-field-anim.png")).Width);
+        Assert.Equal(64, PngSize(Texture("anim", "tower-force-field-anim.png")).Height);
+
+        var frames = new (byte R, byte G, byte B, byte A)[4][,];
+        for (int k = 0; k < 4; k++)
+        {
+            frames[k] = new (byte, byte, byte, byte)[32, 32];
+            int ox = (k % 2) * 32;
+            int oy = (k / 2) * 32;
+            for (int y = 0; y < 32; y++)
+            {
+                for (int x = 0; x < 32; x++)
+                {
+                    frames[k][x, y] = Pixel(strip, ox + x, oy + y);
+                }
+            }
+        }
+
+        // 第 0 相 = canonical 静态帧（逐像素）
+        var spire = DecodeRgba(Texture("towers", "tower-force-field-l1.png"));
+        for (int y = 0; y < 32; y++)
+        {
+            for (int x = 0; x < 32; x++)
+            {
+                Assert.Equal(Pixel(spire, x, y), frames[0][x, y]);
+            }
+        }
+
+        // 四相两两不同（循环非退化）
+        for (int a = 0; a < 4; a++)
+        {
+            for (int b = a + 1; b < 4; b++)
+            {
+                Assert.False(SameFrame(frames[a], frames[b], 32), $"phase{a} 与 phase{b} 逐像素相同（循环退化）");
+            }
+        }
+
+        // 第 3 相末端锚点：双弧外延到位（渐张读法）
+        Assert.Equal(((byte)90, (byte)160, (byte)175, (byte)255), frames[3][3, 22]);
+        Assert.Equal(((byte)90, (byte)160, (byte)175, (byte)255), frames[3][29, 22]);
     }
 
     [Fact] // legal — 纳米蜂群=微粒云团：无实体轮廓（swarm 行形——集集体）

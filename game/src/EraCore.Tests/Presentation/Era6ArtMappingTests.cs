@@ -123,11 +123,11 @@ public class Era6ArtMappingTests
         return (img.Data[i], img.Data[i + 1], img.Data[i + 2], img.Data[i + 3]);
     }
 
-    private static bool SameFrame((byte R, byte G, byte B, byte A)[,] a, (byte R, byte G, byte B, byte A)[,] b)
+    private static bool SameFrame((byte R, byte G, byte B, byte A)[,] a, (byte R, byte G, byte B, byte A)[,] b, int size = 16)
     {
-        for (int y = 0; y < 16; y++)
+        for (int y = 0; y < size; y++)
         {
-            for (int x = 0; x < 16; x++)
+            for (int x = 0; x < size; x++)
             {
                 if (a[x, y] != b[x, y])
                 {
@@ -327,6 +327,53 @@ public class Era6ArtMappingTests
         // 守望塔渐收塔身（最终形态）+基座
         Assert.Equal(((byte)58, (byte)55, (byte)92, (byte)255), Pixel(gate, 16, 23));
         Assert.Equal(((byte)62, (byte)85, (byte)201, (byte)255), Pixel(gate, 16, 21)); // 塔身能量涌点
+    }
+
+    [Fact] // legal — T-157 ⑥ 时空塔四相动画条带：2×2 网格 64×64；第 0 相=canonical
+    // 静态基准帧（与 towers/tower-spacetime-l1.png 逐像素同）；四相两两不同
+    // （时间涟漪循环非退化）；第 3 相涟漪梯到位（x=5/x=26 竖梯 lens_mid——
+    // 涟漪渐扩读法的末端锚点）
+    public void Spacetime_anim_strip_is_a_four_phase_time_ripple_loop()
+    {
+        (byte[] data, int width) strip = DecodeRgba(Texture("anim", "tower-spacetime-anim.png"));
+        Assert.Equal(64, PngSize(Texture("anim", "tower-spacetime-anim.png")).Width);
+        Assert.Equal(64, PngSize(Texture("anim", "tower-spacetime-anim.png")).Height);
+
+        var frames = new (byte R, byte G, byte B, byte A)[4][,];
+        for (int k = 0; k < 4; k++)
+        {
+            frames[k] = new (byte, byte, byte, byte)[32, 32];
+            int ox = (k % 2) * 32;
+            int oy = (k / 2) * 32;
+            for (int y = 0; y < 32; y++)
+            {
+                for (int x = 0; x < 32; x++)
+                {
+                    frames[k][x, y] = Pixel(strip, ox + x, oy + y);
+                }
+            }
+        }
+
+        var gate = DecodeRgba(Texture("towers", "tower-spacetime-l1.png"));
+        for (int y = 0; y < 32; y++)
+        {
+            for (int x = 0; x < 32; x++)
+            {
+                Assert.Equal(Pixel(gate, x, y), frames[0][x, y]);
+            }
+        }
+
+        for (int a = 0; a < 4; a++)
+        {
+            for (int b = a + 1; b < 4; b++)
+            {
+                Assert.False(SameFrame(frames[a], frames[b], 32), $"phase{a} 与 phase{b} 逐像素相同（循环退化）");
+            }
+        }
+
+        // 第 3 相末端锚点：涟漪梯外扩到位（x=5/26 竖梯 lens_mid——渐扩读法）
+        Assert.Equal(((byte)110, (byte)130, (byte)210, (byte)255), frames[3][5, 9]);
+        Assert.Equal(((byte)110, (byte)130, (byte)210, (byte)255), frames[3][26, 9]);
     }
 
     [Fact] // legal — 虚空蜂群=微粒云团：无实体轮廓（swarm 行形——虚空集集体）

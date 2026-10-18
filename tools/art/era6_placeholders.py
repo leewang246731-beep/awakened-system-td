@@ -28,7 +28,7 @@ T-119 双层动画全套几何契约）、终章面板色板（C-22 换肤底稿
   堕落守望者 Boss 画布=96×112（设计案 §13.1「终章 Boss 96×112」逐字锚点，
   T-136 升格：内容表 canvas_size_px=96+canvas_height_px=112 双字段对齐；
   SIZE-ALLOWLIST 扩 96/112 随 REV-20261018-T136 登记——28 号 §5「常规 Boss
-  64~96」带上沿 96=宽、112=终章专属纵幅）。
+  64~96」带上沿 96=宽、112=终章专属纵幅。
 
 传送带终章皮肤（∞ 档，era6/era.json logistics tier5=teleporter null=∞——
 trip 传送形态的皮肤对位）：纹理色板换装，几何与帧律逐字节复用 T-119 冻结
@@ -67,14 +67,15 @@ BeltRenderDecisions.cs 常量一致，C# 侧 Era6ArtMappingTests 逐像素复验
         belt-turn-edge.png                       16×16 传送带双层纹理（终章皮肤）
   anim/belt-turn-anim.png                        64×32 转弯 8 帧（4×2 网格）
 
-包文件数=26（era6 内容 id 对齐：两塔均 max_tier=1 → 2 升级位文件——
+包文件数=27（era6 内容 id 对齐：两塔均 max_tier=1 → 2 升级位文件——
 era4 30/era5 29 的同构异数，槽类结构一致，REV 登记）。
 
 全部输出须过 tools/ci/asset_validator.py（尺寸 16/32/48/64/96/112 白名单
 （96/112=T-136 终章 Boss 96×112 升格扩展）、≤64 色、
-kebab 命名）。--self-test 另做四类强校验：①asset_validator 全目录；②转弯 8 帧
+kebab 命名）。--self-test 另做五类强校验：①asset_validator 全目录；②转弯 8 帧
 帧边界对齐（u 律+双臂逐像素平移+循环闭合+八帧两两不同+带边零重叠）；③静态层/
-动画层透明区互斥（双层叠加契约）；④确定性（二次生成 sha256 逐字节全等）。
+动画层透明区互斥（双层叠加契约）；④时空塔四相条带（phase0=canonical+
+四相两两不同）；⑤确定性（二次生成 sha256 逐字节全等）。
 
 依赖：仅 Python 3.8+ 标准库（struct/zlib/argparse/hashlib/tempfile）——与
 asset_validator 同纪律，不引 Pillow。CLI：python era6_placeholders.py
@@ -339,8 +340,10 @@ def tower_singularity(level):
 def tower_spacetime(level):
     """时空塔（era6:tower-spacetime）32×32（max1 单档）：**星门**=本代母题塔
     （守望塔最终形态——塔顶展开成环+裂缝）；slow 支援档辨识=无炮管+环门口径。
-    **静态底稿裁定**：canonical=星门环+裂缝注记；时间涟漪属渲染层——决策层
-    静态单帧，不预烘动画帧。"""
+    **静态底稿+动画帧**（T-157 ⑥ 升帧）：本函数=canonical 相位单帧（星门环+
+    裂缝注记——决策层静态基准帧，towers/ 落盘即此）；时间涟漪=
+    anim/tower-spacetime-anim.png 四相条带（tower_spacetime_frame——第 0 相
+    与本帧逐像素同）。"""
     assert level == 1  # 终章两塔均 max_tier=1（内容表；越级调用=合成器契约违例）
     c = Canvas(32, 32)
     void_panel(c, 8, 25, 16, 6)                              # 暗物质基座
@@ -372,6 +375,53 @@ def tower_spacetime(level):
         c.set(tx, ty, PALETTE["lens_mid"])
     c.set(16, 16, PALETTE["frost_main"])                     # 环门源点
     return c
+
+
+# ------------------------------------------------ 时空塔动画帧（T-157 ⑥）
+
+TOWER_ANIM_FRAMES = 4          # 时间涟漪四相（0=canonical 静止，1~3=涟漪渐扩）
+TOWER_ANIM_PER_ROW = 2         # 条带 2×2 网格（32px 帧 ×4 = 64×64 画布）
+
+
+def tower_spacetime_frame(phase):
+    """时空塔单帧 32×32（时间涟漪第 phase 相，T-157 ⑥——28 号 §6 待做 #3
+    同款动画帧挂账的清账）：第 0 相=canonical 静止底稿（与
+    towers/tower-spacetime-l1.png 逐像素同——决策层静态基准帧不变）；
+    第 1~3 相=环门两侧涟漪梯逐级外扩（每相一对透镜弧竖梯，从环柱向画面
+    边缘步进一格）+门内光尘换相位闪烁+环门源点伴辉（第 2 相起）。四相
+    循环读作「时间涟漪」——星门开启的周期扰动（纯程序化，无随机数无
+    AI 生图）。"""
+    assert 0 <= phase < TOWER_ANIM_FRAMES
+    c = tower_spacetime(1)
+    if phase == 0:
+        return c
+    # a) 涟漪梯：环柱（x=8/24）外侧逐相一对透镜弧竖梯（y 6..13）
+    for k in range(phase):
+        c.vline(7 - k, 6, 8, PALETTE["lens_mid"])
+        c.vline(24 + k, 6, 8, PALETTE["lens_mid"])
+    # b) 门内光尘换相位闪烁（不同相位点亮不同尘点——星门内的时流）
+    twinkles = ((13, 10), (19, 7), (14, 12))
+    for k in range(phase):
+        tx, ty = twinkles[k]
+        c.set(tx, ty, PALETTE["dust_light"])
+    # c) 环门源点伴辉：第 2 相起下方伴点、第 3 相两侧伴点
+    if phase >= 2:
+        c.set(16, 17, PALETTE["lens_light"])
+    if phase >= 3:
+        c.set(15, 16, PALETTE["frost_light"])
+        c.set(17, 16, PALETTE["frost_light"])
+    return c
+
+
+def tower_spacetime_strip():
+    """时空塔动画条带 64×64（2×2 网格，帧序=行优先 row*2+col）：四相时间
+    涟漪循环（0 静止 → 1~3 涟漪渐扩 → 回 0 收束）。单帧 32px×四帧横排=
+    128px 超 SIZE-ALLOWLIST，取 2×2 网格（belt-turn-anim 同律）。"""
+    strip = Canvas(TOWER_ANIM_PER_ROW * 32, (TOWER_ANIM_FRAMES // TOWER_ANIM_PER_ROW) * 32)
+    for k in range(TOWER_ANIM_FRAMES):
+        strip.blit(tower_spacetime_frame(k),
+                   (k % TOWER_ANIM_PER_ROW) * 32, (k // TOWER_ANIM_PER_ROW) * 32)
+    return strip
 
 
 # ---------------------------------------------------------------- 八敌+Boss（era6/enemies.json）
@@ -1013,6 +1063,9 @@ def build_all(out_root):
     anim = os.path.join(out_root, "anim", "belt-turn-anim.png")
     belt_turn_strip().write(anim)
     wrote.append(anim)
+    tower_anim = os.path.join(out_root, "anim", "tower-spacetime-anim.png")
+    tower_spacetime_strip().write(tower_anim)
+    wrote.append(tower_anim)
     return wrote
 
 
@@ -1103,6 +1156,29 @@ def check_determinism(out_root):
         return count, mismatches
 
 
+def check_tower_anim_strip():
+    """时空塔四相条带断言（T-157 ⑥）：①画布 64×64（2×2 网格 32px 帧）；
+    ②第 0 相=canonical 静止底稿（与 tower_spacetime(1) 逐像素同——
+    决策层静态基准帧契约）；③四相两两不同（循环非退化）。返回 (ok, 说明)。"""
+    strip = tower_spacetime_strip()
+    if (strip.width, strip.height) != (64, 64):
+        return False, f"strip size {strip.width}x{strip.height} != 64x64"
+    canonical = tower_spacetime(1)
+    frames = []
+    for k in range(TOWER_ANIM_FRAMES):
+        fx, fy = (k % TOWER_ANIM_PER_ROW) * 32, (k // TOWER_ANIM_PER_ROW) * 32
+        frames.append({(x, y): strip.get(fx + x, fy + y)
+                       for y in range(32) for x in range(32)})
+    base = {(x, y): canonical.get(x, y) for y in range(32) for x in range(32)}
+    if frames[0] != base:
+        return False, "phase0 != canonical static base"
+    for a in range(TOWER_ANIM_FRAMES):
+        for b in range(a + 1, TOWER_ANIM_FRAMES):
+            if frames[a] == frames[b]:
+                return False, f"phase{a} == phase{b} (degenerate)"
+    return True, "4-phase time ripple, phase0=canonical"
+
+
 def run_self_test(out_root):
     """①asset_validator 全目录；②转弯 8 帧对齐；③确定性 sha256。"""
     here = os.path.dirname(os.path.abspath(__file__))
@@ -1121,13 +1197,15 @@ def run_self_test(out_root):
                 print(f"  {f['severity']} {r['path']}: {f['message']}")
 
     belt_ok, belt_msg = check_turn_strip(out_root)
+    tower_ok, tower_msg = check_tower_anim_strip()
     count, mismatches = check_determinism(out_root)
-    if rejects or not belt_ok or mismatches:
+    if rejects or not belt_ok or not tower_ok or mismatches:
         print(f"self-test FAIL: static_rejects={len(rejects)} "
-              f"belt_ok={belt_ok}({belt_msg}) determinism_mismatch={len(mismatches)}")
+              f"belt_ok={belt_ok}({belt_msg}) tower_ok={tower_ok}({tower_msg}) "
+              f"determinism_mismatch={len(mismatches)}")
         return 1, report, belt_msg
     print(f"self-test ok: static_files={report['files']} rejected=0 warned={report['warned']} "
-          f"belt: {belt_msg} determinism={count}/{count} sha256-equal")
+          f"belt: {belt_msg} tower: {tower_msg} determinism={count}/{count} sha256-equal")
     return 0, report, belt_msg
 
 

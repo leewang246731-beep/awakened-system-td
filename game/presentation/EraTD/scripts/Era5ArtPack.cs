@@ -177,13 +177,14 @@ internal static class Era5ArtPack
     }
 
     /// <summary>
-    /// Existence probe over the FULL 29-file E5 pack (era5 content-id-aligned
-    /// manifest: tiles 9 + belt 3 + anim 1 + towers 5 + enemies 9 + units 1 +
-    /// ui 1 — era4 的 30 文件同构异数来自三塔 5 升级位 vs 四塔 6 件，槽类
-    /// 结构一致，REV 登记) — the atlas Build() above is the throwing load
-    /// proof for the tile set. Returns the files that are present so the
-    /// smoke marker can count them; a missing file is reported (not thrown)
-    /// because these are art assets.
+    /// Existence probe over the FULL 30-file E5 pack (era5 content-id-aligned
+    /// manifest: tiles 9 + belt 3 + anim 2 + towers 5 + enemies 9 + units 1 +
+    /// ui 1 — anim 2=belt-turn 8 帧+力场塔 4 相【T-157 ⑥】；era4 的 30 文件
+    /// 同构异数来自三塔 5 升级位 vs 四塔 6 件，槽类结构一致，REV 登记) —
+    /// the atlas Build() above is the throwing load proof for the tile set.
+    /// Returns the files that are present so the smoke marker can count
+    /// them; a missing file is reported (not thrown) because these are art
+    /// assets.
     /// </summary>
     public static List<string> ProbePackFiles()
     {
@@ -204,6 +205,7 @@ internal static class Era5ArtPack
             "res://textures/era5/belt/belt-edge.png",
             "res://textures/era5/belt/belt-turn-edge.png",
             "res://textures/era5/anim/belt-turn-anim.png",
+            "res://textures/era5/anim/tower-force-field-anim.png", // T-157 ⑥：力场塔 4 相脉冲呼吸
             // towers (5 — three towers by era5/towers.json content ids)
             "res://textures/era5/towers/tower-railgun-l1.png",
             "res://textures/era5/towers/tower-railgun-l2.png",
