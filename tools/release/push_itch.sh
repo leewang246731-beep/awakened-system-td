@@ -15,7 +15,8 @@
 #      ——itch.io → 用户设置 → API keys → Generate new key
 #   3) 推送目标：config/itch_target.txt（一行，格式 用户名/项目名，如
 #      yourname/awakened-system-td；或环境变量 ITCH_TARGET）
-#      ——目标项目不存在时 butler 会自动建为草稿页（官方 butler pushing 文档）
+#      ——目标项目须先在 itch.io 网页上创建（2026-10-19 实测勘误：项目不存在时
+#        butler 报 /wharf/builds: invalid game，并无自动建页——先 /game/new 建好再推）
 #
 # 用法：
 #   bash tools/release/push_itch.sh            # 双通道全推

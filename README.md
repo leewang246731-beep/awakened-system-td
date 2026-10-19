@@ -37,7 +37,8 @@
 ### 镜像下载
 
 - **主渠道**：[GitHub Releases](https://github.com/leewang246731-beep/awakened-system-td/releases)（免登录直下，全部版本与文件以此为准）。
-- **国内备用**：GitHub 访问不畅时可自行选用任意可信的 GitHub 加速/镜像服务转发下载链接（请自行甄别，本仓库不指定、不背书任何第三方转包）；官方国内直连页（itch.io）上线后将在本节补充直达链接。
+- **官方国内直连**：[itch.io 直达页](https://leewang246731-beep.itch.io/awakened-system-td)（国内访问通常无需加速，免登录免费下载 Windows/Linux 双平台包）。
+- **其他备用**：GitHub 访问不畅时可自行选用任意可信的 GitHub 加速/镜像服务转发下载链接（请自行甄别，本仓库不指定、不背书任何第三方转包）。
 - 无论从哪个渠道下载，校验与版本信息一律以 GitHub Releases 页面为准。
 
 ## 构建（开发者）
