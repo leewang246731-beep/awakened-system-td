@@ -119,9 +119,9 @@ internal sealed class SimHost : SystemPanel.IAdvisorBoardHost
 
         // v1.1.1 热修：数据根三级解析——①start-game.bat 注入的 ERA_DATA_ROOT
         // （发布件正规入口）②dev 会话（编辑器/源码树运行）=钉死开发根
-        // ③**导出件直点 exe（无环境变量）=exe 旁 data\ 目录**。v1.1.0 缺省落
-        // DevFileStore.DefaultDevRoot（D:\game\game\data），玩家机器上会在 D 盘
-        // 凭空造开发目录（T-158 实机日志实证）。
+        // （DevFileStore.DefaultDevRoot）③**导出件直点 exe（无环境变量）=exe 旁
+        // data\ 目录**。v1.1.0 缺省落开发根，玩家机器上会凭空造开发目录
+        // （T-158 实机日志实证）。
         string dataRoot;
         if (System.Environment.GetEnvironmentVariable("ERA_DATA_ROOT") is { Length: > 0 } injected)
         {
