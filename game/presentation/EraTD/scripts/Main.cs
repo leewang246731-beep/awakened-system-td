@@ -284,7 +284,13 @@ namespace EraTD;
         // （失败 Quit(1)）。窗口运行走 _Process 帧循环（波次变迁开窗+逐帧泵）。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         SetupL2Lane();
-        RunL2SmokeAsync().Wait(); // headless synchronous drive (every inner await completes synchronously — fake seams)
+        // v1.1.1 热修：L2 冒烟只在 headless（G4）跑——窗口玩家车道由 _Process
+        // 帧循环驱动，玩家启动绝不做自检 Quit（v1.1.0 实机闪退根因：车道冒烟
+        // 件在窗口态未初始化，RunL2SmokeAsync 无条件 Quit(1) 把玩家开局杀死）。
+        if (OS.HasFeature("headless") || DisplayServer.GetName() == "headless")
+        {
+            RunL2SmokeAsync().Wait(); // headless synchronous drive (every inner await completes synchronously — fake seams)
+        }
 
         // ---- 5n) T-139 联机最小面 (F-161, scripts/net/NetMenuUi.cs) -----------
         // 右上「联机」入口+房间面板（建房/加入 IP+链路状态）。headless 自带

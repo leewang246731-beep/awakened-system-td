@@ -117,7 +117,28 @@ internal sealed class SimHost : SystemPanel.IAdvisorBoardHost
 
         Simulation = new Simulation(config, new SplitMix64Rng(Seed), Seed);
 
-        var store = new DevFileStore();
+        // v1.1.1 热修：数据根三级解析——①start-game.bat 注入的 ERA_DATA_ROOT
+        // （发布件正规入口）②dev 会话（编辑器/源码树运行）=钉死开发根
+        // ③**导出件直点 exe（无环境变量）=exe 旁 data\ 目录**。v1.1.0 缺省落
+        // DevFileStore.DefaultDevRoot（D:\game\game\data），玩家机器上会在 D 盘
+        // 凭空造开发目录（T-158 实机日志实证）。
+        string dataRoot;
+        if (System.Environment.GetEnvironmentVariable("ERA_DATA_ROOT") is { Length: > 0 } injected)
+        {
+            dataRoot = injected;
+        }
+        else if (OS.HasFeature("editor"))
+        {
+            dataRoot = DevFileStore.DefaultDevRoot;
+        }
+        else
+        {
+            dataRoot = System.IO.Path.Combine(
+                System.IO.Path.GetDirectoryName(System.Environment.ProcessPath)
+                    ?? System.IO.Directory.GetCurrentDirectory(),
+                "data");
+        }
+        var store = new DevFileStore(dataRoot);
         Store = store;
         JournalPath = System.IO.Path.Combine(
             store.Root, "reports", "t055-panel-war-report.jsonl");
