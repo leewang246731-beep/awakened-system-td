@@ -92,6 +92,10 @@ public sealed partial class NetMenuUi : Control
         };
         _entryButton.Pressed += () => _panel.Visible = !_panel.Visible;
         AddChild(_entryButton);
+        if (!_headless)
+        {
+            _entryButton.Hide(); // T-161 入口归拢：窗口态入口在主菜单（headless 冒烟照旧）
+        }
 
         _panel = new PanelContainer
         {
@@ -129,6 +133,10 @@ public sealed partial class NetMenuUi : Control
         _disconnectButton = new Button { Text = "断开" };
         _disconnectButton.Pressed += OnDisconnectPressed;
         rows.AddChild(_disconnectButton);
+
+        var menuButton = new Button { Text = "返回主菜单" };
+        menuButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
+        rows.AddChild(menuButton);
 
         _statusLabel = new Label
         {
@@ -228,6 +236,31 @@ public sealed partial class NetMenuUi : Control
         Teardown();
         _entryButton.Text = "联机";
     }
+
+    // ------------------------------------------- T-161 主菜单入口归拢（窗口车道）
+
+    /// <summary>主菜单「联机」入口打开面板（headless 冒烟不走此路）.</summary>
+    internal void OpenFromMenu() => _panel.Visible = true;
+
+    /// <summary>
+    /// 返回主菜单：链路在=诚实断开（既有 OnDisconnectPressed 同一条路）后收
+    /// 面板——「会话退出→回主菜单」链路的联机半边。
+    /// </summary>
+    internal void CloseFromMenu()
+    {
+        if (_host is not null || _client is not null)
+        {
+            OnDisconnectPressed();
+        }
+
+        _panel.Visible = false;
+    }
+
+    /// <summary>联机会话在局位（建房/加入任一在——主菜单可见性谓词探针）.</summary>
+    internal bool SessionActive => _host is not null || _client is not null;
+
+    /// <summary>联机面板打开位（主菜单可见性谓词探针）.</summary>
+    internal bool PanelOpen => _panel.Visible;
 
     private void Teardown()
     {

@@ -20,8 +20,12 @@ project/assembly_name="EraTD"
 ; canvas_items stretch + keep aspect + integer scale mode (C-21). The
 ; engine-side settings and EraCore.Presentation.ViewportScale share the
 ; same decision: floor(min(w/640,h/360)) clamped to >= 1.
+; T-161 (W10 A 批): 初始窗口 1280x720（2x 整数放大）——主菜单视频背景/
+; 牌匾/标题的首屏观感（画布坐标域不变，既有 UI/缩放决策零改动）。
 window/size/viewport_width=640
 window/size/viewport_height=360
+window/size/window_width_override=1280
+window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 window/stretch/scale_mode="integer"

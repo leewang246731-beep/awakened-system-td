@@ -525,6 +525,56 @@ def test_store_exemption() -> None:
         check(report["rejected"] == 0, f"仓内商店物料零拒（{len(pngs)} PNG）")
 
 
+def test_ui_art_exemption() -> None:
+    """T-161 显式豁免区④（W10 主菜单 UI 美术面）：presentation textures/ui/
+    下 PNG 尺寸/色板降 INFO（消息带豁免注记）；结构/命名红线不豁免
+    （kebab 过、带点拒）；豁免区外同规格照常拒；仓内真实 UI 底图零拒。"""
+    root = tempfile.mkdtemp(prefix="av_ui_")
+    try:
+        ui_dir = os.path.join(root, "game", "presentation", "EraTD", "textures", "ui")
+        os.makedirs(ui_dir)
+        # logo 牌匾形态（768x512 非清单尺寸+>64 色：x 轴渐变 768 色）
+        write(ui_dir, "logo-banner.png", png_bytes(
+            768, 512, 8, 6,
+            pixels=rgba_rows(768, 512, lambda x, y: (x % 256, (x // 256) * 80, 64, 255))))
+        # 豁免区内仍拒：非 kebab 命名 / 结构损坏
+        write(ui_dir, "Logo.Banner.png", png_bytes(768, 512, 8, 6))
+        write(ui_dir, "broken.png", png_bytes(16, 16, 8, 2)[:30])
+        # 豁免区外同尺寸（sprite 面 Tile 目录）：照常 REJECT（豁免按路径界定）
+        outside = os.path.join(root, "game", "presentation", "EraTD", "textures", "tiles")
+        os.makedirs(outside)
+        write(outside, "big-art.png", png_bytes(768, 512, 8, 6))
+
+        report = av.run([root], av.DEFAULT_ALLOWED_SIZES, 64, False)
+        by_path = {
+            os.path.relpath(r["path"], root).replace(os.sep, "/"): r
+            for r in report["results"]
+        }
+        logo = by_path["game/presentation/EraTD/textures/ui/logo-banner.png"]
+        check(severity_of(logo, "SIZE-ALLOWLIST") == "INFO"
+              and severity_of(logo, "PALETTE-COUNT") == "INFO"
+              and "ui 美术底图豁免" in next(
+                  f["message"] for f in logo["findings"]
+                  if f["rule"] == "SIZE-ALLOWLIST"),
+              "ui 豁免：尺寸/色板门禁降 INFO 且消息带豁免注记")
+        check(severity_of(by_path["game/presentation/EraTD/textures/ui/Logo.Banner.png"],
+                          "FILENAME-KEBAB") == "REJECT", "豁免区非 kebab 命名仍拒")
+        check(severity_of(by_path["game/presentation/EraTD/textures/ui/broken.png"],
+                          "PNG-STRUCTURE") == "REJECT", "豁免区结构损坏仍拒")
+        check(severity_of(by_path["game/presentation/EraTD/textures/tiles/big-art.png"],
+                          "SIZE-ALLOWLIST") == "REJECT", "豁免区外同尺寸照常拒（tiles sprite 面不外溢）")
+        check(report["rejected"] == 3, "豁免用例汇总 3 拒（命名/结构/区外尺寸）")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    # 仓内真实 UI 底图（W10 logo 牌匾）：全过、零 REJECT
+    repo_ui = os.path.join(REPO_ROOT, "game", "presentation", "EraTD", "textures", "ui")
+    if os.path.isdir(repo_ui):
+        report = av.run([repo_ui], av.DEFAULT_ALLOWED_SIZES, 64, False)
+        pngs = [r for r in report["results"] if r["path"].endswith(".png")]
+        check(report["rejected"] == 0, f"仓内 UI 底图零拒（{len(pngs)} PNG）")
+
+
 def main() -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -541,6 +591,7 @@ def main() -> int:
     test_cinematics_exemption()
     test_expand_illustration_exemption()
     test_store_exemption()
+    test_ui_art_exemption()
     test_cli_semantics()
     print("-" * 60)
     print(f"selftest summary: {PASS} passed, {FAIL} failed")

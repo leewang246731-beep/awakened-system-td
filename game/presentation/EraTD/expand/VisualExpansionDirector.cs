@@ -145,6 +145,13 @@ public sealed partial class VisualExpansionDirector : Control
     internal string MenuLoopAssetId =>
         _catalog.VideosByUsage("menu_loop").Single().Id;
 
+    /// <summary>
+    /// T-161：菜单循环 ogv 绝对路径（主菜单场景背景装载位）。不复用 g 位
+    /// 播放器——那挂在 Layer=-10（夹具双层之下），主菜单的背景在 Layer=100
+    /// 自持播放（MainMenuUi）；此处只答路径，播放/循环/释放归菜单侧。
+    /// </summary>
+    internal string? MenuLoopOgvPath() => ExpandAssetPaths.OgvPath(_catalog, MenuLoopAssetId);
+
     // ---- c/f/m 位：全屏可跳过播片 -------------------------------------------
 
     /// <summary>

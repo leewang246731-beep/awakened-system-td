@@ -55,6 +55,30 @@ namespace EraTD;
     private SettingsPanelUi _settingsUi = null!;
     private InfoLayersUi _infoUi = null!;
 
+    // T-161 (F-125) 主菜单与会话泳道接线位（窗口车道）：主菜单（MainMenuUi）
+    // 按这些只读面路由六入口与可见性谓词；headless 全部保持夹具态/默认值
+    // ——G4 冒烟路径零改动（判据段别碰的分叉纪律）。
+    internal CampaignMenuUi? CampaignUi { get; private set; }
+    internal EndlessMenuUi? EndlessUi { get; private set; }
+    internal ProceduralMenuUi? ProceduralUi { get; private set; }
+    internal Net.NetMenuUi? NetUi { get; private set; }
+    internal Cinematics.CinematicDirector? CineDirector { get; private set; }
+    internal Expand.VisualExpansionDirector? ExpandDirector { get; private set; }
+    internal SettingsPanelUi SettingsUi => _settingsUi;
+    internal MainMenuUi? Menu { get; private set; }
+
+    // T-161 --shot 截图钩子（W10 玩家视角截图门禁承载面）：窗口模式专用
+    // 五段编排（全景/牌匾标题特写/悬停态/循环中帧/点入过渡帧）——菜单就绪
+    // 并跑若干帧让视频真正渲染出非首帧画面后按序截 PNG 到 --shot <目录>，
+    // 编排走完正常退出（验收车道显式退出；无参玩家车道永不 Quit——红线）。
+    // headless 忽略全部参数（冒烟不碰）。B/C/D 批复用：--shot-open <入口键>
+    // 经真按钮信号链点入对应入口后再截过渡帧（战斗内画面同钩子扩展）。
+    private const ulong ShotWarmupFramesDefault = 150;
+    private string? _shotDir;
+    private ulong _shotWarmup = ShotWarmupFramesDefault;
+    private string? _shotOpen;
+    private ShotHook? _shotHook;
+
     // T-160b（战役战场渲染绑定）：会话泳道（战役/程序关视口）经这两个只读
     // 面取夹具宿主与军师面板——退出到菜单时把面板还原回夹具板（恢复菜单态
     // 口径）。夹具渲染路径本身零改动（边界：SimHost 夹具路径不动）。
@@ -135,11 +159,19 @@ namespace EraTD;
         _unitLayer.SetupUnits(mapWidth, mapHeight, _renderCaps.DirtyChunkCells, capacity: UnitLayerCapacity);
 
         // ---- 4) dirty-chunk render loop over real ticks (headless-safe) ---
+        // T-161 启动流分叉：headless=既有夹具冒烟路径逐字节照旧（660 帧循环
+        // +反向缝+面板冒烟——G4 十三段判据不动）；窗口=开机进主菜单（不再
+        // 直进夹具局）——夹具宿主保留为共享底座（军师面板/L2 车道/音频/演出
+        // 的绑定位），但不步进、不跑任何自检 Quit 路径（v1.1.1 闪退教训的
+        // 窗口态纪律：玩家车道永不 Quit）。
+        bool headless = OS.HasFeature("headless") || DisplayServer.GetName() == "headless";
         int framesWithGroundWork = 0;
         int framesWithUnitWork = 0;
         int groundChunksRebuilt = 0;
         int unitChunksRebuilt = 0;
 
+        if (headless)
+        {
         for (int frame = 0; frame < SmokeFrames; frame++)
         {
             _host.StepFrame(); // T-076 (F-118): one render frame through the pause/speed clock (default 1x ⇒ tick-for-tick identical to the retired Step call)
@@ -193,6 +225,13 @@ namespace EraTD;
 
         // ---- 5) panel flow smoke (F-115/F-116 + off-switch) ---------------
         RunPanelSmoke();
+        } // headless 夹具循环+面板冒烟段结束（循环体保持原缩进——判据段零改动纪律）
+
+        // 窗口态信息位：静态 fit 行（帧循环版本已随夹具循环留在 headless 段）。
+        if (!headless)
+        {
+            UpdateDebugLabel(fit);
+        }
 
         // ---- 5b) T-056 build interaction (C-23 thin, F-036/F-119) ---------
         // 拖放建造薄版：实例化 build_ui.tscn（EraCore 接线全部在
@@ -212,7 +251,7 @@ namespace EraTD;
         // 两脚本接真模拟；headless 下自带冒烟序列并打印
         // CINE_OK aha=skip-safe awaken=3choice——smoke 演出段判据。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        Cinematics.CinematicDirector.Instantiate(this, _host);
+        CineDirector = Cinematics.CinematicDirector.Instantiate(this, _host);
 
         // ---- 5e) T-089 narrative HUD (C-24 叙事薄版, F-098~F-109) ----------
         // 叙事 HUD 挂载（narrative/NarrativeHud.cs）：E1 章叙事导演接波拍
@@ -245,20 +284,27 @@ namespace EraTD;
         // 彩蛋展示/时代皮肤；headless 下自带冒烟并打印 CINE_V2 计数+
         // EXPAND_OK——smoke 视觉扩充段判据。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        Expand.VisualExpansionDirector.Instantiate(this);
+        ExpandDirector = Expand.VisualExpansionDirector.Instantiate(this);
 
         // ---- 5i) T-102 render tiers (C-21 渲染三档, F-159) ------------------
         // 三档决策表差异 + 自动探测 + L 档按需直绘执行回路 + 偏好持久化
         // round-trip——headless 冒烟判据打印 RENDER_OK（smoke 渲染三档段）。
-        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        RunRenderTierSmoke(groundChunksRebuilt, unitChunksRebuilt, framesWithGroundWork);
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。T-161：headless 段
+        // ——窗口车道不跑自检 Quit 路径。）
+        if (headless)
+        {
+            RunRenderTierSmoke(groundChunksRebuilt, unitChunksRebuilt, framesWithGroundWork);
+        }
 
         // ---- 5j) T-106 Web 约束 (F-164/F-144) -------------------------------
         // 平台三档可用性表（Web=L1 恒开+L2/L3 禁）+ L3 网关平台门（最强场景
         // 零网络拒绝走真实探针文案链）+ T-100 存档探针 Web 事实回落 JSON——
         // headless 冒烟判据打印 WEB_OK（smoke Web 约束段；失败 Quit(1)）。
-        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        RunWebSmoke();
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。T-161：headless 段。）
+        if (headless)
+        {
+            RunWebSmoke();
+        }
 
         // ---- 5k) T-111 战报回放 (C-30/C-22, F-121/F-174) ---------------------
         // 回放 UI 挂载（scripts/ReplayUi.cs）：reports/ 存档目录 JSONL 离线
@@ -273,8 +319,11 @@ namespace EraTD;
         // 人格台词库（4×50=200 行，16 面覆盖矩阵）+ 音色时代×人格 16 行 +
         // 三联动切换闭环（立绘+音色+台词同拍一致）——headless 冒烟判据打印
         // PERSONA_OK lines=200 tones=16 switch=linked（失败 Quit(1)）。
-        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        RunPersonaFullSmoke();
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。T-161：headless 段。）
+        if (headless)
+        {
+            RunPersonaFullSmoke();
+        }
 
         // ---- 5m) T-137 L2 本地推理正式版 (C-27, F-078/F-163) ------------------
         // L2 通道总装：协调器（档位/下载/进程/路由——EraTD.L2.L2Coordinator）
@@ -287,7 +336,7 @@ namespace EraTD;
         // v1.1.1 热修：L2 冒烟只在 headless（G4）跑——窗口玩家车道由 _Process
         // 帧循环驱动，玩家启动绝不做自检 Quit（v1.1.0 实机闪退根因：车道冒烟
         // 件在窗口态未初始化，RunL2SmokeAsync 无条件 Quit(1) 把玩家开局杀死）。
-        if (OS.HasFeature("headless") || DisplayServer.GetName() == "headless")
+        if (headless)
         {
             RunL2SmokeAsync().Wait(); // headless synchronous drive (every inner await completes synchronously — fake seams)
         }
@@ -300,7 +349,7 @@ namespace EraTD;
         // 自持游戏实例（NetDemoLevel），不触碰上方任何单机泳道——单机路径
         // 零耦合（NetCouplingGuardTests 执法面）。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        Net.NetMenuUi.Instantiate(this);
+        NetUi = Net.NetMenuUi.Instantiate(this);
 
         // ---- 5o) T-157 无尽开局 UI + 策略表宿主装载 + 真人局遥测 (F-006/C-21) --
         // 无尽开局面板（scripts/EndlessMenuUi.cs）：两档词缀节奏显式选择
@@ -310,7 +359,7 @@ namespace EraTD;
         // 逐波台账/终局 End——窗口局 source=player 自动入账）；headless 自带
         // 冒烟并打印 ENDLESS_OK（失败 Quit(1)）。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        EndlessMenuUi.Instantiate(this);
+        EndlessUi = EndlessMenuUi.Instantiate(this);
 
         // ---- 5p) T-157 程序关表现层入口 (F-007/C-21, scripts/ProceduralMenuUi.cs)
         // 战役外入口按钮（ProceduralCampaignEntry 数据位 T-140 已就绪）：面板=
@@ -319,7 +368,7 @@ namespace EraTD;
         // 双注入，T-155 留口——程序关半边）；headless 自带冒烟并打印
         // PROC_OK（失败 Quit(1)）。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        ProceduralMenuUi.Instantiate(this);
+        ProceduralUi = ProceduralMenuUi.Instantiate(this);
 
         // ---- 5q) T-160 战役宿主脸 (C-29/F-005/F-001, scripts/CampaignMenuUi.cs) --
         // 「战役」入口+章节分组选关菜单（levels/e1~e6.json 全 29 行+进度态：
@@ -332,9 +381,13 @@ namespace EraTD;
         // CAMPAIGN_OK（全 29 关装载矩阵+E1-01 真通关+续玩+跃迁负向探针；失败
         // Quit(1)）。
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
-        CampaignMenuUi.Instantiate(this);
+        CampaignUi = CampaignMenuUi.Instantiate(this);
 
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
+        // T-161：判据打印段=headless 专用（G4 判据逐字节照旧；窗口车道无判据
+        // 打印——玩家日志只留 MENU/MENU_BOOT/SHOT_OK 玩家态行）。
+        if (headless)
+        {
         // Canonical table recomputed LIVE inside the engine process so the
         // smoke log proves the EraCore math is what the Godot side runs.
         GD.Print(
@@ -494,7 +547,7 @@ namespace EraTD;
             $"grid={Era6ArtPack.TurnFramesPerRow}x{Era6ArtPack.TurnFrames / Era6ArtPack.TurnFramesPerRow} " +
             "phase=BeltRenderDecisions(same frozen law, palette reskin, doc 44 §3)");
         GD.Print(
-            $"BRIDGE frames={SmokeFrames} ticks={_bridge.Current.Tick} " +
+            $"BRIDGE frames={SmokeFrames} ticks={_bridge.Current!.Tick} " +
             $"units={_bridge.Current.Units.Count} buildings={_bridge.Current.Buildings.Count} " +
             $"ground_chunk_rebuilds={groundChunksRebuilt} unit_chunk_rebuilds={unitChunksRebuilt} " +
             $"frames_with_ground_work={framesWithGroundWork} frames_with_unit_work={framesWithUnitWork} " +
@@ -503,15 +556,282 @@ namespace EraTD;
             "source=real-c12-simulation");
         GD.Print($"PANEL journal {_host.JournalDigest()}");
         GD.Print($"SMOKE_OK core={EraCore.VersionInfo.Current} scale={fit.Scale}");
+        } // 判据打印段结束（headless 专用；打印体保持原缩进——判据段零改动纪律）
 
         // T-093：显式 Quit 仅 headless（--quit 本就在首次迭代后退出，显式
         // 调用只为钉住退出码）；窗口运行让主循环迭代真实帧——信息层截图
         // 留档（ForceDraw 在窗口映射前只画出清屏色，取不到首帧像素）。
-        // 窗口跑法：无参运行=活机窗口；--quit-after N=N 帧后自动退。
-        if (OS.HasFeature("headless") || DisplayServer.GetName() == "headless")
+        // 窗口跑法：无参运行=活机窗口；--shot <路径> 截图后继续运行不退出。
+        if (headless)
         {
             GetTree().Quit(0);
         }
+        else
+        {
+            // ---- 7) T-161 窗口开机=主菜单（F-125）--------------------------
+            // 全部既有入口归拢于此（战役/无尽/程序关/联机/设置/退出）；各
+            // 泳道悬浮入口按钮已随本任务隐藏（窗口态）。--shot 截图钩子先
+            // 解析再建菜单（编排段在菜单树就位后按帧序驱动，--shot-open 的
+            // 点入发生在视频帧证据截完之后——过渡帧才有意义）。
+            ParseShotArguments();
+            Menu = MainMenuUi.Instantiate(this);
+            if (_shotDir is not null)
+            {
+                _shotHook = new ShotHook(this, _shotDir, _shotWarmup, _shotOpen);
+            }
+            else if (_shotOpen is not null)
+            {
+                GD.PushError("--shot-open 需要 --shot <目录>（截图编排的承载面）——本次忽略");
+            }
+
+            GD.Print(
+                $"MENU_BOOT mode=menu-first entries=6 " +
+                $"shot={_shotDir ?? "-"} warmup={_shotWarmup} open={_shotOpen ?? "-"} " +
+                "windows_alive=player-lane-never-quits");
+        }
+    }
+
+    // ------------------------------------------------- T-161 --shot 截图钩子
+
+    /// <summary>
+    /// 解析 <c>--shot &lt;目录&gt;</c>（可等号形态 <c>--shot=目录</c>）/
+    /// <c>--shot-frame N</c>（预热帧数，缺省 150——视频真出非首帧画面）/
+    /// <c>--shot-open &lt;入口键&gt;</c>（campaign/endless/procedural/net/
+    /// settings/quit——视频帧证据截完后经真按钮信号链点入再截过渡帧）。
+    /// 引擎参数与用户参数（<c>--</c> 后）都扫（Godot 推荐用户参数走
+    /// <c>--</c> 分隔，直发引擎名空间也容错）。目录相对 cwd 解析为绝对。
+    /// 窗口车道专用（headless 分叉后本方法只在窗口态被调用）。
+    /// </summary>
+    private void ParseShotArguments()
+    {
+        string[] args = [.. OS.GetCmdlineUserArgs(), .. OS.GetCmdlineArgs()];
+        for (int i = 0; i < args.Length; i++)
+        {
+            string arg = args[i];
+            if (arg.StartsWith("--shot=", StringComparison.Ordinal))
+            {
+                _shotDir = System.IO.Path.GetFullPath(arg[("--shot=").Length..]);
+                continue;
+            }
+
+            if (arg.StartsWith("--shot-frame=", StringComparison.Ordinal))
+            {
+                if (ulong.TryParse(arg[("--shot-frame=").Length..], out ulong warmup))
+                {
+                    _shotWarmup = warmup;
+                }
+
+                continue;
+            }
+
+            if (arg.StartsWith("--shot-open=", StringComparison.Ordinal))
+            {
+                _shotOpen = arg[("--shot-open=").Length..];
+                continue;
+            }
+
+            switch (arg)
+            {
+                case "--shot":
+                    if (i + 1 < args.Length)
+                    {
+                        _shotDir = System.IO.Path.GetFullPath(args[++i]);
+                    }
+
+                    break;
+                case "--shot-frame":
+                    if (i + 1 < args.Length && ulong.TryParse(args[++i], out ulong frame))
+                    {
+                        _shotWarmup = frame;
+                    }
+
+                    break;
+                case "--shot-open":
+                    if (i + 1 < args.Length)
+                    {
+                        _shotOpen = args[++i];
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// T-161 --shot 五段截图编排（W10 玩家视角截图验收门禁的承载面）。
+    /// 帧序（自菜单树就位起算）：
+    /// <list type="number">
+    /// <item>warmup 帧（缺省 150≈2.5 s）：01-menu-full.png 全景 +
+    ///     02-logo-title.png（同帧真裁剪——牌匾+标题带，任务卡允许裁剪）；</item>
+    /// <item>+悬停落定：鼠标经 InputEvent 真移到「战役」卡中心（真 hover
+    ///     态——补间+高亮）→ 03-button-focus.png，随后鼠标挪离；</item>
+    /// <item>+10 s（同机位不同视频帧——≠首帧证据，SHOT 行带 video_pos）：
+    ///     04-video-live.png；</item>
+    /// <item>--shot-open 给定：真按钮 Pressed 信号点入（与玩家点击同一条
+    ///     链）+过渡落定 → 05-transition.png；</item>
+    /// <item>编排走完 SHOT_OK 汇总行 + 正常退出（验收车道显式退出；无参
+    ///     玩家车道永不 Quit——v1.1.1 红线）。</item>
+    /// </list>
+    /// B/C/D 批复用：换 <c>--shot-open</c> 键+加长 <c>--shot-frame</c> 即可
+    /// 截点入后的战斗内画面（编排段保持同一帧泵）。
+    /// </summary>
+    private sealed class ShotHook
+    {
+        private const ulong HoverSettleFrames = 12;  // 悬停补间/样式落定
+        private const ulong LoopLaterFrames = 600;   // 第二机位晚 10 s（≠首帧证据）
+        private const ulong OpenSettleFrames = 16;   // 点入过渡帧
+
+        private readonly Main _main;
+        private readonly string _dir;
+        private readonly string? _openKey;
+        private readonly ulong _warmup;
+        private readonly ulong _bornFrame;
+        private int _step = -1; // -1=等待菜单在屏（首帧谓词裁决后开跑）
+        private int _files;
+
+        internal ShotHook(Main main, string dir, ulong warmup, string? openKey)
+        {
+            _main = main;
+            _dir = dir;
+            _warmup = warmup;
+            _openKey = openKey;
+            _bornFrame = Engine.GetProcessFrames();
+            System.IO.Directory.CreateDirectory(dir);
+        }
+
+        /// <summary>帧泵（窗口车道 _Process 首位调用；headless 不达 _Process）.</summary>
+        internal void Pump()
+        {
+            if (_step < 0)
+            {
+                if (_main.Menu is not { MenuShown: true })
+                {
+                    return; // 菜单未就绪（首帧谓词/视频尚未开）——帧钟未起步
+                }
+
+                _step = 0;
+            }
+
+            ulong f = Engine.GetProcessFrames() - _bornFrame;
+            switch (_step)
+            {
+                case 0:
+                    if (f >= _warmup)
+                    {
+                        Capture("01-menu-full.png");
+                        CropCapture("02-logo-title.png", new Rect2I(120, 0, 400, 235));
+                        WarpToEntry(MainMenuDecisions.EntryId.Campaign);
+                        _step = 1;
+                    }
+
+                    break;
+                case 1:
+                    if (f >= _warmup + HoverSettleFrames)
+                    {
+                        Capture("03-button-focus.png");
+                        WarpMouse(new Vector2(320f, 16f)); // 挪离卡片清悬停（回标题区上空）
+                        _step = 2;
+                    }
+
+                    break;
+                case 2:
+                    if (f >= _warmup + LoopLaterFrames)
+                    {
+                        Capture("04-video-live.png");
+                        if (_openKey is null)
+                        {
+                            Finish();
+                            break;
+                        }
+
+                        if (_main.Menu?.OpenEntry(_openKey) is not true)
+                        {
+                            GD.PushError(
+                                $"--shot-open 未知入口键：{_openKey}（合法键=campaign/endless/procedural/net/settings/quit）");
+                            Finish();
+                            break;
+                        }
+
+                        _step = 3;
+                    }
+
+                    break;
+                case 3:
+                    if (f >= _warmup + LoopLaterFrames + OpenSettleFrames)
+                    {
+                        Capture("05-transition.png");
+                        Finish();
+                    }
+
+                    break;
+            }
+        }
+
+        private void Finish()
+        {
+            _step = 4;
+            GD.Print(
+                $"SHOT_OK files={_files} dir={_dir} video_pos={_main.Menu?.VideoPositionSeconds:0.00}s " +
+                "lane=acceptance-explicit-quit");
+            _main.GetTree().Quit(0);
+        }
+
+        private void Capture(string name)
+        {
+            Image image = _main.GetViewport().GetTexture().GetImage();
+            string path = System.IO.Path.Combine(_dir, name);
+            Error saved = image.SavePng(path);
+            if (saved != Error.Ok)
+            {
+                GD.PushError($"SHOT_FAIL file={name} err={saved}");
+                return;
+            }
+
+            _files++;
+            GD.Print(
+                $"SHOT file={name} frame={Engine.GetProcessFrames()} " +
+                $"size={image.GetWidth()}x{image.GetHeight()} " +
+                $"video_pos={_main.Menu?.VideoPositionSeconds:0.00}s menu={_main.Menu?.MenuShown}");
+        }
+
+        /// <summary>同帧真裁剪（任务卡允许的特写形态——不是合成，是同一帧的取景）.</summary>
+        private void CropCapture(string name, Rect2I region)
+        {
+            Image image = _main.GetViewport().GetTexture().GetImage();
+            region = new Rect2I(
+                region.Position, new Vector2I(
+                    Math.Min(region.Size.X, image.GetWidth() - region.Position.X),
+                    Math.Min(region.Size.Y, image.GetHeight() - region.Position.Y)));
+            if (region.Size.X <= 0 || region.Size.Y <= 0)
+            {
+                GD.PushError($"SHOT_FAIL file={name} region={region} 越界");
+                return;
+            }
+
+            string path = System.IO.Path.Combine(_dir, name);
+            Error saved = image.GetRegion(region).SavePng(path);
+            if (saved != Error.Ok)
+            {
+                GD.PushError($"SHOT_FAIL file={name} err={saved}");
+                return;
+            }
+
+            _files++;
+            GD.Print(
+                $"SHOT file={name} frame={Engine.GetProcessFrames()} crop={region.Size.X}x{region.Size.Y} " +
+                $"video_pos={_main.Menu?.VideoPositionSeconds:0.00}s");
+        }
+
+        private void WarpToEntry(MainMenuDecisions.EntryId id)
+        {
+            if (_main.Menu?.EntryButtons.TryGetValue(id, out Button? button) is true && button is not null)
+            {
+                WarpMouse(button.GetGlobalRect().GetCenter());
+            }
+        }
+
+        private static void WarpMouse(Vector2 position) =>
+            Input.ParseInputEvent(new InputEventMouseMotion { Position = position });
     }
 
     /// <summary>
@@ -649,6 +969,7 @@ namespace EraTD;
     public override void _Process(double delta)
     {
         base._Process(delta);
+        _shotHook?.Pump(); // T-161: --shot 截图编排（窗口车道；headless 不达 _Process）
         PumpL2Lane(); // T-137: wave-gap pump + runtime health + hint refresh (window lane)
 
         if (_fpsProbeSamples.Count >= AutoProbeFrames)

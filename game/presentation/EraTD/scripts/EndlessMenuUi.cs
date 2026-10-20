@@ -100,6 +100,10 @@ public sealed partial class EndlessMenuUi : Control
         };
         _entryButton.Pressed += () => _panel.Visible = !_panel.Visible;
         AddChild(_entryButton);
+        if (!_headless)
+        {
+            _entryButton.Hide(); // T-161 入口归拢：窗口态入口在主菜单（headless 冒烟照旧）
+        }
 
         _panel = new PanelContainer
         {
@@ -153,6 +157,12 @@ public sealed partial class EndlessMenuUi : Control
         terminalRow.AddChild(_dieButton);
         terminalRow.AddChild(_abandonButton);
         rows.AddChild(terminalRow);
+
+        var menuRow = new HBoxContainer();
+        var menuButton = new Button { Text = "返回主菜单" };
+        menuButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
+        menuRow.AddChild(menuButton);
+        rows.AddChild(menuRow);
 
         _statusLabel = new Label
         {
@@ -245,6 +255,32 @@ public sealed partial class EndlessMenuUi : Control
         _waveActive = false;
         RefreshStatus();
     }
+
+    // ------------------------------------------- T-161 主菜单入口归拢（窗口车道）
+
+    /// <summary>主菜单「无尽」入口打开面板（headless 冒烟不走此路）.</summary>
+    internal void OpenFromMenu() => _panel.Visible = true;
+
+    /// <summary>
+    /// 返回主菜单：局在跑=诚实弃局（不记分+遥测 Abandoned——与既有
+    /// OnAbandonPressed 同一条路）后收面板——「会话退出→回主菜单」链路的
+    /// 无尽半边。
+    /// </summary>
+    internal void CloseFromMenu()
+    {
+        if (_session is { State: EndlessSessionState.Running })
+        {
+            OnAbandonPressed();
+        }
+
+        _panel.Visible = false;
+    }
+
+    /// <summary>无尽会话在局位（主菜单可见性谓词探针）.</summary>
+    internal bool SessionActive => _session is not null;
+
+    /// <summary>无尽面板打开位（主菜单可见性谓词探针）.</summary>
+    internal bool PanelOpen => _panel.Visible;
 
     /// <summary>
     /// Window wave clock: the run is host-paced — one wave per the ACTIVE

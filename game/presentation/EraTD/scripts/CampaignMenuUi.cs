@@ -134,6 +134,10 @@ public sealed partial class CampaignMenuUi : Control
             RefreshMenu();
         };
         AddChild(_entryButton);
+        if (!_headless)
+        {
+            _entryButton.Hide(); // T-161 入口归拢：窗口态入口在主菜单（headless 冒烟照旧）
+        }
 
         _panel = new ScrollContainer
         {
@@ -149,6 +153,9 @@ public sealed partial class CampaignMenuUi : Control
         var exitButton = new Button { Text = "退出本关（存档续玩）" };
         exitButton.Pressed += OnExitPressed;
         actionRow.AddChild(exitButton);
+        var menuButton = new Button { Text = "返回主菜单" };
+        menuButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
+        actionRow.AddChild(menuButton);
         rows.AddChild(actionRow);
         _statusLabel = new Label
         {
@@ -376,8 +383,48 @@ public sealed partial class CampaignMenuUi : Control
         }
 
         _host.ExitToMenu(); // Pause→SaveAndExitToMenu+campaign 域合并写（诚实存档续玩面）
+        _panel.Visible = false; // T-161：会话退出→回主菜单（面板收起，谓词翻真）
         RefreshMenu();
     }
+
+    // ------------------------------------------- T-161 主菜单入口归拢（窗口车道）
+
+    /// <summary>主菜单「战役」入口打开面板（headless 冒烟不走此路）.</summary>
+    internal void OpenFromMenu()
+    {
+        _panel.Visible = true;
+        RefreshMenu();
+    }
+
+    /// <summary>
+    /// 返回主菜单：诚实收束一切战役态（败北面板在→按其菜单语义收下；局内
+    /// →存档退出）后收面板——「会话退出→回主菜单」链路的战役半边。
+    /// </summary>
+    internal void CloseFromMenu()
+    {
+        if (_host.PendingDefeat is not null)
+        {
+            _host.DismissDefeatToMenu();
+        }
+        else if (_host.InLevel)
+        {
+            _host.ExitToMenu();
+        }
+
+        _panel.Visible = false;
+        _defeatPanel.Hide();
+        RefreshMenu();
+    }
+
+    /// <summary>战役会话在局位（主菜单可见性谓词探针）.</summary>
+    internal bool SessionActive => _host.InLevel;
+
+    /// <summary>战役面板打开位（主菜单可见性谓词探针）.</summary>
+    internal bool PanelOpen => _panel.Visible;
+
+    /// <summary>演出待演位（胜利结算/跃迁/终章队列非空——菜单不闪面）.</summary>
+    internal bool PerformancesPending =>
+        _launchQueue.Count > 0 || _host.PendingLaunches.Count > 0;
 
     private void RefreshMenu()
     {

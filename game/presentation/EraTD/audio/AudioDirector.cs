@@ -121,6 +121,14 @@ public sealed partial class AudioDirector : Node
     /// <summary>Boss-wave flag from the wave plan seam (WavePlan.HasBoss binding lands with the campaign host; smoke drives it directly).</summary>
     public void SetBossWave(bool active) => _bossWave = active;
 
+    /// <summary>
+    /// T-161 菜单 BGM 事实探针：三态机当前目标态（菜单=无敌人 ⇒ Calm 循环，
+    /// <see cref="EraCore.Presentation.MainMenuDecisions.MenuBgmState"/> 锚）
+    /// + 该时代层播放器是否真在响——MENU 行只报真值，不伪造状态。
+    /// </summary>
+    internal (string State, bool Audible) BgmFact() =>
+        (_fades.Current.ToString().ToLowerInvariant(), BgmPlayer(_fades.Current).Playing);
+
     public override void _Ready()
     {
         try

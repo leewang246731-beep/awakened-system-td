@@ -199,6 +199,16 @@ public sealed partial class SettingsPanelUi : Control
         ui._tiers = WebConstraints.Availability(OS.HasFeature("web")); // T-106 F-164
         ui.WireNodes();
         ui.LoadFromDisk();
+
+        // T-161 主菜单入口归拢：设置页从主菜单「设置」进入——右上「返回主
+        // 菜单」关闭钮（代码挂载，不动 settings_panel.tscn 既有节点树——
+        // 冒烟探针按名解析零影响）。
+        var menuBack = new Button { Text = "返回主菜单", FocusMode = Control.FocusModeEnum.None };
+        menuBack.SetAnchorsAndOffsetsPreset(
+            Control.LayoutPreset.TopRight, Control.LayoutPresetMode.Minsize, 8);
+        menuBack.Pressed += ui.Close;
+        ui.AddChild(menuBack);
+
         host.AddChild(ui);
         return ui;
     }

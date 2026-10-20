@@ -98,6 +98,10 @@ public sealed partial class ProceduralMenuUi : Control
         };
         _entryButton.Pressed += () => _panel.Visible = !_panel.Visible;
         AddChild(_entryButton);
+        if (!_headless)
+        {
+            _entryButton.Hide(); // T-161 入口归拢：窗口态入口在主菜单（headless 冒烟照旧）
+        }
 
         _panel = new PanelContainer
         {
@@ -136,6 +140,9 @@ public sealed partial class ProceduralMenuUi : Control
         _exitButton.Pressed += OnExitPressed;
         actionRow.AddChild(_startButton);
         actionRow.AddChild(_exitButton);
+        var menuButton = new Button { Text = "返回主菜单" };
+        menuButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
+        actionRow.AddChild(menuButton);
         rows.AddChild(actionRow);
 
         _statusLabel = new Label
@@ -210,6 +217,31 @@ public sealed partial class ProceduralMenuUi : Control
         ReleaseBattlefield(); // T-160b：退出恢复菜单态（视口释放+夹具层恢复）
         RefreshStatus();
     }
+
+    // ------------------------------------------- T-161 主菜单入口归拢（窗口车道）
+
+    /// <summary>主菜单「程序关卡」入口打开面板（headless 冒烟不走此路）.</summary>
+    internal void OpenFromMenu() => _panel.Visible = true;
+
+    /// <summary>
+    /// 返回主菜单：局在跑=诚实弃局（既有 OnExitPressed 同一条路）后收面板
+    /// ——「会话退出→回主菜单」链路的程序关半边。
+    /// </summary>
+    internal void CloseFromMenu()
+    {
+        if (_session is { Machine.State: GameFlowState.InLevel })
+        {
+            OnExitPressed();
+        }
+
+        _panel.Visible = false;
+    }
+
+    /// <summary>程序关会话在局位（主菜单可见性谓词探针；终局后的 Menu态残留不计）.</summary>
+    internal bool SessionActive => _session is { Machine.State: GameFlowState.InLevel };
+
+    /// <summary>程序关面板打开位（主菜单可见性谓词探针）.</summary>
+    internal bool PanelOpen => _panel.Visible;
 
     private void PumpWindowSession()
     {
