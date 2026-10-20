@@ -993,6 +993,51 @@ internal sealed class CampaignAdvisorBoard : SystemPanel.IAdvisorBoardHost, IDis
         return HudMetrics.Compute(_run.Session.Sim.CurrentWave, production, towerHealths);
     }
 
+    // T-163（C 批波次预告横幅）：下波预告投影器（只读波计划，不开局不改局）。
+    private WaveSpawner? _previewSpawner;
+
+    /// <summary>
+    /// 战役关的第三指标全口径视图（T-160b 面上补齐——SimHost.
+    /// BuildWaveCompositionView 同律镜像，读面独立成对）：当前波构成=活体
+    /// 快照聚合，下波预告=只读波计划投影（preview ordinal=current+1 钳到
+    /// ≥1 的冻结律）。T-163 波次预告横幅（敌 icon 行）与既有文字预告行的
+    /// 共同数据源；投影器用关卡种子惰性构造一次（确定性复算）。
+    /// </summary>
+    public WaveCompositionView BuildWaveCompositionView()
+    {
+        SimulationConfig config = _run.Config.LevelConfig;
+        _previewSpawner ??= new WaveSpawner(
+            config.Enemies, config.Waves,
+            new EndlessHostContent.SplitMix64Rng(_run.Level.Map.Seed), new FrozenClock());
+
+        int currentWave = _run.Session.Sim.CurrentWave;
+        System.Collections.Generic.IReadOnlyList<IUnit> units =
+            _run.Session.Sim.Snapshots.Latest?.Units ?? Array.Empty<IUnit>();
+        IReadOnlyList<WaveCompositionRow> current = WaveComposition.Aggregate(
+            units.Where(unit => config.Enemies.TryGet(unit.ContentId, out _))
+                .Select(unit => (unit.ContentId, unit.Armor)));
+
+        int previewWave = Math.Max(1, currentWave + 1);
+        WavePlan plan = _previewSpawner.PlanWave(
+            previewWave, _previewSpawner.WaveStartTick(previewWave));
+        IReadOnlyList<WaveCompositionRow> preview = WaveComposition.Preview(
+            config.Waves.RegularRoster,
+            plan.RegularCount,
+            config.Waves.EliteLineEnabled ? config.Waves.EliteEnemyId : null,
+            plan.EliteCount,
+            plan.HasBoss ? config.Waves.BossEnemyId : null,
+            id => config.Enemies.Get(id).Armor);
+        return new WaveCompositionView(currentWave, current, previewWave, preview);
+    }
+
+    /// <summary>冻结钟（只读波计划投影用——计划以绝对 tick 参数化，钟不参与）.</summary>
+    private sealed class FrozenClock : IClock
+    {
+        public long Tick => 0;
+
+        public long NowMs => 0;
+    }
+
     /// <summary>Chinese display name of an enemy content id (falls back to the id).</summary>
     public string NameOfEnemy(string id) =>
         _run.Config.LevelConfig.Enemies.TryGet(id, out EnemySpec? spec) ? spec.NameZh : id;

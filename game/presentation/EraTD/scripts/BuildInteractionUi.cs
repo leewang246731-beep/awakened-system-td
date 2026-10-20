@@ -68,6 +68,12 @@ public sealed partial class BuildInteractionUi : Control
 
     private readonly List<ColorRect> _highlights = new();
     private readonly Dictionary<string, Button> _towerButtons = new();
+
+    // T-163（C 批建造栏图标化）：槽位三件面（icon/价/快捷键角标）——禁用态
+    // 染色与选中态描边的着色目标（RefreshBarTints/ArmTower 共用）。
+    private readonly Dictionary<string, TextureRect> _slotIcons = new();
+    private readonly Dictionary<string, Label> _slotPrices = new();
+    private readonly Dictionary<char, string> _slotHotkeys = new(); // 键字符 → 塔 id（真绑定）
     private readonly Dictionary<string, Color> _classSwatch = new()
     {
         ["pierce"] = Colors.LimeGreen,
@@ -280,6 +286,17 @@ public sealed partial class BuildInteractionUi : Control
                 ExpandShortcut(row: false);
                 break;
         }
+
+        // T-163 建造栏槽位快捷键（真绑定：与按钮 Pressed 同一 ArmTower 链；
+        // 键序=HudIconDecisions.SlotHotkeys 按槽位序——跳 R/C 既有语义零回退）。
+        if (key.Keycode is Key.Q or Key.W or Key.E or Key.T or Key.A or Key.S or Key.D
+            or Key.G or Key.F or Key.Z or Key.X or Key.B
+            && _slotHotkeys.TryGetValue((char)key.Keycode, out string? hotkeyTowerId)
+            && _towerButtons.TryGetValue(hotkeyTowerId, out Button? hotkeyButton))
+        {
+            ArmTower(hotkeyTowerId, hotkeyButton);
+            SetStatus($"[{(char)key.Keycode}] 已选 {hotkeyTowerId}——地图上左键拖矩形（或再点槽位切换）");
+        }
     }
 
     private void WireScene()
@@ -311,21 +328,144 @@ public sealed partial class BuildInteractionUi : Control
         RefreshBarTints(); // §10.7 建造栏两级灰度（时代锁红 / 缺资源黄灰 / 可建绿）
     }
 
+    /// <summary>
+    /// 建造栏（T-163 图标化）：塔 icon（res:// 项目内轨 128×128，缺图=类色
+    /// 色块回退）+造价+快捷键角标（Q/W/E…按槽位序——HudIconDecisions.
+    /// SlotHotkeys 跳 R/C 冻结面）；towers.json 序即栏序（既有律零改动）。
+    /// 按下仍走 ArmTower 同一链（点击建造链零回退）。
+    /// </summary>
     private void BuildBar()
     {
+        int slotIndex = 0;
         foreach (TowerSpec spec in LoadTowerCatalog())
         {
+            char hotkey = HudIconDecisions.HotkeyOfSlot(slotIndex++);
             var button = new Button
             {
-                Text = $"{spec.Id.Split(':')[^1]}\n{spec.CostTotal:0}",
-                CustomMinimumSize = new Vector2(72, 48),
+                CustomMinimumSize = new Vector2(78f, 70f),
                 FocusMode = FocusModeEnum.None,
             };
             button.Pressed += () => ArmTower(spec.Id, button);
+
+            var face = new VBoxContainer();
+            face.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            face.AddThemeConstantOverride("separation", 2);
+            face.Alignment = BoxContainer.AlignmentMode.Center;
+
+            var icon = new TextureRect
+            {
+                CustomMinimumSize = new Vector2(HudIconDecisions.BuildIconPx, HudIconDecisions.BuildIconPx),
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            icon.Texture = LoadTowerIcon(spec.Id);
+            var price = new Label
+            {
+                Text = $"{spec.CostTotal:0}",
+                MouseFilter = MouseFilterEnum.Ignore,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            price.AddThemeFontSizeOverride("font_size", 11);
+            price.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
+            face.AddChild(icon);
+            face.AddChild(price);
+            button.AddChild(face);
+
+            if (hotkey != '\0')
+            {
+                var badge = new Label
+                {
+                    Text = hotkey.ToString(),
+                    Position = new Vector2(60f, 0f),
+                    MouseFilter = MouseFilterEnum.Ignore,
+                };
+                badge.AddThemeFontSizeOverride("font_size", 9);
+                badge.AddThemeColorOverride("font_color", new Color(1.00f, 0.84f, 0.40f));
+                badge.AddThemeColorOverride("font_outline_color", Colors.Black);
+                badge.AddThemeConstantOverride("outline_size", 2);
+                button.AddChild(badge);
+                _slotHotkeys[hotkey] = spec.Id;
+            }
+
             _buildBar.AddChild(button);
             _towerButtons[spec.Id] = button;
+            _slotIcons[spec.Id] = icon;
+            _slotPrices[spec.Id] = price;
+        }
+
+        RefreshSlotStyles(); // T-163：槽位三态底样式（选中/禁用/常态）初始一遍
+    }
+
+    /// <summary>塔 icon 装载（res:// 项目内轨；缺图=类色色块回退——类色语义既有）.</summary>
+    private Texture2D LoadTowerIcon(string towerId)
+    {
+        string path = HudIconDecisions.TowerIconPath(towerId);
+        if (ResourceLoader.Exists(path))
+        {
+            return GD.Load<Texture2D>(path);
+        }
+
+        Color swatch = _classSwatch.TryGetValue(TowerClassOf(towerId), out Color tint) ? tint : Colors.Gray;
+        var image = Image.CreateEmpty(24, 24, false, Image.Format.Rgba8);
+        image.Fill(new Color(swatch, 0.55f));
+        image.SetPixel(4, 4, Colors.White);
+        image.SetPixel(5, 4, Colors.White);
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>建造泳道时代主色（era1=装载目录时代；palettes 同源经 ExpandDirector）.</summary>
+    private Color BuildEraColor()
+    {
+        Expand.VisualExpansionDirector? expand =
+            (GetParent() as Main)?.ExpandDirector;
+        return expand?.EraColor("e1") ?? HoloSkin.EdgeCyan;
+    }
+
+    /// <summary>
+    /// 槽位样式三态（T-163）：选中=时代色描边+类色 tint（既有 armed 语义）；
+    /// 禁用（资源不足/科技未解锁，读 RefreshBarTints 同源判定面 BuildGreyMap）
+    /// =图标灰暗+价红；常态=暗底细青边。SelfModulate 两级灰度另由
+    /// RefreshBarTints 施加（既有零回退），本样式与之分层。
+    /// </summary>
+    private void RefreshSlotStyles()
+    {
+        Color eraColor = BuildEraColor();
+        double available = _lane.View.ResourceAmount(_lane.View.CostCurrency);
+        string currency = _lane.View.CostCurrency.Value;
+        foreach (KeyValuePair<string, Button> pair in _towerButtons)
+        {
+            _lane.View.TryGetTowerCost(pair.Key, out double unitCost);
+            BuildTintVerdict verdict = BuildGreyMap.BarEntry(AgentEra, unitCost, available, currency);
+            bool selected = _armedTower == pair.Key;
+            bool disabled = verdict.Tier != BuildTintTier.Green;
+
+            var box = new StyleBoxFlat();
+            box.BgColor = selected
+                ? new Color(eraColor, 0.20f)
+                : new Color(0.05f, 0.09f, 0.16f, 0.72f);
+            box.SetCornerRadiusAll(4);
+            box.SetBorderWidthAll(selected ? 2 : 1); // 选中态时代色描边（任务卡口径）
+            box.BorderColor = selected ? eraColor : new Color(HoloSkin.EdgeCyan, 0.35f);
+            pair.Value.AddThemeStyleboxOverride("normal", box);
+            pair.Value.AddThemeStyleboxOverride("hover", box);
+            pair.Value.AddThemeStyleboxOverride("pressed", box);
+            pair.Value.AddThemeStyleboxOverride("disabled", box);
+
+            if (_slotIcons.TryGetValue(pair.Key, out TextureRect? icon))
+            {
+                icon.Modulate = disabled ? Colors.White with { A = 0.42f } : Colors.White; // 禁用灰暗
+            }
+
+            if (_slotPrices.TryGetValue(pair.Key, out Label? price))
+            {
+                price.AddThemeColorOverride("font_color", disabled ? HoloSkin.RiskRed : HoloSkin.TextDimCyan); // 禁用价红
+            }
         }
     }
+
+    /// <summary>Pacing fact probe（T-163 BattleHudUi 节奏按钮态镜像——只读，钟仍归本类）.</summary>
+    internal (bool Paused, int Speed) PaceFact() => (_pauseClock.IsPaused, _pauseClock.SpeedMultiplier);
 
     private void ArmTower(string towerId, Button button)
     {
@@ -337,6 +477,7 @@ public sealed partial class BuildInteractionUi : Control
                 : Colors.White with { A = 0.6f };
         }
 
+        RefreshSlotStyles(); // T-163：选中槽位时代色描边同拍生效
         SetStatus($"已选 {towerId}——地图上左键拖矩形（≤{PlayerBuildLane.MaxBuildCells(AgentEra)} 格）");
     }
 
@@ -476,6 +617,8 @@ public sealed partial class BuildInteractionUi : Control
             };
             pair.Value.TooltipText = verdict.Reason ?? $"{pair.Key}：可建造（{unitCost:0} {currency}）";
         }
+
+        RefreshSlotStyles(); // T-163：图标灰暗+价红随两级灰度同拍刷新
     }
 
     /// <summary>

@@ -121,6 +121,28 @@ public sealed partial class AudioDirector : Node
     /// <summary>Boss-wave flag from the wave plan seam (WavePlan.HasBoss binding lands with the campaign host; smoke drives it directly).</summary>
     public void SetBossWave(bool active) => _bossWave = active;
 
+    // —— T-161 遗留收口（T-163 半径内顺手项）：会话 BGM 战况接线 ——
+
+    /// <summary>会话敌数记忆（-1=无会话——菜单/夹具态回落夹具快照事实）.</summary>
+    private int _sessionEnemies = -1;
+
+    /// <summary>
+    /// 会话敌数注入（战役会话每帧喂——夹具在菜单态不步进恒零，会话局内
+    /// 敌数才是态机的真事实）：注入后 <c>_Process</c> 的三态目标以会话数
+    /// 为准（有敌=Combat/Boss、无敌=Calm——「会话进行中恒 calm」的既有面
+    /// 在此接通；战斗态≠calm）。负值忽略（脏读防线）。
+    /// </summary>
+    internal void ObserveSessionEnemies(int count)
+    {
+        if (count >= 0)
+        {
+            _sessionEnemies = count;
+        }
+    }
+
+    /// <summary>会话退出=回落夹具事实（菜单态 BGM 语义还原）.</summary>
+    internal void ResetSessionEnemies() => _sessionEnemies = -1;
+
     /// <summary>
     /// T-161 菜单 BGM 事实探针：三态机当前目标态（菜单=无敌人 ⇒ Calm 循环，
     /// <see cref="EraCore.Presentation.MainMenuDecisions.MenuBgmState"/> 锚）
@@ -236,7 +258,9 @@ public sealed partial class AudioDirector : Node
             "stardust=high-band chimes=odd-bars gate=drone+sub+fifth-reprise");
     }
 
-    /// <summary>Live path: one frame poll — BGM state follows the read-only snapshot beats.</summary>
+    /// <summary>Live path: one frame poll — BGM state follows the read-only snapshot beats.
+    /// T-163 会话战况：会话敌数注入在位（ObserveSessionEnemies）时优先——战役局
+    /// 内的敌情才是真事实（夹具在菜单态不步进恒零）。</summary>
     public override void _Process(double delta)
     {
         base._Process(delta);
@@ -246,7 +270,9 @@ public sealed partial class AudioDirector : Node
         }
 
         _smokeTick++;
-        int enemies = _host.SnapshotSource.Latest?.Units.Count ?? 0;
+        int enemies = _sessionEnemies >= 0
+            ? _sessionEnemies
+            : _host.SnapshotSource.Latest?.Units.Count ?? 0;
         BgmLayerState target = _bossWave ? BgmLayerState.Boss : enemies > 0 ? BgmLayerState.Combat : BgmLayerState.Calm;
         _ = _fades.Request(target, _smokeTick);
         ApplyBgmGains();

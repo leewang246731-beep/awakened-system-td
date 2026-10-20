@@ -13,9 +13,10 @@ namespace EraTD;
 //   ① 关随图变（GridWidth/Height/地形）→Bind 检测 sim 引用变化即整面重建
 //     （桥+双层 Setup+时代路由图集 era1~era6 既有）；
 //   ② 关卡切换/跃迁后重进再重绑（每帧 Bind 幂等——引用相等零动作）；
-//   ③ 退出到菜单=Release（战场层隐藏+镜头交还宿主——恢复菜单态口径，
-//     宿主夹具画面/镜头原样复现，菜单面板覆盖其上）；
-//   ④ 相机按新图尺寸重居中（Main._Ready 同律：图心=宽高半×格 px）。
+//   ③ 退出到菜单=Release（战场层隐藏+虚拟相机平移归零——恢复菜单态口径，
+//     宿主夹具画面/菜单面板覆盖其上）；
+//   ④ 虚拟相机按新图尺寸重居中（图心=画布心；T-163 实测收口：Position
+//     平移替代 Camera2D——后者会平移 root 画布全体 UI）。
 // 承载面纪律（NetClientViewport 同律）：本视口自持节点树，不触碰 Main 的
 // SimHost 夹具泳道（headless 冒烟既有段不破）；宿主泳道的夹具层由宿主 UI
 // （CampaignMenuUi/ProceduralMenuUi）在 Bind/Release 时隐藏/恢复（同层不叠画）。
@@ -33,7 +34,6 @@ public sealed partial class SessionBattlefieldViewport : Control
     private const int GroundZIndex = 0;        // main.tscn 双层同 z（隐藏夹具层后无叠画）
     private const int UnitZIndex = 10;
 
-    private Camera2D _camera = null!;
     private MultiMeshRenderer _groundLayer = null!;
     private MultiMeshRenderer _unitLayer = null!;
     private SimSnapshotBridge _bridge = null!;
@@ -65,9 +65,6 @@ public sealed partial class SessionBattlefieldViewport : Control
 
     private void BuildTree()
     {
-        _camera = new Camera2D { Name = "SessionCamera", Enabled = false };
-        AddChild(_camera);
-
         _groundLayer = new MultiMeshRenderer { Name = "SessionGroundLayer", ZIndex = GroundZIndex };
         AddChild(_groundLayer);
         _unitLayer = new MultiMeshRenderer { Name = "SessionUnitLayer", ZIndex = UnitZIndex };
@@ -106,8 +103,14 @@ public sealed partial class SessionBattlefieldViewport : Control
         int width = _boundFramebuffer.WidthCells;
         int height = _boundFramebuffer.HeightCells;
         float cell = SimSnapshotBridge.CellSizePx;
-        _camera.Position = new Vector2(width * cell / 2f, height * cell / 2f); // 律④：图心重居中
-        _camera.Enabled = true; // 会话车道接管镜头（Release 交还）
+        // T-163（C 批战斗 HUD 图标化实测收口）：「虚拟相机」=自持树整体
+        // Position 平移（图心→画布心），不再启用 Camera2D——任何 Camera2D
+        // 都会平移 root 画布层全体（SystemPanel/建造栏/BattleHudUi 全部
+        // Control 一起被牵移出屏，多相机 MakeCurrent 也只换平移源不除平移）。
+        // Position 平移只动本视口两层 MultiMesh，会话 UI 纹丝不动。
+        Position = new Vector2(
+            EraCore.Presentation.ViewportScale.BaseWidth / 2f - width * cell / 2f,
+            EraCore.Presentation.ViewportScale.BaseHeight / 2f - height * cell / 2f);
 
         (Texture2D atlas, Func<int, int> tileIndex, int tilesPerRow) = EraGroundArt.Of(eraIndex);
         _groundLayer.SetupGround(
@@ -121,15 +124,14 @@ public sealed partial class SessionBattlefieldViewport : Control
     }
 
     /// <summary>
-    /// Exit-to-menu restore (律③): hide both layers and hand the camera back
-    /// to the host lane — the fixture battlefield and menu overlay read as
-    /// they did before the level started.
+    /// Exit-to-menu restore (律③): hide both layers and reset the virtual
+    /// camera shift（T-163：Position 归零——战场层隐藏、平移随 Release 撤销）.
     /// </summary>
     public void Release()
     {
         _bound = null;
         _boundFramebuffer = null;
-        _camera.Enabled = false;
+        Position = Vector2.Zero;
         _groundLayer.Hide();
         _unitLayer.Hide();
     }

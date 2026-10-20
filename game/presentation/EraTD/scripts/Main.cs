@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EraCore.Agent.Pipeline;
 using EraCore.Contracts.Foundation;
 using EraCore.Contracts.Persistence;
@@ -66,6 +67,10 @@ namespace EraTD;
     internal Expand.VisualExpansionDirector? ExpandDirector { get; private set; }
     internal SettingsPanelUi SettingsUi => _settingsUi;
     internal MainMenuUi? Menu { get; private set; }
+
+    // T-163（C 批战斗 HUD 图标化）：资源条/预告横幅/节奏按钮/军师皮肤总装
+    // （窗口车道专用；headless 不挂——判据零改动，装载探针另走 RunHudIconProbe）。
+    internal BattleHudUi? BattleHud { get; private set; }
 
     // T-161 --shot 截图钩子（W10 玩家视角截图门禁承载面）：窗口模式专用
     // 五段编排（全景/牌匾标题特写/悬停态/循环中帧/点入过渡帧）——菜单就绪
@@ -384,6 +389,16 @@ namespace EraTD;
         // （并行纪律：本文件的接线冲突由后提交者 rebase。）
         CampaignUi = CampaignMenuUi.Instantiate(this);
 
+        // ---- 5r) T-163 HUD 图标装载探针 (C 批战斗 HUD 图标化) ----------------
+        // 92 图标（塔 21/敌 54/资源 17）+六立绘的 res:// 存在性——G4 判据
+        // 只加不改（既有判据行零改动）：HUDICONS 行如实报命中数，缺立绘
+        // 属并行生成中的主管素材轨（优雅回退纪律，不作门禁）。
+        // （并行纪律：本文件的接线冲突由后提交者 rebase。）
+        if (headless)
+        {
+            RunHudIconProbe();
+        }
+
         // ---- 6) markers (smoke_godot.sh asserts SMOKE_OK) ------------------
         // T-161：判据打印段=headless 专用（G4 判据逐字节照旧；窗口车道无判据
         // 打印——玩家日志只留 MENU/MENU_BOOT/SHOT_OK 玩家态行）。
@@ -574,8 +589,13 @@ namespace EraTD;
             // 泳道悬浮入口按钮已随本任务隐藏（窗口态）。--shot 截图钩子先
             // 解析再建菜单（编排段在菜单树就位后按帧序驱动，--shot-open 的
             // 点入发生在视频帧证据截完之后——过渡帧才有意义）。
+            // T-163：夹具镜头让位（窗口态 root 画布不平移——Camera2D 会把
+            // 全体 root 层 Control 一起牵移出屏；夹具层窗口态不步进/被菜单
+            // 或会话战场盖住，无需镜头。headless 冒烟段不动——判据零改动）。
+            _camera.Enabled = false;
             ParseShotArguments();
             Menu = MainMenuUi.Instantiate(this);
+            BattleHud = BattleHudUi.Instantiate(this); // T-163：战斗 HUD 图标化总装（窗口车道）
             if (_shotDir is not null)
             {
                 _shotHook = new ShotHook(this, _shotDir, _shotWarmup, _shotOpen, _shotPlan);
@@ -739,6 +759,12 @@ namespace EraTD;
             if (_plan == "level-cards")
             {
                 PumpLevelCards();
+                return;
+            }
+
+            if (_plan == "battle-hud")
+            {
+                PumpBattleHud();
                 return;
             }
 
@@ -917,6 +943,189 @@ namespace EraTD;
 
         /// <summary>滚到未解锁章节带所需真滚轮档数（六章内容≈2 视口高——多滚夹底不越界）.</summary>
         private const int LockedChapterWheelNotches = 64;
+
+        // ------------------------------------- T-163 battle-hud 编排（C 批验收）
+
+        /// <summary>进局成形帧（战场 Bind+HUD 绑定+预告横幅首拍刷新）.</summary>
+        private const ulong BattleSettleFrames = 72;
+
+        /// <summary>军师面板展开落定帧（入场补间 0.1 s+皮肤/立绘装载）.</summary>
+        private const ulong PanelOpenSettleFrames = 20;
+
+        /// <summary>抽屉开合落定帧.</summary>
+        private const ulong DrawerSettleFrames = 8;
+
+        /// <summary>
+        /// C 批战斗 HUD 五段编排（--shot-plan battle-hud）：①真按钮点入战役→
+        /// 真按钮点入 E1-01 进局（PressLevel 真信号链——与玩家点击同一条链）
+        /// ②进局全景 01-hud-full（顶条+建造栏+预告横幅同帧）+02-build-bar
+        /// 底部建造栏特写（icon+价+快捷键角标+禁用态真裁剪）③03-wave-preview
+        /// 预告横幅特写（敌 icon×数量徽记）④军师面板展开（Expand 同一入口）
+        /// →04-advisor-panel（时代皮肤+立绘位+标题带）⑤F1 抽屉开/收两态真
+        /// F1 键事件（InputEventKey→_UnhandledKeyInput 真链）分帧截取→
+        /// 05-glossary-drawer 两态拼一图。全程零伪造（真帧真裁剪真拼接）。
+        /// </summary>
+        private Image? _drawerOpenBand;
+
+        private void PumpBattleHud()
+        {
+            ulong f = Engine.GetProcessFrames() - _bornFrame;
+            switch (_step)
+            {
+                case 0:
+                    if (f >= _warmup)
+                    {
+                        _ = _main.Menu?.OpenEntry("campaign"); // 真按钮信号链点入战役
+                        _step = 1;
+                    }
+
+                    break;
+                case 1:
+                    if (f >= _warmup + PanelSettleFrames)
+                    {
+                        bool opened = _main.CampaignUi?.PressLevel("campaign:level-e1-01") is true;
+                        if (!opened)
+                        {
+                            GD.PushError("SHOT_FAIL battle-hud 首关卡真信号未达（选关面板未开或卡片不在树）");
+                            Finish();
+                            break;
+                        }
+
+                        _step = 2;
+                    }
+
+                    break;
+                case 2:
+                    if (f >= _warmup + PanelSettleFrames + BattleSettleFrames)
+                    {
+                        Vector2 canvasScale = _main.GetViewport().GetFinalTransform().Scale;
+                        GD.Print(
+                            $"SHOT_PROBE battle window={DisplayServer.WindowGetSize().X}x{DisplayServer.WindowGetSize().Y} " +
+                            $"canvas_scale={canvasScale.X:0.##}x{canvasScale.Y:0.##} " +
+                            $"session={_main.CampaignUi?.SessionActive} hud_era={_main.BattleHud?.BoundEra}");
+                        _main.BattleHud?.PrintLayoutProbe();
+                        Capture("01-hud-full.png");
+                        CropCapture("02-build-bar.png", BuildBarCropRegion());
+                        CropCapture("03-wave-preview.png", WaveBannerCropRegion());
+                        _step = 3;
+                    }
+
+                    break;
+                case 3:
+                    if (f >= _warmup + PanelSettleFrames + BattleSettleFrames + PanelOpenSettleFrames)
+                    {
+                        _main.AdvisorPanel.Expand(); // 军师面板展开（RunPanelSmoke 同一入口）
+                        _step = 4;
+                    }
+
+                    break;
+                case 4:
+                    if (f >= _warmup + PanelSettleFrames + BattleSettleFrames + (2 * PanelOpenSettleFrames))
+                    {
+                        CropCapture("04-advisor-panel.png", AdvisorPanelCropRegion());
+                        EmitF1Key(); // 抽屉开（真 F1 键事件——_UnhandledKeyInput 真链）
+                        _step = 5;
+                    }
+
+                    break;
+                case 5:
+                    if (f >= _warmup + PanelSettleFrames + BattleSettleFrames + (2 * PanelOpenSettleFrames) + DrawerSettleFrames)
+                    {
+                        _drawerOpenBand = DrawerBand(docked: true); // 开态带（真帧真裁剪）
+                        EmitF1Key(); // 收起（真键链）
+                        _step = 6;
+                    }
+
+                    break;
+                case 6:
+                    if (f >= _warmup + PanelSettleFrames + BattleSettleFrames + (2 * PanelOpenSettleFrames) + DrawerSettleFrames + DrawerSettleFrames)
+                    {
+                        StitchDrawerTwoState("05-glossary-drawer.png"); // 收态带+拼接（真帧）
+                        Finish();
+                    }
+
+                    break;
+            }
+        }
+
+        /// <summary>底部建造栏特写取景（窗口像素域=画布 (150,268)-(500,360)×整数放大）.</summary>
+        private Rect2I BuildBarCropRegion()
+        {
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            return new Rect2I(
+                (int)(150 * scale.X), (int)(268 * scale.Y),
+                (int)(350 * scale.X), (int)(92 * scale.Y));
+        }
+
+        /// <summary>预告横幅特写取景（窗口像素域=画布 (424,94)-(640,186)×整数放大）.</summary>
+        private Rect2I WaveBannerCropRegion()
+        {
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            return new Rect2I(
+                (int)(424 * scale.X), (int)(94 * scale.Y),
+                (int)(216 * scale.X), (int)(92 * scale.Y));
+        }
+
+        /// <summary>军师面板特写取景（窗口像素域=画布 (0,160)-(370,360)×整数放大）.</summary>
+        private Rect2I AdvisorPanelCropRegion()
+        {
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            return new Rect2I(
+                0, (int)(160 * scale.Y),
+                (int)(370 * scale.X), (int)(200 * scale.Y));
+        }
+
+        /// <summary>真 F1 键事件（与玩家敲 F1 同一条输入链——词汇抽屉开合）.</summary>
+        private static void EmitF1Key() =>
+            Input.ParseInputEvent(new InputEventKey
+            {
+                Keycode = Key.F1,
+                Pressed = true,
+                Echo = false,
+            });
+
+        /// <summary>抽屉带真帧裁剪：开态=画布 (372,28)-(640,344)；收态=画布 (596,120)-(640,280).</summary>
+        private Image DrawerBand(bool docked)
+        {
+            Image shot = _main.GetViewport().GetTexture().GetImage();
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            Rect2I region = docked
+                ? new Rect2I((int)(372 * scale.X), (int)(28 * scale.Y), (int)(268 * scale.X), (int)(316 * scale.Y))
+                : new Rect2I((int)(596 * scale.X), (int)(120 * scale.Y), (int)(44 * scale.X), (int)(160 * scale.Y));
+            return shot.GetRegion(region);
+        }
+
+        /// <summary>
+        /// 抽屉两态拼一图（任务卡允许形态）：开态带（case5 已截）+收态带（本帧
+        /// 真帧）水平拼接——两段都是真截图，拼接不绘制任何内容。
+        /// </summary>
+        private void StitchDrawerTwoState(string name)
+        {
+            if (_drawerOpenBand is null)
+            {
+                GD.PushError($"SHOT_FAIL file={name} 开态带缺失（case5 未截）");
+                return;
+            }
+
+            Image closedBand = DrawerBand(docked: false);
+            var stitched = Image.CreateEmpty(
+                _drawerOpenBand.GetWidth() + closedBand.GetWidth(),
+                _drawerOpenBand.GetHeight(), false, Image.Format.Rgba8);
+            stitched.BlitRect(_drawerOpenBand, new Rect2I(Vector2I.Zero, _drawerOpenBand.GetSize()), Vector2I.Zero);
+            stitched.BlitRect(closedBand, new Rect2I(Vector2I.Zero, closedBand.GetSize()), new Vector2I(_drawerOpenBand.GetWidth(), 0));
+            string path = System.IO.Path.Combine(_dir, name);
+            if (stitched.SavePng(path) == Error.Ok)
+            {
+                _files++;
+                GD.Print(
+                    $"SHOT file={name} frame={Engine.GetProcessFrames()} " +
+                    $"stitch={stitched.GetWidth()}x{stitched.GetHeight()} states=open+closed");
+            }
+            else
+            {
+                GD.PushError($"SHOT_FAIL file={name} stitch save failed");
+            }
+        }
 
         /// <summary>真滚轮事件（InputEventMouseButton——与玩家滚轮同一条输入链，窗口坐标域）.</summary>
         private static void EmitWheel(Main main, MouseButton button, Vector2 windowPosition) =>
@@ -1677,6 +1886,52 @@ namespace EraTD;
         }
 
         throw new InvalidOperationException($"未找到 game/content/{subDir}（宿主须在仓库内运行）");
+    }
+
+    // ------------------------------------------- T-163 HUD 图标装载探针（G4）
+
+    /// <summary>
+    /// 92 图标+六立绘的 res:// 装载存在性探针（headless 专用；HUDICONS 行=
+    /// G4 判据扩展——只加不改旧判据）。清单=id 集合从内容权威源
+    /// （era{1..6}/{towers,enemies,era}.json）现场推导，映射=id 冒号转横线
+    /// （HudIconDecisions 确定性推导——无散装映射表）。
+    /// </summary>
+    private static void RunHudIconProbe()
+    {
+        var towers = new List<string>();
+        var enemies = new List<string>();
+        var resources = new HashSet<string>(StringComparer.Ordinal);
+        for (int era = 1; era <= 6; era++)
+        {
+            using (JsonDocument towerDoc = JsonDocument.Parse(ReadRepoContent($"era{era}", "towers.json")))
+            {
+                foreach (JsonElement item in towerDoc.RootElement.GetProperty("items").EnumerateArray())
+                {
+                    towers.Add(item.GetProperty("id").GetString()!);
+                }
+            }
+
+            using (JsonDocument enemyDoc = JsonDocument.Parse(ReadRepoContent($"era{era}", "enemies.json")))
+            {
+                foreach (JsonElement item in enemyDoc.RootElement.GetProperty("items").EnumerateArray())
+                {
+                    enemies.Add(item.GetProperty("id").GetString()!);
+                }
+            }
+
+            foreach ((string id, _) in HudIconDecisions.EraResources(
+                         ReadRepoContent($"era{era}", "era.json"), $"era{era}/era.json"))
+            {
+                resources.Add(id);
+            }
+        }
+
+        (int towerHits, int enemyHits, int resourceHits, int portraits) =
+            BattleHudUi.ProbeIconCoverage(towers, enemies, resources.ToArray());
+        GD.Print(
+            $"HUDICONS towers={towerHits}/{towers.Count} enemies={enemyHits}/{enemies.Count} " +
+            $"resources={resourceHits}/{resources.Count} portraits={portraits}/6 " +
+            "map=id-colon-to-dash track=res-imported");
     }
 
     // ------------------------------------------------- T-106 Web 约束

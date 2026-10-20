@@ -455,10 +455,15 @@ public sealed partial class InfoLayersUi : Control
             Math.Clamp(tower.Cell.Y * Cell - 4f, 46f, 356f - cardSize.Y));
     }
 
-    // ---- 帮助面板（F1，F-124 词汇表） --------------------------------------
+    // ---- 帮助面板（F1，F-124 词汇表；T-163 改右缘收起抽屉） -------------------
+
+    /// <summary>抽屉把手（右缘常驻——战斗内任何时刻可唤出，收起态唯一可见件）.</summary>
+    private Button _helpTab = null!;
 
     private void BuildHelpPanel()
     {
+        // T-163（C 批 F1 词汇表改收起抽屉）：面板贴右缘收纳（不再居中压顶），
+        // 收起态仅右缘把手常驻；F1/把手/词条链同开合口（ToggleHelp 单源）。
         _helpPanel = new PanelContainer { Visible = false };
         _helpPanel.AddThemeStyleboxOverride("panel", HoloSkin.BuildHoloBox());
         _helpPanel.ZIndex = 40;
@@ -466,7 +471,7 @@ public sealed partial class InfoLayersUi : Control
         var box = new VBoxContainer();
         var titleRow = new HBoxContainer();
         var title = Dim("◆ 词汇表 · F1 开关");
-        var close = new Button { Text = "关闭" };
+        var close = new Button { Text = "收起" };
         close.Pressed += ToggleHelp;
         titleRow.AddChild(title);
         titleRow.AddChild(close);
@@ -479,7 +484,7 @@ public sealed partial class InfoLayersUi : Control
         {
             Text = "选择词条查看释义。",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            CustomMinimumSize = new Vector2(340, 0),
+            CustomMinimumSize = new Vector2(236, 0),
             MouseFilter = MouseFilterEnum.Ignore,
         };
         _helpDef.AddThemeFontSizeOverride("font_size", 11);
@@ -491,7 +496,22 @@ public sealed partial class InfoLayersUi : Control
         box.AddChild(_helpDef);
         _helpPanel.AddChild(box);
         AddChild(_helpPanel);
-        _helpPanel.Position = new Vector2(140f, 40f);
+        _helpPanel.Position = new Vector2(378f, 34f); // 右缘抽屉位（640 画布域）
+
+        // 右缘把手：竖排「F1 词汇表」，常驻可见（收起=只余把手；展开=面板滑入右缘带）
+        _helpTab = new Button
+        {
+            Text = "F1\n词\n汇\n表",
+            FocusMode = FocusModeEnum.None,
+            CustomMinimumSize = new Vector2(24f, 96f),
+            ZIndex = 41, // 抽屉之上（展开态也可见——同点收起）
+        };
+        _helpTab.AddThemeFontSizeOverride("font_size", 10);
+        _helpTab.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
+        _helpTab.TooltipText = "词汇表抽屉（F1）——点击开/收";
+        _helpTab.Pressed += ToggleHelp;
+        AddChild(_helpTab);
+        _helpTab.Position = new Vector2(614f, 140f);
         RefreshHelpList();
     }
 
@@ -585,7 +605,7 @@ public sealed partial class InfoLayersUi : Control
         }
     }
 
-    /// <summary>F1 开关帮助面板（可从提示气泡的术语链打开）。</summary>
+    /// <summary>F1 开关帮助抽屉（可从提示气泡的术语链打开；把手=同一开合口）。</summary>
     internal void ToggleHelp()
     {
         if (_helpPanel.Visible)
@@ -597,6 +617,11 @@ public sealed partial class InfoLayersUi : Control
             _helpPanel.Show();
             RefreshHelpList();
         }
+
+        // T-163 抽屉把手态镜像：展开=高亮青（点=收），收起=常态（点=唤出）
+        _helpTab.SelfModulate = _helpPanel.Visible
+            ? new Color(HoloSkin.EdgeCyan, 0.92f)
+            : Colors.White with { A = 0.72f };
     }
 
     // ---- 分区 chips（令簿地名点击定位镜头）+ 人格 chips（F-122） -----------

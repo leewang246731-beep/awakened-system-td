@@ -76,6 +76,7 @@ public sealed partial class CampaignMenuUi : Control
     private readonly Dictionary<string, Godot.ImageTexture?> _bannerCache = new();
     private Button? _firstCard; // 首卡引用（--shot 02-level-cards 取景探针）
     private Button _menuReturnButton = null!; // 「返回主菜单」承载钮（--shot 真信号驱动位）
+    private Button _exitButton = null!; // 「退出本关」承载钮（T-163 HUD ✕ 钮真信号驱动位）
     private CanvasLayer _panelLayer = null!; // 面板层（Layer 90——盖夹具/信息层，让位主菜单 100）
 
     // —— T-160c 失败面板（败绩分档呈现+三行动）——
@@ -179,6 +180,7 @@ public sealed partial class CampaignMenuUi : Control
         });
         var exitButton = new Button { Text = "退出本关（存档续玩）" };
         exitButton.Pressed += OnExitPressed;
+        _exitButton = exitButton;
         header.AddChild(exitButton);
         var menuButton = new Button { Text = "返回主菜单" };
         menuButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
@@ -233,6 +235,7 @@ public sealed partial class CampaignMenuUi : Control
         _defeatMenu.Pressed += () =>
         {
             _host.DismissDefeatToMenu();
+            SetPanelVisible(true); // T-163：败北「退回菜单」=重开选关面板（进局态面板已收）
             RefreshMenu();
         };
         defeatActions.AddChild(_defeatMenu);
@@ -309,9 +312,15 @@ public sealed partial class CampaignMenuUi : Control
                 SetFixtureHidden(true);
             }
 
+            // T-163（C 批战斗 HUD 图标化）：资源条/预告横幅/节奏按钮/军师皮肤
+            // 随会话绑定（双条件幂等——Bind 内部 sim+era 双比）。
+            _main?.BattleHud?.Bind(run, EraLevelAssembly.EraIndexOf(run.Level));
+            PumpBattleAudio(run); // T-161 遗留收口：会话 BGM 战况接线（战斗态≠calm）
+
             if (_main is not null && Engine.GetProcessFrames() % 15 == 0)
             {
                 _main.AdvisorPanel.RefreshHud(_board.BuildHudSnapshot()); // HUD 面板随战役会话
+                _main.BattleHud?.RefreshPulse(_board); // 资源数字+预告横幅+节奏镜像（同拍）
             }
         }
         else if (_board is not null || _viewport is { IsBound: true })
@@ -320,11 +329,57 @@ public sealed partial class CampaignMenuUi : Control
             _board = null;
             _viewport?.Release();
             SetFixtureHidden(false);
+            _main?.BattleHud?.Release(); // T-163：图标 HUD 整组收起+军师面板还原菜单态
+            GetNodeOrNull<Audio.AudioDirector>("../AudioDirector")?.ResetSessionEnemies(); // BGM 回夹具事实
+            _audioSessionEnemies = -1;
+            _audioEra = 0; // 会话音频路由位随局清零（下次进局重路由）
             if (_main is not null)
             {
                 _main.AdvisorPanel.Bind(_main.BattleHost); // 还原夹具板（菜单态）
             }
         }
+    }
+
+    // —— T-161 遗留收口（T-163 半径内顺手项）：会话 BGM 战况接线 ——
+
+    /// <summary>BGM 会话敌数记忆（-1=无会话，菜单态回落夹具事实）.</summary>
+    private int _audioSessionEnemies = -1;
+
+    /// <summary>战役会话 BGM 时代路由位（0=未路由）.</summary>
+    private int _audioEra;
+
+    /// <summary>
+    /// 会话 BGM 战况泵（每帧）：①敌数注入（AudioDirector 态机的会话事实——
+    /// 夹具在菜单态不步进，恒 calm 的既有面在此接通；有敌=Combat/Boss）；
+    /// ②boss 波经内容 id 约定（-boss 尾在场）路由 SetBossWave；③关时代
+    /// 变化=BGM 时代+语音时代双路由（六行齐——T-157）。
+    /// </summary>
+    private void PumpBattleAudio(CampaignRun run)
+    {
+        Audio.AudioDirector? audio = GetNodeOrNull<Audio.AudioDirector>("../AudioDirector");
+        if (audio is null)
+        {
+            return;
+        }
+
+        int era = EraLevelAssembly.EraIndexOf(run.Level);
+        if (_audioEra != era)
+        {
+            _audioEra = era;
+            audio.SetActiveEra($"era{era}");
+            audio.SetVoiceEra($"era{era}");
+        }
+
+        int enemies = run.Session.Sim.Units.Count;
+        if (_audioSessionEnemies != enemies)
+        {
+            _audioSessionEnemies = enemies;
+            audio.ObserveSessionEnemies(enemies);
+        }
+
+        bool bossLive = run.Session.Sim.Units.Any(unit =>
+            unit.ContentId.EndsWith("-boss", StringComparison.Ordinal));
+        audio.SetBossWave(bossLive);
     }
 
     private SessionBattlefieldViewport EnsureViewport() =>
@@ -404,6 +459,7 @@ public sealed partial class CampaignMenuUi : Control
         }
 
         _host.BeginLevel(levelId);
+        SetPanelVisible(false); // T-163：进局收选关面板——战场+战斗 HUD 呈现（退出链=HUD ✕ 钮）
         RefreshStatus();
     }
 
@@ -418,6 +474,9 @@ public sealed partial class CampaignMenuUi : Control
         SetPanelVisible(false); // T-161：会话退出→回主菜单（面板收起，谓词翻真）
         RefreshMenu();
     }
+
+    /// <summary>「退出本关」真信号驱动（T-163 战斗 HUD ✕ 钮/--shot 编排——与玩家点击同一条链）.</summary>
+    internal void PressExitLevel() => _exitButton.EmitSignal(Button.SignalName.Pressed);
 
     // ------------------------------------------- T-161 主菜单入口归拢（窗口车道）
 
@@ -450,6 +509,15 @@ public sealed partial class CampaignMenuUi : Control
 
     /// <summary>「返回主菜单」承载钮真信号驱动（--shot 验收钩子——与玩家点击同一条链）.</summary>
     internal void PressMenuReturn() => _menuReturnButton.EmitSignal(Button.SignalName.Pressed);
+
+    /// <summary>
+    /// 关卡卡真信号驱动（T-163 --shot-plan battle-hud 验收钩子——与玩家点击
+    /// 同一条链：EmitSignal(Pressed) → OnLevelPressed → BeginLevel）。卡片
+    /// 不在树（面板未开/已进局）返回 false，编排层如实跳步。
+    /// </summary>
+    internal bool PressLevel(string levelId) =>
+        _levelButtons.TryGetValue(levelId, out Button? card) && card is not null
+        && (_levelButtons[levelId].EmitSignal(Button.SignalName.Pressed) == Error.Ok);
 
     // —— T-162 卡片版式常量（640×360 画布域；表现层排版常量，非平衡数值） ——
     private const int ChapterGridColumns = 5;   // 最宽章=5 关（e1/e3~e6）一行铺满

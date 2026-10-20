@@ -124,6 +124,11 @@ public sealed partial class SystemPanel : Control
     private Label _planCost = null!;
     private Label _planRisks = null!;
 
+    // T-163（C 批军师面板时代皮肤+立绘）：标题带 Label（时代色着色面）+
+    // 立绘绑定时代位（0=未绑/菜单态——程序头像回退）。
+    private Label _panelTitle = null!;
+    private int _portraitEra;
+
     private long _pendingId = -1;
     private PipelineOutcomeKind? _lastOutcome;
 
@@ -332,10 +337,10 @@ public sealed partial class SystemPanel : Control
         var body = Separation(new VBoxContainer(), 4);
 
         var titleRow = new HBoxContainer();
-        var title = DimLabel("◆ 系统全息面板");
+        _panelTitle = DimLabel("◆ 系统全息面板");
         var collapse = new Button { Text = "收起" };
         collapse.Pressed += OnCollapsePressed;
-        titleRow.AddChild(title);
+        titleRow.AddChild(_panelTitle);
         titleRow.AddChild(collapse);
 
         var orderRow = Separation(new HBoxContainer(), 4);
@@ -406,10 +411,12 @@ public sealed partial class SystemPanel : Control
         _l2Banner.AddThemeColorOverride("font_color", Colors.White); // 中性横幅：白字（§10.7 先例）
 
         var reportRow = Separation(new HBoxContainer(), 6);
+        // T-163（C 批军师立绘位）：36×36 展示位（256×256 era{N}-advisor
+        // 立绘的军师面板位；缺图=既有 14×14 程序头像拉伸回退——不阻塞）。
         _avatar = new TextureRect
         {
             Texture = BuildAvatarTexture(),
-            CustomMinimumSize = new Vector2(14, 14),
+            CustomMinimumSize = new Vector2(HudIconDecisions.AdvisorPortraitPx, HudIconDecisions.AdvisorPortraitPx),
             StretchMode = TextureRect.StretchModeEnum.Scale,
             MouseFilter = MouseFilterEnum.Ignore,
         };
@@ -420,7 +427,7 @@ public sealed partial class SystemPanel : Control
         _trustMark = new Label
         {
             Text = TrustBadgeLabels.Mark(TrustBadge.Trustworthy),
-            Position = new Vector2(7f, -2f),
+            Position = new Vector2(HudIconDecisions.AdvisorPortraitPx - 12f, -2f),
             MouseFilter = MouseFilterEnum.Ignore,
         };
         _trustMark.AddThemeFontSizeOverride("font_size", 9);
@@ -573,6 +580,49 @@ public sealed partial class SystemPanel : Control
         {
             _aiSyntaxHint.Visible = WebUiSurfaces.Surfaces(_tiers).AiAdvancedSyntaxHintVisible;
         }
+    }
+
+    // ------------------------------------------- T-163 军师面板时代皮肤+立绘 --
+
+    /// <summary>皮肤应用面（时代皮肤=边框/底纹着色目标；VisualExpansionDirector.ApplyEraSkin 消费——palettes 同源，别新造根解析）.</summary>
+    internal PanelContainer ExpandSkinTarget => _expandedPanel;
+
+    /// <summary>最近一次立绘绑定是否真装载到 era{N}-advisor 贴图（缺图=false——观测探针）.</summary>
+    internal bool PortraitLoaded { get; private set; }
+
+    /// <summary>
+    /// 时代主题应用（T-163）：标题带按时代色着色+军师立绘位重绑
+    /// （<c>era{N}-advisor.png</c>——eraIndex 变化才重装载，SessionBattlefield
+    /// Viewport.Bind 双条件重绑同律；缺图=既有程序头像优雅回退不阻塞，
+    /// 素材落地后随下次重绑自动出现）。
+    /// </summary>
+    /// <param name="eraColor">时代主色（visual-assets.json palettes 同源，调用方经 ExpandDirector.EraColor 取）.</param>
+    /// <param name="eraIndex">时代序 1..6（立绘键）.</param>
+    internal void ApplyEraTheme(Color eraColor, int eraIndex)
+    {
+        _panelTitle.AddThemeColorOverride("font_color", eraColor);
+        if (_portraitEra == eraIndex)
+        {
+            return;
+        }
+
+        _portraitEra = eraIndex;
+        string portraitPath = HudIconDecisions.AdvisorPortraitPath(eraIndex);
+        Texture2D? portrait = ResourceLoader.Exists(portraitPath)
+            ? GD.Load<Texture2D>(portraitPath)
+            : null;
+        _avatar.Texture = portrait ?? BuildAvatarTexture();
+        PortraitLoaded = portrait is not null;
+    }
+
+    /// <summary>时代主题还原（退出战役会话=恢复菜单态口径：标题带回全息青+程序头像+默认全息框）.</summary>
+    internal void ResetEraTheme()
+    {
+        _portraitEra = 0;
+        PortraitLoaded = false;
+        _avatar.Texture = BuildAvatarTexture();
+        _panelTitle.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
+        _expandedPanel.AddThemeStyleboxOverride("panel", HoloSkin.BuildHoloBox());
     }
 
     /// <summary>AI-advanced-syntax hint visible right now (T-110 smoke probe).</summary>

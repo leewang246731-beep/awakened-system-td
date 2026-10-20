@@ -5,6 +5,8 @@
 ; preview layer (green/red cell highlights), demolish confirm card
 ; (SellTower confirm_sell danger bit) and a status line. All EraCore wiring
 ; lives in scripts/BuildInteractionUi.cs — this file only lays out nodes.
+; T-163 (W10 C 批): 建造栏移底部居中（图标化塔 icon+价+快捷键角标——
+; 场景只挪布局位，按钮构造仍在脚本内）。
 
 [ext_resource type="Script" path="res://scripts/BuildInteractionUi.cs" id="1_buildui"]
 
@@ -23,10 +25,16 @@ mouse_filter = 2
 
 [node name="BuildBar" type="HBoxContainer" parent="."]
 z_index = 30
-offset_left = 12.0
-offset_top = 12.0
-offset_right = 320.0
-offset_bottom = 64.0
+anchors_preset = 3
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_bottom = 1.0
+offset_left = 164.0
+offset_top = -78.0
+offset_right = 476.0
+offset_bottom = -14.0
+grow_vertical = 0
 theme_override_constants/separation = 8
 
 [node name="DemolishCard" type="PanelContainer" parent="."]
@@ -75,9 +83,9 @@ anchor_top = 1.0
 anchor_right = 0.0
 anchor_bottom = 1.0
 offset_left = 12.0
-offset_top = -60.0
-offset_right = 620.0
-offset_bottom = -20.0
+offset_top = -104.0
+offset_right = 628.0
+offset_bottom = -86.0
 grow_vertical = 0
 mouse_filter = 2
 text = "建栏选塔 → 左键拖矩形 → 松开建造（ESC 取消 / 右键拆除）"
