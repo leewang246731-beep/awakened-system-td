@@ -54,8 +54,9 @@ internal static class ExpandAssetPaths
         return null;
     }
 
-    /// <summary>三级链候选根（顺序=优先级；探测由 <see cref="RepoRoot"/> 统一做）.</summary>
-    private static IEnumerable<string> ArtRootCandidates()
+    /// <summary>三级链候选根（顺序=优先级；探测由 <see cref="RepoRoot"/> 统一做，
+    /// 亦供 VisualExpansionDirector catalog 装载共用——双根不分叉律）.</summary>
+    internal static IEnumerable<string> ArtRootCandidates()
     {
         // ① env ERA_DATA_ROOT（SimHost/DevFileStore 同族第一级）：launcher 注入的
         //    是包内 data 子根——自身（data 根即包根的形态）与父目录（launcher

@@ -700,6 +700,18 @@ public sealed partial class VisualExpansionDirector : Control
 
     private static string FindContentDir(string relative, string label)
     {
+        // T-162 双轴审查修（Spec c.1）：catalog 装载并入 ExpandAssetPaths 三级链
+        // （env/editor/exe旁/walk-up 同族同序）——env 形态下 catalog 根与 banner/
+        // 视频根不再分叉；链上无可达命中时保留既有 AppContext walk-up 兜底语义。
+        foreach (string candidate in ExpandAssetPaths.ArtRootCandidates())
+        {
+            string chained = System.IO.Path.Combine(candidate, relative);
+            if (Directory.Exists(chained))
+            {
+                return chained;
+            }
+        }
+
         var dir = new DirectoryInfo(System.IO.Path.GetDirectoryName(AppContext.BaseDirectory)!);
         while (dir is not null)
         {
