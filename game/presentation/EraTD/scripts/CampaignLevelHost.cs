@@ -581,17 +581,21 @@ internal sealed class CampaignLevelHost
         if (record is not null)
         {
             int stars = record.Decided.VerdictRows.Count(row => row.Passed);
-            return new CampaignLevelRow(level.Id, level.NameZh, CampaignLevelState.Cleared, stars);
+            return RowOf(level, CampaignLevelState.Cleared, stars);
         }
 
         bool unlocked = EraLevelAssembly.EraIndexOf(level) <= _campaign.EraIndex
             && LowerSlotsCleared(level)
             && (level.RequiresWonder is null || _ledger.IsWonderBuilt(level.RequiresWonder));
-        return new CampaignLevelRow(
-            level.Id, level.NameZh,
-            unlocked ? CampaignLevelState.Playable : CampaignLevelState.Locked,
-            Stars: 0);
+        return RowOf(level, unlocked ? CampaignLevelState.Playable : CampaignLevelState.Locked, 0);
     }
+
+    /// <summary>行构造（T-162 卡片面数据位：slot/threat/final 随行递交流——既有字段零新造）.</summary>
+    private static CampaignLevelRow RowOf(HandcraftedLevel level, CampaignLevelState state, int stars) => new(
+        level.Id, level.NameZh, state, stars,
+        Slot: level.Slot,
+        Threat: level.Threat,
+        IsFinal: EraCore.Presentation.LevelCardDecisions.IsFinalLevel(level.Id));
 
     private bool LowerSlotsCleared(HandcraftedLevel level) =>
         _sets[EraLevelAssembly.EraIndexOf(level)].Items

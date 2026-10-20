@@ -65,10 +65,18 @@ public sealed partial class CampaignMenuUi : Control
     private readonly bool _headless;
 
     private Button _entryButton = null!;
+    private Control _panelRoot = null!;
     private ScrollContainer _panel = null!;
     private VBoxContainer _list = null!;
     private Label _statusLabel = null!;
     private readonly Dictionary<string, Button> _levelButtons = new();
+
+    // —— T-162 选关卡片化（banner 缩略图装载：目录清单一次、贴图按文件名缓存）——
+    private IReadOnlyList<string>? _bannerFiles;
+    private readonly Dictionary<string, Godot.ImageTexture?> _bannerCache = new();
+    private Button? _firstCard; // 首卡引用（--shot 02-level-cards 取景探针）
+    private Button _menuReturnButton = null!; // 「返回主菜单」承载钮（--shot 真信号驱动位）
+    private CanvasLayer _panelLayer = null!; // 面板层（Layer 90——盖夹具/信息层，让位主菜单 100）
 
     // —— T-160c 失败面板（败绩分档呈现+三行动）——
     private PanelContainer _defeatPanel = null!;
@@ -130,7 +138,7 @@ public sealed partial class CampaignMenuUi : Control
         };
         _entryButton.Pressed += () =>
         {
-            _panel.Visible = !_panel.Visible;
+            SetPanelVisible(!_panelRoot.Visible);
             RefreshMenu();
         };
         AddChild(_entryButton);
@@ -139,33 +147,57 @@ public sealed partial class CampaignMenuUi : Control
             _entryButton.Hide(); // T-161 入口归拢：窗口态入口在主菜单（headless 冒烟照旧）
         }
 
+        // T-162 选关卡片化：面板=全画布面板根（压暗底+滚动卡片场），整体挂
+        // CanvasLayer 90——盖过夹具战场与信息层浮显（分区命名/提示气泡是
+        // 菜单态噪音），仍让位主菜单（Layer 100）。面板开合语义挂在
+        // _panelRoot（PanelOpen 探针随之），640×360 画布域整幅利用。
+        _panelLayer = new CanvasLayer { Layer = 90, Name = "CampaignPanelLayer" };
+        AddChild(_panelLayer);
+        _panelRoot = new Control { Name = "CampaignPanelRoot", Visible = false };
+        _panelRoot.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _panelRoot.MouseFilter = Control.MouseFilterEnum.Stop;
+        var backdrop = new ColorRect { Color = new Color(0.02f, 0.03f, 0.05f, 0.96f) };
+        backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _panelRoot.AddChild(backdrop);
+
         _panel = new ScrollContainer
         {
-            Position = new Vector2(170, 120),
-            Size = new Vector2(430, 470),
-            Visible = false,
+            // 画布 640×360：左右留 8px 边、上 22（回主菜单钮带）、下 6。
+            Position = new Vector2(8, 22),
+            Size = new Vector2(624, 332),
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
         var rows = new VBoxContainer();
-        rows.AddChild(new Label { Text = "战役（六时代——从 UI 玩全战役）" });
-        _list = new VBoxContainer();
-        rows.AddChild(_list);
-        var actionRow = new HBoxContainer();
+        rows.AddThemeConstantOverride("separation", 6);
+
+        var header = new HBoxContainer();
+        header.AddThemeConstantOverride("separation", 8);
+        header.AddChild(new Label
+        {
+            Text = "战役 · 六时代（章节题图+关卡卡片）",
+            CustomMinimumSize = new Vector2(300, 0),
+        });
         var exitButton = new Button { Text = "退出本关（存档续玩）" };
         exitButton.Pressed += OnExitPressed;
-        actionRow.AddChild(exitButton);
+        header.AddChild(exitButton);
         var menuButton = new Button { Text = "返回主菜单" };
         menuButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
-        actionRow.AddChild(menuButton);
-        rows.AddChild(actionRow);
+        _menuReturnButton = menuButton;
+        header.AddChild(menuButton);
+        rows.AddChild(header);
+
+        _list = new VBoxContainer();
+        rows.AddChild(_list);
         _statusLabel = new Label
         {
             Text = "未开局",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            CustomMinimumSize = new Vector2(410, 60),
+            CustomMinimumSize = new Vector2(596, 40),
         };
         rows.AddChild(_statusLabel);
         _panel.AddChild(rows);
-        AddChild(_panel);
+        _panelRoot.AddChild(_panel);
+        _panelLayer.AddChild(_panelRoot);
 
         // T-160c 失败面板（覆盖菜单列表之上——败北时刻的面板态）。
         _defeatPanel = new PanelContainer
@@ -206,7 +238,7 @@ public sealed partial class CampaignMenuUi : Control
         defeatActions.AddChild(_defeatMenu);
         defeatRows.AddChild(defeatActions);
         _defeatPanel.AddChild(defeatRows);
-        AddChild(_defeatPanel);
+        _panelLayer.AddChild(_defeatPanel); // 同层尾序=面板根之上（败北面板压选关场）
     }
 
     public override void _Process(double delta)
@@ -383,7 +415,7 @@ public sealed partial class CampaignMenuUi : Control
         }
 
         _host.ExitToMenu(); // Pause→SaveAndExitToMenu+campaign 域合并写（诚实存档续玩面）
-        _panel.Visible = false; // T-161：会话退出→回主菜单（面板收起，谓词翻真）
+        SetPanelVisible(false); // T-161：会话退出→回主菜单（面板收起，谓词翻真）
         RefreshMenu();
     }
 
@@ -392,7 +424,7 @@ public sealed partial class CampaignMenuUi : Control
     /// <summary>主菜单「战役」入口打开面板（headless 冒烟不走此路）.</summary>
     internal void OpenFromMenu()
     {
-        _panel.Visible = true;
+        SetPanelVisible(true);
         RefreshMenu();
     }
 
@@ -411,16 +443,40 @@ public sealed partial class CampaignMenuUi : Control
             _host.ExitToMenu();
         }
 
-        _panel.Visible = false;
+        SetPanelVisible(false);
         _defeatPanel.Hide();
         RefreshMenu();
     }
+
+    /// <summary>「返回主菜单」承载钮真信号驱动（--shot 验收钩子——与玩家点击同一条链）.</summary>
+    internal void PressMenuReturn() => _menuReturnButton.EmitSignal(Button.SignalName.Pressed);
+
+    // —— T-162 卡片版式常量（640×360 画布域；表现层排版常量，非平衡数值） ——
+    private const int ChapterGridColumns = 5;   // 最宽章=5 关（e1/e3~e6）一行铺满
+    private const float ChapterBannerWidth = 612f;
+    private const float ChapterBannerHeight = 52f;
+    private const float CardWidth = 118f;
+    private const float CardHeight = 102f;
+    private const float ThumbHeight = 56f;      // banner 768×512→118×56 横裁带
+    private const float ThreatBadgeWidth = 44f;
+    private const float ThreatBadgeHeight = 14f;
+    private const float StarRowHeight = 18f;
+    private const float BannerTitleBandHeight = 18f; // 题图底部压暗带+章名带
+
+    /// <summary>面板开合统一口（T-162 卡片化：面板根=压暗底+滚动场整体）.</summary>
+    private void SetPanelVisible(bool visible) => _panelRoot.Visible = visible;
 
     /// <summary>战役会话在局位（主菜单可见性谓词探针）.</summary>
     internal bool SessionActive => _host.InLevel;
 
     /// <summary>战役面板打开位（主菜单可见性谓词探针）.</summary>
-    internal bool PanelOpen => _panel.Visible;
+    internal bool PanelOpen => _panelRoot.Visible;
+
+    /// <summary>选关滚动位（--shot 取景探针：滚动后角标/锁态章节的落位证据）.</summary>
+    internal int CardScrollVertical => _panel.ScrollVertical;
+
+    /// <summary>首卡全局矩形（--shot 02-level-cards 特写取景；无卡=null 探针返回零矩形）.</summary>
+    internal Rect2? FirstCardGlobalRect => _firstCard?.GetGlobalRect();
 
     /// <summary>演出待演位（胜利结算/跃迁/终章队列非空——菜单不闪面）.</summary>
     internal bool PerformancesPending =>
@@ -433,44 +489,328 @@ public sealed partial class CampaignMenuUi : Control
             pair.Value.QueueFree();
         }
 
+        foreach (Node child in _list.GetChildren())
+        {
+            child.QueueFree();
+        }
+
         _levelButtons.Clear();
+        _firstCard = null;
+        int bannerHits = 0;
+        int cardCount = 0;
         foreach (CampaignChapter chapter in _host.Chapters())
         {
-            _list.AddChild(new Label { Text = chapter.Title });
-            foreach (CampaignLevelRow row in chapter.Rows)
-            {
-                var line = new HBoxContainer();
-                string state = row.State switch
-                {
-                    CampaignLevelState.Locked => "未解锁",
-                    CampaignLevelState.Playable => "可玩",
-                    CampaignLevelState.Cleared => $"已通关 {new string('★', row.Stars)}",
-                    _ => row.State.ToString(),
-                };
-                line.AddChild(new Label
-                {
-                    Text = $"{row.NameZh}（{row.Id}）{state}",
-                    CustomMinimumSize = new Vector2(330, 0),
-                });
-                var button = new Button
-                {
-                    // 重玩挂账：CampaignProgression.RegisterCapture 单占领契约——
-                    // 已通关关重 settle 会撞重复占领（REV §七遗留⑥）。
-                    Text = row.State switch
-                    {
-                        CampaignLevelState.Cleared => "已通关",
-                        CampaignLevelState.Locked => "未解锁",
-                        _ => "进入",
-                    },
-                    Disabled = row.State != CampaignLevelState.Playable,
-                };
-                string id = row.Id;
-                button.Pressed += () => OnLevelPressed(id);
-                line.AddChild(button);
-                _levelButtons[id] = button;
-                _list.AddChild(line);
-            }
+            Button? chapterFirst = null;
+            _list.AddChild(BuildChapterSection(chapter, ref bannerHits, ref cardCount, ref chapterFirst));
+            _firstCard ??= chapterFirst;
         }
+
+        // 卡片面证据行（窗口车道 RefreshMenu 即打印——29/29 命中=接线正确；
+        // 缺图=接线错不是缺资产，缺数如实上报）。
+        GD.Print(
+            $"CAMPAIGN_CARDS chapters={_host.Chapters().Count} cards={cardCount} " +
+            $"banners={bannerHits}/{cardCount} root={Expand.ExpandAssetPaths.RepoRoot() ?? "-"}");
+    }
+
+    // -------------------------------------------- T-162 章节题图+关卡卡片场
+
+    /// <summary>一章=通栏题图（该时代终关 banner 整幅横裁）+关卡卡片网格.</summary>
+    private Control BuildChapterSection(
+        CampaignChapter chapter, ref int bannerHits, ref int cardCount, ref Button? chapterFirst)
+    {
+        var section = new VBoxContainer();
+        section.AddThemeConstantOverride("separation", 4);
+        section.AddChild(BuildChapterBanner(chapter));
+        var grid = new GridContainer { Columns = ChapterGridColumns };
+        grid.AddThemeConstantOverride("h_separation", 4);
+        grid.AddThemeConstantOverride("v_separation", 4);
+        foreach (CampaignLevelRow row in chapter.Rows)
+        {
+            Button card = BuildLevelCard(row, chapter.EraIndex);
+            if (TryBannerTexture(LevelCardDecisions.LevelBannerStem(
+                    chapter.EraIndex, row.Slot, row.IsFinal)) is not null)
+            {
+                bannerHits++;
+            }
+
+            chapterFirst ??= card;
+            _levelButtons[row.Id] = card;
+            grid.AddChild(card);
+            cardCount++;
+        }
+
+        section.AddChild(grid);
+        return section;
+    }
+
+    /// <summary>章节通栏题图：终关 banner 整幅 KeepAspectCovered 横裁+底部
+    /// 压暗带+章名+章锁态（压暗带保章名在亮图上可读）.</summary>
+    private Control BuildChapterBanner(CampaignChapter chapter)
+    {
+        var strip = new Control { CustomMinimumSize = new Vector2(ChapterBannerWidth, ChapterBannerHeight) };
+        var banner = new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+        };
+        banner.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        banner.MouseFilter = Control.MouseFilterEnum.Ignore;
+        banner.Texture = TryBannerTexture(LevelCardDecisions.ChapterBannerStem(chapter.EraIndex))
+            ?? PlaceholderTexture(chapter.EraIndex);
+        strip.AddChild(banner);
+
+        var scrim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.45f) };
+        scrim.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+        scrim.OffsetTop = -BannerTitleBandHeight;
+        scrim.MouseFilter = Control.MouseFilterEnum.Ignore;
+        strip.AddChild(scrim);
+
+        bool chapterLocked = chapter.Rows.All(row => row.State == CampaignLevelState.Locked);
+        var title = new Label
+        {
+            Text = chapterLocked ? $"{chapter.Title} · 未解锁" : chapter.Title,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        title.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+        title.OffsetTop = -BannerTitleBandHeight;
+        title.OffsetBottom = -1;
+        title.OffsetLeft = 6;
+        title.AddThemeFontSizeOverride("font_size", 13);
+        title.AddThemeColorOverride("font_color", Colors.White);
+        title.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 1f));
+        title.AddThemeConstantOverride("outline_size", 6);
+        title.MouseFilter = Control.MouseFilterEnum.Ignore;
+        strip.AddChild(title);
+        return strip;
+    }
+
+    /// <summary>
+    /// 一张关卡卡片：banner 缩略图+威胁角标+锁遮罩+关名+★★★——点击进既有
+    /// LevelHost 流（OnLevelPressed→BeginLevel，T-160 战役链零改动）。
+    /// </summary>
+    private Button BuildLevelCard(CampaignLevelRow row, int eraIndex)
+    {
+        Color era = EraPaletteColor(eraIndex);
+        var normal = new StyleBoxFlat
+        {
+            BgColor = new Color(0.07f, 0.09f, 0.13f, 0.95f),
+            BorderColor = era,
+        };
+        SetCardBorder(normal, 2);
+        var hover = new StyleBoxFlat
+        {
+            BgColor = new Color(era.R * 0.20f + 0.06f, era.G * 0.20f + 0.07f, era.B * 0.20f + 0.10f, 0.97f),
+            BorderColor = new(era.R + (1f - era.R) * 0.3f, era.G + (1f - era.G) * 0.3f, era.B + (1f - era.B) * 0.3f),
+        };
+        SetCardBorder(hover, 3);
+        var disabled = new StyleBoxFlat
+        {
+            BgColor = new Color(0.05f, 0.06f, 0.09f, 0.92f),
+            BorderColor = new Color(0.30f, 0.33f, 0.40f, 0.9f),
+        };
+        SetCardBorder(disabled, 2);
+
+        var card = new Button
+        {
+            // 重玩挂账：CampaignProgression.RegisterCapture 单占领契约——已通关
+            // 关重 settle 会撞重复占领（REV §七遗留⑥）。锁=既有解锁逻辑态。
+            CustomMinimumSize = new Vector2(CardWidth, CardHeight),
+            FocusMode = Control.FocusModeEnum.None,
+            Disabled = row.State != CampaignLevelState.Playable,
+        };
+        card.AddThemeStyleboxOverride("normal", normal);
+        card.AddThemeStyleboxOverride("hover", hover);
+        card.AddThemeStyleboxOverride("pressed", hover);
+        card.AddThemeStyleboxOverride("disabled", disabled);
+
+        // —— 缩略图（banner 768×512→118×56 KeepAspectCovered；缺图=时代色调垫底）——
+        var thumb = new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+        };
+        thumb.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+        thumb.OffsetBottom = ThumbHeight;
+        thumb.MouseFilter = Control.MouseFilterEnum.Ignore;
+        thumb.Texture = TryBannerTexture(LevelCardDecisions.LevelBannerStem(eraIndex, row.Slot, row.IsFinal))
+            ?? PlaceholderTexture(eraIndex);
+        card.AddChild(thumb);
+
+        // —— 威胁角标（数据源=threat 既有字段三档；叠缩略图右上）——
+        LevelCardDecisions.ThreatTier tier = LevelCardDecisions.ThreatTierOf(row.Threat);
+        var threat = new Label
+        {
+            Text = LevelCardDecisions.ThreatBadgeZh(tier),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        threat.SetAnchorsPreset(Control.LayoutPreset.TopRight);
+        threat.OffsetLeft = -ThreatBadgeWidth;
+        threat.OffsetBottom = ThreatBadgeHeight;
+        threat.AddThemeFontSizeOverride("font_size", 8);
+        threat.AddThemeColorOverride("font_color", Colors.White);
+        threat.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
+        threat.AddThemeConstantOverride("outline_size", 3);
+        threat.AddThemeStyleboxOverride("normal", new StyleBoxFlat
+        {
+            BgColor = ThreatBadgeBackground(tier),
+            CornerRadiusTopLeft = 3,
+            CornerRadiusBottomLeft = 3,
+            ContentMarginLeft = 3f,
+            ContentMarginRight = 3f,
+            ContentMarginTop = 1f,
+            ContentMarginBottom = 1f,
+        });
+        threat.MouseFilter = Control.MouseFilterEnum.Ignore;
+        card.AddChild(threat);
+
+        // —— 锁遮罩（未解锁：缩略图压暗+居中锁文案）——
+        if (row.State == CampaignLevelState.Locked)
+        {
+            var lockScrim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.55f) };
+            lockScrim.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+            lockScrim.OffsetBottom = ThumbHeight;
+            lockScrim.MouseFilter = Control.MouseFilterEnum.Ignore;
+            card.AddChild(lockScrim);
+            var lockLabel = new Label
+            {
+                Text = "未解锁",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            lockLabel.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+            lockLabel.OffsetBottom = ThumbHeight;
+            lockLabel.AddThemeFontSizeOverride("font_size", 11);
+            lockLabel.AddThemeColorOverride("font_color", new Color(0.85f, 0.87f, 0.9f, 0.95f));
+            lockLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 1f));
+            lockLabel.AddThemeConstantOverride("outline_size", 4);
+            lockLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
+            card.AddChild(lockLabel);
+        }
+
+        // —— 关名+终关徽记（终关=◆ 前缀区分普通关）——
+        var name = new Label
+        {
+            Text = row.IsFinal ? $"◆ {row.NameZh}" : row.NameZh,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+        };
+        name.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+        name.OffsetTop = ThumbHeight + 1;
+        name.OffsetBottom = ThumbHeight + 20;
+        name.AddThemeFontSizeOverride("font_size", 10);
+        name.AddThemeColorOverride("font_color", Colors.White);
+        name.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+        name.AddThemeConstantOverride("outline_size", 3);
+        name.MouseFilter = Control.MouseFilterEnum.Ignore;
+        card.AddChild(name);
+
+        // —— 星槽（★★★=三重目标既有口径；未通关=空槽）+状态角标 ——
+        var stars = new Label
+        {
+            Text = LevelCardDecisions.StarsText(row.Stars),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        stars.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+        stars.OffsetTop = -StarRowHeight;
+        stars.OffsetLeft = 4;
+        stars.AddThemeFontSizeOverride("font_size", 10);
+        stars.AddThemeColorOverride("font_color", new Color(1f, 0.84f, 0.36f, 0.95f));
+        stars.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
+        stars.AddThemeConstantOverride("outline_size", 3);
+        stars.MouseFilter = Control.MouseFilterEnum.Ignore;
+        card.AddChild(stars);
+
+        string stateZh = row.State switch
+        {
+            CampaignLevelState.Cleared => "已通关",
+            CampaignLevelState.Locked => "锁",
+            _ => "可进入",
+        };
+        var state = new Label
+        {
+            Text = stateZh,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        state.SetAnchorsPreset(Control.LayoutPreset.BottomRight);
+        state.OffsetTop = -StarRowHeight;
+        state.OffsetLeft = -46;
+        state.AddThemeFontSizeOverride("font_size", 8);
+        state.AddThemeColorOverride(
+            "font_color",
+            row.State == CampaignLevelState.Playable ? HoloSkin.TextDimCyan : new Color(0.6f, 0.63f, 0.7f, 0.9f));
+        state.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+        state.AddThemeConstantOverride("outline_size", 3);
+        state.MouseFilter = Control.MouseFilterEnum.Ignore;
+        card.AddChild(state);
+
+        string id = row.Id;
+        card.Pressed += () => OnLevelPressed(id);
+        return card;
+    }
+
+    private static void SetCardBorder(StyleBoxFlat box, int width)
+    {
+        box.BorderWidthTop = width;
+        box.BorderWidthBottom = width;
+        box.BorderWidthLeft = width;
+        box.BorderWidthRight = width;
+        box.CornerRadiusBottomLeft = 3;
+        box.CornerRadiusBottomRight = 3;
+        box.CornerRadiusTopLeft = 3;
+        box.CornerRadiusTopRight = 3;
+    }
+
+    private static Color ThreatBadgeBackground(LevelCardDecisions.ThreatTier tier) => tier switch
+    {
+        LevelCardDecisions.ThreatTier.High => new Color(0.72f, 0.13f, 0.15f, 0.92f),
+        LevelCardDecisions.ThreatTier.Mid => new Color(0.66f, 0.45f, 0.10f, 0.92f),
+        _ => new Color(0.16f, 0.42f, 0.22f, 0.92f),
+    };
+
+    /// <summary>banner 贴图（文件名缓存；目录清单一次装载——决策表按主干挑唯一文件）.</summary>
+    private Godot.ImageTexture? TryBannerTexture(string stem)
+    {
+        _bannerFiles ??= Expand.ExpandAssetPaths.BannerFileNames();
+        string? file = LevelCardDecisions.PickBannerFile(stem, _bannerFiles);
+        if (file is null)
+        {
+            return null;
+        }
+
+        if (!_bannerCache.TryGetValue(file, out Godot.ImageTexture? texture))
+        {
+            texture = Expand.ExpandAssetPaths.LoadPng(Expand.ExpandAssetPaths.BannerPath(file));
+            _bannerCache[file] = texture;
+        }
+
+        return texture;
+    }
+
+    /// <summary>缺图垫底（时代主色调 4×4 拉伸底——卡片结构不因缺图塌陷）.</summary>
+    private Godot.ImageTexture PlaceholderTexture(int eraIndex)
+    {
+        Color era = EraPaletteColor(eraIndex);
+        var image = Image.CreateEmpty(4, 4, false, Image.Format.Rgba8);
+        image.Fill(new Color(era.R * 0.30f + 0.05f, era.G * 0.30f + 0.06f, era.B * 0.30f + 0.08f, 1f));
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>时代主色（RL7：色值查 visual-assets.json palettes，键=e{N}）.</summary>
+    private Color EraPaletteColor(int eraIndex)
+    {
+        EraCore.Cinematics.EraPalette? palette = null;
+        _main?.ExpandDirector?.Catalog.Palettes.TryGetValue($"e{eraIndex}", out palette);
+        if (palette is { } row)
+        {
+            return new Color(row.Primary.R / 255f, row.Primary.G / 255f, row.Primary.B / 255f);
+        }
+
+        return HoloSkin.EdgeCyan; // 目录不可达（极端态）——中性青回退
     }
 
     private void RefreshStatus()
@@ -1243,8 +1583,13 @@ internal enum CampaignLevelState
 /// <summary>One chapter section of the menu (era + its level rows in slot order).</summary>
 internal sealed record CampaignChapter(int EraIndex, string Title, IReadOnlyList<CampaignLevelRow> Rows);
 
-/// <summary>One menu row: the level plus its resolved state and star count.</summary>
-internal sealed record CampaignLevelRow(string Id, string NameZh, CampaignLevelState State, int Stars);
+/// <summary>
+/// One menu row: the level plus its resolved state and star count, plus the
+/// T-162 card inputs (slot/threat/final——banner 映射与威胁角标的数据面，
+/// 源=HandcraftedLevel 既有字段，别不新造口径).
+/// </summary>
+internal sealed record CampaignLevelRow(
+    string Id, string NameZh, CampaignLevelState State, int Stars, int Slot, double Threat, bool IsFinal);
 
 /// <summary>The live level binding of the host (session + its level row + resume flag + session config).</summary>
 internal sealed record CampaignRun(

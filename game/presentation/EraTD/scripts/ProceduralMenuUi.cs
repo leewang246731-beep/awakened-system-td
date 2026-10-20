@@ -44,6 +44,9 @@ public sealed partial class ProceduralMenuUi : Control
 {
     private const long SmokeSeed = 20261201;
 
+    // —— T-162 模式卡片化版式常量（640×360 画布域） ——
+    private const float ModeBannerHeight = 84f; // banner-mode-procedural 主视觉横裁带
+
     private readonly bool _headless;
 
     private Button _entryButton = null!;
@@ -53,6 +56,7 @@ public sealed partial class ProceduralMenuUi : Control
     private Button _startButton = null!;
     private Button _exitButton = null!;
     private Label _statusLabel = null!;
+    private Button _menuReturnButton = null!;
 
     // —— 活动程序关会话（窗口车道）——
     private LevelSession? _session;
@@ -103,18 +107,21 @@ public sealed partial class ProceduralMenuUi : Control
             _entryButton.Hide(); // T-161 入口归拢：窗口态入口在主菜单（headless 冒烟照旧）
         }
 
+        // T-162 模式卡片化：面板=模式卡主视觉（banner-mode-procedural 横裁带）
+        // + 选项场（档位/种子/行动排），640×360 画布域。
         _panel = new PanelContainer
         {
-            Position = new Vector2(170, 370),
-            Size = new Vector2(380, 240),
+            Position = new Vector2(28, 14),
+            Size = new Vector2(584, 300),
             Visible = false,
         };
         var rows = new VBoxContainer();
+        rows.AddThemeConstantOverride("separation", 5);
         _panel.AddChild(rows);
 
-        rows.AddChild(new Label { Text = "程序生成关卡（战役外入口——同 seed 同图）" });
+        rows.AddChild(BuildModeBanner());
 
-        rows.AddChild(new Label { Text = "档位" });
+        rows.AddChild(new Label { Text = "档位（procedural.json tiers 行——同 seed 同图）" });
         _tierField = new OptionButton();
         ProceduralCampaignEntry entry = ProceduralEntryHost.LoadEntry();
         foreach (ProceduralTier tier in entry.Tiers)
@@ -134,26 +141,82 @@ public sealed partial class ProceduralMenuUi : Control
         rows.AddChild(seedRow);
 
         var actionRow = new HBoxContainer();
+        actionRow.AddThemeConstantOverride("separation", 8);
         _startButton = new Button { Text = "生成并开局" };
         _startButton.Pressed += OnStartPressed;
         _exitButton = new Button { Text = "退出本关（记弃局）" };
         _exitButton.Pressed += OnExitPressed;
+        _menuReturnButton = new Button { Text = "返回主菜单" };
+        _menuReturnButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
         actionRow.AddChild(_startButton);
         actionRow.AddChild(_exitButton);
-        var menuButton = new Button { Text = "返回主菜单" };
-        menuButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
-        actionRow.AddChild(menuButton);
+        actionRow.AddChild(_menuReturnButton);
         rows.AddChild(actionRow);
 
         _statusLabel = new Label
         {
             Text = "未开局",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            CustomMinimumSize = new Vector2(360, 70),
+            CustomMinimumSize = new Vector2(560, 56),
         };
         rows.AddChild(_statusLabel);
 
         AddChild(_panel);
+    }
+
+    /// <summary>模式卡主视觉：banner-mode-procedural 横裁带+模式名叠图（缺图=垫底带）.</summary>
+    private Control BuildModeBanner()
+    {
+        var strip = new Control { CustomMinimumSize = new Vector2(560, ModeBannerHeight) };
+        var banner = new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+        };
+        banner.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        banner.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _bannerFiles ??= Expand.ExpandAssetPaths.BannerFileNames();
+        string? file = EraCore.Presentation.LevelCardDecisions.PickBannerFile(
+            EraCore.Presentation.LevelCardDecisions.ProceduralModeBannerStem, _bannerFiles);
+        banner.Texture = (file is null
+                ? null
+                : Expand.ExpandAssetPaths.LoadPng(Expand.ExpandAssetPaths.BannerPath(file)))
+            ?? ModePlaceholder();
+        strip.AddChild(banner);
+
+        var scrim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.45f) };
+        scrim.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+        scrim.OffsetTop = -20f;
+        scrim.MouseFilter = Control.MouseFilterEnum.Ignore;
+        strip.AddChild(scrim);
+
+        var title = new Label
+        {
+            Text = "程序生成关卡 · 战役外入口",
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        title.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+        title.OffsetTop = -20f;
+        title.OffsetBottom = -1;
+        title.OffsetLeft = 6;
+        title.AddThemeFontSizeOverride("font_size", 14);
+        title.AddThemeColorOverride("font_color", Colors.White);
+        title.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 1f));
+        title.AddThemeConstantOverride("outline_size", 7);
+        title.MouseFilter = Control.MouseFilterEnum.Ignore;
+        strip.AddChild(title);
+        return strip;
+    }
+
+    private IReadOnlyList<string>? _bannerFiles;
+
+    /// <summary>缺图垫底带（中性深蓝回退——卡片结构不因缺图塌陷）.</summary>
+    private static Godot.Texture2D ModePlaceholder()
+    {
+        var image = Image.CreateEmpty(4, 4, false, Image.Format.Rgba8);
+        image.Fill(new Color(0.10f, 0.14f, 0.19f, 1f));
+        return ImageTexture.CreateFromImage(image);
     }
 
     public override void _Process(double delta)
@@ -242,6 +305,9 @@ public sealed partial class ProceduralMenuUi : Control
 
     /// <summary>程序关面板打开位（主菜单可见性谓词探针）.</summary>
     internal bool PanelOpen => _panel.Visible;
+
+    /// <summary>「返回主菜单」承载钮真信号驱动（--shot 验收钩子——与玩家点击同一条链）.</summary>
+    internal void PressMenuReturn() => _menuReturnButton.EmitSignal(Button.SignalName.Pressed);
 
     private void PumpWindowSession()
     {

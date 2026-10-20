@@ -77,6 +77,7 @@ namespace EraTD;
     private string? _shotDir;
     private ulong _shotWarmup = ShotWarmupFramesDefault;
     private string? _shotOpen;
+    private string? _shotPlan;
     private ShotHook? _shotHook;
 
     // T-160b（战役战场渲染绑定）：会话泳道（战役/程序关视口）经这两个只读
@@ -577,16 +578,16 @@ namespace EraTD;
             Menu = MainMenuUi.Instantiate(this);
             if (_shotDir is not null)
             {
-                _shotHook = new ShotHook(this, _shotDir, _shotWarmup, _shotOpen);
+                _shotHook = new ShotHook(this, _shotDir, _shotWarmup, _shotOpen, _shotPlan);
             }
-            else if (_shotOpen is not null)
+            else if (_shotOpen is not null || _shotPlan is not null)
             {
-                GD.PushError("--shot-open 需要 --shot <目录>（截图编排的承载面）——本次忽略");
+                GD.PushError("--shot-open/--shot-plan 需要 --shot <目录>（截图编排的承载面）——本次忽略");
             }
 
             GD.Print(
                 $"MENU_BOOT mode=menu-first entries=6 " +
-                $"shot={_shotDir ?? "-"} warmup={_shotWarmup} open={_shotOpen ?? "-"} " +
+                $"shot={_shotDir ?? "-"} warmup={_shotWarmup} open={_shotOpen ?? "-"} plan={_shotPlan ?? "-"} " +
                 "windows_alive=player-lane-never-quits");
         }
     }
@@ -597,7 +598,9 @@ namespace EraTD;
     /// 解析 <c>--shot &lt;目录&gt;</c>（可等号形态 <c>--shot=目录</c>）/
     /// <c>--shot-frame N</c>（预热帧数，缺省 150——视频真出非首帧画面）/
     /// <c>--shot-open &lt;入口键&gt;</c>（campaign/endless/procedural/net/
-    /// settings/quit——视频帧证据截完后经真按钮信号链点入再截过渡帧）。
+    /// settings/quit——视频帧证据截完后经真按钮信号链点入再截过渡帧）/
+    /// <c>--shot-plan &lt;编排名&gt;</c>（T-162：level-cards=B 批选关卡片
+    /// 五段编排——章节全景/卡片特写/模式卡/锁态，全程真按钮信号+真滚轮）。
     /// 引擎参数与用户参数（<c>--</c> 后）都扫（Godot 推荐用户参数走
     /// <c>--</c> 分隔，直发引擎名空间也容错）。目录相对 cwd 解析为绝对。
     /// 窗口车道专用（headless 分叉后本方法只在窗口态被调用）。
@@ -630,6 +633,12 @@ namespace EraTD;
                 continue;
             }
 
+            if (arg.StartsWith("--shot-plan=", StringComparison.Ordinal))
+            {
+                _shotPlan = arg[("--shot-plan=").Length..];
+                continue;
+            }
+
             switch (arg)
             {
                 case "--shot":
@@ -650,6 +659,13 @@ namespace EraTD;
                     if (i + 1 < args.Length)
                     {
                         _shotOpen = args[++i];
+                    }
+
+                    break;
+                case "--shot-plan":
+                    if (i + 1 < args.Length)
+                    {
+                        _shotPlan = args[++i];
                     }
 
                     break;
@@ -681,20 +697,28 @@ namespace EraTD;
         private const ulong LoopLaterFrames = 600;   // 第二机位晚 10 s（≠首帧证据）
         private const ulong OpenSettleFrames = 16;   // 点入过渡帧
 
+        // T-162（Standards 审查判断项）：02-logo-title 特写取景=牌匾+标题带
+        // （窗口 1280×720 像素坐标——640×360 画布 ×2 整数放大的锚定区，T-161
+        // 实测定版；提 const 免魔法数漂移）。
+        private static readonly Rect2I LogoTitleCropRegion = new(120, 0, 400, 235);
+
         private readonly Main _main;
         private readonly string _dir;
         private readonly string? _openKey;
+        private readonly string? _plan;
         private readonly ulong _warmup;
         private readonly ulong _bornFrame;
         private int _step = -1; // -1=等待菜单在屏（首帧谓词裁决后开跑）
         private int _files;
+        private int _wheelRemaining; // level-cards 编排：真滚轮滚动余量（帧泵分批发）
 
-        internal ShotHook(Main main, string dir, ulong warmup, string? openKey)
+        internal ShotHook(Main main, string dir, ulong warmup, string? openKey, string? plan)
         {
             _main = main;
             _dir = dir;
             _warmup = warmup;
             _openKey = openKey;
+            _plan = plan;
             _bornFrame = Engine.GetProcessFrames();
             System.IO.Directory.CreateDirectory(dir);
         }
@@ -712,6 +736,12 @@ namespace EraTD;
                 _step = 0;
             }
 
+            if (_plan == "level-cards")
+            {
+                PumpLevelCards();
+                return;
+            }
+
             ulong f = Engine.GetProcessFrames() - _bornFrame;
             switch (_step)
             {
@@ -719,7 +749,7 @@ namespace EraTD;
                     if (f >= _warmup)
                     {
                         Capture("01-menu-full.png");
-                        CropCapture("02-logo-title.png", new Rect2I(120, 0, 400, 235));
+                        CropCapture("02-logo-title.png", LogoTitleCropRegion);
                         WarpToEntry(MainMenuDecisions.EntryId.Campaign);
                         _step = 1;
                     }
@@ -772,8 +802,159 @@ namespace EraTD;
             _step = 4;
             GD.Print(
                 $"SHOT_OK files={_files} dir={_dir} video_pos={_main.Menu?.VideoPositionSeconds:0.00}s " +
+                $"campaign_scroll={_main.CampaignUi?.CardScrollVertical ?? -1} " +
                 "lane=acceptance-explicit-quit");
             _main.GetTree().Quit(0);
+        }
+
+        // ------------------------------------- T-162 level-cards 编排（B 批验收）
+
+        /// <summary>
+        /// B 批选关卡片五段编排（--shot-plan level-cards）：①菜单全景（视频+
+        /// 六时代色卡裸包证据帧）②真信号点入战役→章节通栏+卡片网格全景
+        /// （01-chapter-overview）③首章特写真裁剪（02-level-cards——星/锁/
+        /// 威胁角标同帧取景）④真滚轮滚到未解锁章节（04-locked-state）⑤真
+        /// 信号回主菜单→无尽模式卡（03-mode-cards）→程序关模式卡（03b 附加
+        /// 帧）→SHOT_OK。全程真按钮 Pressed 信号+真 InputEvent（禁第二套
+        /// 开面板/滚动逻辑——与玩家点击同一条链）。
+        /// </summary>
+        private void PumpLevelCards()
+        {
+            ulong f = Engine.GetProcessFrames() - _bornFrame;
+            switch (_step)
+            {
+                case 0:
+                    if (f >= _warmup)
+                    {
+                        Capture("00-menu-full.png");
+                        _ = _main.Menu?.OpenEntry("campaign"); // 真按钮信号链点入战役
+                        _step = 1;
+                    }
+
+                    break;
+                case 1:
+                    if (f >= _warmup + PanelSettleFrames)
+                    {
+                        Capture("01-chapter-overview.png");
+                        CropFirstChapter("02-level-cards.png");
+                        _wheelRemaining = LockedChapterWheelNotches; // 真滚轮：滚到未解锁章节带
+                        WarpMouseCanvas(_main, new Vector2(320f, 180f)); // 滚轮落点=选关面板中部（窗口域）
+                        _step = 2;
+                    }
+
+                    break;
+                case 2:
+                    if (_wheelRemaining > 0)
+                    {
+                        // 帧泵分批发真滚轮事件（每帧 4 档——ScrollContainer 实滚）。
+                        Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+                        var wheelAt = new Vector2(320f, 180f) * scale;
+                        for (int i = 0; i < 4 && _wheelRemaining > 0; i++, _wheelRemaining--)
+                        {
+                            EmitWheel(_main, MouseButton.WheelDown, wheelAt);
+                        }
+
+                        return;
+                    }
+
+                    if (f >= _warmup + PanelSettleFrames + ScrollSettleFrames)
+                    {
+                        Capture("04-locked-state.png");
+                        _main.CampaignUi?.PressMenuReturn(); // 真信号：返回主菜单
+                        _step = 3;
+                    }
+
+                    break;
+                case 3:
+                    if (f >= _warmup + (2 * PanelSettleFrames) + ScrollSettleFrames)
+                    {
+                        _ = _main.Menu?.OpenEntry("endless");
+                        _step = 4;
+                    }
+
+                    break;
+                case 4:
+                    if (f >= _warmup + (3 * PanelSettleFrames) + ScrollSettleFrames)
+                    {
+                        Capture("03-mode-cards.png");
+                        _main.EndlessUi?.PressMenuReturn(); // 真信号：返回主菜单
+                        _step = 5;
+                    }
+
+                    break;
+                case 5:
+                    if (f >= _warmup + (4 * PanelSettleFrames) + ScrollSettleFrames)
+                    {
+                        _ = _main.Menu?.OpenEntry("procedural");
+                        _step = 6;
+                    }
+
+                    break;
+                case 6:
+                    if (f >= _warmup + (5 * PanelSettleFrames) + ScrollSettleFrames)
+                    {
+                        Capture("03b-procedural-mode.png");
+                        _main.ProceduralUi?.PressMenuReturn(); // 真信号：返回主菜单
+                        _step = 7;
+                    }
+
+                    break;
+                case 7:
+                    if (f >= _warmup + (6 * PanelSettleFrames) + ScrollSettleFrames)
+                    {
+                        Finish();
+                    }
+
+                    break;
+            }
+        }
+
+        /// <summary>面板/卡片场落定帧（banner 贴图装载+版式成形）.</summary>
+        private const ulong PanelSettleFrames = 24;
+
+        /// <summary>滚轮落定帧（滚动惯性+重绘）.</summary>
+        private const ulong ScrollSettleFrames = 18;
+
+        /// <summary>滚到未解锁章节带所需真滚轮档数（六章内容≈2 视口高——多滚夹底不越界）.</summary>
+        private const int LockedChapterWheelNotches = 64;
+
+        /// <summary>真滚轮事件（InputEventMouseButton——与玩家滚轮同一条输入链，窗口坐标域）.</summary>
+        private static void EmitWheel(Main main, MouseButton button, Vector2 windowPosition) =>
+            Input.ParseInputEvent(new InputEventMouseButton
+            {
+                Pressed = true,
+                ButtonIndex = button,
+                Position = windowPosition,
+                GlobalPosition = windowPosition,
+            });
+
+        /// <summary>画布域坐标→窗口域真鼠标移动（final transform 缩放——整数放大轨）.</summary>
+        private static void WarpMouseCanvas(Main main, Vector2 canvasPosition)
+        {
+            Vector2 scale = main.GetViewport().GetFinalTransform().Scale;
+            WarpMouse(canvasPosition * scale);
+        }
+
+        /// <summary>
+        /// 首章特写真裁剪：取战役首卡全局矩形（画布域）→窗口像素域（final
+        /// transform 缩放）→扩成整章取景（题图带+整行卡片），同帧真裁剪。
+        /// </summary>
+        private void CropFirstChapter(string name)
+        {
+            if (_main.CampaignUi?.FirstCardGlobalRect is not { } cardRect)
+            {
+                GD.PushError($"SHOT_FAIL file={name} 首卡取景探针无卡（选关面板未成形）");
+                return;
+            }
+
+            GD.Print($"SHOT_PROBE first_card={cardRect} scroll={_main.CampaignUi.CardScrollVertical}");
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            var region = new Rect2I(
+                Math.Max(0, (int)((cardRect.Position.X - 10) * scale.X)),
+                Math.Max(0, (int)((cardRect.Position.Y - 62) * scale.Y)),
+                (int)((10 + (5 * 122) + 10) * scale.X),
+                (int)((62 + 102 + 12) * scale.Y));
+            CropCapture(name, region);
         }
 
         private void Capture(string name)

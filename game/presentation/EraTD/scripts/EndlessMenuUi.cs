@@ -1,6 +1,7 @@
 using System.Text.Json;
 using EraCore.Contracts.Foundation;
 using EraCore.Endless;
+using EraCore.Presentation;
 using EraCore.Telemetry;
 using EraCore.Units;
 using Godot;
@@ -45,17 +46,27 @@ public sealed partial class EndlessMenuUi : Control
     private const int SmokeWaves = 5;        // 遥测道波数（台账样本）
     private const int SmokeTierWaves = 45;   // 两档分账道波数（词缀面 41 波起分野——EndlessEntryTests 同带）
 
+    // —— T-162 模式卡片化版式常量（640×360 画布域） ——
+    private const float ModeBannerHeight = 84f; // banner-mode-* 主视觉横裁带
+    private const float ScheduleCardWidth = 274f; // 两卡+8 间隔=556 ≤ 面板内容宽
+    private const float ScheduleCardHeight = 54f;
+
     private readonly bool _headless;
 
     private Button _entryButton = null!;
     private PanelContainer _panel = null!;
-    private OptionButton _scheduleField = null!;
-    private OptionButton _eraField = null!;
     private Label _scheduleHint = null!;
     private Label _statusLabel = null!;
     private Button _startButton = null!;
     private Button _dieButton = null!;
     private Button _abandonButton = null!;
+    private Button _menuReturnButton = null!;
+
+    // —— T-162 两档节奏=卡片选择（原 OptionButton 下拉卡片化；冻结值仍走
+    //    EndlessAffixSchedule 既有枚举，开局语义零改动）——
+    private EndlessAffixSchedule _schedule = EndlessAffixSchedule.Rolling; // T-154 生产缺省=滚词缀
+    private OptionButton _eraField = null!;
+    private readonly Dictionary<EndlessAffixSchedule, Button> _scheduleCards = new();
 
     // —— 活动无尽会话（窗口车道）——
     private EndlessSession? _session;
@@ -77,6 +88,7 @@ public sealed partial class EndlessMenuUi : Control
         var ui = new EndlessMenuUi
         {
             Name = "EndlessMenuUi",
+            _main = host as Main,
         };
         ui.BuildUi();
         host.AddChild(ui);
@@ -105,28 +117,32 @@ public sealed partial class EndlessMenuUi : Control
             _entryButton.Hide(); // T-161 入口归拢：窗口态入口在主菜单（headless 冒烟照旧）
         }
 
+        // T-162 模式卡片化：面板=模式卡主视觉（banner-mode-endless 横裁带）+
+        // 卡片化选项场（两档节奏卡+时代下拉+行动排），640×360 画布域。
         _panel = new PanelContainer
         {
-            Position = new Vector2(170, 48),
-            Size = new Vector2(380, 300),
+            Position = new Vector2(28, 14),
+            Size = new Vector2(584, 332),
             Visible = false,
         };
         var rows = new VBoxContainer();
+        rows.AddThemeConstantOverride("separation", 5);
         _panel.AddChild(rows);
 
-        rows.AddChild(new Label { Text = "无尽模式（任选时代开局）" });
+        rows.AddChild(BuildModeBanner());
 
-        rows.AddChild(new Label { Text = "词缀节奏（开局两档，整局冻结）" });
-        _scheduleField = new OptionButton();
-        _scheduleField.AddItem("滚词缀（缺省：每 10 波滚换激活表）", (int)EndlessAffixSchedule.Rolling);
-        _scheduleField.AddItem("经典固定表（SP-7b 冻结累加表）", (int)EndlessAffixSchedule.ClassicFixed);
-        _scheduleField.Selected = (int)EndlessAffixSchedule.Rolling; // T-154 生产缺省=滚词缀
-        _scheduleField.ItemSelected += _ => RefreshScheduleHint();
-        rows.AddChild(_scheduleField);
+        rows.AddChild(new Label { Text = "词缀节奏（开局两卡选一，整局冻结）" });
+        var scheduleRow = new HBoxContainer();
+        scheduleRow.AddThemeConstantOverride("separation", 8);
+        scheduleRow.AddChild(BuildScheduleCard(
+            EndlessAffixSchedule.Rolling, "滚词缀（缺省）", "每 10 波块界滚换激活词缀表"));
+        scheduleRow.AddChild(BuildScheduleCard(
+            EndlessAffixSchedule.ClassicFixed, "经典固定表", "SP-7b 冻结累加表（回切档）"));
+        rows.AddChild(scheduleRow);
         _scheduleHint = new Label
         {
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            CustomMinimumSize = new Vector2(360, 34),
+            CustomMinimumSize = new Vector2(560, 26),
         };
         rows.AddChild(_scheduleHint);
         RefreshScheduleHint();
@@ -145,42 +161,195 @@ public sealed partial class EndlessMenuUi : Control
 
         rows.AddChild(_eraField);
 
+        var actionRow = new HBoxContainer();
+        actionRow.AddThemeConstantOverride("separation", 8);
         _startButton = new Button { Text = "开局" };
         _startButton.Pressed += OnStartPressed;
-        rows.AddChild(_startButton);
-
-        var terminalRow = new HBoxContainer();
         _dieButton = new Button { Text = "死亡终局（记分）" };
         _dieButton.Pressed += OnDiePressed;
         _abandonButton = new Button { Text = "弃局（不记分）" };
         _abandonButton.Pressed += OnAbandonPressed;
-        terminalRow.AddChild(_dieButton);
-        terminalRow.AddChild(_abandonButton);
-        rows.AddChild(terminalRow);
+        _menuReturnButton = new Button { Text = "返回主菜单" };
+        _menuReturnButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
+        foreach (Button action in new[] { _startButton, _dieButton, _abandonButton, _menuReturnButton })
+        {
+            action.AddThemeFontSizeOverride("font_size", 10); // 一行四钮不溢出（面板内容宽带内）
+            actionRow.AddChild(action);
+        }
 
-        var menuRow = new HBoxContainer();
-        var menuButton = new Button { Text = "返回主菜单" };
-        menuButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
-        menuRow.AddChild(menuButton);
-        rows.AddChild(menuRow);
+        rows.AddChild(actionRow);
 
         _statusLabel = new Label
         {
             Text = "未开局",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            CustomMinimumSize = new Vector2(360, 84),
+            CustomMinimumSize = new Vector2(560, 56),
         };
         rows.AddChild(_statusLabel);
 
         AddChild(_panel);
     }
 
+    /// <summary>模式卡主视觉：banner-mode-endless 横裁带+底部压暗带+模式名（亮图可读）.</summary>
+    private Control BuildModeBanner()
+    {
+        var strip = new Control { CustomMinimumSize = new Vector2(560, ModeBannerHeight) };
+        var banner = new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+        };
+        banner.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        banner.MouseFilter = Control.MouseFilterEnum.Ignore;
+        banner.Texture = ModeBannerTexture();
+        strip.AddChild(banner);
+
+        var scrim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.45f) };
+        scrim.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+        scrim.OffsetTop = -20f;
+        scrim.MouseFilter = Control.MouseFilterEnum.Ignore;
+        strip.AddChild(scrim);
+
+        var title = new Label
+        {
+            Text = "无尽模式 · 任选时代开局",
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        title.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+        title.OffsetTop = -20f;
+        title.OffsetBottom = -1;
+        title.OffsetLeft = 6;
+        title.AddThemeFontSizeOverride("font_size", 14);
+        title.AddThemeColorOverride("font_color", Colors.White);
+        title.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 1f));
+        title.AddThemeConstantOverride("outline_size", 7);
+        title.MouseFilter = Control.MouseFilterEnum.Ignore;
+        strip.AddChild(title);
+        return strip;
+    }
+
+    /// <summary>两档节奏卡（选中=时代色描边+高亮；点击=真选择——开局读同一冻结值）.</summary>
+    private Button BuildScheduleCard(EndlessAffixSchedule schedule, string titleZh, string descZh)
+    {
+        var card = new Button
+        {
+            CustomMinimumSize = new Vector2(ScheduleCardWidth, ScheduleCardHeight),
+            ToggleMode = true,
+            ButtonPressed = schedule == _schedule,
+            FocusMode = Control.FocusModeEnum.None,
+        };
+        card.Pressed += () =>
+        {
+            _schedule = schedule;
+            foreach (KeyValuePair<EndlessAffixSchedule, Button> pair in _scheduleCards)
+            {
+                pair.Value.ButtonPressed = pair.Key == schedule;
+            }
+
+            RefreshScheduleHint();
+        };
+        _scheduleCards[schedule] = card;
+
+        var title = new Label
+        {
+            Text = titleZh,
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        title.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+        title.OffsetTop = 4;
+        title.OffsetBottom = 24;
+        title.AddThemeFontSizeOverride("font_size", 12);
+        title.AddThemeColorOverride("font_color", Colors.White);
+        title.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+        title.AddThemeConstantOverride("outline_size", 3);
+        title.MouseFilter = Control.MouseFilterEnum.Ignore;
+        card.AddChild(title);
+
+        var desc = new Label
+        {
+            Text = descZh,
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        desc.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+        desc.OffsetTop = -20;
+        desc.AddThemeFontSizeOverride("font_size", 8);
+        desc.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
+        desc.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.8f));
+        desc.AddThemeConstantOverride("outline_size", 2);
+        desc.MouseFilter = Control.MouseFilterEnum.Ignore;
+        card.AddChild(desc);
+        RestyleScheduleCard(card, card.ButtonPressed);
+        card.Toggled += _ => RestyleScheduleCard(card, card.ButtonPressed);
+        return card;
+    }
+
+    /// <summary>节奏卡描边（选中=时代色 e2 主色[主菜单无尽入口同键]；未选=暗灰）.</summary>
+    private void RestyleScheduleCard(Button card, bool selected)
+    {
+        Color edge = selected ? ModeEraColor() : new Color(0.30f, 0.33f, 0.40f, 0.9f);
+        var box = new StyleBoxFlat
+        {
+            BgColor = selected
+                ? new Color(edge.R * 0.22f + 0.05f, edge.G * 0.22f + 0.06f, edge.B * 0.22f + 0.09f, 0.95f)
+                : new Color(0.06f, 0.08f, 0.12f, 0.95f),
+            BorderColor = edge,
+        };
+        box.BorderWidthTop = 2;
+        box.BorderWidthBottom = 2;
+        box.BorderWidthLeft = 2;
+        box.BorderWidthRight = 2;
+        card.AddThemeStyleboxOverride("normal", box);
+        card.AddThemeStyleboxOverride("hover", box);
+        card.AddThemeStyleboxOverride("pressed", box);
+        card.AddThemeStyleboxOverride("disabled", box);
+    }
+
+    /// <summary>模式主视觉贴图（决策表主干+目录清单唯一挑选；缺图=null 由调用方垫底）.</summary>
+    private Godot.Texture2D? ModeBannerTexture()
+    {
+        _bannerFiles ??= Expand.ExpandAssetPaths.BannerFileNames();
+        string? file = LevelCardDecisions.PickBannerFile(LevelCardDecisions.EndlessModeBannerStem, _bannerFiles);
+        if (file is null)
+        {
+            return ModePlaceholder();
+        }
+
+        return Expand.ExpandAssetPaths.LoadPng(Expand.ExpandAssetPaths.BannerPath(file)) ?? ModePlaceholder();
+    }
+
+    private IReadOnlyList<string>? _bannerFiles;
+
+    // —— T-162：主菜单宿主引用（时代色板查表 + 真信号驱动钩子的承载位）——
+    private Main? _main;
+
+    /// <summary>缺图垫底带（时代色板不可达时的中性深蓝回退）.</summary>
+    private static Godot.Texture2D ModePlaceholder()
+    {
+        var image = Image.CreateEmpty(4, 4, false, Image.Format.Rgba8);
+        image.Fill(new Color(0.11f, 0.17f, 0.23f, 1f));
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>无尽模式时代主色（主菜单无尽入口同键 e2——RL7 查 visual-assets.json）.</summary>
+    private Color ModeEraColor()
+    {
+        EraCore.Cinematics.EraPalette? palette = null;
+        _main?.ExpandDirector?.Catalog.Palettes.TryGetValue("e2", out palette);
+        if (palette is { } row)
+        {
+            return new Color(row.Primary.R / 255f, row.Primary.G / 255f, row.Primary.B / 255f);
+        }
+
+        return HoloSkin.EdgeCyan; // 目录不可达（极端态）——中性青回退
+    }
+
     private void RefreshScheduleHint() => _scheduleHint.Text =
-        Schedule() == EndlessAffixSchedule.Rolling
+        _schedule == EndlessAffixSchedule.Rolling
             ? "滚词缀：每 10 波块界滚换激活词缀表（量级/叠加=SP-7b 冻结集）。"
             : "经典固定表：41 迅捷/51 硬化/61 相位/71 自爆强化逐档累加（回切档）。";
 
-    private EndlessAffixSchedule Schedule() => (EndlessAffixSchedule)(_scheduleField?.Selected ?? 0);
+    private EndlessAffixSchedule Schedule() => _schedule;
 
     public override void _Process(double delta)
     {
@@ -276,11 +445,17 @@ public sealed partial class EndlessMenuUi : Control
         _panel.Visible = false;
     }
 
-    /// <summary>无尽会话在局位（主菜单可见性谓词探针）.</summary>
-    internal bool SessionActive => _session is not null;
+    /// <summary>
+    /// 无尽会话在局位（主菜单可见性谓词探针；T-162 口径对齐 ProceduralMenuUi：
+    /// 终局残留[Settled]不算在局——Running 才算，死亡/弃局后的残留引用不锁菜单）。
+    /// </summary>
+    internal bool SessionActive => _session is { State: EndlessSessionState.Running };
 
     /// <summary>无尽面板打开位（主菜单可见性谓词探针）.</summary>
     internal bool PanelOpen => _panel.Visible;
+
+    /// <summary>「返回主菜单」承载钮真信号驱动（--shot 验收钩子——与玩家点击同一条链）.</summary>
+    internal void PressMenuReturn() => _menuReturnButton.EmitSignal(Button.SignalName.Pressed);
 
     /// <summary>
     /// Window wave clock: the run is host-paced — one wave per the ACTIVE
