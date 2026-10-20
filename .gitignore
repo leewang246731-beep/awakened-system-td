@@ -39,3 +39,7 @@ game/presentation/EraTD/audio/generated/
 # --- T-027: python bytecode from self-test imports ---
 __pycache__/
 *.pyc
+
+# --- W10: AI 生图母带存档（本地保留；成品质图在 game/assets 与 textures/ui） ---
+docs/screenshots/w10-banners-raw/
+docs/screenshots/w10-icons-raw/
