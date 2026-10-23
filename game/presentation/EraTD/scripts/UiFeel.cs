@@ -300,6 +300,10 @@ internal static class UiFeel
     /// </summary>
     internal static void HoverScaleTween(Control control, float hoverScale, float seconds, int hoverZ = 0)
     {
+        // 双轴审查修（T-165 Standards）：快速进出会双 tween 并写 scale 争用
+        // （瞬时抖动）——闭包单引用杀旧再启（TransitionPanelSkin 同律单飞；
+        // Tween 非 Node 子类不能走子级遍历）。
+        Tween? active = null;
         control.MouseEntered += () =>
         {
             if (hoverZ > 0)
@@ -307,8 +311,9 @@ internal static class UiFeel
                 control.ZIndex = hoverZ;
             }
 
-            control.PivotOffset = control.Size / 2f;
-            control.CreateTween().TweenProperty(control, "scale", new Vector2(hoverScale, hoverScale), seconds);
+            active?.Kill();
+            active = control.CreateTween();
+            active.TweenProperty(control, "scale", new Vector2(hoverScale, hoverScale), seconds);
         };
         control.MouseExited += () =>
         {
@@ -317,8 +322,9 @@ internal static class UiFeel
                 control.ZIndex = 0;
             }
 
-            control.PivotOffset = control.Size / 2f;
-            control.CreateTween().TweenProperty(control, "scale", Vector2.One, seconds);
+            active?.Kill();
+            active = control.CreateTween();
+            active.TweenProperty(control, "scale", Vector2.One, seconds);
         };
     }
 

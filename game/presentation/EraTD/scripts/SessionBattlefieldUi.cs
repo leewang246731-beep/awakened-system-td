@@ -438,7 +438,7 @@ public sealed partial class SessionBattlefieldViewport : Control
     private const float FloatRisePerFrame = 0.9f; // ci-allow: R7 T-164 上飘速度 px/帧（表现层动画）
     private const int FloatLifeFrames = 45;   // ci-allow: R7 T-164 淡出寿命帧数（~0.75s @60fps）
     private const float FloatFontSizePx = 10; // ci-allow: R7 T-164 飘字字号 px（像素风小号）
-    private const int FloatsPerUnitMax = 2;   // T-165：同目标同屏飘字上限（53 号文 P2-2 限流，表现层）
+    private const int FloatsPerUnitMax = 2;   // ci-allow: R7 T-165 同目标同屏飘字上限（53 号文 P2-2 限流，表现层）
 
     private readonly Queue<Label> _floatPool = new();
     private readonly List<(Label Label, int Life, long UnitId, int Total)> _floatsLive = new();

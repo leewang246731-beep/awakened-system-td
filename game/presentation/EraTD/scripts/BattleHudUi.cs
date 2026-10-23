@@ -247,8 +247,8 @@ public sealed partial class BattleHudUi : Control
 
     /// <summary>
     /// 时代色 HUD 框（boss 波=金边变体；dim=预告框降亮变体——T-165 53 号文
-    /// P3-3：预告框降一档亮度让位资源条：底/边 RGB×0.82+alpha 降至 0.68/0.60；
-    /// boss 警示态不降亮）。缓存一份实例跨拍共享。
+    /// P3-3：预告框降一档亮度让位资源条；复评加强档=明度分离再拉开（实值见
+    /// 内层注释，×0.70/α0.58 族）；boss 警示态不降亮）。缓存一份实例跨拍共享。
     /// </summary>
     private StyleBoxFlat EraBox(int eraIndex, bool boss, bool dim)
     {
