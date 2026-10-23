@@ -381,6 +381,7 @@ public sealed partial class MainMenuUi : Control
         button.AddThemeStyleboxOverride("disabled", normal);
 
         button.Pressed += () => OnEntryPressed(entry.Id);
+        UiFeel.AttachCues(button); // T-164：hover 轻ding/press 确认音（真叮通路——UiFeel 单源，替代 T-161 局部 PlayPressCue）
         button.MouseEntered += () =>
         {
             button.CreateTween()
@@ -468,7 +469,6 @@ public sealed partial class MainMenuUi : Control
 
     private void OnEntryPressed(MainMenuDecisions.EntryId id)
     {
-        PlayPressCue();
         switch (id)
         {
             case MainMenuDecisions.EntryId.Campaign:
@@ -517,11 +517,9 @@ public sealed partial class MainMenuUi : Control
     /// <summary>菜单在屏位（--shot/存活探针）.</summary>
     internal bool MenuShown => _menuShown;
 
-    private void PlayPressCue()
-    {
-        Audio.DingAudioPlayer? ding = _main.GetNodeOrNull<Audio.DingAudioPlayer>("DingAudio");
-        ding?.PlayCueSlot("ding_info", (long)Time.GetTicksMsec());
-    }
+    // PlayPressCue（T-161 局部按丁音效）已由 UiFeel.AttachCues 单源取代
+    // （T-164 皮肤批：hover=ding_info 轻响、press=ding_reward 确认音——同一
+    // 真叮通路，本类不再自持播放代码）。
 
     // ----------------------------------------------------- 可见性谓词（帧泵）
 

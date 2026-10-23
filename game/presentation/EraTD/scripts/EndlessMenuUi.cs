@@ -47,7 +47,9 @@ public sealed partial class EndlessMenuUi : Control
     private const int SmokeTierWaves = 45;   // 两档分账道波数（词缀面 41 波起分野——EndlessEntryTests 同带）
 
     // —— T-162 模式卡片化版式常量（640×360 画布域） ——
-    private const float ModeBannerHeight = 84f; // banner-mode-* 主视觉横裁带
+    private const float ModeBannerWidth = 560f;   // 模式卡主视觉定宽（面板内容宽带内）
+    private const float ModeBannerHeight = 84f;   // banner-mode-* 主视觉横裁带
+    private const float ModeBannerBandHeight = 20f; // 底部压暗带高（模式名可读衬底——T-164 具名化）
     private const float ScheduleCardWidth = 274f; // 两卡+8 间隔=556 ≤ 面板内容宽
     private const float ScheduleCardHeight = 54f;
 
@@ -119,12 +121,15 @@ public sealed partial class EndlessMenuUi : Control
 
         // T-162 模式卡片化：面板=模式卡主视觉（banner-mode-endless 横裁带）+
         // 卡片化选项场（两档节奏卡+时代下拉+行动排），640×360 画布域。
+        // T-164 皮肤批：面板底=e2 时代色框（主菜单无尽入口同键——palettes
+        // 同源经 ExpandDirector；缓存盒不每拍新造）。
         _panel = new PanelContainer
         {
             Position = new Vector2(28, 14),
             Size = new Vector2(584, 332),
             Visible = false,
         };
+        _panel.AddThemeStyleboxOverride("panel", HoloSkin.BuildHoloBox(ModeEraColor()));
         var rows = new VBoxContainer();
         rows.AddThemeConstantOverride("separation", 5);
         _panel.AddChild(rows);
@@ -174,6 +179,8 @@ public sealed partial class EndlessMenuUi : Control
         foreach (Button action in new[] { _startButton, _dieButton, _abandonButton, _menuReturnButton })
         {
             action.AddThemeFontSizeOverride("font_size", 10); // 一行四钮不溢出（面板内容宽带内）
+            UiFeel.ApplyButtonSkin(action, ModeEraColor()); // T-164：行动排 e2 三态皮肤（缓存盒）
+            UiFeel.AttachCues(action);                      // T-164：hover/press 音效（真叮通路）
             actionRow.AddChild(action);
         }
 
@@ -190,42 +197,16 @@ public sealed partial class EndlessMenuUi : Control
         AddChild(_panel);
     }
 
-    /// <summary>模式卡主视觉：banner-mode-endless 横裁带+底部压暗带+模式名（亮图可读）.</summary>
+    /// <summary>
+    /// 模式卡主视觉：banner-mode-endless 横裁带+底部压暗带+模式名（亮图可读）.
+    /// T-164：条带三件聚合入 <see cref="UiFeel.BuildBannerStrip"/> 共享
+    /// helper（与程序关模式卡/战役章题图三连抄收口——T-162 遗留顺手项）。
+    /// </summary>
     private Control BuildModeBanner()
     {
-        var strip = new Control { CustomMinimumSize = new Vector2(560, ModeBannerHeight) };
-        var banner = new TextureRect
-        {
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-        };
-        banner.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        banner.MouseFilter = Control.MouseFilterEnum.Ignore;
-        banner.Texture = ModeBannerTexture();
-        strip.AddChild(banner);
-
-        var scrim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.45f) };
-        scrim.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-        scrim.OffsetTop = -20f;
-        scrim.MouseFilter = Control.MouseFilterEnum.Ignore;
-        strip.AddChild(scrim);
-
-        var title = new Label
-        {
-            Text = "无尽模式 · 任选时代开局",
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        title.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-        title.OffsetTop = -20f;
-        title.OffsetBottom = -1;
-        title.OffsetLeft = 6;
-        title.AddThemeFontSizeOverride("font_size", 14);
-        title.AddThemeColorOverride("font_color", Colors.White);
-        title.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 1f));
-        title.AddThemeConstantOverride("outline_size", 7);
-        title.MouseFilter = Control.MouseFilterEnum.Ignore;
-        strip.AddChild(title);
+        Control strip = UiFeel.BuildBannerStrip(
+            "无尽模式 · 任选时代开局", ModeBannerTexture(), ModeBannerHeight, ModeBannerBandHeight);
+        strip.CustomMinimumSize = new Vector2(ModeBannerWidth, ModeBannerHeight); // 定宽与共享前版式一致
         return strip;
     }
 
@@ -284,29 +265,44 @@ public sealed partial class EndlessMenuUi : Control
         return card;
     }
 
-    /// <summary>节奏卡描边（选中=时代色 e2 主色[主菜单无尽入口同键]；未选=暗灰）.</summary>
+    /// <summary>
+    /// 节奏卡描边（选中=时代色 e2 主色[主菜单无尽入口同键]；未选=暗灰）.
+    /// T-164：两态盒实例级缓存（Toggle 重选不重造——同拍复用纪律）+卡面
+    /// hover/press 音效（真叮通路）。
+    /// </summary>
     private void RestyleScheduleCard(Button card, bool selected)
     {
-        Color edge = selected ? ModeEraColor() : new Color(0.30f, 0.33f, 0.40f, 0.9f);
-        var box = new StyleBoxFlat
-        {
-            BgColor = selected
-                ? new Color(edge.R * 0.22f + 0.05f, edge.G * 0.22f + 0.06f, edge.B * 0.22f + 0.09f, 0.95f)
-                : new Color(0.06f, 0.08f, 0.12f, 0.95f),
-            BorderColor = edge,
-        };
-        box.BorderWidthTop = 2;
-        box.BorderWidthBottom = 2;
-        box.BorderWidthLeft = 2;
-        box.BorderWidthRight = 2;
+        _scheduleBoxSelected ??= BuildScheduleBox(ModeEraColor(), selected: true);
+        _scheduleBoxPlain ??= BuildScheduleBox(new Color(0.30f, 0.33f, 0.40f, 0.9f), selected: false);
+        StyleBoxFlat box = selected ? _scheduleBoxSelected : _scheduleBoxPlain;
         card.AddThemeStyleboxOverride("normal", box);
         card.AddThemeStyleboxOverride("hover", box);
         card.AddThemeStyleboxOverride("pressed", box);
         card.AddThemeStyleboxOverride("disabled", box);
     }
 
-    /// <summary>模式主视觉贴图（决策表主干+目录清单唯一挑选；缺图=null 由调用方垫底）.</summary>
-    private Godot.Texture2D? ModeBannerTexture()
+    private StyleBoxFlat? _scheduleBoxSelected;
+    private StyleBoxFlat? _scheduleBoxPlain;
+
+    /// <summary>节奏卡底盒（选中=时代色描边+色阶底；未选=暗底灰边）.</summary>
+    private static StyleBoxFlat BuildScheduleBox(Color edge, bool selected)
+    {
+        var box = new StyleBoxFlat
+        {
+            BgColor = selected
+                ? new Color(edge.R * 0.22f + 0.05f, edge.G * 0.22f + 0.06f, edge.B * 0.22f + 0.09f, 0.95f)
+                : new Color(0.06f, 0.08f, 0.12f, 0.95f), // ci-allow: R7 T-162/T-164 卡底色阶（表现层）
+            BorderColor = edge,
+        };
+        box.BorderWidthTop = 2;
+        box.BorderWidthBottom = 2;
+        box.BorderWidthLeft = 2;
+        box.BorderWidthRight = 2;
+        return box;
+    }
+
+    /// <summary>模式主视觉贴图（决策表主干+目录清单唯一挑选；缺图=中性垫底带）.</summary>
+    private Godot.Texture2D ModeBannerTexture()
     {
         _bannerFiles ??= Expand.ExpandAssetPaths.BannerFileNames();
         string? file = LevelCardDecisions.PickBannerFile(LevelCardDecisions.EndlessModeBannerStem, _bannerFiles);

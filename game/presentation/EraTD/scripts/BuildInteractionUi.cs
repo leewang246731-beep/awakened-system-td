@@ -96,6 +96,11 @@ public sealed partial class BuildInteractionUi : Control
     private bool _leftDrag;
     private long _demolishTargetId;
 
+    // —— T-164（D 批皮肤与手感）——
+    private readonly Dictionary<string, TowerSpec> _towerSpecs = new(); // 塔 id→spec（射程圈数据源；SetupCore 一次装载）
+    private RangeRing? _rangeRing;                                     // 射程圈（选中/预放随鼠标格）
+    private StyleBoxFlat? _slotSelectedBox;                            // 选中态槽位底（时代色，实例级缓存不每拍新造）
+
     /// <summary>T-141 触控原型：触控事件→决策翻译（纯逻辑，EraCore.Presentation）。</summary>
     private readonly TouchGestureMapper _touch = new();
 
@@ -170,6 +175,11 @@ public sealed partial class BuildInteractionUi : Control
         {
             _controller.UpdateDrag(CellAtMouse());
             RepaintPreview();
+            MoveRangeRingToMouse(); // T-164：预放拖动中圈随锚格移动
+        }
+        else if (@event is InputEventMouseMotion)
+        {
+            MoveRangeRingToMouse(); // T-164：选中态射程圈随鼠标格（预放前预览）
         }
         else if (@event is InputEventScreenTouch touch)
         {
@@ -288,14 +298,16 @@ public sealed partial class BuildInteractionUi : Control
         }
 
         // T-163 建造栏槽位快捷键（真绑定：与按钮 Pressed 同一 ArmTower 链；
-        // 键序=HudIconDecisions.SlotHotkeys 按槽位序——跳 R/C 既有语义零回退）。
-        if (key.Keycode is Key.Q or Key.W or Key.E or Key.T or Key.A or Key.S or Key.D
-            or Key.G or Key.F or Key.Z or Key.X or Key.B
-            && _slotHotkeys.TryGetValue((char)key.Keycode, out string? hotkeyTowerId)
+        // 键集=HudIconDecisions.SlotHotkeys 单一事实源派生（T-164 审查判断项①
+        // 收口：十二键手抄改派生——键表扩位只改决策表一处）——R/C 既有语义
+        // 仍由上方 switch 先行截获，零回退）。
+        char pressedChar = (char)key.Keycode;
+        if (HudIconDecisions.SlotHotkeys.Contains(pressedChar, StringComparison.Ordinal)
+            && _slotHotkeys.TryGetValue(pressedChar, out string? hotkeyTowerId)
             && _towerButtons.TryGetValue(hotkeyTowerId, out Button? hotkeyButton))
         {
             ArmTower(hotkeyTowerId, hotkeyButton);
-            SetStatus($"[{(char)key.Keycode}] 已选 {hotkeyTowerId}——地图上左键拖矩形（或再点槽位切换）");
+            SetStatus($"[{pressedChar}] 已选 {hotkeyTowerId}——地图上左键拖矩形（或再点槽位切换）");
         }
     }
 
@@ -314,6 +326,11 @@ public sealed partial class BuildInteractionUi : Control
     private void SetupCore()
     {
         IReadOnlyList<TowerSpec> catalog = LoadTowerCatalog();
+        foreach (TowerSpec spec in catalog)
+        {
+            _towerSpecs[spec.Id] = spec; // T-164：射程圈数据源（EraCore 射程既有——RangeCells）
+        }
+
         var enemies = EnemySpecCatalog.Parse(System.IO.File.ReadAllText(FindContentFile("enemies.json")));
         _sim = new Simulation(DemoConfig(catalog, enemies), new DemoRng(DemoSeed), DemoSeed);
         _registrySink = new CountingLogSink();
@@ -392,9 +409,10 @@ public sealed partial class BuildInteractionUi : Control
             _towerButtons[spec.Id] = button;
             _slotIcons[spec.Id] = icon;
             _slotPrices[spec.Id] = price;
+            UiFeel.AttachCues(button); // T-164：槽位 hover/press 音效（窗口车道；真叮通路）
         }
 
-        RefreshSlotStyles(); // T-163：槽位三态底样式（选中/禁用/常态）初始一遍
+        RefreshBarTints(); // 槽位三态底样式+两级灰度初始一遍（合一刷新）
     }
 
     /// <summary>塔 icon 装载（res:// 项目内轨；缺图=类色色块回退——类色语义既有）.</summary>
@@ -423,34 +441,44 @@ public sealed partial class BuildInteractionUi : Control
     }
 
     /// <summary>
-    /// 槽位样式三态（T-163）：选中=时代色描边+类色 tint（既有 armed 语义）；
-    /// 禁用（资源不足/科技未解锁，读 RefreshBarTints 同源判定面 BuildGreyMap）
-    /// =图标灰暗+价红；常态=暗底细青边。SelfModulate 两级灰度另由
-    /// RefreshBarTints 施加（既有零回退），本样式与之分层。
+    /// 槽位样式三态（T-163 图标化 + T-164 皮肤批三态化）：选中=时代色底+2px
+    /// 时代色描边（实例级缓存盒——同拍复用不每拍新造）；未选=UiFeel 三态盒
+    /// （normal/hover/pressed 色阶+边框亮暗，时代色缓存）。禁用（资源不足/
+    /// 科技未解锁）=图标灰暗+价红+SelfModulate 两级灰度（判定面 BuildGreyMap
+    /// 同源，与选中态分层——既有零回退）。
     /// </summary>
-    private void RefreshSlotStyles()
+    private void RefreshSlotStyles(double available, string currency)
     {
         Color eraColor = BuildEraColor();
-        double available = _lane.View.ResourceAmount(_lane.View.CostCurrency);
-        string currency = _lane.View.CostCurrency.Value;
+        _slotSelectedBox ??= BuildSelectedSlotBox(eraColor);
         foreach (KeyValuePair<string, Button> pair in _towerButtons)
         {
             _lane.View.TryGetTowerCost(pair.Key, out double unitCost);
+
+            // 一次判定双施（§10.7 两级灰度 × 槽位三态）：SelfModulate/tooltip
+            // =灰度染色面；盒/图标/价=三态样式面——同一 verdict 驱动，不再二算。
             BuildTintVerdict verdict = BuildGreyMap.BarEntry(AgentEra, unitCost, available, currency);
+            pair.Value.SelfModulate = verdict.Tier switch
+            {
+                BuildTintTier.YellowGrey => BarTintYellowGrey,
+                BuildTintTier.Red => BarTintRed,
+                _ => Colors.White,
+            };
+            pair.Value.TooltipText = verdict.Reason ?? $"{pair.Key}：可建造（{unitCost:0} {currency}）";
+
             bool selected = _armedTower == pair.Key;
             bool disabled = verdict.Tier != BuildTintTier.Green;
-
-            var box = new StyleBoxFlat();
-            box.BgColor = selected
-                ? new Color(eraColor, 0.20f)
-                : new Color(0.05f, 0.09f, 0.16f, 0.72f);
-            box.SetCornerRadiusAll(4);
-            box.SetBorderWidthAll(selected ? 2 : 1); // 选中态时代色描边（任务卡口径）
-            box.BorderColor = selected ? eraColor : new Color(HoloSkin.EdgeCyan, 0.35f);
-            pair.Value.AddThemeStyleboxOverride("normal", box);
-            pair.Value.AddThemeStyleboxOverride("hover", box);
-            pair.Value.AddThemeStyleboxOverride("pressed", box);
-            pair.Value.AddThemeStyleboxOverride("disabled", box);
+            if (selected)
+            {
+                pair.Value.AddThemeStyleboxOverride("normal", _slotSelectedBox);
+                pair.Value.AddThemeStyleboxOverride("hover", _slotSelectedBox);
+                pair.Value.AddThemeStyleboxOverride("pressed", _slotSelectedBox);
+                pair.Value.AddThemeStyleboxOverride("disabled", _slotSelectedBox);
+            }
+            else
+            {
+                UiFeel.ApplyButtonSkin(pair.Value, eraColor); // 三态缓存盒（时代色键共享）
+            }
 
             if (_slotIcons.TryGetValue(pair.Key, out TextureRect? icon))
             {
@@ -460,12 +488,32 @@ public sealed partial class BuildInteractionUi : Control
             if (_slotPrices.TryGetValue(pair.Key, out Label? price))
             {
                 price.AddThemeColorOverride("font_color", disabled ? HoloSkin.RiskRed : HoloSkin.TextDimCyan); // 禁用价红
+                UiFeel.Outline(price, 3); // T-164：资源数字描边（可读性）
             }
         }
     }
 
+    /// <summary>选中态槽位底（时代色 0.20 底+2px 描边——实例缓存一份）.</summary>
+    private static StyleBoxFlat BuildSelectedSlotBox(Color eraColor)
+    {
+        var box = new StyleBoxFlat
+        {
+            BgColor = new Color(eraColor, 0.20f),
+            BorderColor = eraColor,
+        };
+        box.SetCornerRadiusAll(4);
+        box.SetBorderWidthAll(2);
+        return box;
+    }
+
     /// <summary>Pacing fact probe（T-163 BattleHudUi 节奏按钮态镜像——只读，钟仍归本类）.</summary>
     internal (bool Paused, int Speed) PaceFact() => (_pauseClock.IsPaused, _pauseClock.SpeedMultiplier);
+
+    /// <summary>选中塔探针（--shot 取景/输入链诊断——只读）.</summary>
+    internal string? ArmedTower => _armedTower;
+
+    /// <summary>状态行探针（--shot 输入链诊断——只读）.</summary>
+    internal string StatusText => _status.Text;
 
     private void ArmTower(string towerId, Button button)
     {
@@ -477,8 +525,57 @@ public sealed partial class BuildInteractionUi : Control
                 : Colors.White with { A = 0.6f };
         }
 
-        RefreshSlotStyles(); // T-163：选中槽位时代色描边同拍生效
+        RefreshBarTints(); // 选中槽位时代色描边同拍生效（合一刷新）
+        UpdateRangeRing(); // T-164：选中即示射程圈（EraCore RangeCells 既有数据）
         SetStatus($"已选 {towerId}——地图上左键拖矩形（≤{PlayerBuildLane.MaxBuildCells(AgentEra)} 格）");
+    }
+
+    // —— T-164 塔射程圈（选中/预放随鼠标格；虚线圆环+时代色半透明填充） ——
+
+    /// <summary>
+    /// 射程圈泵：选中塔在位=圈随鼠标格移动（预放同一视觉——落点即圈心）；
+    /// 无选中/无射程数据=隐藏。数据源=EraCore TowerSpec.RangeCells（射程
+    /// 既有——本类零射程公式）；控制/光环塔 RangeCells=0 无圈（诚实无线）。
+    /// </summary>
+    private void UpdateRangeRing()
+    {
+        if (_armedTower is null || !_towerSpecs.TryGetValue(_armedTower, out TowerSpec? spec)
+            || spec.RangeCells <= 0)
+        {
+            if (_rangeRing is not null)
+            {
+                _rangeRing.Visible = false;
+            }
+
+            return;
+        }
+
+        _rangeRing ??= AddRangeRing();
+        _rangeRing.Setup(BuildEraColor(), (float)spec.RangeCells * Cell);
+        _rangeRing.Visible = true;
+        MoveRangeRingToMouse();
+    }
+
+    /// <summary>射程圈挂预览层（与拖放三色格同层同坐标系——世界 px 直读）.</summary>
+    private RangeRing AddRangeRing()
+    {
+        var ring = new RangeRing { MouseFilter = MouseFilterEnum.Ignore };
+        _previewLayer.AddChild(ring);
+        return ring;
+    }
+
+    private void MoveRangeRingToMouse()
+    {
+        if (_rangeRing is not { Visible: true })
+        {
+            return;
+        }
+
+        Vector2 world = GetGlobalMousePosition(); // 圈心=鼠标所在格心（选中/预放同律）
+        var cell = CellAtWorld(world);
+        _rangeRing.Position = new Vector2(
+            (cell.X * Cell) + (Cell / 2f) - (_rangeRing.Size.X / 2f),
+            (cell.Y * Cell) + (Cell / 2f) - (_rangeRing.Size.Y / 2f));
     }
 
     private void CommitDrag()
@@ -596,30 +693,17 @@ public sealed partial class BuildInteractionUi : Control
         : $"{_pauseClock.SpeedMultiplier}x（{_pauseClock.SpeedMultiplier} tick/帧）";
 
     /// <summary>
-    /// 建造栏两级灰度（§10.7 第一表面）：时代锁=红、缺资源=黄灰（tooltip 报
-    /// 逐项造价缺口）、可建=原色。判定全部走 BuildGreyMap.BarEntry 纯映射
-    /// （解锁时代读 K-3 冻结表），本类只做颜色翻译。SelfModulate 与选中态的
-    /// Modulate 分离——两级灰度不干扰 armed 高亮。
+    /// 建造栏两级灰度+槽位三态合一刷新（§10.7 第一表面）：时代锁=红、缺资源
+    /// =黄灰（tooltip 报逐项造价缺口）、可建=原色。判定全部走 BuildGreyMap.
+    /// BarEntry 纯映射（解锁时代读 K-3 冻结表），本类只做颜色翻译。
+    /// T-164 审查判断项③收口：原先 RefreshBarTints（灰度染色）与
+    /// RefreshSlotStyles（三态样式）同拍同参各跑一遍（双份 verdict 计算）——
+    /// 合一为 <see cref="RefreshSlotStyles"/> 单次判定双施。
     /// </summary>
-    private void RefreshBarTints()
-    {
-        double available = _lane.View.ResourceAmount(_lane.View.CostCurrency);
-        string currency = _lane.View.CostCurrency.Value;
-        foreach (KeyValuePair<string, Button> pair in _towerButtons)
-        {
-            _lane.View.TryGetTowerCost(pair.Key, out double unitCost);
-            BuildTintVerdict verdict = BuildGreyMap.BarEntry(AgentEra, unitCost, available, currency);
-            pair.Value.SelfModulate = verdict.Tier switch
-            {
-                BuildTintTier.YellowGrey => BarTintYellowGrey,
-                BuildTintTier.Red => BarTintRed,
-                _ => Colors.White,
-            };
-            pair.Value.TooltipText = verdict.Reason ?? $"{pair.Key}：可建造（{unitCost:0} {currency}）";
-        }
-
-        RefreshSlotStyles(); // T-163：图标灰暗+价红随两级灰度同拍刷新
-    }
+    private void RefreshBarTints() =>
+        RefreshSlotStyles(
+            _lane.View.ResourceAmount(_lane.View.CostCurrency),
+            _lane.View.CostCurrency.Value);
 
     /// <summary>
     /// 预览帧 → 逐格两级灰度判定（Repaint 与 headless 演示同一入口，无第二
@@ -1225,6 +1309,50 @@ public sealed partial class BuildInteractionUi : Control
                 PlayerEvents++;
                 LastPlayerSeq = evt.Seq;
             }
+        }
+    }
+}
+
+/// <summary>
+/// T-164 塔射程圈（D 批皮肤与手感）：虚线圆环+时代色半透明填充的即时绘制件
+/// ——数据=Setup 传入的半径（EraCore TowerSpec.RangeCells × 格 px，射程既有），
+/// 本件零射程公式（CS-1.5 表现层只读绘制）。虚线=48 段隔段绘制（偶段留空）。
+/// </summary>
+internal sealed partial class RangeRing : Control
+{
+    private const int DashSegments = 48; // ci-allow: R7 T-164 虚线圆环分段数（表现层绘制密度，非平衡数值）
+    private const float RingWidth = 2f;  // ci-allow: R7 T-164 圆环线宽 px（表现层绘制，非平衡数值）
+
+    private Color _era = HoloSkin.EdgeCyan;
+    private float _radiusPx;
+
+    /// <summary>圈参数（时代色+半径 px）——参数变化即重绘（幂等）.</summary>
+    internal void Setup(Color era, float radiusPx)
+    {
+        if (_era == era && Math.Abs(_radiusPx - radiusPx) < 0.01f)
+        {
+            return;
+        }
+
+        _era = era;
+        _radiusPx = radiusPx;
+        Size = new Vector2(_radiusPx * 2f, _radiusPx * 2f);
+        QueueRedraw();
+    }
+
+    public override void _Draw()
+    {
+        if (_radiusPx <= 0)
+        {
+            return;
+        }
+
+        Vector2 center = Size / 2f;
+        DrawCircle(center, _radiusPx, new Color(_era, 0.10f)); // 时代色半透明填充
+        float step = Mathf.Tau / DashSegments;
+        for (int i = 0; i < DashSegments; i += 2) // 偶段绘制、奇段留空=虚线环
+        {
+            DrawArc(center, _radiusPx, i * step, (i + 1) * step, 8, new Color(_era, 0.85f), RingWidth);
         }
     }
 }

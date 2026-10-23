@@ -45,9 +45,14 @@ public sealed partial class ProceduralMenuUi : Control
     private const long SmokeSeed = 20261201;
 
     // —— T-162 模式卡片化版式常量（640×360 画布域） ——
-    private const float ModeBannerHeight = 84f; // banner-mode-procedural 主视觉横裁带
+    private const float ModeBannerWidth = 560f;     // 模式卡主视觉定宽（面板内容宽带内）
+    private const float ModeBannerHeight = 84f;     // banner-mode-procedural 主视觉横裁带
+    private const float ModeBannerBandHeight = 20f; // 底部压暗带高（模式名可读衬底——T-164 具名化）
 
     private readonly bool _headless;
+
+    // —— T-164：主菜单宿主引用（e3 时代色板查表——主菜单程序关入口同键）——
+    private Main? _main;
 
     private Button _entryButton = null!;
     private PanelContainer _panel = null!;
@@ -79,6 +84,7 @@ public sealed partial class ProceduralMenuUi : Control
         var ui = new ProceduralMenuUi
         {
             Name = "ProceduralMenuUi",
+            _main = host as Main,
         };
         ui.BuildUi();
         host.AddChild(ui);
@@ -109,12 +115,15 @@ public sealed partial class ProceduralMenuUi : Control
 
         // T-162 模式卡片化：面板=模式卡主视觉（banner-mode-procedural 横裁带）
         // + 选项场（档位/种子/行动排），640×360 画布域。
+        // T-164 皮肤批：面板底=e3 时代色框（主菜单程序关入口同键——palettes
+        // 同源经 ExpandDirector）。
         _panel = new PanelContainer
         {
             Position = new Vector2(28, 14),
             Size = new Vector2(584, 300),
             Visible = false,
         };
+        _panel.AddThemeStyleboxOverride("panel", HoloSkin.BuildHoloBox(ModeEraColor()));
         var rows = new VBoxContainer();
         rows.AddThemeConstantOverride("separation", 5);
         _panel.AddChild(rows);
@@ -148,9 +157,12 @@ public sealed partial class ProceduralMenuUi : Control
         _exitButton.Pressed += OnExitPressed;
         _menuReturnButton = new Button { Text = "返回主菜单" };
         _menuReturnButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
-        actionRow.AddChild(_startButton);
-        actionRow.AddChild(_exitButton);
-        actionRow.AddChild(_menuReturnButton);
+        foreach (Button action in new[] { _startButton, _exitButton, _menuReturnButton })
+        {
+            UiFeel.ApplyButtonSkin(action, ModeEraColor()); // T-164：行动排 e3 三态皮肤（缓存盒）
+            UiFeel.AttachCues(action);                      // T-164：hover/press 音效（真叮通路）
+            actionRow.AddChild(action);
+        }
         rows.AddChild(actionRow);
 
         _statusLabel = new Label
@@ -164,48 +176,23 @@ public sealed partial class ProceduralMenuUi : Control
         AddChild(_panel);
     }
 
-    /// <summary>模式卡主视觉：banner-mode-procedural 横裁带+模式名叠图（缺图=垫底带）.</summary>
+    /// <summary>
+    /// 模式卡主视觉：banner-mode-procedural 横裁带+模式名叠图（缺图=垫底带）.
+    /// T-164：条带三件聚合入 <see cref="UiFeel.BuildBannerStrip"/> 共享
+    /// helper（三连抄收口——T-162 遗留顺手项）。
+    /// </summary>
     private Control BuildModeBanner()
     {
-        var strip = new Control { CustomMinimumSize = new Vector2(560, ModeBannerHeight) };
-        var banner = new TextureRect
-        {
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-        };
-        banner.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        banner.MouseFilter = Control.MouseFilterEnum.Ignore;
         _bannerFiles ??= Expand.ExpandAssetPaths.BannerFileNames();
         string? file = EraCore.Presentation.LevelCardDecisions.PickBannerFile(
             EraCore.Presentation.LevelCardDecisions.ProceduralModeBannerStem, _bannerFiles);
-        banner.Texture = (file is null
-                ? null
-                : Expand.ExpandAssetPaths.LoadPng(Expand.ExpandAssetPaths.BannerPath(file)))
-            ?? ModePlaceholder();
-        strip.AddChild(banner);
-
-        var scrim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.45f) };
-        scrim.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-        scrim.OffsetTop = -20f;
-        scrim.MouseFilter = Control.MouseFilterEnum.Ignore;
-        strip.AddChild(scrim);
-
-        var title = new Label
-        {
-            Text = "程序生成关卡 · 战役外入口",
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        title.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-        title.OffsetTop = -20f;
-        title.OffsetBottom = -1;
-        title.OffsetLeft = 6;
-        title.AddThemeFontSizeOverride("font_size", 14);
-        title.AddThemeColorOverride("font_color", Colors.White);
-        title.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 1f));
-        title.AddThemeConstantOverride("outline_size", 7);
-        title.MouseFilter = Control.MouseFilterEnum.Ignore;
-        strip.AddChild(title);
+        Control strip = UiFeel.BuildBannerStrip(
+            "程序生成关卡 · 战役外入口",
+            (file is null ? null : Expand.ExpandAssetPaths.LoadPng(Expand.ExpandAssetPaths.BannerPath(file)))
+                ?? ModePlaceholder(),
+            ModeBannerHeight,
+            ModeBannerBandHeight);
+        strip.CustomMinimumSize = new Vector2(ModeBannerWidth, ModeBannerHeight); // 定宽与共享前版式一致
         return strip;
     }
 
@@ -217,6 +204,19 @@ public sealed partial class ProceduralMenuUi : Control
         var image = Image.CreateEmpty(4, 4, false, Image.Format.Rgba8);
         image.Fill(new Color(0.10f, 0.14f, 0.19f, 1f));
         return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>程序关时代主色（主菜单程序关入口同键 e3——RL7 查 visual-assets.json）.</summary>
+    private Color ModeEraColor()
+    {
+        EraCore.Cinematics.EraPalette? palette = null;
+        _main?.ExpandDirector?.Catalog.Palettes.TryGetValue("e3", out palette);
+        if (palette is { } row)
+        {
+            return new Color(row.Primary.R / 255f, row.Primary.G / 255f, row.Primary.B / 255f);
+        }
+
+        return HoloSkin.EdgeCyan; // 目录不可达（极端态）——中性青回退
     }
 
     public override void _Process(double delta)

@@ -83,9 +83,10 @@ public sealed partial class BattleHudUi : Control
     }
 
     /// <summary>
-    /// 退出本关 ✕ 钮（T-163 进局收面板后的退出闭环）：真信号驱动
+    /// 退出本关钮（T-163 进局收面板后的退出闭环）：真信号驱动
     /// CampaignMenuUi 的「退出本关」按钮链（存档续玩——与玩家在选关面板
-    /// 点击同一条链，禁第二套退出逻辑）。
+    /// 点击同一条链，禁第二套退出逻辑）。T-164：ctrl-close 图标化（缺图=
+    /// ✕ 文字符号回退——装载层存在性探针另报）。
     /// </summary>
     private void BuildExitButton()
     {
@@ -94,13 +95,15 @@ public sealed partial class BattleHudUi : Control
             Text = "✕",
             TooltipText = "退出本关（存档续玩）",
             FocusMode = FocusModeEnum.None,
-            CustomMinimumSize = new Vector2(24f, 24f),
+            CustomMinimumSize = new Vector2(24f, 24f), // ci-allow: R7 T-163 表现层控件档位 px
             MouseFilter = MouseFilterEnum.Stop,
         };
         exit.AddThemeFontSizeOverride("font_size", 12);
+        UiFeel.Iconify(exit, "ctrl-close"); // T-164 控件图标组（缺图=文字符号优雅回退）
+        UiFeel.AttachCues(exit);            // T-164 hover/press 音效（真叮通路）
         exit.Pressed += () => _main.CampaignUi?.PressExitLevel();
         AddChild(exit);
-        exit.Position = new Vector2(610f, 70f);
+        exit.Position = new Vector2(610f, 70f); // ci-allow: R7 T-163 HUD 右上退出钮锚位（画布域）
     }
 
     // ------------------------------------------------------------- ①资源条 --
@@ -135,6 +138,7 @@ public sealed partial class BattleHudUi : Control
         _waveTitle = new Label { MouseFilter = MouseFilterEnum.Ignore };
         _waveTitle.AddThemeFontSizeOverride("font_size", 11);
         _waveTitle.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
+        UiFeel.Outline(_waveTitle, 3); // T-164：波次预告标题描边（可读性同律）
         _waveRow = new HBoxContainer();
         _waveRow.AddThemeConstantOverride("separation", 6);
         box.AddChild(_waveTitle);
@@ -150,13 +154,13 @@ public sealed partial class BattleHudUi : Control
     {
         _paceBarRoot = new HBoxContainer();
         _paceBarRoot.AddThemeConstantOverride("separation", 4);
-        AddPaceButton(Key.Space, "⏸", "暂停/恢复（空格）");
-        AddPaceButton(Key.Key1, "1×", "常速（1）");
-        AddPaceButton(Key.Key2, "2×", "双倍速（2）");
-        AddPaceButton(Key.Key3, "3×", "三倍速（3）");
+        AddPaceButton(Key.Space, "⏸", "ctrl-pause", "暂停/恢复（空格）");
+        AddPaceButton(Key.Key1, "1×", "ctrl-speed-1x", "常速（1）");
+        AddPaceButton(Key.Key2, "2×", "ctrl-speed-2x", "双倍速（2）");
+        AddPaceButton(Key.Key3, "3×", "ctrl-speed-3x", "三倍速（3）");
         AddChild(_paceBarRoot);
         // 底部右侧（建造栏在底部左中——build_ui.tscn；StatusLabel 全宽其上）
-        _paceBarRoot.Position = new Vector2(640f - 4 * 26f - 8f, 360f - 34f);
+        _paceBarRoot.Position = new Vector2(640f - 4 * 26f - 8f, 360f - 34f); // ci-allow: R7 T-163 表现层锚位算式（画布域 640×360）
     }
 
     private HBoxContainer _paceBarRoot = null!;
@@ -165,8 +169,9 @@ public sealed partial class BattleHudUi : Control
     /// 一个节奏按钮：按下=合成 InputEventKey（pressed+echo off）入真输入链
     /// ——BuildInteractionUi._UnhandledKeyInput 消费（与玩家敲键同一条链，
     /// 暂停/变速/暂存冲刷语义零回退；禁本地直调 PauseClock——无第二套逻辑）。
+    /// T-164：节奏四键图标化（ctrl-pause/speed-1x~3x——缺图=文字符号回退）。
     /// </summary>
-    private void AddPaceButton(Key key, string glyph, string tooltip)
+    private void AddPaceButton(Key key, string glyph, string iconName, string tooltip)
     {
         var button = new Button
         {
@@ -174,10 +179,12 @@ public sealed partial class BattleHudUi : Control
             TooltipText = tooltip,
             FocusMode = FocusModeEnum.None,
             ToggleMode = false,
-            CustomMinimumSize = new Vector2(26f, 24f),
+            CustomMinimumSize = new Vector2(26f, 24f), // ci-allow: R7 T-163 表现层控件档位 px
             MouseFilter = MouseFilterEnum.Stop,
         };
         button.AddThemeFontSizeOverride("font_size", 12);
+        UiFeel.Iconify(button, iconName); // T-164 控件图标组（缺图=⏸/1× 文字符号优雅回退）
+        UiFeel.AttachCues(button);        // T-164 hover/press 音效（真叮通路）
         button.Pressed += () => Input.ParseInputEvent(new InputEventKey
         {
             Keycode = key,
@@ -193,7 +200,9 @@ public sealed partial class BattleHudUi : Control
     /// <summary>
     /// 战役会话绑定（CampaignMenuUi.PumpBattlefield 每帧喂）：sim 引用或
     /// eraIndex 变化=整面重绑——资源行按新时代 era.json resources 重建、
-    /// 军师面板时代皮肤/立绘按新 era 应用（双条件重绑律）。
+    /// 军师面板时代皮肤/立绘按新 era 应用、HUD 面板底换时代色框（T-164：
+    /// 资源条/预告横幅边框随时代——HoloSkin.BuildHoloBox(era) 缓存实例，
+    /// 同拍复用不每拍新造；退出还原中性青）。双条件重绑律。
     /// </summary>
     internal void Bind(CampaignRun run, int eraIndex)
     {
@@ -205,8 +214,11 @@ public sealed partial class BattleHudUi : Control
 
         _boundSim = run.Session.Sim;
         _boundEra = eraIndex;
+        _waveSignature = null; // T-164 脏守卫：换局=波构成必重渲染
         RebuildResourceRow(eraIndex);
         ApplyAdvisorEraSkin(eraIndex);
+        _resourceBar.AddThemeStyleboxOverride("panel", EraBox(eraIndex, boss: false));
+        _waveBanner.AddThemeStyleboxOverride("panel", EraBox(eraIndex, boss: false));
         Show();
         GD.Print(
             $"BATTLE_HUD bind era={eraIndex} resources={_resourceCells.Count} " +
@@ -214,13 +226,40 @@ public sealed partial class BattleHudUi : Control
             $"portrait={_main.AdvisorPanel.PortraitLoaded} skin={_main.ExpandDirector is not null}");
     }
 
-    /// <summary>退出战役会话=Release（整组隐藏+军师面板还原菜单态）.</summary>
+    /// <summary>退出战役会话=Release（整组隐藏+军师面板还原菜单态+HUD 框还原中性青）.</summary>
     internal void Release()
     {
         _boundSim = null;
         _boundEra = 0;
+        _waveSignature = null; // 再进局波预告按新构成重渲染（脏守卫复位）
         Hide();
+        _resourceBar.AddThemeStyleboxOverride("panel", HoloSkin.BuildHoloBox());
+        _waveBanner.AddThemeStyleboxOverride("panel", HoloSkin.BuildHoloBox());
         _main.AdvisorPanel.ResetEraTheme();
+    }
+
+    // —— T-164 时代框缓存（(era, boss) 键——同拍复用不每拍新造） ——
+
+    private readonly Dictionary<(int Era, bool Boss), StyleBoxFlat> _eraBoxes = new();
+
+    /// <summary>时代色 HUD 框（boss 波=金边变体；缓存一份实例跨拍共享）.</summary>
+    private StyleBoxFlat EraBox(int eraIndex, bool boss)
+    {
+        (int, bool) key = (eraIndex, boss);
+        if (!_eraBoxes.TryGetValue(key, out StyleBoxFlat? box))
+        {
+            box = HoloSkin.BuildHoloBox(EraColor($"e{Math.Clamp(eraIndex, 1, 6)}"));
+            if (boss)
+            {
+                box.BorderColor = new Color(1f, 0.82f, 0.36f, 0.95f); // ci-allow: R7 T-163 boss 金相色（表现层）
+                box.BorderWidthLeft = box.BorderWidthRight = 2;
+                box.BorderWidthTop = box.BorderWidthBottom = 2;
+            }
+
+            _eraBoxes[key] = box;
+        }
+
+        return box;
     }
 
     /// <summary>当前绑定时代（探针；0=未绑）.</summary>
@@ -283,7 +322,8 @@ public sealed partial class BattleHudUi : Control
             };
             icon.Texture = LoadIconOrSwatch(HudIconDecisions.ResourceIconPath(id), EraColor($"e{eraIndex}"));
 
-            // 数字右贴（icon 左、数量右——任务卡口径）
+            // 数字右贴（icon 左、数量右——任务卡口径）；T-164：资源数字描边
+            // +投影（与主菜单标题同律的可读性处理——亮 icon 上数字不糊）。
             var amount = new Label
             {
                 Text = "0",
@@ -291,6 +331,7 @@ public sealed partial class BattleHudUi : Control
             };
             amount.AddThemeFontSizeOverride("font_size", 14);
             amount.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
+            UiFeel.Outline(amount, 3);
             var stack = new VBoxContainer();
             stack.AddThemeConstantOverride("separation", 0);
             stack.Alignment = BoxContainer.AlignmentMode.Center;
@@ -359,21 +400,37 @@ public sealed partial class BattleHudUi : Control
         }
     }
 
-    /// <summary>波次预告横幅渲染：标题（下波序号）+每类 icon×数量徽记行+boss 描边.</summary>
+    /// <summary>
+    /// 波次预告横幅渲染：标题（下波序号）+每类 icon×数量徽记行+boss 描边.
+    /// T-164 审查判断项②收口：脏守卫（波构成签名未变不重建——原先每拍
+    /// （15 帧）全拆全建 icon 行，波间 100+ 拍白造节点）+LoadIconOrSwatch
+    /// 命中纹理静态缓存（缺图回退块不缓存——生成轨落地后随重绑自动换真图，
+    /// 既有语义保真）。
+    /// </summary>
     private void RenderWavePreview(WaveCompositionView view)
     {
         _waveTitle.Text = $"◆ 下波 W{view.NextWave:00} 预告";
+        var entries = HudIconDecisions.WavePreviewEntries(
+            view.NextWavePreview.Select(row => (row.EnemyId, row.Count))).ToList();
+        bool boss = entries.Any(entry => entry.IsBoss);
+
+        // 脏守卫：波序+敌构成（id×数量×boss 位）签名不变=零重建（标题文本
+        // 幂等重赋，行与框不动）。
+        string signature = $"{view.NextWave}|{string.Join(",", entries.Select(e => $"{e.EnemyId}x{e.Count}{(e.IsBoss ? "!" : "")}"))}";
+        if (signature == _waveSignature)
+        {
+            return;
+        }
+
+        _waveSignature = signature;
         foreach (Node child in _waveRow.GetChildren())
         {
             _waveRow.RemoveChild(child);
             child.QueueFree();
         }
 
-        bool boss = false;
-        foreach (HudIconDecisions.WavePreviewEntry entry in HudIconDecisions.WavePreviewEntries(
-                     view.NextWavePreview.Select(row => (row.EnemyId, row.Count))))
+        foreach (HudIconDecisions.WavePreviewEntry entry in entries)
         {
-            boss |= entry.IsBoss;
             var cell = new VBoxContainer();
             cell.AddThemeConstantOverride("separation", 0);
             var icon = new TextureRect
@@ -398,22 +455,18 @@ public sealed partial class BattleHudUi : Control
             count.AddThemeColorOverride("font_color", entry.IsBoss
                 ? new Color(1f, 0.82f, 0.36f)
                 : HoloSkin.TextDimCyan);
+            UiFeel.Outline(count, 2); // T-164：徽记数字描边（可读性）
             cell.AddChild(icon);
             cell.AddChild(count);
             _waveRow.AddChild(cell);
         }
 
-        // boss 波横幅特殊描边（金边；常规=全息青默认框）
-        var box = HoloSkin.BuildHoloBox();
-        if (boss)
-        {
-            box.BorderColor = new Color(1f, 0.82f, 0.36f, 0.95f);
-            box.BorderWidthLeft = box.BorderWidthRight = 2;
-            box.BorderWidthTop = box.BorderWidthBottom = 2;
-        }
-
-        _waveBanner.AddThemeStyleboxOverride("panel", box);
+        // boss 波横幅特殊描边（金边；常规=时代色框）——缓存实例（EraBox）
+        _waveBanner.AddThemeStyleboxOverride("panel", EraBox(_boundEra, boss));
     }
+
+    /// <summary>波构成脏守卫签名（null=首拍/换局，必重建）.</summary>
+    private string? _waveSignature;
 
     // ------------------------------------------------------------- 装载面 --
 
@@ -421,16 +474,27 @@ public sealed partial class BattleHudUi : Control
     private static Texture2D? LoadIcon(string resPath) =>
         ResourceLoader.Exists(resPath) ? GD.Load<Texture2D>(resPath) : null;
 
+    // —— T-164 审查判断项②收口：装载命中纹理静态缓存（res:// 路径键；缺图
+    //    回退块不入缓存——生成轨落地后下一次重建自动换真图，语义保真）。 ——
+
+    private static readonly Dictionary<string, Texture2D> _iconCache = new(StringComparer.Ordinal);
+
     /// <summary>icon 或缺图回退（时代色底+白点纹——类色色块语义，LevelCardDecisions 回退同族）.</summary>
     private static Texture2D LoadIconOrSwatch(string resPath, Color swatch)
     {
+        if (_iconCache.TryGetValue(resPath, out Texture2D? cached))
+        {
+            return cached;
+        }
+
         Texture2D? texture = LoadIcon(resPath);
         if (texture is not null)
         {
+            _iconCache[resPath] = texture; // 命中才缓存（缺图重探——落地即换真图）
             return texture;
         }
 
-        int px = 24; // 回退块内部分辨率（展示位拉伸）
+        int px = 24; // ci-allow: R7 T-163 回退块内部分辨率 px（展示位拉伸）
         var image = Image.CreateEmpty(px, px, false, Image.Format.Rgba8);
         image.Fill(new Color(swatch, 0.45f));
         image.SetPixel(4, 4, Colors.White);
@@ -442,25 +506,23 @@ public sealed partial class BattleHudUi : Control
     private BuildInteractionUi? BuildUi() =>
         _main.GetNodeOrNull<BuildInteractionUi>("BuildInteractionUi");
 
-    /// <summary>era.json 资源行装载（内容侧单一数据源；repo walk-up 先例）.</summary>
+    /// <summary>
+    /// era.json 资源行装载（内容侧单一数据源）。T-164 审查判断项④收口：
+    /// 原先自带一份 AppContext walk-up 目录探测（与 Main.ReadRepoContent
+    /// 双份 walk-up）——合一为 Main.ReadRepoContent 单源（既有 repo walk-up
+    /// 约定同款，仓库不可达时抛——与宿主其余内容装载同一诚实语义）。
+    /// </summary>
     private static IReadOnlyList<(string Id, string NameZh)> LoadEraResources(int eraIndex)
     {
-        string relative = System.IO.Path.Combine("game", "content", $"era{eraIndex}");
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
+        try
         {
-            string probe = System.IO.Path.Combine(dir.FullName, relative);
-            if (Directory.Exists(probe))
-            {
-                return HudIconDecisions.EraResources(
-                    System.IO.File.ReadAllText(System.IO.Path.Combine(probe, "era.json")),
-                    $"era{eraIndex}/era.json");
-            }
-
-            dir = dir.Parent!;
+            return HudIconDecisions.EraResources(
+                Main.ReadRepoContent($"era{eraIndex}", "era.json"), $"era{eraIndex}/era.json");
         }
-
-        return Array.Empty<(string, string)>(); // 仓库不可达（极端裸态）——空行不阻塞战斗
+        catch (InvalidOperationException)
+        {
+            return Array.Empty<(string, string)>(); // 仓库不可达（极端裸态）——空行不阻塞战斗（既有降级语义保真）
+        }
     }
 
     // --------------------------------------------- headless 图标装载探针 --

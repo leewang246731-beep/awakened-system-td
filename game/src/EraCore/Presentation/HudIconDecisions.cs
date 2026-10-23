@@ -28,6 +28,18 @@ public static class HudIconDecisions
     /// <summary>六时代军师立绘目录（res:// 项目内轨，256×256）.</summary>
     public const string PortraitDir = "textures/ui/portraits";
 
+    /// <summary>
+    /// T-164（D 批皮肤与手感）UI 控件图标目录（res:// 项目内轨，128×128，
+    /// 10 件：ctrl-play/ctrl-pause/speed-1x/speed-2x/speed-3x/ctrl-close/
+    /// drawer-handle/star/star-empty/lock——主管素材轨）。缺图由表现层以
+    /// 文字符号优雅回退（T-163 遗留④同律），不阻塞。
+    /// </summary>
+    public const string ControlIconDir = "textures/ui/icons/ui";
+
+    /// <summary>UI 控件名 → res:// 图标路径（确定性推导——无散装映射表）.</summary>
+    public static string ControlIconPath(string controlName) =>
+        $"res://{ControlIconDir}/{controlName}.png";
+
     /// <summary>顶部资源条 icon 档位（px，任务卡「icon 48px 档位」）.</summary>
     public const int ResourceIconPx = 48; // ci-allow: R7 T-163 表现层排版档位（icon px，非平衡数值）
 

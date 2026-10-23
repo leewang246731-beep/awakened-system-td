@@ -499,19 +499,22 @@ public sealed partial class InfoLayersUi : Control
         _helpPanel.Position = new Vector2(378f, 34f); // 右缘抽屉位（640 画布域）
 
         // 右缘把手：竖排「F1 词汇表」，常驻可见（收起=只余把手；展开=面板滑入右缘带）
+        // T-164 皮肤批：drawer-handle 图标化（缺图=竖排文字回退——T-163 遗留④）
         _helpTab = new Button
         {
             Text = "F1\n词\n汇\n表",
             FocusMode = FocusModeEnum.None,
-            CustomMinimumSize = new Vector2(24f, 96f),
+            CustomMinimumSize = new Vector2(24f, 96f), // ci-allow: R7 T-163 把手档位 px（画布域）
             ZIndex = 41, // 抽屉之上（展开态也可见——同点收起）
         };
+        UiFeel.Iconify(_helpTab, "ctrl-drawer-handle"); // 缺图=竖排文字符号照旧（优雅回退）
         _helpTab.AddThemeFontSizeOverride("font_size", 10);
         _helpTab.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
         _helpTab.TooltipText = "词汇表抽屉（F1）——点击开/收";
+        UiFeel.AttachCues(_helpTab); // T-164：把手 hover/press 音效（真叮通路）
         _helpTab.Pressed += ToggleHelp;
         AddChild(_helpTab);
-        _helpTab.Position = new Vector2(614f, 140f);
+        _helpTab.Position = new Vector2(614f, 140f); // ci-allow: R7 T-163 右缘把手锚位（画布域）
         RefreshHelpList();
     }
 

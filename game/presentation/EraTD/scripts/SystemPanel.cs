@@ -278,6 +278,7 @@ public sealed partial class SystemPanel : Control
         _alarmField.AddThemeColorOverride("font_color", HoloSkin.RiskRed); // §10.3 crisis = red display
         _reenableButton = new Button { Text = "开启系统", Visible = false };
         _reenableButton.Pressed += OnReenablePressed;
+        UiFeel.AttachCues(_reenableButton); // T-164：hover/press 叮音效（骨架超然于时代——只接音效不换肤，§10.2）
 
         row.AddChild(_waveField);
         row.AddChild(_rateField);
@@ -307,6 +308,7 @@ public sealed partial class SystemPanel : Control
         _bubble.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
         _bubble.AddThemeFontSizeOverride("font_size", 12);
         _bubble.Pressed += OnBubblePressed;
+        UiFeel.AttachCues(_bubble); // T-164：气泡 hover/press 叮音效
         AddChild(_bubble);
     }
 
@@ -340,6 +342,7 @@ public sealed partial class SystemPanel : Control
         _panelTitle = DimLabel("◆ 系统全息面板");
         var collapse = new Button { Text = "收起" };
         collapse.Pressed += OnCollapsePressed;
+        UiFeel.AttachCues(collapse); // T-164
         titleRow.AddChild(_panelTitle);
         titleRow.AddChild(collapse);
 
@@ -353,6 +356,7 @@ public sealed partial class SystemPanel : Control
         _orderInput.TextSubmitted += OnOrderSubmitted;
         var submit = new Button { Text = "下令" };
         submit.Pressed += OnSubmitPressed;
+        UiFeel.AttachCues(submit); // T-164
         orderRow.AddChild(DimLabel("军令"));
         orderRow.AddChild(_orderInput);
         orderRow.AddChild(submit);
@@ -485,6 +489,8 @@ public sealed partial class SystemPanel : Control
         confirm.Pressed += OnConfirmPressed;
         var refuse = new Button { Text = "拒绝" };
         refuse.Pressed += OnRefusePressed;
+        UiFeel.AttachCues(confirm); // T-164
+        UiFeel.AttachCues(refuse);
         buttons.AddChild(confirm);
         buttons.AddChild(refuse);
 

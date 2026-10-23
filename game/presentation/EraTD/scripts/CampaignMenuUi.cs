@@ -173,16 +173,20 @@ public sealed partial class CampaignMenuUi : Control
 
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 8);
-        header.AddChild(new Label
+        var headerTitle = new Label
         {
             Text = "战役 · 六时代（章节题图+关卡卡片）",
             CustomMinimumSize = new Vector2(300, 0),
-        });
+        };
+        UiFeel.Outline(headerTitle, 3); // T-164：面板标题带描边（可读性同律）
+        header.AddChild(headerTitle);
         var exitButton = new Button { Text = "退出本关（存档续玩）" };
+        StyleHeaderButton(exitButton);
         exitButton.Pressed += OnExitPressed;
         _exitButton = exitButton;
         header.AddChild(exitButton);
         var menuButton = new Button { Text = "返回主菜单" };
+        StyleHeaderButton(menuButton);
         menuButton.Pressed += CloseFromMenu; // T-161：会话退出→回主菜单（承载钮）
         _menuReturnButton = menuButton;
         header.AddChild(menuButton);
@@ -218,6 +222,7 @@ public sealed partial class CampaignMenuUi : Control
         defeatRows.AddChild(_defeatBody);
         var defeatActions = new HBoxContainer();
         _defeatContinue = new Button { Text = "从检查点继续" };
+        StyleHeaderButton(_defeatContinue); // T-164：败北面板行动排三态+音效（同选关面）
         _defeatContinue.Pressed += () =>
         {
             _ = _host.ContinueFromCheckpoint();
@@ -225,6 +230,7 @@ public sealed partial class CampaignMenuUi : Control
         };
         defeatActions.AddChild(_defeatContinue);
         _defeatRestart = new Button { Text = "重开本关" };
+        StyleHeaderButton(_defeatRestart);
         _defeatRestart.Pressed += () =>
         {
             _host.RestartLevel();
@@ -232,6 +238,7 @@ public sealed partial class CampaignMenuUi : Control
         };
         defeatActions.AddChild(_defeatRestart);
         _defeatMenu = new Button { Text = "退回菜单" };
+        StyleHeaderButton(_defeatMenu);
         _defeatMenu.Pressed += () =>
         {
             _host.DismissDefeatToMenu();
@@ -366,8 +373,15 @@ public sealed partial class CampaignMenuUi : Control
         if (_audioEra != era)
         {
             _audioEra = era;
-            audio.SetActiveEra($"era{era}");
-            audio.SetVoiceEra($"era{era}");
+            audio.SetActiveEra($"era{era}"); // BGM 六行全合法（T-157 十八循环）
+            // T-164 实测收口：音色表只覆盖 era1~era4（16 行封闭集，T-126 口径）
+            // ——era5/era6 会话 SetVoiceEra 抛 ArgumentException，会把本节点
+            // _Process 后半截（HUD 每 15 帧刷新等）逐帧打断。守卫=表覆盖才
+            // 路由语音时代；era5/6 语音沿用上一合法时代（REV 登记）。
+            if (EraCore.Audio.PersonaTimbreTable.Eras.Contains($"era{era}", StringComparer.Ordinal))
+            {
+                audio.SetVoiceEra($"era{era}");
+            }
         }
 
         int enemies = run.Session.Sim.Units.Count;
@@ -534,6 +548,17 @@ public sealed partial class CampaignMenuUi : Control
     /// <summary>面板开合统一口（T-162 卡片化：面板根=压暗底+滚动场整体）.</summary>
     private void SetPanelVisible(bool visible) => _panelRoot.Visible = visible;
 
+    /// <summary>
+    /// 选关面头部/行动钮三态皮肤+音效（T-164 皮肤批）：跨时代面用中性青
+    /// （HoloSkin.EdgeCyan——palettes 不可归属单时代的诚实回退色）；卡片
+    /// 三态仍按章时代色（BuildLevelCard 既有）。
+    /// </summary>
+    private void StyleHeaderButton(Button button)
+    {
+        UiFeel.ApplyButtonSkin(button, HoloSkin.EdgeCyan);
+        UiFeel.AttachCues(button);
+    }
+
     /// <summary>战役会话在局位（主菜单可见性谓词探针）.</summary>
     internal bool SessionActive => _host.InLevel;
 
@@ -545,6 +570,9 @@ public sealed partial class CampaignMenuUi : Control
 
     /// <summary>首卡全局矩形（--shot 02-level-cards 特写取景；无卡=null 探针返回零矩形）.</summary>
     internal Rect2? FirstCardGlobalRect => _firstCard?.GetGlobalRect();
+
+    /// <summary>败北事实在位探针（--shot 编排快速退避用——只读）.</summary>
+    internal bool DefeatPending => _host.PendingDefeat is not null;
 
     /// <summary>演出待演位（胜利结算/跃迁/终章队列非空——菜单不闪面）.</summary>
     internal bool PerformancesPending =>
@@ -612,44 +640,19 @@ public sealed partial class CampaignMenuUi : Control
     }
 
     /// <summary>章节通栏题图：终关 banner 整幅 KeepAspectCovered 横裁+底部
-    /// 压暗带+章名+章锁态（压暗带保章名在亮图上可读）.</summary>
+    /// 压暗带+章名+章锁态（压暗带保章名在亮图上可读）. T-164：条带三件
+    /// （贴图/压暗带/描边标题）聚合入 <see cref="UiFeel.BuildBannerStrip"/>
+    /// 共享 helper——与无尽/程序关模式卡三连抄收口（T-162 遗留顺手项）.</summary>
     private Control BuildChapterBanner(CampaignChapter chapter)
     {
-        var strip = new Control { CustomMinimumSize = new Vector2(ChapterBannerWidth, ChapterBannerHeight) };
-        var banner = new TextureRect
-        {
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-        };
-        banner.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        banner.MouseFilter = Control.MouseFilterEnum.Ignore;
-        banner.Texture = TryBannerTexture(LevelCardDecisions.ChapterBannerStem(chapter.EraIndex))
-            ?? PlaceholderTexture(chapter.EraIndex);
-        strip.AddChild(banner);
-
-        var scrim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.45f) };
-        scrim.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-        scrim.OffsetTop = -BannerTitleBandHeight;
-        scrim.MouseFilter = Control.MouseFilterEnum.Ignore;
-        strip.AddChild(scrim);
-
         bool chapterLocked = chapter.Rows.All(row => row.State == CampaignLevelState.Locked);
-        var title = new Label
-        {
-            Text = chapterLocked ? $"{chapter.Title} · 未解锁" : chapter.Title,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        title.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-        title.OffsetTop = -BannerTitleBandHeight;
-        title.OffsetBottom = -1;
-        title.OffsetLeft = 6;
-        title.AddThemeFontSizeOverride("font_size", 13);
-        title.AddThemeColorOverride("font_color", Colors.White);
-        title.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 1f));
-        title.AddThemeConstantOverride("outline_size", 6);
-        title.MouseFilter = Control.MouseFilterEnum.Ignore;
-        strip.AddChild(title);
+        var strip = UiFeel.BuildBannerStrip(
+            chapterLocked ? $"{chapter.Title} · 未解锁" : chapter.Title,
+            TryBannerTexture(LevelCardDecisions.ChapterBannerStem(chapter.EraIndex))
+                ?? PlaceholderTexture(chapter.EraIndex),
+            ChapterBannerHeight,
+            BannerTitleBandHeight);
+        strip.CustomMinimumSize = new Vector2(ChapterBannerWidth, ChapterBannerHeight); // 通栏定宽（共享 helper 缺省自适应高的补齐位）
         return strip;
     }
 
@@ -733,7 +736,7 @@ public sealed partial class CampaignMenuUi : Control
         threat.MouseFilter = Control.MouseFilterEnum.Ignore;
         card.AddChild(threat);
 
-        // —— 锁遮罩（未解锁：缩略图压暗+居中锁文案）——
+        // —— 锁遮罩（未解锁：缩略图压暗+lock 图标+居中锁文案）——
         if (row.State == CampaignLevelState.Locked)
         {
             var lockScrim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.55f) };
@@ -741,20 +744,38 @@ public sealed partial class CampaignMenuUi : Control
             lockScrim.OffsetBottom = ThumbHeight;
             lockScrim.MouseFilter = Control.MouseFilterEnum.Ignore;
             card.AddChild(lockScrim);
+            var lockRow = new HBoxContainer
+            {
+                Alignment = BoxContainer.AlignmentMode.Center,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            lockRow.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+            lockRow.OffsetBottom = ThumbHeight;
+            if (UiFeel.ControlIcon("ctrl-lock") is { } lockIcon)
+            {
+                // T-164：锁徽记图标化（star/star-empty 同组素材；缺图=纯文字回退）
+                lockRow.AddChild(new TextureRect
+                {
+                    Texture = lockIcon,
+                    CustomMinimumSize = new Vector2(12f, 12f), // ci-allow: R7 T-164 锁徽记档位 px（表现层）
+                    StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                    ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                    MouseFilter = Control.MouseFilterEnum.Ignore,
+                });
+            }
+
             var lockLabel = new Label
             {
                 Text = "未解锁",
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
             };
-            lockLabel.SetAnchorsPreset(Control.LayoutPreset.TopWide);
-            lockLabel.OffsetBottom = ThumbHeight;
             lockLabel.AddThemeFontSizeOverride("font_size", 11);
             lockLabel.AddThemeColorOverride("font_color", new Color(0.85f, 0.87f, 0.9f, 0.95f));
-            lockLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 1f));
-            lockLabel.AddThemeConstantOverride("outline_size", 4);
-            lockLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-            card.AddChild(lockLabel);
+            UiFeel.Outline(lockLabel, 4);
+            lockRow.AddChild(lockLabel);
+            card.AddChild(lockRow);
         }
 
         // —— 关名+终关徽记（终关=◆ 前缀区分普通关）——
@@ -775,22 +796,53 @@ public sealed partial class CampaignMenuUi : Control
         name.MouseFilter = Control.MouseFilterEnum.Ignore;
         card.AddChild(name);
 
-        // —— 星槽（★★★=三重目标既有口径；未通关=空槽）+状态角标 ——
-        var stars = new Label
+        // —— 星槽（★★★=三重目标既有口径；未通关=空槽）——T-164：星槽图标化
+        //（star/star-empty 控件图标组替换 10px 字体星号；缺图=字体星号回退）——
+        // +状态角标
+        Texture2D? starFilled = UiFeel.ControlIcon("ctrl-star");
+        Texture2D? starEmpty = UiFeel.ControlIcon("ctrl-star-empty");
+        if (starFilled is not null && starEmpty is not null)
         {
-            Text = LevelCardDecisions.StarsText(row.Stars),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        stars.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-        stars.OffsetTop = -StarRowHeight;
-        stars.OffsetLeft = 4;
-        stars.AddThemeFontSizeOverride("font_size", 10);
-        stars.AddThemeColorOverride("font_color", new Color(1f, 0.84f, 0.36f, 0.95f));
-        stars.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
-        stars.AddThemeConstantOverride("outline_size", 3);
-        stars.MouseFilter = Control.MouseFilterEnum.Ignore;
-        card.AddChild(stars);
+            var starRow = new HBoxContainer
+            {
+                Alignment = BoxContainer.AlignmentMode.Begin,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            starRow.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+            starRow.OffsetTop = -StarRowHeight;
+            starRow.OffsetLeft = 4;
+            for (int slot = 0; slot < 3; slot++) // 三重目标三星位（数据=StarsText 同源行）
+            {
+                starRow.AddChild(new TextureRect
+                {
+                    Texture = slot < row.Stars ? starFilled : starEmpty,
+                    CustomMinimumSize = new Vector2(12f, 12f), // ci-allow: R7 T-164 星槽档位 px（表现层）
+                    StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                    ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                    MouseFilter = Control.MouseFilterEnum.Ignore,
+                });
+            }
+
+            card.AddChild(starRow);
+        }
+        else
+        {
+            var stars = new Label
+            {
+                Text = LevelCardDecisions.StarsText(row.Stars),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            stars.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+            stars.OffsetTop = -StarRowHeight;
+            stars.OffsetLeft = 4;
+            stars.AddThemeFontSizeOverride("font_size", 10);
+            stars.AddThemeColorOverride("font_color", new Color(1f, 0.84f, 0.36f, 0.95f));
+            stars.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
+            stars.AddThemeConstantOverride("outline_size", 3);
+            stars.MouseFilter = Control.MouseFilterEnum.Ignore;
+            card.AddChild(stars);
+        }
 
         string stateZh = row.State switch
         {

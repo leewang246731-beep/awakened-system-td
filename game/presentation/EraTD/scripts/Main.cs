@@ -768,6 +768,12 @@ namespace EraTD;
                 return;
             }
 
+            if (_plan == "skin-polish")
+            {
+                PumpSkinPolish();
+                return;
+            }
+
             ulong f = Engine.GetProcessFrames() - _bornFrame;
             switch (_step)
             {
@@ -954,6 +960,417 @@ namespace EraTD;
 
         /// <summary>抽屉开合落定帧.</summary>
         private const ulong DrawerSettleFrames = 8;
+
+        // ------------------------------------- T-164 skin-polish 编排（D 批验收）
+
+        /// <summary>等待敌潮/待机塔的轮询上限帧（会话 sim=1 tick/帧固定步进：敌潮 5760 tick+
+        /// 时空塔 wave6≈24060 tick（含 valley 前移）——自飘字拍起 ~20000 帧窗口；节奏键 3x
+        /// 只驱动建造演示泳道的 PauseClock，会话步进不受其影响（T-056 演示泳道架构，REV 登记）.</summary>
+        private const ulong BattlePollLimitFrames = 20000;
+
+        /// <summary>D 批五张（+两件附加证据）真信号编排（--shot-plan skin-polish）：
+        /// ①选关面板滚到底截全锁章节锁徽记带（06，T-162 顺手项取证）②真信号
+        /// 进 E1-01→合成 Q 键真链选塔+真鼠标按下/拖动（预放三色格+射程圈同帧，
+        /// 03）③E1-01 与 E2-01（锁定卡真 Pressed 链——生产装载路径直达，进度
+        /// 门是卡面 Disabled 非装载门，REV 披露）两时代同拍取 HUD 顶带拼一图
+        /// （01 皮肤随时代对照）④主菜单「战役」卡 normal/hover/pressed 三态
+        /// 真鼠标事件分帧取带拼一图（02）⑤E6-03@3x（合成 3 键真链）轮询飘字
+        /// 在屏帧（04）与时空塔待机条带在播帧（05 全景+05b/05c 两相位特写——
+        /// 4 相呼吸真循环证据）。全程真按钮信号+真输入事件，零伪造。</summary>
+        private Image? _era1Band;
+        private Image? _era2Band;
+        private readonly List<Image> _cardStateBands = new();
+        private Rect2 _cardRectCanvas;
+        private ulong _pollStartFrame;
+
+        private void PumpSkinPolish()
+        {
+            ulong f = Engine.GetProcessFrames() - _bornFrame;
+            switch (_step)
+            {
+                case 0: // 开选关面板 → 滚到底取全锁章节
+                    if (f >= _warmup)
+                    {
+                        _ = _main.Menu?.OpenEntry("campaign");
+                        _step = 1;
+                    }
+
+                    break;
+                case 1:
+                    if (f >= _warmup + PanelSettleFrames)
+                    {
+                        _wheelRemaining = LockedChapterWheelNotches;
+                        WarpMouseCanvas(_main, new Vector2(320f, 180f));
+                        _step = 2;
+                    }
+
+                    break;
+                case 2:
+                    if (_wheelRemaining > 0)
+                    {
+                        Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+                        var wheelAt = new Vector2(320f, 180f) * scale;
+                        for (int i = 0; i < 4 && _wheelRemaining > 0; i++, _wheelRemaining--)
+                        {
+                            EmitWheel(_main, MouseButton.WheelDown, wheelAt);
+                        }
+
+                        return;
+                    }
+
+                    if (f >= _warmup + PanelSettleFrames + ScrollSettleFrames)
+                    {
+                        CropCapture("06-locked-emblems.png", LockedChapterCropRegion()); // 全锁章节带（锁徽记+星槽空位）
+                        _main.CampaignUi?.PressMenuReturn(); // 真信号：返回主菜单
+                        _step = 3;
+                    }
+
+                    break;
+                case 3: // —— 03 射程圈：E1-01 进局+Q 选塔+真拖放预放 ——
+                    if (f >= _warmup + (2 * PanelSettleFrames) + ScrollSettleFrames)
+                    {
+                        _ = _main.Menu?.OpenEntry("campaign");
+                        _step = 4;
+                    }
+
+                    break;
+                case 4:
+                    if (f >= _warmup + (3 * PanelSettleFrames) + ScrollSettleFrames)
+                    {
+                        if (_main.CampaignUi?.PressLevel("campaign:level-e1-01") is not true)
+                        {
+                            GD.PushError("SHOT_FAIL skin-polish E1-01 真信号未达");
+                            Finish();
+                            break;
+                        }
+
+                        _step = 5;
+                    }
+
+                    break;
+                case 5:
+                    if (f >= _warmup + (3 * PanelSettleFrames) + ScrollSettleFrames + BattleSettleFrames)
+                    {
+                        _era1Band = CropImage(HudTopBandRegion()); // 时代 1 顶带（皮肤对照 A 面）
+                        EmitKey(Key.Q);                            // 真键链：选 1 号塔（射程圈出现）
+                        WarpMouseCanvas(_main, new Vector2(288f, 144f));
+                        _step = 6;
+                    }
+
+                    break;
+                case 6:
+                    if (f >= _warmup + (3 * PanelSettleFrames) + ScrollSettleFrames + BattleSettleFrames + 10)
+                    {
+                        BuildInteractionUi? buildUi = _main.GetNodeOrNull<BuildInteractionUi>("BuildInteractionUi");
+                        GD.Print(
+                            $"SHOT_PROBE skin armed={buildUi?.ArmedTower ?? "-"} " +
+                            $"pace={(buildUi is null ? "-" : buildUi.PaceFact().ToString())} status={buildUi?.StatusText}");
+                        EmitMouse(_main, MouseButton.Left, pressed: true, new Vector2(288f, 144f)); // 真按下=拖放开始
+                        EmitMouseMotion(_main, new Vector2(352f, 144f));                            // 真拖动=预放矩形
+                        _step = 7;
+                    }
+
+                    break;
+                case 7:
+                    if (f >= _warmup + (3 * PanelSettleFrames) + ScrollSettleFrames + BattleSettleFrames + 18)
+                    {
+                        Capture("03-range-circle.png"); // 射程圈+预放三色格同帧全景
+                        EmitKey(Key.Escape);            // 真键链：取消（清预览/收拆除层）
+                        _main.CampaignUi?.PressExitLevel(); // 真信号：存档退出（回菜单）
+                        _step = 8;
+                    }
+
+                    break;
+                case 8: // —— 01 皮肤对照 B 面：E2-01（锁定卡真 Pressed 链）——
+                    if (f >= _warmup + (4 * PanelSettleFrames) + ScrollSettleFrames + BattleSettleFrames)
+                    {
+                        _ = _main.Menu?.OpenEntry("campaign");
+                        _step = 9;
+                    }
+
+                    break;
+                case 9:
+                    if (f >= _warmup + (5 * PanelSettleFrames) + ScrollSettleFrames + BattleSettleFrames)
+                    {
+                        // 锁定关卡经同一真按钮 Pressed 链进局（生产装载直达；解锁门=
+                        // 卡面 Disabled——非装载门；验收车道用，REV 披露）。
+                        if (_main.CampaignUi?.PressLevel("campaign:level-e2-01") is not true)
+                        {
+                            GD.PushError("SHOT_FAIL skin-polish E2-01 真信号未达");
+                            Finish();
+                            break;
+                        }
+
+                        _step = 10;
+                    }
+
+                    break;
+                case 10:
+                    if (f >= _warmup + (5 * PanelSettleFrames) + ScrollSettleFrames + (2 * BattleSettleFrames))
+                    {
+                        _era2Band = CropImage(HudTopBandRegion()); // 时代 2 顶带
+                        StitchBands("01-era-skins.png", _era1Band, _era2Band); // 两时代同面板对照
+                        _main.CampaignUi?.PressExitLevel();
+                        _step = 11;
+                    }
+
+                    break;
+                case 11: // —— 02 按钮三态：主菜单「战役」卡 normal/hover/pressed ——
+                    if (_main.Menu is not { MenuShown: true })
+                    {
+                        return; // 等菜单在屏（退出链落定）
+                    }
+
+                    if (_main.Menu.EntryButtons.TryGetValue(
+                            EraCore.Presentation.MainMenuDecisions.EntryId.Campaign, out Button? card)
+                        && card is not null)
+                    {
+                        _cardRectCanvas = card.GetGlobalRect();
+                        _cardStateBands.Add(CropImage(CardBandRegion())); // ① normal（鼠标离卡）
+                        WarpMouseCanvas(_main, _cardRectCanvas.GetCenter()); // ② hover（真鼠标移入）
+                        _step = 12;
+                    }
+                    else
+                    {
+                        GD.PushError("SHOT_FAIL skin-polish 战役卡取景探针无卡");
+                        Finish();
+                    }
+
+                    break;
+                case 12:
+                    if (f >= _warmup + (6 * PanelSettleFrames) + ScrollSettleFrames + (2 * BattleSettleFrames) + HoverSettleFrames)
+                    {
+                        _cardStateBands.Add(CropImage(CardBandRegion())); // hover 带（补间落定）
+                        EmitMouse(_main, MouseButton.Left, pressed: true, _cardRectCanvas.GetCenter()); // ③ 按住（真按下）
+                        _step = 13;
+                    }
+
+                    break;
+                case 13:
+                    if (f >= _warmup + (6 * PanelSettleFrames) + ScrollSettleFrames + (2 * BattleSettleFrames) + HoverSettleFrames + 8)
+                    {
+                        _cardStateBands.Add(CropImage(CardBandRegion())); // pressed 带
+                        WarpMouseCanvas(_main, new Vector2(320f, 16f));   // 挪离卡片上方
+                        EmitMouse(_main, MouseButton.Left, pressed: false, new Vector2(320f, 16f)); // 卡外松开=零导航
+                        _step = 14;
+                    }
+
+                    break;
+                case 14:
+                    if (f >= _warmup + (7 * PanelSettleFrames) + ScrollSettleFrames + (2 * BattleSettleFrames) + HoverSettleFrames)
+                    {
+                        StitchBands("02-button-states.png", [.. _cardStateBands]); // normal|hover|pressed 拼一图
+                        _ = _main.Menu?.OpenEntry("campaign");
+                        _step = 15;
+                    }
+
+                    break;
+                case 15: // —— 04/05：E6-03@3x 轮询飘字与待机条带 ——
+                    if (f >= _warmup + (8 * PanelSettleFrames) + ScrollSettleFrames + (2 * BattleSettleFrames) + HoverSettleFrames)
+                    {
+                        if (_main.CampaignUi?.PressLevel("campaign:level-e6-03") is not true)
+                        {
+                            GD.PushError("SHOT_FAIL skin-polish E6-03 真信号未达");
+                            Finish();
+                            break;
+                        }
+
+                        _pollStartFrame = f;
+                        _step = 16;
+                    }
+
+                    break;
+                case 16:
+                    if (f >= _pollStartFrame + BattleSettleFrames)
+                    {
+                        EmitKey(Key.Key3); // 真键链：3x（同拍进敌潮窗口）
+                        _pollStartFrame = f;
+                        _step = 17;
+                    }
+
+                    break;
+                case 17: // 轮询飘字在屏（快照 HP 差分→对象池飘字）
+                    if (Engine.GetProcessFrames() % 240 == 0)
+                    {
+                        BuildInteractionUi? paceProbe = _main.GetNodeOrNull<BuildInteractionUi>("BuildInteractionUi");
+                        GD.Print(
+                            $"SHOT_PROBE poll frame={Engine.GetProcessFrames()} " +
+                            $"pace={(paceProbe is null ? "-" : paceProbe.PaceFact().ToString())} " +
+                            $"floats={ViewProbe()?.DamageFloatsActive ?? -1} idle={ViewProbe()?.IdleStripsLive ?? -1} " +
+                            $"towers={ViewProbe()?.TowerOverlayCount ?? -1}");
+                    }
+
+                    if (ViewProbe()?.DamageFloatsActive > 0)
+                    {
+                        Capture("04-damage-floats.png"); // 飘字进行时全景
+                        _pollStartFrame = f;
+                        _step = 18;
+                        break;
+                    }
+
+                    if (f - _pollStartFrame > BattlePollLimitFrames)
+                    {
+                        GD.PushError("SHOT_FAIL skin-polish 飘字轮询超窗（敌潮未至/塔未开火）");
+                        Finish();
+                    }
+
+                    break;
+                case 18: // 轮询待机条带在播（时空塔 wave6 建成；会话 1 tick/帧）
+                    if (Engine.GetProcessFrames() % 600 == 0)
+                    {
+                        SessionBattlefieldViewport? view = ViewProbe();
+                        GD.Print(
+                            $"SHOT_PROBE idle-poll tick={view?.BoundTick ?? -1} " +
+                            $"towers={view?.TowerOverlayCount ?? -1} idle={view?.IdleStripsLive ?? -1} " +
+                            $"phase={view?.IdlePhaseNow ?? -1} floats={view?.DamageFloatsActive ?? -1} " +
+                            $"session={_main.CampaignUi?.SessionActive} defeat={_main.CampaignUi?.DefeatPending}");
+                    }
+
+                    if (ViewProbe()?.IdleStripsLive > 0)
+                    {
+                        // 全景（战场+底部图标化控件钮同帧）——时空塔位 (12,22) 在
+                        // 画布外带（26 行图 832px vs 画布 360px 的 T-160b 取景事实），
+                        // 塔本体像素不可截；在播/相位证据走探针行（REV 披露）。
+                        Capture("05-idle-anim+controls.png");
+                        GD.Print(
+                            $"SHOT_PROBE idle-live tick={ViewProbe()?.BoundTick} " +
+                            $"towers={ViewProbe()?.TowerOverlayCount} idle={ViewProbe()?.IdleStripsLive} " +
+                            $"phase_a={ViewProbe()?.IdlePhaseNow} rect={ViewProbe()?.IdleOverlayGlobalRect}");
+                        _pollStartFrame = f;
+                        _step = 19;
+                        break;
+                    }
+
+                    if (_main.CampaignUi?.DefeatPending == true)
+                    {
+                        GD.PushError("SHOT_FAIL skin-polish wave6 前基地失守（e6-03 单塔防线被破——待机条带不可达）");
+                        Finish();
+                        break;
+                    }
+
+                    if (f - _pollStartFrame > BattlePollLimitFrames)
+                    {
+                        GD.PushError(
+                            $"SHOT_FAIL skin-polish 待机条带轮询超窗（tick={ViewProbe()?.BoundTick} " +
+                            $"towers={ViewProbe()?.TowerOverlayCount}——wave6 未达）");
+                        Finish();
+                    }
+
+                    break;
+                case 19: // 0.3s 后再取一相位（4 相呼吸真循环证据——探针行相位差）
+                    if (f >= _pollStartFrame + 18)
+                    {
+                        GD.Print(
+                            $"SHOT_PROBE idle-phase-b phase={ViewProbe()?.IdlePhaseNow} " +
+                            $"rect={ViewProbe()?.IdleOverlayGlobalRect}");
+                        Finish();
+                    }
+
+                    break;
+            }
+        }
+
+        /// <summary>战役会话战场视口探针（塔覆盖/飘字/待机条带——取景观测位）.</summary>
+        private SessionBattlefieldViewport? ViewProbe() =>
+            _main.CampaignUi?.GetNodeOrNull<SessionBattlefieldViewport>("SessionBattlefieldViewport");
+
+        /// <summary>HUD 顶带取景（资源条+波次横幅——皮肤对照带；窗口像素域）.</summary>
+        private Rect2I HudTopBandRegion()
+        {
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            return new Rect2I(0, (int)(58 * scale.Y), (int)(640 * scale.X), (int)(76 * scale.Y)); // ci-allow: R7 T-164 取景带（画布域 58~134）
+        }
+
+        /// <summary>按钮三态特写带（卡全局矩形外扩 8px；窗口像素域）.</summary>
+        private Rect2I CardBandRegion()
+        {
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            return new Rect2I(
+                (int)((_cardRectCanvas.Position.X - 8f) * scale.X), (int)((_cardRectCanvas.Position.Y - 8f) * scale.Y),
+                (int)((_cardRectCanvas.Size.X + 16f) * scale.X), (int)((_cardRectCanvas.Size.Y + 16f) * scale.Y));
+        }
+
+        /// <summary>全锁章节带取景（选关场下半——滚到底后的锁章节+锁徽记；窗口像素域）.</summary>
+        private Rect2I LockedChapterCropRegion()
+        {
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            return new Rect2I(0, (int)(150 * scale.Y), (int)(640 * scale.X), (int)(200 * scale.Y)); // ci-allow: R7 T-164 取景带（画布域 150~350）
+        }
+
+
+        /// <summary>真键事件（合成 InputEventKey——与玩家敲键同一条输入链）.</summary>
+        private static void EmitKey(Key keycode) =>
+            Input.ParseInputEvent(new InputEventKey
+            {
+                Keycode = keycode,
+                Pressed = true,
+                Echo = false,
+            });
+
+        /// <summary>真鼠标按下/抬起（窗口坐标域——与玩家点击同一条输入链）.</summary>
+        private static void EmitMouse(Main main, MouseButton button, bool pressed, Vector2 canvasPosition)
+        {
+            Vector2 scale = main.GetViewport().GetFinalTransform().Scale;
+            Vector2 at = canvasPosition * scale;
+            Input.ParseInputEvent(new InputEventMouseButton
+            {
+                Pressed = pressed,
+                ButtonIndex = button,
+                Position = at,
+                GlobalPosition = at,
+            });
+        }
+
+        /// <summary>真鼠标拖动（窗口坐标域——预放矩形/射程圈随动的输入源）.</summary>
+        private static void EmitMouseMotion(Main main, Vector2 canvasPosition)
+        {
+            Vector2 scale = main.GetViewport().GetFinalTransform().Scale;
+            Vector2 at = canvasPosition * scale;
+            Input.ParseInputEvent(new InputEventMouseMotion
+            {
+                Position = at,
+                GlobalPosition = at,
+            });
+        }
+
+        /// <summary>当前帧指定窗口域裁剪（真帧真裁剪——不绘制任何内容）.</summary>
+        private Image CropImage(Rect2I region)
+        {
+            Image shot = _main.GetViewport().GetTexture().GetImage();
+            return shot.GetRegion(region);
+        }
+
+        /// <summary>多带水平拼接（各段皆真截图；拼接不绘制内容——StitchDrawerTwoState 同律）.</summary>
+        private void StitchBands(string name, params Image?[] bands)
+        {
+            if (bands.Any(band => band is null))
+            {
+                GD.PushError($"SHOT_FAIL file={name} 带缺失（前置步骤未截）");
+                return;
+            }
+
+            int height = bands.Max(band => band!.GetHeight());
+            var stitched = Image.CreateEmpty(bands.Sum(band => band!.GetWidth()), height, false, Image.Format.Rgba8);
+            int x = 0;
+            foreach (Image? band in bands)
+            {
+                stitched.BlitRect(band!, new Rect2I(Vector2I.Zero, band!.GetSize()), new Vector2I(x, 0));
+                x += band!.GetWidth();
+            }
+
+            string path = System.IO.Path.Combine(_dir, name);
+            if (stitched.SavePng(path) == Error.Ok)
+            {
+                _files++;
+                GD.Print(
+                    $"SHOT file={name} frame={Engine.GetProcessFrames()} " +
+                    $"stitch={stitched.GetWidth()}x{stitched.GetHeight()} bands={bands.Length}");
+            }
+            else
+            {
+                GD.PushError($"SHOT_FAIL file={name} stitch save failed");
+            }
+        }
 
         /// <summary>
         /// C 批战斗 HUD 五段编排（--shot-plan battle-hud）：①真按钮点入战役→
@@ -1869,8 +2286,13 @@ namespace EraTD;
         return names;
     }
 
-    /// <summary>Repo walk-up content read (same convention as the mounted HUDs' loaders).</summary>
-    private static string ReadRepoContent(string subDir, string file)
+    /// <summary>
+    /// Repo walk-up content read (same convention as the mounted HUDs' loaders).
+    /// T-164 审查判断项④收口：repo walk-up 单一实现——BattleHudUi.
+    /// LoadEraResources 的双份 walk-up 并入此处（internal 化共享；极端裸态
+    /// 的优雅降级由调用方按既有语义各自承接）。
+    /// </summary>
+    internal static string ReadRepoContent(string subDir, string file)
     {
         string relative = System.IO.Path.Combine("game", "content", subDir);
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

@@ -34,6 +34,16 @@ public sealed partial class SessionBattlefieldViewport : Control
     private const int GroundZIndex = 0;        // main.tscn 双层同 z（隐藏夹具层后无叠画）
     private const int UnitZIndex = 10;
 
+    // —— T-164（D 批皮肤与手感）：塔覆盖层（静态 sprite+待机 4 相条带）与
+    //    伤害飘字层（对象池）——挂在自持树内随 Bind/Release 同生命周期。 ——
+    private const int TowerZIndex = 5;   // 地面(0)之上、单位(10)之下
+    private const int FloatZIndex = 12;  // 单位之上（飘字不被敌群盖住）
+    private Control _towerLayer = null!;
+    private Control _floatLayer = null!;
+    private readonly Dictionary<long, TextureRect> _towerOverlays = new(); // towerId → sprite
+    private readonly Dictionary<long, int> _unitHpSeen = new();            // 伤害飘字的 HP 差分基线
+    private int _idleStripsLive;                                           // 待机动画条带在播数（探针）
+
     private MultiMeshRenderer _groundLayer = null!;
     private MultiMeshRenderer _unitLayer = null!;
     private SimSnapshotBridge _bridge = null!;
@@ -67,10 +77,17 @@ public sealed partial class SessionBattlefieldViewport : Control
     {
         _groundLayer = new MultiMeshRenderer { Name = "SessionGroundLayer", ZIndex = GroundZIndex };
         AddChild(_groundLayer);
+        _towerLayer = new Control { Name = "SessionTowerLayer", ZIndex = TowerZIndex, MouseFilter = MouseFilterEnum.Ignore };
+        AddChild(_towerLayer);
         _unitLayer = new MultiMeshRenderer { Name = "SessionUnitLayer", ZIndex = UnitZIndex };
         AddChild(_unitLayer);
+        _floatLayer = new Control { Name = "SessionFloatLayer", ZIndex = FloatZIndex, MouseFilter = MouseFilterEnum.Ignore };
+        AddChild(_floatLayer);
         _groundLayer.Hide();
         _unitLayer.Hide();
+        _towerLayer.Hide();
+        _floatLayer.Hide();
+        BuildFloatPool();
     }
 
     /// <summary>
@@ -121,6 +138,10 @@ public sealed partial class SessionBattlefieldViewport : Control
             capacity: UnitLayerCapacity);
         _groundLayer.Show();
         _unitLayer.Show();
+        _towerLayer.Show();
+        _floatLayer.Show();
+        ClearTowerOverlays();  // T-164：换局=塔覆盖层整面重建（新世界新塔集）
+        _unitHpSeen.Clear();   // HP 差分基线随局重置（旧局单位不入新局飘字）
     }
 
     /// <summary>
@@ -134,6 +155,10 @@ public sealed partial class SessionBattlefieldViewport : Control
         Position = Vector2.Zero;
         _groundLayer.Hide();
         _unitLayer.Hide();
+        _towerLayer.Hide();
+        _floatLayer.Hide();
+        ClearTowerOverlays();
+        _unitHpSeen.Clear();
     }
 
     /// <summary>
@@ -164,8 +189,349 @@ public sealed partial class SessionBattlefieldViewport : Control
             _maxUnitsSeen = Math.Max(_maxUnitsSeen, _bridge.Current.Units.Count);
         }
 
+        SyncTowerOverlays();     // T-164：塔 sprite/待机条带随会话塔集增删（幂等差分）
+        PumpDamageFloatsFrame(); // T-164：HP 差分→伤害飘字（对象池，零每拍分配）
         _framesDrawn++;
     }
+
+    // ------------------------------------------------ T-164 塔覆盖层（待机动画接线）
+
+    /// <summary>
+    /// 塔覆盖层同步（幂等差分）：会话 <c>Sim.Towers</c> 新增=建 sprite 节点
+    /// （era 图集缓存先例——<see cref="TowerOverlayArt"/> 静态缓存，缺图=
+    /// 零覆盖不阻塞）；移除=释放。待机 4 相条带塔（era5 力场塔/era6 时空塔，
+    /// T-157 ⑥既有素材）=<see cref="IdleStripSprite"/> 帧步进常播
+    /// （AnimatedTexture 在 4.7.2 属弃用 API——CS0618 会触零警告门禁，帧序
+    /// 列自步进为等价原生形态，见 :305）；其余塔=静态 sprite
+    /// （textures/era{N}/towers/{stem}-l{tier}.png 确定性推导——T3 纪律）。
+    /// </summary>
+    private void SyncTowerOverlays()
+    {
+        if (_bound is null)
+        {
+            return;
+        }
+
+        var live = new HashSet<long>();
+        _idleStripsLive = 0;
+        foreach (SimTower tower in _bound.Towers)
+        {
+            long id = tower.Id.Value;
+            live.Add(id);
+            if (_towerOverlays.TryGetValue(id, out TextureRect? overlay))
+            {
+                if (overlay is IdleStripSprite)
+                {
+                    _idleStripsLive++;
+                }
+
+                continue;
+            }
+
+            // 待机条带塔=帧步进 sprite；其余=静态 sprite；缺图=零覆盖不阻塞
+            Node? sprite = null;
+            if (TowerOverlayArt.IdleFramesOf(tower.Spec.Id) is { } idle)
+            {
+                sprite = new IdleStripSprite(idle) { PhaseOffset = id % 4 };
+            }
+            else if (TowerOverlayArt.Of(tower.Spec.Id, tower.Spec.Tier) is { } art)
+            {
+                sprite = new TextureRect
+                {
+                    Texture = art,
+                    MouseFilter = MouseFilterEnum.Ignore,
+                };
+            }
+
+            if (sprite is not Control control)
+            {
+                continue; // 缺图零覆盖（优雅降级——塔仍占格，战斗不受阻）
+            }
+
+            control.Position = new Vector2(
+                tower.Cell.X * SimSnapshotBridge.CellSizePx, tower.Cell.Y * SimSnapshotBridge.CellSizePx);
+            control.Size = new Vector2(SimSnapshotBridge.CellSizePx, SimSnapshotBridge.CellSizePx); // 1 格位（32px 整格锚定）
+            if (control is TextureRect rect)
+            {
+                rect.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+                rect.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+            }
+
+            _towerLayer.AddChild(control);
+            _towerOverlays[id] = (TextureRect)control;
+            if (control is IdleStripSprite)
+            {
+                _idleStripsLive++;
+            }
+        }
+
+        foreach (KeyValuePair<long, TextureRect> pair in _towerOverlays.Where(pair => !live.Contains(pair.Key)).ToList())
+        {
+            _towerOverlays.Remove(pair.Key);
+            pair.Value.QueueFree();
+        }
+    }
+
+    private void ClearTowerOverlays()
+    {
+        foreach (TextureRect sprite in _towerOverlays.Values)
+        {
+            sprite.QueueFree();
+        }
+
+        _towerOverlays.Clear();
+        _idleStripsLive = 0;
+    }
+
+    /// <summary>塔覆盖层在数（--shot 取景探针）.</summary>
+    internal int TowerOverlayCount => _towerOverlays.Count;
+
+    /// <summary>待机 4 相条带在播数（--shot 取景探针——era5/era6 条带塔真接线的观测位）.</summary>
+    internal int IdleStripsLive => _idleStripsLive;
+
+    /// <summary>首个待机条带塔的全局矩形（--shot 特写取景探针；无在播=null）.</summary>
+    internal Rect2? IdleOverlayGlobalRect =>
+        _towerOverlays.Values.FirstOrDefault(sprite => sprite is IdleStripSprite)?.GetGlobalRect();
+
+    /// <summary>会话当前 tick（--shot 轮询诊断——波次推进的观测位）.</summary>
+    internal long BoundTick => _bound?.CurrentTick ?? -1;
+
+    /// <summary>首个待机条带塔的当前相位 0..3（--shot 两相位证据；无在播=-1）.</summary>
+    internal int IdlePhaseNow =>
+        _towerOverlays.Values.OfType<IdleStripSprite>().FirstOrDefault()?.CurrentPhase ?? -1;
+
+    /// <summary>
+    /// 塔 sprite/待机条带静态缓存（era 图集缓存先例——EraGroundArt 同律）：
+    /// res://textures/era{N}/towers/{stem}-l{tier}.png 确定性推导；era5 力场塔
+    /// /era6 时空塔换装 4 相帧序列（64×64 条带 4×16px 横排——帧步进由
+    /// <see cref="IdleStripSprite"/> 承担；AnimatedTexture 在 4.7.2 属弃用
+    /// API（CS0618 零警告门禁），帧序列+自步进为引擎原生等价形态）。
+    /// </summary>
+    internal static class TowerOverlayArt
+    {
+        /// <summary>待机条带塔（内容 id→条带路径——T-157 ⑥既有素材的封闭集）.</summary>
+        private static readonly Dictionary<string, string> IdleStripPaths = new(StringComparer.Ordinal)
+        {
+            ["era5:tower-force-field"] = "res://textures/era5/anim/tower-force-field-anim.png", // 力场塔 4 相脉冲呼吸
+            ["era6:tower-spacetime"] = "res://textures/era6/anim/tower-spacetime-anim.png",     // 时空塔 4 相时间涟漪
+        };
+
+        private const int IdleStripFrames = 4;   // 4 相（条带 64×64=4×16px 横排）
+        private const int IdleStripFramePx = 16; // ci-allow: R7 T-164 条带帧边长 px（素材规格）
+
+        private static readonly Dictionary<string, Texture2D?> _cache = new(StringComparer.Ordinal);
+        private static readonly Dictionary<string, IReadOnlyList<AtlasTexture>?> _idleCache = new(StringComparer.Ordinal);
+
+        /// <summary>待机条带帧序列（条带塔=null 外；缺图=null）.</summary>
+        public static IReadOnlyList<AtlasTexture>? IdleFramesOf(string contentId)
+        {
+            if (_idleCache.TryGetValue(contentId, out IReadOnlyList<AtlasTexture>? cached))
+            {
+                return cached;
+            }
+
+            if (!IdleStripPaths.TryGetValue(contentId, out string? stripPath)
+                || !ResourceLoader.Exists(stripPath)
+                || GD.Load<Texture2D>(stripPath) is not { } strip)
+            {
+                _idleCache[contentId] = null;
+                return null;
+            }
+
+            var frames = new AtlasTexture[IdleStripFrames];
+            for (int frame = 0; frame < IdleStripFrames; frame++)
+            {
+                frames[frame] = new AtlasTexture
+                {
+                    Atlas = strip,
+                    Region = new Rect2(frame * IdleStripFramePx, 0f, IdleStripFramePx, IdleStripFramePx),
+                };
+            }
+
+            _idleCache[contentId] = frames;
+            return frames;
+        }
+
+        /// <summary>静态塔 art（非条带塔；缺图=null）.</summary>
+        public static Texture2D? Of(string contentId, int tier)
+        {
+            string key = $"{contentId}#t{Math.Clamp(tier, 1, 4)}";
+            if (_cache.TryGetValue(key, out Texture2D? cached))
+            {
+                return cached;
+            }
+
+            Texture2D? art = LoadStaticSprite(contentId, tier);
+            _cache[key] = art;
+            return art;
+        }
+
+        /// <summary>静态塔 sprite（{stem}-l{tier}，tier 越档回落 l1——存在性探测）.</summary>
+        private static Texture2D? LoadStaticSprite(string contentId, int tier)
+        {
+            string stem = contentId.Replace(':', '-'); // 冒号转横线（HudIconDecisions.IconStemOf 同律）
+            int era = contentId.Length > 4 && contentId.StartsWith("era", StringComparison.Ordinal)
+                && int.TryParse(contentId[3..4], out int parsed) ? parsed : 1;
+            for (int level = Math.Clamp(tier, 1, 2); level >= 1; level--)
+            {
+                string path = $"res://textures/era{era}/towers/{stem}-l{level}.png";
+                if (ResourceLoader.Exists(path))
+                {
+                    return GD.Load<Texture2D>(path);
+                }
+            }
+
+            return null; // 该时代塔无 sprite 素材（era 图集未覆盖位）——零覆盖
+        }
+    }
+
+    /// <summary>
+    /// 待机 4 相帧步进 sprite（T-164 接线件）：按固定帧率在 4 相条带帧序列上
+    /// 循环（<c>_Process</c> 自步进——确定性相序；PhaseOffset 按塔 id 错相，
+    /// 同型塔不同步呼吸）。非条带塔走普通 TextureRect（零步进开销）。
+    /// </summary>
+    internal sealed partial class IdleStripSprite : TextureRect
+    {
+        private const double FramesPerSecond = 5.0; // ci-allow: R7 T-164 待机动画帧率（表现层演出节奏，非平衡数值）
+
+        private readonly IReadOnlyList<AtlasTexture> _frames;
+        private double _accumulator;
+
+        /// <summary>当前相位（0 起——--shot 两相位证据探针）.</summary>
+        internal int CurrentPhase { get; private set; }
+
+        /// <summary>起始相（塔 id 取模——同型塔错相呼吸）.</summary>
+        internal long PhaseOffset { private get; init; }
+
+        internal IdleStripSprite(IReadOnlyList<AtlasTexture> frames)
+        {
+            _frames = frames;
+            Texture = frames.Count > 0 ? frames[0] : null;
+            MouseFilter = MouseFilterEnum.Ignore;
+        }
+
+        public override void _Process(double delta)
+        {
+            base._Process(delta);
+            if (_frames.Count < 2)
+            {
+                return;
+            }
+
+            _accumulator += delta * FramesPerSecond;
+            if (_accumulator < 1.0)
+            {
+                return;
+            }
+
+            int advance = (int)_accumulator;
+            _accumulator -= advance;
+            int next = (int)((Engine.GetProcessFrames() + (ulong)Math.Max(0, PhaseOffset)) % (ulong)_frames.Count);
+            CurrentPhase = next;
+            Texture = _frames[next];
+        }
+    }
+
+    // ------------------------------------------------ T-164 伤害飘字（对象池）
+
+    private const int FloatPoolSize = 32;     // 同屏飘字预算（波峰并发覆盖——对象池上限）
+    private const float FloatRisePerFrame = 0.9f; // ci-allow: R7 T-164 上飘速度 px/帧（表现层动画）
+    private const int FloatLifeFrames = 45;   // ci-allow: R7 T-164 淡出寿命帧数（~0.75s @60fps）
+    private const float FloatFontSizePx = 10; // ci-allow: R7 T-164 飘字字号 px（像素风小号）
+
+    private readonly Queue<Label> _floatPool = new();
+    private readonly List<(Label Label, int Life)> _floatsLive = new();
+
+    private void BuildFloatPool()
+    {
+        for (int i = 0; i < FloatPoolSize; i++)
+        {
+            var label = new Label
+            {
+                Visible = false,
+                MouseFilter = MouseFilterEnum.Ignore,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            label.AddThemeFontSizeOverride("font_size", (int)FloatFontSizePx);
+            label.AddThemeColorOverride("font_color", new Color(1f, 0.86f, 0.45f)); // ci-allow: R7 T-164 伤害暖色（表现层）
+            UiFeel.Outline(label, 3);
+            _floatLayer.AddChild(label);
+            _floatPool.Enqueue(label);
+        }
+    }
+
+    /// <summary>
+    /// 伤害飘字帧泵：快照 HP 差分（纯读 K-6 快照——CS-1.5，模拟零改动）→
+    /// 命中格上飘淡出。对象池复用（池满=最旧让位——防每拍分配）；飘完回收。
+    /// </summary>
+    private void PumpDamageFloatsFrame()
+    {
+        if (_bridge.Current is { } snapshot)
+        {
+            foreach (IUnit unit in snapshot.Units)
+            {
+                if (_unitHpSeen.TryGetValue(unit.Id.Value, out int seen) && unit.Hp < seen && seen - unit.Hp > 0)
+                {
+                    SpawnDamageFloat(seen - unit.Hp, unit.X, unit.Y);
+                }
+
+                _unitHpSeen[unit.Id.Value] = unit.Hp;
+            }
+
+            // 离场单位清基线（复活/重进不误飘）
+            if (_unitHpSeen.Count > snapshot.Units.Count * 2 + 64)
+            {
+                var live = new HashSet<long>(snapshot.Units.Select(unit => unit.Id.Value));
+                foreach (long id in _unitHpSeen.Keys.Where(id => !live.Contains(id)).ToList())
+                {
+                    _unitHpSeen.Remove(id);
+                }
+            }
+        }
+
+        for (int i = _floatsLive.Count - 1; i >= 0; i--)
+        {
+            (Label label, int life) = _floatsLive[i];
+            label.Position += new Vector2(0f, -FloatRisePerFrame);
+            label.Modulate = new Color(1f, 1f, 1f, Mathf.Clamp((float)life / FloatLifeFrames, 0f, 1f));
+            if (life <= 1)
+            {
+                label.Visible = false;
+                _floatsLive.RemoveAt(i);
+                _floatPool.Enqueue(label);
+            }
+            else
+            {
+                _floatsLive[i] = (label, life - 1);
+            }
+        }
+    }
+
+    private void SpawnDamageFloat(int damage, float x, float y)
+    {
+        if (_floatPool.Count == 0 && _floatsLive.Count > 0)
+        {
+            // 池尽=最旧让位（波峰并发防丢新命中——近尾声的旧字先退）
+            (Label oldest, _) = _floatsLive[0];
+            _floatsLive.RemoveAt(0);
+            _floatPool.Enqueue(oldest);
+        }
+
+        if (_floatPool.Count == 0)
+        {
+            return; // 无可用（理论不可达——池=活集上限）
+        }
+
+        Label label = _floatPool.Dequeue();
+        label.Text = $"{damage}";
+        label.Position = new Vector2(x - 8f, y - 14f); // ci-allow: R7 T-164 飘字锚点偏移 px（命中点上飘起点）
+        label.Modulate = Colors.White;
+        label.Visible = true;
+        _floatsLive.Add((label, FloatLifeFrames));
+    }
+
+    /// <summary>当前在屏飘字数（--shot 取景探针——飘字进行时的真信号观测位）.</summary>
+    internal int DamageFloatsActive => _floatsLive.Count;
 
     // ------------------------------------------------ probes (smoke/observability)
 

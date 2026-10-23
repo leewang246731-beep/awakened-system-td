@@ -209,6 +209,12 @@ public sealed partial class SettingsPanelUi : Control
         menuBack.Pressed += ui.Close;
         ui.AddChild(menuBack);
 
+        // T-164（D 批皮肤与手感）设置面时代化：e5 时代色（主菜单「设置」入
+        // 口同键——palettes 同源经 ExpandDirector；不可达=中性青回退）——
+        // 标题带描边+披露模态框时代边框+全部按钮三态皮肤与 hover/press 音效
+        // （窗口车道手感件；headless 冒烟零副作用——样式覆写不判据）。
+        ui.ApplyEraSkin((host as Main)?.ExpandDirector);
+
         host.AddChild(ui);
         return ui;
     }
@@ -251,6 +257,41 @@ public sealed partial class SettingsPanelUi : Control
 
     /// <summary>Hides the panel (state stays loaded).</summary>
     internal void Close() => Visible = false;
+
+    /// <summary>
+    /// T-164 设置面时代皮肤：e5 时代色（主菜单「设置」入口同键——RL7 色值
+    /// 查 visual-assets.json palettes，经 ExpandDirector 同源；目录不可达=
+    /// HoloSkin.EdgeCyan 中性回退）。施面=标题带描边、披露模态框时代边框、
+    /// 全部 Button/CheckBox 三态皮肤+hover/press 叮音效（UiFeel 缓存盒单源）。
+    /// </summary>
+    private void ApplyEraSkin(Expand.VisualExpansionDirector? expand)
+    {
+        EraCore.Cinematics.EraPalette? palette = null;
+        expand?.Catalog.Palettes.TryGetValue("e5", out palette);
+        Color era = palette is { } row
+            ? new Color(row.Primary.R / 255f, row.Primary.G / 255f, row.Primary.B / 255f)
+            : HoloSkin.EdgeCyan;
+
+        if (GetNodeOrNull<Label>("Scroll/Form/Title") is { } title)
+        {
+            title.AddThemeColorOverride("font_color", era);
+            UiFeel.Outline(title, 3); // 标题带描边（可读性同律）
+        }
+
+        if (GetNodeOrNull<PanelContainer>("DisclosureOverlay/DisclosureBox") is { } disclosure)
+        {
+            disclosure.AddThemeStyleboxOverride("panel", HoloSkin.BuildHoloBox(era)); // 模态框时代边框
+        }
+
+        foreach (Node child in FindChildren("*", nameof(Button), recursive: true, owned: false))
+        {
+            if (child is Button button && !button.Disabled)
+            {
+                UiFeel.ApplyButtonSkin(button, era);
+                UiFeel.AttachCues(button);
+            }
+        }
+    }
 
     // ------------------------------------------- T-109 first-run disclosure
 
