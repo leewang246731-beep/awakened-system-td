@@ -306,7 +306,7 @@ public sealed partial class SystemPanel : Control
         _bubble.AddThemeStyleboxOverride("hover", normal);
         _bubble.AddThemeStyleboxOverride("pressed", pressed);
         _bubble.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
-        _bubble.AddThemeFontSizeOverride("font_size", 12);
+        _bubble.AddThemeFontSizeOverride("font_size", 13); // T-165：军师按钮小字 12→13（53 号文 P2-1 小字族）
         _bubble.Pressed += OnBubblePressed;
         UiFeel.AttachCues(_bubble); // T-164：气泡 hover/press 叮音效
         AddChild(_bubble);
@@ -353,6 +353,7 @@ public sealed partial class SystemPanel : Control
             CustomMinimumSize = new Vector2(190, 22),
             Editable = true,
         };
+        UiFeel.ApplyLineEditSkin(_orderInput, HoloSkin.EdgeCyan); // T-165：军令框像素皮肤（骨架超然于时代——中性青，§10.2）
         _orderInput.TextSubmitted += OnOrderSubmitted;
         var submit = new Button { Text = "下令" };
         submit.Pressed += OnSubmitPressed;
@@ -400,7 +401,7 @@ public sealed partial class SystemPanel : Control
             Text = "军师档位：L1 军令语法（离线）",
             MouseFilter = MouseFilterEnum.Ignore,
         };
-        _l2TierHint.AddThemeFontSizeOverride("font_size", 10);
+        _l2TierHint.AddThemeFontSizeOverride("font_size", 11); // T-165：档位提示 10→11（小字族）
         _l2TierHint.AddThemeColorOverride("font_color", new Color(HoloSkin.TextDimCyan, 0.75f));
 
         _l2Banner = new Label
@@ -415,8 +416,8 @@ public sealed partial class SystemPanel : Control
         _l2Banner.AddThemeColorOverride("font_color", Colors.White); // 中性横幅：白字（§10.7 先例）
 
         var reportRow = Separation(new HBoxContainer(), 6);
-        // T-163（C 批军师立绘位）：36×36 展示位（256×256 era{N}-advisor
-        // 立绘的军师面板位；缺图=既有 14×14 程序头像拉伸回退——不阻塞）。
+        // T-163（C 批军师立绘位）+T-165 井位升格（36→64——53 号文 P1-2：人格
+        // 资产上位，立绘区与信息区重平衡：报告区 300→236 让位）。
         _avatar = new TextureRect
         {
             Texture = BuildAvatarTexture(),
@@ -434,7 +435,7 @@ public sealed partial class SystemPanel : Control
             Position = new Vector2(HudIconDecisions.AdvisorPortraitPx - 12f, -2f),
             MouseFilter = MouseFilterEnum.Ignore,
         };
-        _trustMark.AddThemeFontSizeOverride("font_size", 9);
+        _trustMark.AddThemeFontSizeOverride("font_size", 10); // T-165：徽记小字 9→10
         _avatar.AddChild(_trustMark);
 
         _trustLabel = new Label
@@ -442,14 +443,14 @@ public sealed partial class SystemPanel : Control
             Text = "信任·可托付",
             MouseFilter = MouseFilterEnum.Ignore,
         };
-        _trustLabel.AddThemeFontSizeOverride("font_size", 10);
+        _trustLabel.AddThemeFontSizeOverride("font_size", 11); // T-165：信任行 10→11（小字族）
         _trustLabel.AddThemeColorOverride("font_color", new Color(HoloSkin.TextDimCyan, 0.75f));
 
         _reportText = new Label
         {
             Text = "军师待命。下单后我会先出方案卡，你确认再动手。",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            CustomMinimumSize = new Vector2(300, 0),
+            CustomMinimumSize = new Vector2(236, 0), // T-165：300→236（64px 立绘让位后的重平衡带宽）
             MouseFilter = MouseFilterEnum.Ignore,
         };
         _reportText.AddThemeFontSizeOverride("font_size", 11);
@@ -963,7 +964,7 @@ public sealed partial class SystemPanel : Control
     private static Label MetricLabel(string text)
     {
         var label = new Label { Text = text, MouseFilter = MouseFilterEnum.Ignore };
-        label.AddThemeFontSizeOverride("font_size", 12);
+        label.AddThemeFontSizeOverride("font_size", 13); // T-165：HUD 三指标 12→13（53 号文 P2-1 HUD 小字族）
         label.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
         return label;
     }

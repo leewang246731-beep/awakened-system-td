@@ -438,9 +438,10 @@ public sealed partial class SessionBattlefieldViewport : Control
     private const float FloatRisePerFrame = 0.9f; // ci-allow: R7 T-164 上飘速度 px/帧（表现层动画）
     private const int FloatLifeFrames = 45;   // ci-allow: R7 T-164 淡出寿命帧数（~0.75s @60fps）
     private const float FloatFontSizePx = 10; // ci-allow: R7 T-164 飘字字号 px（像素风小号）
+    private const int FloatsPerUnitMax = 2;   // T-165：同目标同屏飘字上限（53 号文 P2-2 限流，表现层）
 
     private readonly Queue<Label> _floatPool = new();
-    private readonly List<(Label Label, int Life)> _floatsLive = new();
+    private readonly List<(Label Label, int Life, long UnitId, int Total)> _floatsLive = new();
 
     private void BuildFloatPool()
     {
@@ -472,7 +473,7 @@ public sealed partial class SessionBattlefieldViewport : Control
             {
                 if (_unitHpSeen.TryGetValue(unit.Id.Value, out int seen) && unit.Hp < seen && seen - unit.Hp > 0)
                 {
-                    SpawnDamageFloat(seen - unit.Hp, unit.X, unit.Y);
+                    SpawnDamageFloat(seen - unit.Hp, unit.Id.Value, unit.X, unit.Y);
                 }
 
                 _unitHpSeen[unit.Id.Value] = unit.Hp;
@@ -491,7 +492,7 @@ public sealed partial class SessionBattlefieldViewport : Control
 
         for (int i = _floatsLive.Count - 1; i >= 0; i--)
         {
-            (Label label, int life) = _floatsLive[i];
+            (Label label, int life, long unitId, int total) = _floatsLive[i];
             label.Position += new Vector2(0f, -FloatRisePerFrame);
             label.Modulate = new Color(1f, 1f, 1f, Mathf.Clamp((float)life / FloatLifeFrames, 0f, 1f));
             if (life <= 1)
@@ -502,17 +503,46 @@ public sealed partial class SessionBattlefieldViewport : Control
             }
             else
             {
-                _floatsLive[i] = (label, life - 1);
+                _floatsLive[i] = (label, life - 1, unitId, total);
             }
         }
     }
 
-    private void SpawnDamageFloat(int damage, float x, float y)
+    private void SpawnDamageFloat(int damage, long unitId, float x, float y)
     {
+        // T-165 飘字限流+重叠合并（53 号文 P2-2）：同目标同屏 ≤2 条；超限命中
+        // 并入该目标最新一条（数字累加重显+寿命刷新——重叠处一条不断更新的
+        // 合计，不再第三条压顶）。
+        int newest = -1;
+        int liveForUnit = 0;
+        for (int i = _floatsLive.Count - 1; i >= 0; i--)
+        {
+            if (_floatsLive[i].UnitId != unitId)
+            {
+                continue;
+            }
+
+            if (newest < 0)
+            {
+                newest = i;
+            }
+
+            liveForUnit++;
+        }
+
+        if (liveForUnit >= FloatsPerUnitMax && newest >= 0)
+        {
+            (Label merged, _, _, int total) = _floatsLive[newest];
+            int sum = total + damage;
+            _floatsLive[newest] = (merged, FloatLifeFrames, unitId, sum);
+            merged.Text = $"{sum}";
+            return;
+        }
+
         if (_floatPool.Count == 0 && _floatsLive.Count > 0)
         {
             // 池尽=最旧让位（波峰并发防丢新命中——近尾声的旧字先退）
-            (Label oldest, _) = _floatsLive[0];
+            (Label oldest, _, _, _) = _floatsLive[0];
             _floatsLive.RemoveAt(0);
             _floatPool.Enqueue(oldest);
         }
@@ -527,7 +557,7 @@ public sealed partial class SessionBattlefieldViewport : Control
         label.Position = new Vector2(x - 8f, y - 14f); // ci-allow: R7 T-164 飘字锚点偏移 px（命中点上飘起点）
         label.Modulate = Colors.White;
         label.Visible = true;
-        _floatsLive.Add((label, FloatLifeFrames));
+        _floatsLive.Add((label, FloatLifeFrames, unitId, damage));
     }
 
     /// <summary>当前在屏飘字数（--shot 取景探针——飘字进行时的真信号观测位）.</summary>

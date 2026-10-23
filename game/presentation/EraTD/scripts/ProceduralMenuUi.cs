@@ -141,11 +141,13 @@ public sealed partial class ProceduralMenuUi : Control
         int defaultIndex = Array.FindIndex(
             entry.Tiers.ToArray(), tier => tier.Id == entry.DefaultTierId);
         _tierField.Selected = Math.Max(0, defaultIndex);
+        UiFeel.ApplyOptionSkin(_tierField, ModeEraColor()); // T-165：档位下拉像素皮肤（53 号文 P1-1）
         rows.AddChild(_tierField);
 
         var seedRow = new HBoxContainer();
         seedRow.AddChild(new Label { Text = "种子 " });
         _seedField = new LineEdit { Text = SmokeSeed.ToString(), CustomMinimumSize = new Vector2(160, 0) };
+        UiFeel.ApplyLineEditSkin(_seedField, ModeEraColor()); // T-165：种子框像素皮肤（焦点态+光标时代色）
         seedRow.AddChild(_seedField);
         rows.AddChild(seedRow);
 

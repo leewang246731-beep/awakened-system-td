@@ -165,6 +165,18 @@ public sealed partial class MainMenuUi : Control
         _scrim.MouseFilter = Control.MouseFilterEnum.Ignore;
         root.AddChild(_scrim);
 
+        // —— T-165 构图井位：按钮区 keyart 裁切色场垫底（53 号文 P3-2「按钮区
+        //    略空」——满度原则：既有六时代群像 keyart 横裁整片色场+压暗带，
+        //    六卡从视频底暗塔剪影上移到「舞台面」；缺图=跳过不阻塞）——
+        if (LoadKeyartTexture() is { } keyartBed)
+        {
+            Control bed = UiFeel.BuildColorBed(keyartBed, 104f, 0.62f); // ci-allow: R7 T-165 按钮区色场带高+压暗档（画布域表现层）
+            bed.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+            bed.OffsetTop = -104f;
+            bed.MouseFilter = Control.MouseFilterEnum.Ignore;
+            root.AddChild(bed);
+        }
+
         // —— 上半：logo 牌匾（等比居中）+ 叠天空区的中文标题 ——
         var plaque = new Control { Name = "LogoPlaque" };
         plaque.SetAnchorsPreset(Control.LayoutPreset.CenterTop);
@@ -636,22 +648,27 @@ public sealed partial class MainMenuUi : Control
 
     private bool TryLoadKeyartStill()
     {
-        string? root = Expand.ExpandAssetPaths.RepoRoot();
-        if (root is null)
-        {
-            return false;
-        }
-
-        string path = System.IO.Path.Combine(root,
-            MainMenuDecisions.KeyartRelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
-        Texture2D? texture = Expand.ExpandAssetPaths.LoadPng(path);
-        if (texture is null)
+        if (LoadKeyartTexture() is not { } texture)
         {
             return false;
         }
 
         _keyartRect.Texture = texture;
         return true;
+    }
+
+    /// <summary>keyart 静帧装载（T-165 拆出：按钮区色场垫底与本回退面共用装载）.</summary>
+    private static Texture2D? LoadKeyartTexture()
+    {
+        string? root = Expand.ExpandAssetPaths.RepoRoot();
+        if (root is null)
+        {
+            return null;
+        }
+
+        string path = System.IO.Path.Combine(root,
+            MainMenuDecisions.KeyartRelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        return Expand.ExpandAssetPaths.LoadPng(path);
     }
 
     private string DescribeLogo() =>

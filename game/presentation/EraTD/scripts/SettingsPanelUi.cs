@@ -263,6 +263,9 @@ public sealed partial class SettingsPanelUi : Control
     /// 查 visual-assets.json palettes，经 ExpandDirector 同源；目录不可达=
     /// HoloSkin.EdgeCyan 中性回退）。施面=标题带描边、披露模态框时代边框、
     /// 全部 Button/CheckBox 三态皮肤+hover/press 叮音效（UiFeel 缓存盒单源）。
+    /// T-165 增施面（53 号文 P2-3/P1-1）：分组行标题（Caption 族）带时代色、
+    /// BYOK 表单区 e5 章 banner 裁切色场垫底、下拉/文本框/开关/数字框像素
+    /// 皮肤（风格混血收口）。
     /// </summary>
     private void ApplyEraSkin(Expand.VisualExpansionDirector? expand)
     {
@@ -283,6 +286,49 @@ public sealed partial class SettingsPanelUi : Control
             disclosure.AddThemeStyleboxOverride("panel", HoloSkin.BuildHoloBox(era)); // 模态框时代边框
         }
 
+        // T-165 分组标题带时代色（53 号文 P2-3「时代感只在边框」——行标题
+        // Caption 族+对比条标题全数升时代色 13px 档：灰字平面→时代色分组骨架）
+        foreach (Node node in FindChildren("Caption", nameof(Label), recursive: true, owned: false))
+        {
+            if (node is Label caption)
+            {
+                caption.AddThemeColorOverride("font_color", era);
+                caption.AddThemeFontSizeOverride("font_size", 13);
+            }
+        }
+
+        if (GetNodeOrNull<Label>("Scroll/Form/CompareHeading") is { } compareHeading)
+        {
+            compareHeading.AddThemeColorOverride("font_color", era);
+            compareHeading.AddThemeFontSizeOverride("font_size", 13);
+        }
+
+        TryInstallFormBed(); // T-165：BYOK 表单区 banner 裁切色场垫底
+
+        // T-165 系统件像素皮肤（53 号文 P1-1）：三下拉+三文本框+全开关/数字框
+        // ——边框/箭头/光标/焦点框像素语言+e5 时代色（高分辨率系统件退位）
+        UiFeel.ApplyOptionSkin(_renderTierDropdown, era);
+        UiFeel.ApplyOptionSkin(_advisorTierDropdown, era);
+        UiFeel.ApplyOptionSkin(_templateDropdown, era);
+        UiFeel.ApplyLineEditSkin(_baseUrlInput, era);
+        UiFeel.ApplyLineEditSkin(_keyInput, era);
+        UiFeel.ApplyLineEditSkin(_modelInput, era);
+        foreach (Node node in FindChildren("*", nameof(CheckBox), recursive: true, owned: false))
+        {
+            if (node is CheckBox check)
+            {
+                UiFeel.ApplyCheckBoxSkin(check, era);
+            }
+        }
+
+        foreach (Node node in FindChildren("*", nameof(SpinBox), recursive: true, owned: false))
+        {
+            if (node is SpinBox spin)
+            {
+                UiFeel.ApplySpinBoxSkin(spin, era);
+            }
+        }
+
         foreach (Node child in FindChildren("*", nameof(Button), recursive: true, owned: false))
         {
             if (child is Button button && !button.Disabled)
@@ -291,6 +337,38 @@ public sealed partial class SettingsPanelUi : Control
                 UiFeel.AttachCues(button);
             }
         }
+    }
+
+    // —— T-165 BYOK 表单区色场垫底（53 号文 P2-3 修法） ——
+
+    private IReadOnlyList<string>? _bannerFiles;
+
+    /// <summary>
+    /// e5 章 banner（主菜单「设置」入口同键）整幅横裁+重压暗色场，插在
+    /// Backdrop 与 Scroll 之间（节点路径零变动——冒烟探针 GetNode 面不动；
+    /// 纯兄弟插入）。缺图=跳过（色场是增益不是结构，裸包回退不阻塞）。
+    /// </summary>
+    private void TryInstallFormBed()
+    {
+        if (GetNodeOrNull<ColorRect>("Backdrop") is not { } backdrop || backdrop.GetParent() is not { } panelRoot)
+        {
+            return;
+        }
+
+        _bannerFiles ??= Expand.ExpandAssetPaths.BannerFileNames();
+        string? file = EraCore.Presentation.LevelCardDecisions.PickBannerFile(
+            EraCore.Presentation.LevelCardDecisions.ChapterBannerStem(5), _bannerFiles);
+        if (file is null
+            || Expand.ExpandAssetPaths.LoadPng(Expand.ExpandAssetPaths.BannerPath(file)) is not { } texture)
+        {
+            return;
+        }
+
+        var bed = UiFeel.BuildColorBed(texture, 0f, 0.78f); // ci-allow: R7 T-165 表单衬底压暗档（表现层）
+        bed.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        bed.MouseFilter = Control.MouseFilterEnum.Ignore;
+        panelRoot.AddChild(bed);
+        panelRoot.MoveChild(bed, backdrop.GetIndex() + 1);
     }
 
     // ------------------------------------------- T-109 first-run disclosure

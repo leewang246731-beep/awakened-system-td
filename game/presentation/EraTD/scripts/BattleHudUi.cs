@@ -136,7 +136,7 @@ public sealed partial class BattleHudUi : Control
 
         var box = new VBoxContainer();
         _waveTitle = new Label { MouseFilter = MouseFilterEnum.Ignore };
-        _waveTitle.AddThemeFontSizeOverride("font_size", 11);
+        _waveTitle.AddThemeFontSizeOverride("font_size", 12); // T-165：预告标题 11→12（小字族）
         _waveTitle.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
         UiFeel.Outline(_waveTitle, 3); // T-164：波次预告标题描边（可读性同律）
         _waveRow = new HBoxContainer();
@@ -215,10 +215,13 @@ public sealed partial class BattleHudUi : Control
         _boundSim = run.Session.Sim;
         _boundEra = eraIndex;
         _waveSignature = null; // T-164 脏守卫：换局=波构成必重渲染
+        _waveBossState = false; // T-165：预告框 boss 态位复位（Bind 落非 boss 框）
         RebuildResourceRow(eraIndex);
         ApplyAdvisorEraSkin(eraIndex);
-        _resourceBar.AddThemeStyleboxOverride("panel", EraBox(eraIndex, boss: false));
-        _waveBanner.AddThemeStyleboxOverride("panel", EraBox(eraIndex, boss: false));
+        // T-165（53 号文 P3-1）：时代皮肤切换 0.2 s 色彩过渡——live 盒插值到
+        // 目标缓存盒（资源条全亮/预告框降亮变体——P3-3 让位资源条）。
+        TransitionPanelSkin(_resourceBar, EraBox(eraIndex, boss: false, dim: false));
+        TransitionPanelSkin(_waveBanner, EraBox(eraIndex, boss: false, dim: true));
         Show();
         GD.Print(
             $"BATTLE_HUD bind era={eraIndex} resources={_resourceCells.Count} " +
@@ -238,14 +241,18 @@ public sealed partial class BattleHudUi : Control
         _main.AdvisorPanel.ResetEraTheme();
     }
 
-    // —— T-164 时代框缓存（(era, boss) 键——同拍复用不每拍新造） ——
+    // —— T-164 时代框缓存（(era, boss, dim) 键——同拍复用不每拍新造） ——
 
-    private readonly Dictionary<(int Era, bool Boss), StyleBoxFlat> _eraBoxes = new();
+    private readonly Dictionary<(int Era, bool Boss, bool Dim), StyleBoxFlat> _eraBoxes = new();
 
-    /// <summary>时代色 HUD 框（boss 波=金边变体；缓存一份实例跨拍共享）.</summary>
-    private StyleBoxFlat EraBox(int eraIndex, bool boss)
+    /// <summary>
+    /// 时代色 HUD 框（boss 波=金边变体；dim=预告框降亮变体——T-165 53 号文
+    /// P3-3：预告框降一档亮度让位资源条：底/边 RGB×0.82+alpha 降至 0.68/0.60；
+    /// boss 警示态不降亮）。缓存一份实例跨拍共享。
+    /// </summary>
+    private StyleBoxFlat EraBox(int eraIndex, bool boss, bool dim)
     {
-        (int, bool) key = (eraIndex, boss);
+        (int, bool, bool) key = (eraIndex, boss, dim);
         if (!_eraBoxes.TryGetValue(key, out StyleBoxFlat? box))
         {
             box = HoloSkin.BuildHoloBox(EraColor($"e{Math.Clamp(eraIndex, 1, 6)}"));
@@ -255,11 +262,79 @@ public sealed partial class BattleHudUi : Control
                 box.BorderWidthLeft = box.BorderWidthRight = 2;
                 box.BorderWidthTop = box.BorderWidthBottom = 2;
             }
+            else if (dim)
+            {
+                // T-165 复评加强档：明度分离再拉开（首版 ×0.82/0.68 分析读
+                // 「难分主次」——资源条全亮 vs 预告压暗的台阶要敢拉开）
+                box.BgColor = new Color(box.BgColor.R * 0.70f, box.BgColor.G * 0.70f, box.BgColor.B * 0.70f, 0.58f);
+                box.BorderColor = new Color(box.BorderColor.R * 0.72f, box.BorderColor.G * 0.72f, box.BorderColor.B * 0.72f, 0.50f);
+            }
 
             _eraBoxes[key] = box;
         }
 
         return box;
+    }
+
+    // —— T-165 时代皮肤 0.2 s 色彩过渡（live 盒插值——缓存盒只在终点接管） ——
+
+    /// <summary>在跑的皮肤过渡（面→tween；新过渡先杀旧——面板单一在跑律）.</summary>
+    private readonly Dictionary<Control, Tween> _skinTweens = new();
+
+    /// <summary>预告框 boss 态位（null=未定；Bind 复位 false——boss 变化才换框，过渡不被每拍 stomps）.</summary>
+    private bool _waveBossState;
+
+    /// <summary>
+    /// 面板皮肤 0.2 s 色彩过渡（53 号文 P3-1）：当前框色→目标框色线性插值
+    /// （live 盒独立实例每帧改色——缓存盒零突变零污染；终点/中途被状态变化
+    /// （boss 波换框/新过渡）接管时如实让位）。像素风律内（色彩渐变非位移
+    /// 模糊——transform/opacity 类动效）。
+    /// </summary>
+    private void TransitionPanelSkin(PanelContainer surface, StyleBoxFlat target)
+    {
+        if (_skinTweens.TryGetValue(surface, out Tween? previous))
+        {
+            previous.Kill();
+            _skinTweens.Remove(surface);
+        }
+
+        if (surface.GetThemeStylebox("panel") is not StyleBoxFlat fromBox)
+        {
+            surface.AddThemeStyleboxOverride("panel", target);
+            return;
+        }
+
+        Color fromBg = fromBox.BgColor;
+        Color fromEdge = fromBox.BorderColor;
+        var live = new StyleBoxFlat
+        {
+            BgColor = fromBg,
+            BorderColor = fromEdge,
+            BorderWidthLeft = fromBox.BorderWidthLeft,
+            BorderWidthTop = fromBox.BorderWidthTop,
+            BorderWidthRight = fromBox.BorderWidthRight,
+            BorderWidthBottom = fromBox.BorderWidthBottom,
+            CornerDetail = fromBox.CornerDetail,
+        };
+        live.SetCornerRadiusAll(HoloSkin.ChamferPx);
+        surface.AddThemeStyleboxOverride("panel", live);
+
+        Tween tween = CreateTween();
+        _skinTweens[surface] = tween;
+        tween.TweenMethod(Callable.From<float>(k =>
+        {
+            live.BgColor = fromBg.Lerp(target.BgColor, k);
+            live.BorderColor = fromEdge.Lerp(target.BorderColor, k);
+        }), 0f, 1f, 0.2); // ci-allow: R7 T-165 过渡时长秒（表现层动效）
+        tween.TweenCallback(Callable.From(() =>
+        {
+            // 终点接管：仍在过渡位（未被 boss 框/新过渡覆盖）才换缓存目标盒
+            if (_skinTweens.TryGetValue(surface, out Tween? running) && running == tween)
+            {
+                _skinTweens.Remove(surface);
+                surface.AddThemeStyleboxOverride("panel", target);
+            }
+        }));
     }
 
     /// <summary>当前绑定时代（探针；0=未绑）.</summary>
@@ -329,7 +404,7 @@ public sealed partial class BattleHudUi : Control
                 Text = "0",
                 MouseFilter = MouseFilterEnum.Ignore,
             };
-            amount.AddThemeFontSizeOverride("font_size", 14);
+            amount.AddThemeFontSizeOverride("font_size", 15); // T-165：资源数字 14→15（HUD 小字族）
             amount.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
             UiFeel.Outline(amount, 3);
             var stack = new VBoxContainer();
@@ -451,7 +526,7 @@ public sealed partial class BattleHudUi : Control
                 Text = $"×{entry.Count}",
                 MouseFilter = MouseFilterEnum.Ignore,
             };
-            count.AddThemeFontSizeOverride("font_size", 10);
+            count.AddThemeFontSizeOverride("font_size", 12); // T-165：徽记数字 10→12（HUD 小字族）
             count.AddThemeColorOverride("font_color", entry.IsBoss
                 ? new Color(1f, 0.82f, 0.36f)
                 : HoloSkin.TextDimCyan);
@@ -461,8 +536,14 @@ public sealed partial class BattleHudUi : Control
             _waveRow.AddChild(cell);
         }
 
-        // boss 波横幅特殊描边（金边；常规=时代色框）——缓存实例（EraBox）
-        _waveBanner.AddThemeStyleboxOverride("panel", EraBox(_boundEra, boss));
+        // boss 波横幅特殊描边（金边全亮——警示态不降亮度）；常规=时代色框降
+        // 一档亮度的预告变体（T-165：53 号文 P3-3 预告框让位资源条）。boss 态
+        // 位守卫：态不变不换框（Bind 后的 0.2 s 色彩过渡不被每拍 stomps）。
+        if (boss != _waveBossState)
+        {
+            _waveBossState = boss;
+            _waveBanner.AddThemeStyleboxOverride("panel", EraBox(_boundEra, boss, dim: !boss));
+        }
     }
 
     /// <summary>波构成脏守卫签名（null=首拍/换局，必重建）.</summary>

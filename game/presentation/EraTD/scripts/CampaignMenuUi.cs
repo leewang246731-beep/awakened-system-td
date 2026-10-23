@@ -540,8 +540,8 @@ public sealed partial class CampaignMenuUi : Control
     private const float CardWidth = 118f;
     private const float CardHeight = 102f;
     private const float ThumbHeight = 56f;      // banner 768×512→118×56 横裁带
-    private const float ThreatBadgeWidth = 44f;
-    private const float ThreatBadgeHeight = 14f;
+    private const float ThreatBadgeWidth = 54f;  // T-165：44→54（角标字 8→10 后的带宽）
+    private const float ThreatBadgeHeight = 16f; // T-165：14→16（同上——角标两档字高+衬）
     private const float StarRowHeight = 18f;
     private const float BannerTitleBandHeight = 18f; // 题图底部压暗带+章名带
 
@@ -678,7 +678,9 @@ public sealed partial class CampaignMenuUi : Control
         var disabled = new StyleBoxFlat
         {
             BgColor = new Color(0.05f, 0.06f, 0.09f, 0.92f),
-            BorderColor = new Color(0.30f, 0.33f, 0.40f, 0.9f),
+            // T-165：锁卡描边灰→时代色暗变体（53 号文 P2-4「锁遮罩灰与时代色
+            // 并存显脏」——锁态降为时代色阶的暗部，不再引入第二族灰）
+            BorderColor = new Color(era.R * 0.45f + 0.06f, era.G * 0.45f + 0.07f, era.B * 0.45f + 0.09f, 0.9f),
         };
         SetCardBorder(disabled, 2);
 
@@ -694,6 +696,12 @@ public sealed partial class CampaignMenuUi : Control
         card.AddThemeStyleboxOverride("hover", hover);
         card.AddThemeStyleboxOverride("pressed", hover);
         card.AddThemeStyleboxOverride("disabled", disabled);
+        if (!card.Disabled)
+        {
+            // T-165 状态补全（53 号文 P1-3）：卡片 hover 放大+描边亮起——主菜单
+            // 六卡同律（1.06 密网格档+抬 Z：放大卡压邻卡绘制序修正；锁卡不接）
+            UiFeel.HoverScaleTween(card, 1.06f, 0.08f, hoverZ: 8);
+        }
 
         // —— 缩略图（banner 768×512→118×56 KeepAspectCovered；缺图=时代色调垫底）——
         var thumb = new TextureRect
@@ -719,7 +727,7 @@ public sealed partial class CampaignMenuUi : Control
         threat.SetAnchorsPreset(Control.LayoutPreset.TopRight);
         threat.OffsetLeft = -ThreatBadgeWidth;
         threat.OffsetBottom = ThreatBadgeHeight;
-        threat.AddThemeFontSizeOverride("font_size", 8);
+        threat.AddThemeFontSizeOverride("font_size", 10); // T-165：威胁角标 8→10（53 号文 P2-1 小字族首件）
         threat.AddThemeColorOverride("font_color", Colors.White);
         threat.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
         threat.AddThemeConstantOverride("outline_size", 3);
@@ -736,10 +744,14 @@ public sealed partial class CampaignMenuUi : Control
         threat.MouseFilter = Control.MouseFilterEnum.Ignore;
         card.AddChild(threat);
 
-        // —— 锁遮罩（未解锁：缩略图压暗+lock 图标+居中锁文案）——
+        // —— 锁遮罩（未解锁：缩略图压暗+lock 图标+居中锁文案）——T-165：黑灰
+        // 遮罩→时代色暗变体（53 号文 P2-4：去「脏灰」——锁态=时代色阶暗部）——
         if (row.State == CampaignLevelState.Locked)
         {
-            var lockScrim = new ColorRect { Color = new Color(0f, 0f, 0f, 0.55f) };
+            var lockScrim = new ColorRect
+            {
+                Color = new Color(era.R * 0.20f + 0.02f, era.G * 0.20f + 0.03f, era.B * 0.20f + 0.05f, 0.62f), // ci-allow: R7 T-165 锁遮罩时代色暗变体（表现层）
+            };
             lockScrim.SetAnchorsPreset(Control.LayoutPreset.TopWide);
             lockScrim.OffsetBottom = ThumbHeight;
             lockScrim.MouseFilter = Control.MouseFilterEnum.Ignore;
@@ -778,7 +790,8 @@ public sealed partial class CampaignMenuUi : Control
             card.AddChild(lockRow);
         }
 
-        // —— 关名+终关徽记（终关=◆ 前缀区分普通关）——
+        // —— 关名+终关徽记（终关=◆ 前缀区分普通关）——T-165：终关徽记放大
+        //（12px 档 vs 普通关 10px——53 号文 P2-1：终关徽记◆偏小，字号对比敢拉开）
         var name = new Label
         {
             Text = row.IsFinal ? $"◆ {row.NameZh}" : row.NameZh,
@@ -788,8 +801,8 @@ public sealed partial class CampaignMenuUi : Control
         };
         name.SetAnchorsPreset(Control.LayoutPreset.TopWide);
         name.OffsetTop = ThumbHeight + 1;
-        name.OffsetBottom = ThumbHeight + 20;
-        name.AddThemeFontSizeOverride("font_size", 10);
+        name.OffsetBottom = ThumbHeight + (row.IsFinal ? 22 : 20);
+        name.AddThemeFontSizeOverride("font_size", row.IsFinal ? 12 : 10);
         name.AddThemeColorOverride("font_color", Colors.White);
         name.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
         name.AddThemeConstantOverride("outline_size", 3);
@@ -859,7 +872,7 @@ public sealed partial class CampaignMenuUi : Control
         state.SetAnchorsPreset(Control.LayoutPreset.BottomRight);
         state.OffsetTop = -StarRowHeight;
         state.OffsetLeft = -46;
-        state.AddThemeFontSizeOverride("font_size", 8);
+        state.AddThemeFontSizeOverride("font_size", 9); // T-165：状态角标 8→9（小字族）
         state.AddThemeColorOverride(
             "font_color",
             row.State == CampaignLevelState.Playable ? HoloSkin.TextDimCyan : new Color(0.6f, 0.63f, 0.7f, 0.9f));

@@ -164,6 +164,7 @@ public sealed partial class EndlessMenuUi : Control
             _eraField.Selected = 0;
         }
 
+        UiFeel.ApplyOptionSkin(_eraField, ModeEraColor()); // T-165：时代下拉像素皮肤（53 号文 P1-1）
         rows.AddChild(_eraField);
 
         var actionRow = new HBoxContainer();
