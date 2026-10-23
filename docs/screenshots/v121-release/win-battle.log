@@ -1,0 +1,25 @@
+Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
+OpenGL API 3.3.14761 Core Profile Forward-Compatible Context 21.30.23.04 30.0.13023.4001 - Compatibility - Using Device: ATI Technologies Inc. - AMD Radeon (TM) RX 640
+
+DING_OK map=3 throttle=on cues=3 blocked=1 plays=3 files=0 rate=16000 vol=1.00
+[settings][Info] secret-store factory=select backend=dpapi-currentuser reason=dpapi-available
+cinematics: 脚本 cinematic:finale-zero 的钩子 campaign:hook-e6-finale-truth 不在当前装载集——移出路由（显式通道/测试执法面覆盖）
+NARR_OK acts=3 loop=720s budget=900s within=1 lines=4+2+4 idle_samples=3 hidden_tier=gold_extra sim_towers=0 bubble_images=2shown+0degraded
+AUDIO_OK bgm=3states persona=4 tones=16 voice_era=era1 narrated=2 bus=3vol cc0=2 eras=6 loops=18 fade=3s states_played=2 bgm_vol=0.80 sfx_vol=0.60 voice_vol=0.90 ding_tiers=3 files=0 source=cc0-kenney+procedural
+AUDIO3_OK bgm=3states era=e3 loop=seamless timbre=industrial transitions=3 equal_power=mid loops=3 distinct=3 halves=balanced loop_end=pinned whistle=long+reprise+faint2 clangs=8 rivets=32 fade=3s player_gain=mid-db eras=6 files=0 source=procedural
+AUDIO4_OK bgm=3states era=modern loop=seamless transitions=3 equal_power=mid loops=3 distinct=3 halves=balanced loop_end=pinned hum=dual-winding grid=two-beat-throb radio=bar-blips siren=fm-sweep+reprise fade=3s player_gain=mid-db eras=6 files=0 source=procedural
+AUDIO5_OK bgm=3states era=fusion loop=seamless transitions=3 equal_power=mid loops=3 distinct=3 halves=balanced loop_end=pinned arp=octave-cycle holo=bar-blips chime=harmonic+reprise fade=3s player_gain=mid-db eras=6 files=0 source=procedural
+AUDIO6_OK bgm=3states era=deepspace loop=seamless transitions=3 equal_power=mid loops=3 distinct=3 halves=balanced loop_end=pinned stardust=high-band chimes=odd-bars gate=drone+sub+fifth-reprise fade=3s player_gain=mid-db eras=6 files=0 source=procedural
+MENU_BOOT mode=menu-first entries=6 shot=D:\game\docs\screenshots\v121-release\win-battle warmup=150 open=- plan=battle-hud windows_alive=player-lane-never-quits
+MENU background=MenuLoopVideo video_pos=0.00s logo=banner entries=6 bgm=calm:audible version=v1.2.1 title=我在游戏觉醒系统
+RENDER_PROBE frames=60 avg_fps=9.6 tier=L live_applied=fx-gate+scan+post assembly=next-launch
+CAMPAIGN_CARDS chapters=6 cards=29 banners=29/29 root=D:\game\release\v1.2.1\EraTD-v1.2.1-win64
+BATTLE_HUD bind era=1 resources=3 icon_hits=3/3 portrait=True skin=True
+SHOT_PROBE battle window=1280x720 canvas_scale=2x2 session=True hud_era=1
+HUD_LAYOUT resource=(8, 68), (224, 52) banner=(430, 100), (112, 74) pace=(528, 326), (116, 24) visible=True camera=null camera_name=-
+SHOT file=01-hud-full.png frame=246 size=1280x720 video_pos=0.00s menu=False
+SHOT file=02-build-bar.png frame=246 crop=700x184 video_pos=0.00s
+SHOT file=03-wave-preview.png frame=246 crop=432x184 video_pos=0.00s
+SHOT file=04-advisor-panel.png frame=286 crop=740x400 video_pos=0.00s
+SHOT file=05-glossary-drawer.png frame=302 stitch=624x632 states=open+closed
+SHOT_OK files=5 dir=D:\game\docs\screenshots\v121-release\win-battle video_pos=0.00s campaign_scroll=0 lane=acceptance-explicit-quit
