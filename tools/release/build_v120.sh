@@ -189,22 +189,27 @@ ls -la "$WIN_ZIP"
 
 echo "==> [4/7] 发版门禁 A：窗口存活（v1.1.1 教训——无参玩家车道 25s 不自退）"
 ALIVE_DATA="$(mktemp -d -t era_v120_alive_XXXXXX)"
-ALIVE_LOG="$ALIVE_DATA/alive.log"
 set +e
-( cd "$WIN_STAGE" && ERA_DATA_ROOT="$ALIVE_DATA" timeout 25 ./EraTD.exe \
-    --log-file "$(cygpath -w "$ALIVE_LOG" 2>/dev/null || echo "$ALIVE_LOG")" )
+# 判据锚=stdout 捕获（Godot --log-file 在 TERM 强杀下不落盘——实测 0 字节；
+# 门禁行 MENU_BOOT/RENDER_PROBE 走 stdout 稳定可达）
+( cd "$WIN_STAGE" && ERA_DATA_ROOT="$ALIVE_DATA" timeout 25 ./EraTD.exe ) \
+    > "$ALIVE_DATA/stdout.log" 2>&1
 ALIVE_RC=$?
 set -e
 if [ "$ALIVE_RC" -ne 124 ]; then
-  echo "build_v120: 窗口存活门禁红——25s 内自行退出（rc=$ALIVE_RC，日志 $ALIVE_LOG）" >&2
-  tail -n 20 "$ALIVE_LOG" 2>/dev/null || true
+  echo "build_v120: 窗口存活门禁红——25s 内自行退出（rc=$ALIVE_RC，日志 $ALIVE_DATA/stdout.log）" >&2
+  tail -n 20 "$ALIVE_DATA/stdout.log" 2>/dev/null || true
   exit 1
 fi
-if grep -E "L2_FAIL|Quit" "$ALIVE_LOG" >/dev/null 2>&1; then
-  echo "build_v120: 窗口存活日志含异常退出痕迹" >&2
+if grep -E "L2_FAIL" "$ALIVE_DATA/stdout.log" >/dev/null 2>&1; then
+  echo "build_v120: 窗口存活日志含 L2_FAIL 异常痕迹" >&2
   exit 1
 fi
-grep -E "MENU_BOOT|RENDER_PROBE" "$ALIVE_LOG" | head -3
+if ! grep -qE "MENU_BOOT|RENDER_PROBE" "$ALIVE_DATA/stdout.log"; then
+  echo "build_v120: 窗口存活 stdout 未捕获 MENU_BOOT/RENDER_PROBE 探针行" >&2
+  exit 1
+fi
+grep -E "MENU_BOOT|RENDER_PROBE|MENU background" "$ALIVE_DATA/stdout.log" | head -3
 echo "build_v120: 窗口存活 PASS（rc=124=活到被杀）"
 rm -rf "$ALIVE_DATA"
 
