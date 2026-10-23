@@ -58,5 +58,9 @@ TTS 预留）。Windows/Linux 双平台、免费、BYOK 不变。存档兼容 v1
 | 窗口存活（无参 25s 不自退） | PASS（rc=124=活到被杀；MENU_BOOT/RENDER_PROBE 探针在） |
 | 玩家视角截图验收（W10 新门禁：菜单/选关/战斗三段） | PASS（win-menu 4 张/win-levels 6 张/win-battle 5 张，全 SHOT_OK；主管五关键帧亲检全 PASS） |
 | 出厂裸包三证（六卡色差/视频活/banner 卡片） | PASS（仓库树外裸包：MenuLoopVideo+29/29 banner+六色卡；主管双证亲检 PASS） |
-| 免登录哈希核对（GitHub Release 六资产） | 【发布后回填】 |
-| itch 双通道（windows/linux） | 【发布后回填：渠道号】 |
+| 免登录哈希核对（GitHub Release 六资产） | PASS（三 zip 匿名下载 sha256 逐字节 MATCH；linux 首探抖动复探 200） |
+| itch 双通道（windows/linux） | PASS（ITCH_VERSION=v1.2.0 butler 推送，补丁节省 91.7~92.6%；页外匿名 HTTP 200） |
+
+**发布指针**：GitHub Release 421590940（tag v1.2.0，六资产）：
+https://github.com/leewang246731-beep/awakened-system-td/releases/tag/v1.2.0
+itch：https://leewang246731-beep.itch.io/awakened-system-td（v1.2.0 双通道）
