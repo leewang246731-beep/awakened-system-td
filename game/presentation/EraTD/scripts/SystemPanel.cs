@@ -244,11 +244,20 @@ public sealed partial class SystemPanel : Control
     private void Layout()
     {
         _hudBar.Position = new Vector2(8f, 46f);
-        _expandedPanel.Position = new Vector2(8f, 170f);
+        // T-166 版式重构（T-165 遗留①收口）：展开面板改**居中模态位**
+        // （112,44）——原 (8,170) 落位在 T-163 建造栏移底部后与底部带
+        // （StatusLabel 全宽 256-274/建造栏 164-476 282-346，均 z30）纵向
+        // 死磕：237px 内容高无论怎么压都压不进 122..254 的净空带，报告主行
+        // 被建造卡盖死（立绘永不上屏的根因）。居中模态=让位关系正解：底边
+        // 281 让建造栏顶 282（1px 缝），z+12（相对 20 层=32）盖过状态行；
+        // 方案卡（20+30=50）与 F1 抽屉（40/41）仍在展开面板之上（下令→
+        // 确认/拒绝链零回退）。气泡常驻位 (8,324) 零改动。
+        _expandedPanel.Position = new Vector2(112f, 44f);
         _expandedPanel.CustomMinimumSize = new Vector2(360f, 0f);
+        _expandedPanel.ZIndex = 12; // 相对 SystemPanel(20) 层：有效 32——盖状态行(30)/让方案卡(50)
         _bubble.Position = new Vector2(8f, 324f);
         _planCard.SetAnchorsPreset(Control.LayoutPreset.Center);
-        _planCard.ZIndex = 30; // popup above everything
+        _planCard.ZIndex = 30; // popup above everything（有效 50——展开面板 32 之上）
     }
 
     // ---- construction ------------------------------------------------------
@@ -337,6 +346,7 @@ public sealed partial class SystemPanel : Control
         bevel.AddThemeConstantOverride("margin_bottom", 4);
 
         var body = Separation(new VBoxContainer(), 4);
+        body.Name = "Body"; // 行容器（--shot t166 行矩形取景探针定位名）
 
         var titleRow = new HBoxContainer();
         _panelTitle = DimLabel("◆ 系统全息面板");
@@ -366,6 +376,8 @@ public sealed partial class SystemPanel : Control
         {
             Text = GhostHint,
             MouseFilter = MouseFilterEnum.Ignore,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart, // T-166：入侧列纵排——300 带宽内换行（单行 440px 撑宽根因收口）
+            CustomMinimumSize = new Vector2(300, 0), // ci-allow: R7 T-166 提示行带宽（换行基宽——0 宽换行会把最小高算成逐字塔）
         };
         _ghostHint.AddThemeFontSizeOverride("font_size", 10);
         _ghostHint.AddThemeColorOverride("font_color", new Color(HoloSkin.TextDimCyan, 0.6f));
@@ -377,6 +389,8 @@ public sealed partial class SystemPanel : Control
         {
             Text = WebUiSurfaces.AiAdvancedSyntaxHintZh,
             MouseFilter = MouseFilterEnum.Ignore,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart, // T-166：同 ghost——侧列带宽内换行
+            CustomMinimumSize = new Vector2(300, 0), // ci-allow: R7 T-166 提示行带宽（换行基宽同 ghost）
         };
         _aiSyntaxHint.AddThemeFontSizeOverride("font_size", 10);
         _aiSyntaxHint.AddThemeColorOverride("font_color", new Color(1.00f, 0.84f, 0.40f, 0.9f));
@@ -415,14 +429,21 @@ public sealed partial class SystemPanel : Control
         _l2Banner.AddThemeFontSizeOverride("font_size", 10);
         _l2Banner.AddThemeColorOverride("font_color", Colors.White); // 中性横幅：白字（§10.7 先例）
 
-        var reportRow = Separation(new HBoxContainer(), 6);
-        // T-163（C 批军师立绘位）+T-165 井位升格（36→64——53 号文 P1-2：人格
-        // 资产上位，立绘区与信息区重平衡：报告区 300→236 让位）。
+        var mainRow = Separation(new HBoxContainer(), 6);
+        // T-163（军师立绘位）+T-165（井位 36→64）+T-166 版式重构（64→96——
+        // T-165 遗留①收口）：立绘 96 档上位；信息区改立绘右侧纵排（信任带/
+        // 报告/军令示例/AI 语法提示/档位提示五件叠放进侧列）；报告宽 300 回
+        // T-163 基线带宽（T-165 压 236 的可读性降档解除）；行高 96 由立绘定
+        // （侧列 ~110 上下——ExpandMode=IgnoreSize 是关键：TextureRect 缺省
+        // KeepSize 会把 256 素材原尺寸当最小值，立绘档位常量形同虚设——
+        // 256 高报告行撑爆画布的根因）。
         _avatar = new TextureRect
         {
             Texture = BuildAvatarTexture(),
             CustomMinimumSize = new Vector2(HudIconDecisions.AdvisorPortraitPx, HudIconDecisions.AdvisorPortraitPx),
-            StretchMode = TextureRect.StretchModeEnum.Scale,
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, // 展示档位=常量 96（素材 256 仅缩放显示——零重生成）
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, // 正方等比（侧列 118 高行内不拉伸畸变）
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, // 96×96 居中（行高由侧列主导时不被竖拉）
             MouseFilter = MouseFilterEnum.Ignore,
         };
 
@@ -438,6 +459,7 @@ public sealed partial class SystemPanel : Control
         _trustMark.AddThemeFontSizeOverride("font_size", 10); // T-165：徽记小字 9→10
         _avatar.AddChild(_trustMark);
 
+        var reportSide = Separation(new VBoxContainer(), 2);
         _trustLabel = new Label
         {
             Text = "信任·可托付",
@@ -450,23 +472,24 @@ public sealed partial class SystemPanel : Control
         {
             Text = "军师待命。下单后我会先出方案卡，你确认再动手。",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            CustomMinimumSize = new Vector2(236, 0), // T-165：300→236（64px 立绘让位后的重平衡带宽）
+            CustomMinimumSize = new Vector2(300, 0), // T-166：236→300（T-163 基线带宽回位——可读性零降档反升）
             MouseFilter = MouseFilterEnum.Ignore,
         };
         _reportText.AddThemeFontSizeOverride("font_size", 11);
         _reportText.AddThemeColorOverride("font_color", HoloSkin.TextDimCyan);
-        reportRow.AddChild(_avatar);
-        reportRow.AddChild(_trustLabel);
-        reportRow.AddChild(_reportText);
+        reportSide.AddChild(_trustLabel);
+        reportSide.AddChild(_reportText);
+        reportSide.AddChild(_ghostHint);       // T-166：提示三件从整幅横行收进侧列（纵向预算让位 96 立绘）
+        reportSide.AddChild(_aiSyntaxHint);
+        reportSide.AddChild(_l2TierHint);
+        mainRow.AddChild(_avatar);
+        mainRow.AddChild(reportSide);
 
         body.AddChild(titleRow);
         body.AddChild(orderRow);
-        body.AddChild(_ghostHint);
-        body.AddChild(_aiSyntaxHint);
         body.AddChild(wheelRow);
-        body.AddChild(_l2TierHint);
-        body.AddChild(_l2Banner);
-        body.AddChild(reportRow);
+        body.AddChild(mainRow);
+        body.AddChild(_l2Banner); // 降级横幅仍整幅末行（隐藏=0px；出现时纵排余量内如实生长）
         bevel.AddChild(body);
         _expandedPanel.AddChild(scan);
         _expandedPanel.AddChild(bevel);
@@ -634,6 +657,17 @@ public sealed partial class SystemPanel : Control
 
     /// <summary>AI-advanced-syntax hint visible right now (T-110 smoke probe).</summary>
     internal bool AiSyntaxHintVisible => _aiSyntaxHint is { Visible: true };
+
+    // —— T-166 取景探针（--shot t166：96 档立绘上屏+报告区版式的真矩形证据位） ——
+
+    /// <summary>展开面板全局矩形（画布域；未展开=null——01-advisor-96 全景取景）.</summary>
+    internal Rect2? ExpandedPanelGlobalRect => _expandedPanel.Visible ? _expandedPanel.GetGlobalRect() : null;
+
+    /// <summary>军师立绘全局矩形（画布域——96 档上屏的像素证据位）.</summary>
+    internal Rect2? AvatarGlobalRect => _avatar.Visible ? _avatar.GetGlobalRect() : null;
+
+    /// <summary>报告文字全局矩形（画布域——报告区特写取景+可读性观测位）.</summary>
+    internal Rect2? ReportGlobalRect => _reportText.Visible ? _reportText.GetGlobalRect() : null;
 
     private void OnReenablePressed() => SetSystemEnabled(true);
 

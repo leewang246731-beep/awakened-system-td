@@ -313,6 +313,10 @@ public sealed partial class SettingsPanelUi : Control
         UiFeel.ApplyLineEditSkin(_baseUrlInput, era);
         UiFeel.ApplyLineEditSkin(_keyInput, era);
         UiFeel.ApplyLineEditSkin(_modelInput, era);
+        if (GetNodeOrNull<ScrollContainer>("Scroll") is { } formScroll)
+        {
+            UiFeel.ApplyScrollBarSkin(formScroll, era); // T-166：设置页滚动条像素皮肤（e5 时代色——53 号文 P1-1 收尾件）
+        }
         foreach (Node node in FindChildren("*", nameof(CheckBox), recursive: true, owned: false))
         {
             if (node is CheckBox check)

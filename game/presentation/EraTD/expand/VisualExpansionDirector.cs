@@ -295,6 +295,9 @@ public sealed partial class VisualExpansionDirector : Control
     /// 中心可伸缩；"切九宫格"的引擎原生形态，不切文件）；缺图回退色相 HoloBox
     /// （仅换边框主色）。信息结构零改动。palette_shift 演出（CinematicDirector）
     /// 与本 API 共用 EraColor 作为渐变端点。
+    /// T-166 内容内距解耦：九宫 patch 边距只管绘制分区；内容边距（缺省=跟随
+    /// patch 边距，1024 素材≈129px/侧）显式钉 6px——面板内距不再被装饰边厚
+    /// 度绑架（军师面板 675px 高溢出画布的根因；绘制零改动）。
     /// </summary>
     internal bool ApplyEraSkin(PanelContainer panel, string eraKey)
     {
@@ -305,6 +308,10 @@ public sealed partial class VisualExpansionDirector : Control
             int margin = Math.Max(1, Math.Min(texture.GetWidth(), texture.GetHeight()) / 8);
             var box = new StyleBoxTexture { Texture = texture };
             box.SetTextureMarginAll(margin);
+            box.ContentMarginLeft = 6f;   // ci-allow: R7 T-166 皮肤盒内容内距 px（表现层排版，非平衡数值）
+            box.ContentMarginRight = 6f;
+            box.ContentMarginTop = 6f;
+            box.ContentMarginBottom = 6f;
             panel.AddThemeStyleboxOverride("panel", box);
             return true;
         }

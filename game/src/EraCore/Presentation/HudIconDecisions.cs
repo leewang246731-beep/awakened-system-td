@@ -51,10 +51,11 @@ public static class HudIconDecisions
 
     /// <summary>
     /// 军师立绘档位（px；256×256 立绘在军师面板 report 行的展示位）。T-165
-    /// 井位升格 36→64（53 号文 P1-2：人格资产已备而未上位——64~96 档取 64，
-    /// 军师面板 360 宽内容带的安全上界）。
+    /// 井位升格 36→64（53 号文 P1-2）；T-166 清账批 64→96（业主令零遗留——
+    /// 面板版式重构落地：报告区改立绘右侧纵排（信任带+报告叠放），报告宽
+    /// 236 不缩，96 档在 360 宽内容带内成立——T-165 遗留①收口）。
     /// </summary>
-    public const int AdvisorPortraitPx = 64; // ci-allow: R7 T-165 表现层排版档位（立绘展示 px，非平衡数值）
+    public const int AdvisorPortraitPx = 96; // ci-allow: R7 T-166 表现层排版档位（立绘展示 px，非平衡数值）
 
     /// <summary>
     /// 建造栏槽位快捷键序列（按槽位序；跳 R/C——既有整行/整列快捷零回退）：

@@ -184,6 +184,7 @@ public sealed partial class ReplayUi : Control
             CustomMinimumSize = new Vector2(330, 150),
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
+        UiFeel.ApplyScrollBarSkin(scroll, HoloSkin.EdgeCyan); // T-166：战报滚动区像素滚动条（骨架面=中性青）
         scroll.AddChild(_eventBox);
 
         var exportRow = new HBoxContainer();

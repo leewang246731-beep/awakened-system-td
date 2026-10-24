@@ -620,7 +620,8 @@ namespace EraTD;
     /// <c>--shot-open &lt;入口键&gt;</c>（campaign/endless/procedural/net/
     /// settings/quit——视频帧证据截完后经真按钮信号链点入再截过渡帧）/
     /// <c>--shot-plan &lt;编排名&gt;</c>（T-162：level-cards=B 批选关卡片
-    /// 五段编排——章节全景/卡片特写/模式卡/锁态，全程真按钮信号+真滚轮）。
+    /// 五段编排——章节全景/卡片特写/模式卡/锁态，全程真按钮信号+真滚轮；
+    /// T-163：battle-hud；T-164：skin-polish；T-166：t166=审美遗留清账批）。
     /// 引擎参数与用户参数（<c>--</c> 后）都扫（Godot 推荐用户参数走
     /// <c>--</c> 分隔，直发引擎名空间也容错）。目录相对 cwd 解析为绝对。
     /// 窗口车道专用（headless 分叉后本方法只在窗口态被调用）。
@@ -771,6 +772,12 @@ namespace EraTD;
             if (_plan == "skin-polish")
             {
                 PumpSkinPolish();
+                return;
+            }
+
+            if (_plan == "t166")
+            {
+                PumpT166();
                 return;
             }
 
@@ -1483,13 +1490,13 @@ namespace EraTD;
                 (int)(216 * scale.X), (int)(92 * scale.Y));
         }
 
-        /// <summary>军师面板特写取景（窗口像素域=画布 (0,160)-(370,360)×整数放大）.</summary>
+        /// <summary>军师面板特写取景（T-166 居中模态位后：窗口像素域=画布 (0,28)-(560,300)×整数放大）.</summary>
         private Rect2I AdvisorPanelCropRegion()
         {
             Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
             return new Rect2I(
-                0, (int)(160 * scale.Y),
-                (int)(370 * scale.X), (int)(200 * scale.Y));
+                0, (int)(28 * scale.Y),
+                (int)(560 * scale.X), (int)(272 * scale.Y));
         }
 
         /// <summary>真 F1 键事件（与玩家敲 F1 同一条输入链——词汇抽屉开合）.</summary>
@@ -1553,6 +1560,457 @@ namespace EraTD;
                 Position = windowPosition,
                 GlobalPosition = windowPosition,
             });
+
+        // ------------------------------------- T-166 t166 编排（审美遗留清账批验收）
+
+        /// <summary>
+        /// T-166 清账批真信号编排（--shot-plan t166）：
+        /// ①进 E1-01 展开军师面板→<c>01-advisor-96.png</c>（96 档立绘全景+报告区
+        /// 特写拼一图——探针行带面板/立绘/报告真矩形，画布域像素证据）；
+        /// ②选关面板中段滚动→设置页→<c>02-scrollbar.png</c>（像素滚动条两面：
+        /// 选关滚动区右缘带+设置页表单滚动带）；
+        /// ③设置页滚到数字框段→<c>03-spinbox-arrows.png</c>（SpinBox 上下箭头
+        /// 像素件特写——updown 图标覆写证据）；
+        /// ④顺手修前后对照 raw 带：<c>04a-hud-band</c>（D2 CloneFlat 合一后 HUD
+        /// 框同像素）/<c>04b-locked-band</c>（D1 暗边单源后锁卡描边同像素）/
+        /// <c>04c-settings-lineedit-band</c>（D3 缓存后文本框皮肤同像素）——与
+        /// HEAD 前帧（w10-e/raw + w10-f/raw-before）离线拼 04 对照图。全程真按钮
+        /// Pressed 信号+真滚轮/键盘事件，零伪造。
+        /// </summary>
+        private Image? _t166CampaignScrollBand;
+        private Image? _t166SettingsScrollBand;
+        private ulong _t166Stamp;
+        private int _t166WheelBudget; // 设置页滚到目标行的滚轮预算（防不可达死循环）
+        private Image? _t166HudBandAfter;      // 04a 后帧（D2 CloneFlat 合一同像素证据）
+        private Image? _t166LockedBandAfter;   // 04b 后帧（D1 DimEdge 单源同像素证据）
+        private Image? _t166LineEditBandAfter; // 04c 后帧（D3 缓存后同像素证据）
+        private Rect2 _t166LineEditBandCanvas; // 04c 带画布域（前帧同域裁剪的定位位）
+
+        private void PumpT166()
+        {
+            switch (_step)
+            {
+                case 0: // ①进 E1-01（真按钮链）
+                    if (Engine.GetProcessFrames() - _bornFrame >= _warmup)
+                    {
+                        _ = _main.Menu?.OpenEntry("campaign");
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 1;
+                    }
+
+                    break;
+                case 1:
+                    if (ElapsedT166(PanelSettleFrames))
+                    {
+                        if (_main.CampaignUi?.PressLevel("campaign:level-e1-01") is not true)
+                        {
+                            GD.PushError("SHOT_FAIL t166 E1-01 真信号未达");
+                            Finish();
+                            break;
+                        }
+
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 2;
+                    }
+
+                    break;
+                case 2: // HUD 顶带 raw（04a——D2 合一后同像素证据）+展开军师
+                    if (ElapsedT166(BattleSettleFrames))
+                    {
+                        _t166HudBandAfter = CropImage(HudTopBandRegion());
+                        SaveBand("04a-hud-band.png", _t166HudBandAfter);
+                        _main.AdvisorPanel.Expand(); // 军师面板展开（battle-hud 编排同一入口）
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 3;
+                    }
+
+                    break;
+                case 3: // 01-advisor-96：全景+报告区特写拼一图（探针行=真矩形证据）
+                    if (ElapsedT166(PanelOpenSettleFrames))
+                    {
+                        SystemPanel panel = _main.AdvisorPanel;
+                        GD.Print(
+                            $"SHOT_PROBE t166 advisor panel={panel.ExpandedPanelGlobalRect} " +
+                            $"avatar={panel.AvatarGlobalRect} report={panel.ReportGlobalRect} " +
+                            $"portrait_loaded={panel.PortraitLoaded}");
+                        foreach (string row in WidestPanelRowsDesc(panel))
+                        {
+                            GD.Print($"SHOT_PROBE t166 row {row}");
+                        }
+                        Image full = CropImage(CanvasRegion(0, 28, 560, 272)); // 全景带（居中模态面板全域+战场邻接）
+                        Image closeup = CropImage(ProbeBandRegion(
+                            panel.AvatarGlobalRect, panel.ReportGlobalRect, pad: 8)); // 立绘+报告特写
+                        StitchBands("01-advisor-96.png", full, closeup);
+                        _main.CampaignUi?.PressExitLevel(); // 真信号：存档退出（回菜单）
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 4;
+                    }
+
+                    break;
+                case 4: // ②选关滚动条 A 面（重开面板）
+                    if (_main.Menu is { MenuShown: true })
+                    {
+                        _ = _main.Menu?.OpenEntry("campaign");
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 5;
+                    }
+
+                    break;
+                case 5: // 中段滚动（滚动条吃行程——滑块中部+箭头钮同帧可见）
+                    if (ElapsedT166(PanelSettleFrames))
+                    {
+                        _wheelRemaining = 12; // 真滚轮 12 档（≈中段）
+                        WarpMouseCanvas(_main, new Vector2(320f, 180f));
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 6;
+                    }
+
+                    break;
+                case 6:
+                    if (!DrainWheelT166())
+                    {
+                        break;
+                    }
+
+                    if (ElapsedT166(ScrollSettleFrames))
+                    {
+                        _t166CampaignScrollBand = CropImage(CanvasRegion(548, 22, 92, 332)); // 选关面右缘滚动带
+                        _wheelRemaining = LockedChapterWheelNotches; // 滚到底（锁带取证）
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 7;
+                    }
+
+                    break;
+                case 7:
+                    if (!DrainWheelT166())
+                    {
+                        break;
+                    }
+
+                    if (ElapsedT166(ScrollSettleFrames))
+                    {
+                        _t166LockedBandAfter = CropImage(LockedChapterCropRegion());
+                        SaveBand("04b-locked-band.png", _t166LockedBandAfter); // 04b——D1 单源后锁卡描边同像素
+                        _main.CampaignUi?.PressMenuReturn(); // 真信号：返回主菜单
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 8;
+                    }
+
+                    break;
+                case 8: // ③设置页（滚动条 B 面+数字框/文本框段滚动）
+                    if (_main.Menu is { MenuShown: true } && ElapsedT166(PanelSettleFrames))
+                    {
+                        _ = _main.Menu?.OpenEntry("settings");
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 9;
+                    }
+
+                    break;
+                case 9: // 首启声明模态在位=真按钮确认关掉（披露先于取景——不清障截图失义）
+                    if (ElapsedT166(PanelSettleFrames))
+                    {
+                        if (_main.SettingsUi.GetNodeOrNull<ColorRect>("DisclosureOverlay") is { Visible: true }
+                            && _main.SettingsUi.GetNodeOrNull<Button>(
+                                "DisclosureOverlay/DisclosureBox/VBox/ConfirmButton") is { } confirm)
+                        {
+                            _ = confirm.EmitSignal(Button.SignalName.Pressed);
+                            _t166Stamp = Engine.GetProcessFrames();
+                            _step = 10; // 关模态→回到本态截滚动带
+                            break;
+                        }
+
+                        _t166SettingsScrollBand = CropImage(CanvasRegion(588, 8, 52, 344)); // 设置面右缘滚动带
+                        _t166WheelBudget = 64; // 滚到 BYOK 文本框段的滚轮预算
+                        _wheelRemaining = 0;
+                        WarpMouseCanvas(_main, new Vector2(320f, 180f));
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 11;
+                    }
+
+                    break;
+                case 10: // 模态关掉落定→截滚动带→并入滚段
+                    if (ElapsedT166(PanelSettleFrames))
+                    {
+                        _t166SettingsScrollBand = CropImage(CanvasRegion(588, 8, 52, 344));
+                        _t166WheelBudget = 64;
+                        _wheelRemaining = 0;
+                        WarpMouseCanvas(_main, new Vector2(320f, 180f));
+                        _t166Stamp = Engine.GetProcessFrames();
+                        _step = 11;
+                    }
+
+                    break;
+                case 11: // 逐帧小步真滚轮→文本框带进视口即截（04c——D3 缓存后同像素）
+                    {
+                        if (T166LineEditBandRect() is { } band)
+                        {
+                            GD.Print($"SHOT_PROBE t166 lineedit_band={band}"); // 带画布域（前帧同域裁剪定位位）
+                            _t166LineEditBandCanvas = band;
+                            _t166LineEditBandAfter = CropImage(ProbeBandRectOnly(band, pad: 6));
+                            SaveBand("04c-settings-lineedit-band.png", _t166LineEditBandAfter);
+                            _t166WheelBudget = 48; // 继续滚到数字框段
+                            _step = 12;
+                            break;
+                        }
+
+                        if (_t166WheelBudget <= 0)
+                        {
+                            GD.PushError("SHOT_FAIL t166 文本框段滚轮预算尽（表单带未进视口）");
+                            Finish();
+                            break;
+                        }
+
+                        EmitWheel(_main, MouseButton.WheelDown, MouseAtScale(_main, new Vector2(320f, 180f)));
+                        _t166WheelBudget--;
+                        break;
+                    }
+
+                case 12: // 逐帧小步真滚轮→数字框带进视口即截（03-spinbox-arrows 特写）
+                    {
+                        if (T166SpinBoxBandRect() is { } spinBand)
+                        {
+                            StitchBands(
+                                "02-scrollbar.png", _t166CampaignScrollBand, _t166SettingsScrollBand); // 两面拼一图
+                            SaveBand("03-spinbox-arrows.png", CropImage(ProbeBandRectOnly(spinBand, pad: 6)));
+                            _step = 13; // 04 对照拼图（前帧由 shot 目录同裁剪/同域装载）
+                            break;
+                        }
+
+                        if (_t166WheelBudget <= 0)
+                        {
+                            GD.PushError("SHOT_FAIL t166 数字框段滚轮预算尽（SpinBox 带未进视口）");
+                            Finish();
+                            break;
+                        }
+
+                        EmitWheel(_main, MouseButton.WheelDown, MouseAtScale(_main, new Vector2(320f, 180f)));
+                        _t166WheelBudget--;
+                        break;
+                    }
+
+                case 13: // 04-顺手修前后对照：三行 [HEAD 前帧|本批后帧] 横对纵叠
+                    StitchFixesBeforeAfter();
+                    Finish();
+                    break;
+            }
+        }
+
+        /// <summary>shot 目录同件装载（前帧侧车件——无该文件=null，调用方如实降级）.</summary>
+        private Image? LoadBand(string file)
+        {
+            string path = System.IO.Path.Combine(_dir, file);
+            return Godot.FileAccess.FileExists(path) ? Image.LoadFromFile(path) : null; // CS0104：Main 双 FileAccess 命名空间——Godot 侧显式限定
+        }
+
+        /// <summary>两带水平拼接为 [前|后] 对（缺前帧=仅后帧半行+PushError）.</summary>
+        private Image PairBand(string label, Image? before, Image after)
+        {
+            if (before is null)
+            {
+                GD.PushError($"SHOT_FAIL 04 行 {label} 前帧缺失（shot 目录无侧车件）——该行仅后帧");
+                return after;
+            }
+
+            var pair = Image.CreateEmpty(before.GetWidth() + after.GetWidth(), int.Max(before.GetHeight(), after.GetHeight()), false, Image.Format.Rgba8);
+            pair.BlitRect(before, new Rect2I(Vector2I.Zero, before.GetSize()), Vector2I.Zero);
+            pair.BlitRect(after, new Rect2I(Vector2I.Zero, after.GetSize()), new Vector2I(before.GetWidth(), 0));
+            return pair;
+        }
+
+        /// <summary>
+        /// 04-顺手修前后对照拼图（三行 [前|后] 纵叠）：hud 带（D2 CloneFlat 合一——
+        /// 前帧=w10-e HEAD 全帧同域裁剪）/锁章节带（D1 DimEdge 单源——前帧=HEAD
+        /// 既有带件直载）/设置文本框带（D3 静态缓存——前帧=HEAD 设置页全帧同画布域
+        /// 裁剪；HEAD 滚位与后帧同滚轮序——同域可比，REV 披露）。缺前帧行如实降级。
+        /// </summary>
+        private void StitchFixesBeforeAfter()
+        {
+            var rows = new List<Image>();
+            Image? hudBeforeFull = LoadBand("before-full-battle.png");
+            Image? hudBefore = hudBeforeFull is null ? LoadBand("before-04a-hud-band.png") : hudBeforeFull.GetRegion(HudTopBandRegion());
+            rows.Add(PairBand("hud(D2)", hudBefore, _t166HudBandAfter ?? Image.CreateEmpty(1, 1, false, Image.Format.Rgba8)));
+            Image? lockedBefore = LoadBand("before-04b-locked-band.png");
+            rows.Add(PairBand("locked(D1)", lockedBefore, _t166LockedBandAfter ?? Image.CreateEmpty(1, 1, false, Image.Format.Rgba8)));
+            Image? settingsBeforeFull = LoadBand("before-full-settings.png");
+            Image? lineEditBefore = settingsBeforeFull is null
+                ? LoadBand("before-04c-settings-lineedit-band.png")
+                : settingsBeforeFull.GetRegion(ProbeBandRectOnly(_t166LineEditBandCanvas, pad: 6));
+            rows.Add(PairBand("settings-lineedit(D3)", lineEditBefore, _t166LineEditBandAfter ?? Image.CreateEmpty(1, 1, false, Image.Format.Rgba8)));
+
+            int width = rows.Max(row => row.GetWidth());
+            var stitched = Image.CreateEmpty(width, rows.Sum(row => row.GetHeight()), false, Image.Format.Rgba8);
+            int y = 0;
+            foreach (Image row in rows)
+            {
+                stitched.BlitRect(row, new Rect2I(Vector2I.Zero, row.GetSize()), new Vector2I(0, y));
+                y += row.GetHeight();
+            }
+
+            SaveBand("04-fixes-ba.png", stitched);
+        }
+
+        /// <summary>距上次时间戳的帧数是否已达（t166 步进钟）.</summary>
+        private bool ElapsedT166(ulong frames) => Engine.GetProcessFrames() - _t166Stamp >= frames;
+
+        /// <summary>展开面板各行矩形（取景诊断：body VBox 直子行——宽高事实）.</summary>
+        private static IEnumerable<string> WidestPanelRowsDesc(SystemPanel panel)
+        {
+            foreach (Node direct in panel.ExpandSkinTarget.GetChildren())
+            {
+                if (direct is Control shell)
+                {
+                    yield return $"shell {shell.Name}={shell.GetGlobalRect()}";
+                }
+            }
+
+            foreach (Node box in panel.ExpandSkinTarget.FindChildren("*", nameof(VBoxContainer), recursive: true, owned: false))
+            {
+                if (box is not VBoxContainer body || body.Name != "Body")
+                {
+                    continue;
+                }
+
+                foreach (Node child in body.GetChildren())
+                {
+                    if (child is Control row)
+                    {
+                        yield return $"{row.Name}={row.GetGlobalRect()}";
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 真滚轮余量帧泵排空（每帧 4 档——level-cards 编排同律）。排尽=true；
+        /// 排尽帧重置 <c>_t166Stamp</c>（后续 Elapsed 的落定钟从最后一个滚轮
+        /// 事件起算——惯性/重绘落定不被提前满足）。
+        /// </summary>
+        private bool DrainWheelT166()
+        {
+            if (_wheelRemaining <= 0)
+            {
+                return true;
+            }
+
+            Vector2 at = MouseAtScale(_main, new Vector2(320f, 180f));
+            for (int i = 0; i < 4 && _wheelRemaining > 0; i++, _wheelRemaining--)
+            {
+                EmitWheel(_main, MouseButton.WheelDown, at);
+            }
+
+            if (_wheelRemaining <= 0)
+            {
+                _t166Stamp = Engine.GetProcessFrames();
+            }
+
+            return _wheelRemaining <= 0;
+        }
+
+        /// <summary>画布域坐标→窗口域（final transform 整数放大轨）.</summary>
+        private static Vector2 MouseAtScale(Main main, Vector2 canvasPosition) =>
+            canvasPosition * main.GetViewport().GetFinalTransform().Scale;
+
+        /// <summary>画布域矩形→窗口域裁剪区（px 取整）.</summary>
+        private Rect2I CanvasRegion(int x, int y, int width, int height)
+        {
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            return new Rect2I((int)(x * scale.X), (int)(y * scale.Y), (int)(width * scale.X), (int)(height * scale.Y));
+        }
+
+        /// <summary>探针矩形带（画布域矩形外扩 pad——窗口域取景；b 并入同带）.</summary>
+        private Rect2I ProbeBandRegion(Rect2? a, Rect2? b, int pad)
+        {
+            Rect2 band = a ?? b ?? new Rect2(0, 0, 640, 360);
+            if (a is { } rect && b is { } other)
+            {
+                band = rect.Expand(other.Position + other.Size);
+            }
+
+            return ProbeBandRectOnly(band, pad);
+        }
+
+        /// <summary>画布域矩形→外扩 pad 的窗口域裁剪区（钳回画布 640×360 域）.</summary>
+        private Rect2I ProbeBandRectOnly(Rect2 band, int pad)
+        {
+            Vector2 scale = _main.GetViewport().GetFinalTransform().Scale;
+            band = band.Grow(pad);
+            band = new Rect2(
+                Mathf.Clamp(band.Position.X, 0f, 640f), Mathf.Clamp(band.Position.Y, 0f, 360f),
+                0f, 0f).Expand(
+                    new Vector2(Mathf.Clamp(band.Position.X + band.Size.X, 0f, 640f),
+                        Mathf.Clamp(band.Position.Y + band.Size.Y, 0f, 360f)));
+            return new Rect2I(
+                (int)(band.Position.X * scale.X), (int)(band.Position.Y * scale.Y),
+                (int)Math.Max(1f, band.Size.X * scale.X), (int)Math.Max(1f, band.Size.Y * scale.Y));
+        }
+
+        /// <summary>BYOK 三文本框（BaseUrl/Key/Model——SpinBox 内嵌框除外）进视口的并集带（画布域；未进视口=null）.</summary>
+        private Rect2? T166LineEditBandRect()
+        {
+            Rect2? band = null;
+            foreach (Node node in _main.SettingsUi.FindChildren("*", nameof(LineEdit), recursive: true, owned: false))
+            {
+                if (node is not LineEdit edit || edit.GetParent() is SpinBox || !edit.Visible)
+                {
+                    continue;
+                }
+
+                Rect2 rect = edit.GetGlobalRect();
+                if (rect.Position.Y < 8f || rect.End.Y > 352f)
+                {
+                    continue; // 不在设置页视口带（画布 640×360 域）
+                }
+
+                band = band is { } seen ? seen.Expand(rect.End) : rect;
+            }
+
+            return band;
+        }
+
+        /// <summary>进视口的前三个 SpinBox 并集带（画布域；未进视口=null）.</summary>
+        private Rect2? T166SpinBoxBandRect()
+        {
+            Rect2? band = null;
+            int seen = 0;
+            foreach (Node node in _main.SettingsUi.FindChildren("*", nameof(SpinBox), recursive: true, owned: false))
+            {
+                if (node is not SpinBox spin || !spin.Visible)
+                {
+                    continue;
+                }
+
+                Rect2 rect = spin.GetGlobalRect();
+                if (rect.Position.Y < 8f || rect.End.Y > 352f)
+                {
+                    continue;
+                }
+
+                band = band is { } prior ? prior.Expand(rect.End) : rect;
+                if (++seen >= 3)
+                {
+                    break;
+                }
+            }
+
+            return band;
+        }
+
+        /// <summary>真帧裁剪带落盘（raw 归档件——04 对照图的 after 半边）.</summary>
+        private void SaveBand(string name, Image band)
+        {
+            string path = System.IO.Path.Combine(_dir, name);
+            if (band.SavePng(path) == Error.Ok)
+            {
+                _files++;
+                GD.Print(
+                    $"SHOT file={name} frame={Engine.GetProcessFrames()} " +
+                    $"size={band.GetWidth()}x{band.GetHeight()}");
+            }
+            else
+            {
+                GD.PushError($"SHOT_FAIL file={name} save failed");
+            }
+        }
 
         /// <summary>画布域坐标→窗口域真鼠标移动（final transform 缩放——整数放大轨）.</summary>
         private static void WarpMouseCanvas(Main main, Vector2 canvasPosition)

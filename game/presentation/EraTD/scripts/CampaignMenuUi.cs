@@ -168,6 +168,7 @@ public sealed partial class CampaignMenuUi : Control
             Size = new Vector2(624, 332),
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
+        UiFeel.ApplyScrollBarSkin(_panel, HoloSkin.EdgeCyan); // T-166：滚动条像素皮肤（跨时代面=中性青，StyleHeaderButton 同口径）
         var rows = new VBoxContainer();
         rows.AddThemeConstantOverride("separation", 6);
 
@@ -679,8 +680,10 @@ public sealed partial class CampaignMenuUi : Control
         {
             BgColor = new Color(0.05f, 0.06f, 0.09f, 0.92f),
             // T-165：锁卡描边灰→时代色暗变体（53 号文 P2-4「锁遮罩灰与时代色
-            // 并存显脏」——锁态降为时代色阶的暗部，不再引入第二族灰）
-            BorderColor = new Color(era.R * 0.45f + 0.06f, era.G * 0.45f + 0.07f, era.B * 0.45f + 0.09f, 0.9f),
+            // 并存显脏」——锁态降为时代色阶的暗部，不再引入第二族灰）；
+            // T-166：暗边公式收 UiFeel.DimEdge 单源（原与 OptionButton
+            // disabled 边双份同式）
+            BorderColor = UiFeel.DimEdge(era),
         };
         SetCardBorder(disabled, 2);
 

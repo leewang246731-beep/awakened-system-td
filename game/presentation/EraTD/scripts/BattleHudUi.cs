@@ -306,17 +306,9 @@ public sealed partial class BattleHudUi : Control
 
         Color fromBg = fromBox.BgColor;
         Color fromEdge = fromBox.BorderColor;
-        var live = new StyleBoxFlat
-        {
-            BgColor = fromBg,
-            BorderColor = fromEdge,
-            BorderWidthLeft = fromBox.BorderWidthLeft,
-            BorderWidthTop = fromBox.BorderWidthTop,
-            BorderWidthRight = fromBox.BorderWidthRight,
-            BorderWidthBottom = fromBox.BorderWidthBottom,
-            CornerDetail = fromBox.CornerDetail,
-        };
-        live.SetCornerRadiusAll(HoloSkin.ChamferPx);
+        // T-166 双谱系合一：手搓拷贝→UiFeel.CloneFlat 单源（含 ContentMargin/
+        // CornerRadius 全量拷贝——live 盒随源盒漂移而漂移，缺项漂移源收口）。
+        StyleBoxFlat live = UiFeel.CloneFlat(fromBox);
         surface.AddThemeStyleboxOverride("panel", live);
 
         Tween tween = CreateTween();

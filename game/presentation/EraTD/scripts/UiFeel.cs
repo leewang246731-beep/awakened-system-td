@@ -12,7 +12,14 @@ namespace EraTD;
 // 件全部代码生成零二进制资产——BuildAvatarTexture 同律）；②hover 放大补间
 // helper（主菜单六卡同律，选关卡片复用）；③banner/keyart 裁切色场垫底条带
 // （BuildBannerStrip 无标题变体——满度原则：空位拿既有素材整片色场填）；
-// ④锁遮罩时代色暗变体色阶（去「脏灰」）。纪律面：
+// ④锁遮罩时代色暗变体色阶（去「脏灰」）。
+// T-166（审美遗留清账批）新增：滚动条像素皮肤族（槽/滑块三态/上下左右
+// 箭头全代码生成——选关滚动区/设置页/战报回放三面接线）+SpinBox 上下箭头
+// 像素件（theme icon「updown」覆写——4.7.2 C# 无 GetUpDown()，icon 覆写为
+// 等效单源）+era 暗边公式单源 helper（DimEdge——OptionButton disabled 与
+// 选关锁卡描边双份收口）+LineEdit 皮肤盒按色键静态缓存（与文件头声明对齐）
+// +CloneFlat 提 internal（BattleHudUi.TransitionPanelSkin 过渡 live 盒共用——
+// 含 ContentMargin 拷贝防漂移）。纪律面：
 //   - 色值经 visual-assets.json palettes 同源三级链（调用方传色——本类不
 //     持有时代数值，RL7；HoloSkin.EdgeCyan=跨时代中性回退）；
 //   - StyleBoxFlat 同拍复用不每拍新造：三态盒按时代色键静态缓存（跨面共享
@@ -31,6 +38,9 @@ namespace EraTD;
 /// T-165 adds the pixel system-widget skins (OptionButton/LineEdit/CheckBox,
 /// code-generated pixel arrow/checkbox art), the shared hover-scale tween,
 /// and the banner-cut color-bed builder (53 号文 audit fixes).
+/// T-166 (leftover-clear batch) adds the pixel ScrollBar skin family, the
+/// SpinBox updown pixel arrows, the single-source DimEdge era-dark formula,
+/// and the LineEdit static-skin cache.
 /// </summary>
 internal static class UiFeel
 {
@@ -337,6 +347,14 @@ internal static class UiFeel
     private static readonly Dictionary<string, Texture2D> _pixelBoxes = new();
 
     /// <summary>
+    /// 时代色暗变体描边（T-166 单源：原 ApplyOptionSkin disabled 边与选关锁卡
+    /// 描边双份同式（era×0.45+0.06 族）——收口一处，两调用方改引。锁态=时代
+    /// 色阶的暗部，不引入第二族灰（53 号文 P2-4 口径）。
+    /// </summary>
+    internal static Color DimEdge(Color era) => new(
+        era.R * 0.45f + 0.06f, era.G * 0.45f + 0.07f, era.B * 0.45f + 0.09f, 0.9f);
+
+    /// <summary>
     /// 下拉 OptionButton 像素皮肤（53 号文 P1-1 修法）：暗底+足饱和时代色 2px
     /// 描边三态盒（ButtonTriple 同族色阶律）+9×5 像素箭头（icon_normal_color
     /// 着色——高分辨率系统箭头退位）+弹出清单时代色框（panel/hover 两态）。
@@ -348,7 +366,7 @@ internal static class UiFeel
         StyleBoxFlat focus = CloneFlat(hover);
         SetBorder(focus, 3); // 焦点态=3px 提亮边（键盘/程序焦点可见——P1-3）
         StyleBoxFlat disabled = CloneFlat(normal);
-        disabled.BorderColor = new Color(era.R * 0.45f + 0.06f, era.G * 0.45f + 0.07f, era.B * 0.45f + 0.09f, 0.9f);
+        disabled.BorderColor = DimEdge(era); // T-166：暗边公式单源（原双份同式收口）
         box.AddThemeStyleboxOverride("normal", normal);
         box.AddThemeStyleboxOverride("hover", hover);
         box.AddThemeStyleboxOverride("pressed", pressed);
@@ -390,28 +408,40 @@ internal static class UiFeel
         popup.AddThemeColorOverride("font_selected_color", Colors.White);
     }
 
+    /// <summary>文本框皮肤盒静态缓存（键=时代色 HTML 码；T-166 与文件头「按色键静态缓存」声明对齐）.</summary>
+    private static readonly Dictionary<string, (StyleBoxFlat Normal, StyleBoxFlat Focus)> _lineEditPairs = new();
+
     /// <summary>
     /// 文本框 LineEdit 像素皮肤（P1-1/P1-3）：暗底+时代色暗变体 2px 边；
     /// 焦点态=足饱和时代色边（提亮阶——焦点痕迹可见）；光标/选区带时代色。
+    /// T-166：盒对按色键静态缓存——每调用新造收口（调用面：设置页三框/
+    /// 程序关种子框/军令框，共享一份实例；StyleBox 覆写持引用共享安全）。
     /// </summary>
     internal static void ApplyLineEditSkin(LineEdit input, Color era)
     {
-        var normal = new StyleBoxFlat
+        string key = era.ToHtml();
+        if (!_lineEditPairs.TryGetValue(key, out (StyleBoxFlat Normal, StyleBoxFlat Focus) pair))
         {
-            BgColor = new Color(0.07f, 0.09f, 0.13f, 0.95f), // ci-allow: R7 T-165 文本框底色（表现层）
-            BorderColor = new Color(era.R * 0.55f, era.G * 0.55f, era.B * 0.55f, 0.95f),
-            ContentMarginLeft = 6f,
-            ContentMarginRight = 6f,
-            ContentMarginTop = 3f,
-            ContentMarginBottom = 3f,
-        };
-        SetBorder(normal, 2);
-        SetRadius(normal, 2);
-        var focus = CloneFlat(normal);
-        focus.BorderColor = era;
-        focus.BgColor = new Color(0.09f, 0.11f, 0.16f, 0.97f); // ci-allow: R7 T-165 文本框焦点底色（表现层）
-        input.AddThemeStyleboxOverride("normal", normal);
-        input.AddThemeStyleboxOverride("focus", focus);
+            var normal = new StyleBoxFlat
+            {
+                BgColor = new Color(0.07f, 0.09f, 0.13f, 0.95f), // ci-allow: R7 T-165 文本框底色（表现层）
+                BorderColor = new Color(era.R * 0.55f, era.G * 0.55f, era.B * 0.55f, 0.95f),
+                ContentMarginLeft = 6f,
+                ContentMarginRight = 6f,
+                ContentMarginTop = 3f,
+                ContentMarginBottom = 3f,
+            };
+            SetBorder(normal, 2);
+            SetRadius(normal, 2);
+            var focus = CloneFlat(normal);
+            focus.BorderColor = era;
+            focus.BgColor = new Color(0.09f, 0.11f, 0.16f, 0.97f); // ci-allow: R7 T-165 文本框焦点底色（表现层）
+            pair = (normal, focus);
+            _lineEditPairs[key] = pair;
+        }
+
+        input.AddThemeStyleboxOverride("normal", pair.Normal);
+        input.AddThemeStyleboxOverride("focus", pair.Focus);
         input.AddThemeColorOverride("font_color", Colors.White);
         input.AddThemeColorOverride("font_placeholder_color", new Color(0.62f, 0.68f, 0.78f, 0.8f));
         input.AddThemeColorOverride("caret_color", era);
@@ -444,12 +474,174 @@ internal static class UiFeel
         box.AddThemeColorOverride("font_disabled_color", new Color(0.55f, 0.58f, 0.64f));
     }
 
-    /// <summary>SpinBox 数字框=内嵌 LineEdit 同族皮肤（设置页数字行与文本行同律）.</summary>
-    internal static void ApplySpinBoxSkin(SpinBox box, Color era) =>
+    /// <summary>
+    /// SpinBox 数字框像素皮肤（T-166 补箭头件）：内嵌 LineEdit 同族皮肤
+    /// （设置页数字行与文本行同律）+上下箭头像素件——4.7.2 C# API 无
+    /// GetUpDown()，等效单源=theme icon「updown」覆写（9×11 像素上下双
+    /// 三角，时代色亮阶——高分辨率系统箭头退位，P1-1 同律）。
+    /// </summary>
+    internal static void ApplySpinBoxSkin(SpinBox box, Color era)
+    {
         ApplyLineEditSkin(box.GetLineEdit(), era);
+        box.AddThemeIconOverride("updown", PixelUpDown(Lift(era, 0.2f)));
+    }
 
-    /// <summary>StyleBoxFlat 浅拷贝（色值可变式过渡/派生态的安全基底——不动缓存实例）.</summary>
-    private static StyleBoxFlat CloneFlat(StyleBoxFlat source) => new()
+    // —— T-166 滚动条像素皮肤（槽+滑块三态+箭头钮全代码生成——零二进制资产） ——
+
+    /// <summary>滚动条四件盒缓存（键=时代色 HTML 码；槽/滑块三态——跨面共享一份）.</summary>
+    private static readonly Dictionary<string, (StyleBoxFlat Trough, StyleBoxFlat Grabber, StyleBoxFlat GrabberHover, StyleBoxFlat GrabberPressed)>
+        _scrollBoxSets = new();
+
+    /// <summary>着色像素三角缓存（键=色 HTML 码+方向——箭头钮三态复用）.</summary>
+    private static readonly Dictionary<string, Texture2D> _pixelTriangles = new(StringComparer.Ordinal);
+
+    /// <summary>SpinBox 上下双三角缓存（键=色 HTML 码）.</summary>
+    private static readonly Dictionary<string, Texture2D> _pixelUpDowns = new();
+
+    /// <summary>向白提亮（k=0~1——主菜单描边同式，箭头/滑块亮阶共用配方式）.</summary>
+    private static Color Lift(Color color, float k) => new(
+        color.R + (1f - color.R) * k, color.G + (1f - color.G) * k, color.B + (1f - color.B) * k);
+
+    /// <summary>
+    /// ScrollContainer 滚动条像素皮肤（纵横两杆全接——H 杆箭头换左右向）。
+    /// 选关滚动区/设置页/战报回放三面同族（跨时代面传中性青——调用方口径）。
+    /// </summary>
+    internal static void ApplyScrollBarSkin(ScrollContainer container, Color era)
+    {
+        ApplyScrollBarSkin(container.GetVScrollBar(), era);
+        ApplyScrollBarSkin(container.GetHScrollBar(), era);
+    }
+
+    /// <summary>
+    /// 单杆滚动条像素皮肤（T-165 遗留②——53 号文 P1-1 滚动条收口）：槽=暗底
+    /// +时代色暗变体 1px 框；滑块三态=时代色暗底→提亮底→加重底（ButtonTriple
+    /// 同族色阶律）；上下（左右）箭头钮=9×5 像素三角三态（normal=时代色亮
+    /// 20%、highlight=45%、pressed=白——与下拉箭头同语言）。高分辨率缺省件
+    /// 与像素风同屏的风格混血由此收口。
+    /// </summary>
+    internal static void ApplyScrollBarSkin(ScrollBar bar, Color era)
+    {
+        string key = era.ToHtml();
+        if (!_scrollBoxSets.TryGetValue(key, out (StyleBoxFlat, StyleBoxFlat, StyleBoxFlat, StyleBoxFlat) set))
+        {
+            var trough = new StyleBoxFlat
+            {
+                BgColor = new Color(0.04f, 0.06f, 0.10f, 0.92f), // ci-allow: R7 T-166 滚动槽底色（表现层）
+                BorderColor = DimEdge(era),
+                ContentMarginLeft = 4f, // 槽宽=8+2 边=10px（画布域像素档）
+                ContentMarginRight = 4f,
+            };
+            SetBorder(trough, 1);
+            var grabber = new StyleBoxFlat
+            {
+                BgColor = new Color(era.R * 0.28f + 0.05f, era.G * 0.28f + 0.06f, era.B * 0.28f + 0.09f, 0.96f), // ci-allow: R7 T-166 滑块底（表现层三态）
+                BorderColor = era,
+                ContentMarginLeft = 3f,
+                ContentMarginRight = 3f,
+                ContentMarginTop = 4f,
+                ContentMarginBottom = 4f,
+            };
+            SetBorder(grabber, 1);
+            var grabberHover = CloneFlat(grabber);
+            grabberHover.BgColor = new Color(era.R * 0.45f + 0.10f, era.G * 0.45f + 0.11f, era.B * 0.45f + 0.14f, 0.98f); // ci-allow: R7 T-166 滑块 hover 底（表现层）
+            grabberHover.BorderColor = Lift(era, 0.3f);
+            var grabberPressed = CloneFlat(grabber);
+            grabberPressed.BgColor = new Color(era.R * 0.60f + 0.15f, era.G * 0.60f + 0.15f, era.B * 0.60f + 0.18f, 0.99f); // ci-allow: R7 T-166 滑块 pressed 底（表现层）
+            grabberPressed.BorderColor = Lift(era, 0.45f);
+            set = (trough, grabber, grabberHover, grabberPressed);
+            _scrollBoxSets[key] = set;
+        }
+
+        bar.AddThemeStyleboxOverride("scroll", set.Item1);
+        bar.AddThemeStyleboxOverride("scroll_focus", set.Item1);
+        bar.AddThemeStyleboxOverride("grabber", set.Item2);
+        bar.AddThemeStyleboxOverride("grabber_highlight", set.Item3);
+        bar.AddThemeStyleboxOverride("grabber_pressed", set.Item4);
+        bool horizontal = bar is HScrollBar; // H 杆：increment=右向/decrement=左向
+        foreach ((string suffix, float lift) in new[] { (string.Empty, 0.2f), ("_highlight", 0.45f), ("_pressed", 1f) })
+        {
+            Color tint = lift >= 1f ? Colors.White : Lift(era, lift);
+            bar.AddThemeIconOverride(
+                "increment" + suffix,
+                PixelTriangle(tint, horizontal ? ArrowDirection.Right : ArrowDirection.Down));
+            bar.AddThemeIconOverride(
+                "decrement" + suffix,
+                PixelTriangle(tint, horizontal ? ArrowDirection.Left : ArrowDirection.Up));
+        }
+    }
+
+    /// <summary>像素三角方向（9×5=上下向；5×9=左右向——箭头钮/下拉共用语言）.</summary>
+    private enum ArrowDirection { Up, Down, Left, Right }
+
+    /// <summary>着色像素三角（缓存键=色+方向；行宽 9/7/5/3/1 居中——PixelArrow 同律）.</summary>
+    private static Texture2D PixelTriangle(Color color, ArrowDirection direction)
+    {
+        string key = $"{color.ToHtml()}:{direction}";
+        if (!_pixelTriangles.TryGetValue(key, out Texture2D? texture))
+        {
+            bool vertical = direction is ArrowDirection.Up or ArrowDirection.Down;
+            int wide = vertical ? 9 : 5;  // 纵向三角=9 宽 5 高；横向=5 宽 9 高
+            int high = vertical ? 5 : 9;
+            var image = Image.CreateEmpty(wide, high, false, Image.Format.Rgba8);
+            image.Fill(Colors.Transparent);
+            for (int row = 0; row < 5; row++)
+            {
+                int half = 4 - row; // 行宽 9/7/5/3/1（纵向）；横向旋转同式
+                for (int column = -half; column <= half; column++)
+                {
+                    (int x, int y) = direction switch
+                    {
+                        ArrowDirection.Up => (4 + column, 4 - row),       // 顶尖朝上
+                        ArrowDirection.Down => (4 + column, row),         // 顶尖朝下（PixelArrow 同形）
+                        ArrowDirection.Right => (row, 4 + column),        // 顶尖朝右
+                        _ => (4 - row, 4 + column),                       // 顶尖朝左
+                    };
+                    if (x >= 0 && x < wide && y >= 0 && y < high)
+                    {
+                        image.SetPixel(x, y, color);
+                    }
+                }
+            }
+
+            texture = ImageTexture.CreateFromImage(image);
+            _pixelTriangles[key] = texture;
+        }
+
+        return texture;
+    }
+
+    /// <summary>SpinBox 上下双三角（9×11：上尖 5 行+空 1 行+下尖 5 行——键=色）.</summary>
+    private static Texture2D PixelUpDown(Color color)
+    {
+        string key = color.ToHtml();
+        if (!_pixelUpDowns.TryGetValue(key, out Texture2D? texture))
+        {
+            var image = Image.CreateEmpty(9, 11, false, Image.Format.Rgba8);
+            image.Fill(Colors.Transparent);
+            for (int row = 0; row < 5; row++)
+            {
+                int half = 4 - row;
+                for (int column = -half; column <= half; column++)
+                {
+                    image.SetPixel(4 + column, row, color);       // 上半：顶尖朝上
+                    image.SetPixel(4 + column, 6 + row, color);   // 下半：顶尖朝下
+                }
+            }
+
+            texture = ImageTexture.CreateFromImage(image);
+            _pixelUpDowns[key] = texture;
+        }
+
+        return texture;
+    }
+
+    /// <summary>
+    /// StyleBoxFlat 浅拷贝（色值可变式过渡/派生态的安全基底——不动缓存实例）。
+    /// T-166 提 internal 公用：BattleHudUi.TransitionPanelSkin 手搓拷贝双谱系
+    /// 合一（本拷贝含 ContentMargin/CornerRadius 全量——过渡 live 盒随源盒漂移
+    /// 而漂移，缺项即漂移源收口）。
+    /// </summary>
+    internal static StyleBoxFlat CloneFlat(StyleBoxFlat source) => new()
     {
         BgColor = source.BgColor,
         BorderColor = source.BorderColor,
